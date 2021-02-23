@@ -1,0 +1,69 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: Fulcio
+schemes: [http, https]
+host: fulcio.sigstore.dev
+basePath: /v1
+consumes: [application/json]
+produces: [application/json]
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+paths:
+  /submitcsr:
+    post:
+      description: 'Request API for signing certifcate'
+      operationId: SubmitCSR
+      consumes:
+        - "application/json"
+      parameters:
+        - name: 'submitcsr'
+          in: 'body'
+          required: true
+          description: 'Submit CSR JWT Payload'
+          schema:
+            $ref: '#/definitions/Submit'
+      responses:
+        200:
+          description: Successful CSR Submit
+          schema:
+            $ref: '#/definitions/SubmitSuccess'
+        400:
+          description: Bad Request
+        404:
+          schema:
+            type: string
+          description: Invalid Data
+        500:
+          schema:
+            type: string
+          description: Server error
+definitions:
+  Submit:
+    type: object
+    required: [email,common_name,country,province,organization,organization_unit]
+    properties:
+      email:
+        type: string
+      common_name:
+        type: string
+      country:
+        type: string
+      province:
+        type: string
+      locality:
+        type: string
+      organization:
+        type: string
+      organization_unit:
+        type: string
+  SubmitSuccess:
+    type: object
+    properties:
+      success:
+        type: boolean
+      certificate:
+        type: string
