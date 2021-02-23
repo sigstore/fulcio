@@ -4,20 +4,20 @@ info:
   title: Fulcio
 schemes: [http, https]
 host: fulcio.sigstore.dev
-basePath: /v1
-consumes: [application/json]
-produces: [application/json]
+basePath: /api/v1
 securityDefinitions:
   Bearer:
     type: apiKey
     name: Authorization
     in: header
 paths:
-  /submitcsr:
+  /signingCert:
     post:
-      description: 'Request API for signing certifcate'
+      description: 'create a cert, return content with a location header (with URL to CTL entry)'
       operationId: SubmitCSR
       consumes:
+        - "application/json"
+      produces:
         - "application/json"
       parameters:
         - name: 'submitcsr'
@@ -27,39 +27,24 @@ paths:
           schema:
             $ref: '#/definitions/Submit'
       responses:
-        200:
+        201:
           description: Successful CSR Submit
           schema:
             $ref: '#/definitions/SubmitSuccess'
         400:
           description: Bad Request
-        404:
+        401:
           schema:
             type: string
-          description: Invalid Data
+          description: Unauthorized
         500:
           schema:
             type: string
           description: Server error
 definitions:
   Submit:
-    type: object
-    required: [email,common_name,country,province,organization,organization_unit]
-    properties:
-      email:
-        type: string
-      common_name:
-        type: string
-      country:
-        type: string
-      province:
-        type: string
-      locality:
-        type: string
-      organization:
-        type: string
-      organization_unit:
-        type: string
+    type: string
+    format: byte
   SubmitSuccess:
     type: object
     properties:
