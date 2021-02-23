@@ -48,7 +48,5 @@ definitions:
   SubmitSuccess:
     type: object
     properties:
-      success:
-        type: boolean
       certificate:
         type: string
