@@ -6,15 +6,17 @@ schemes: [http, https]
 host: fulcio.sigstore.dev
 basePath: /api/v1
 securityDefinitions:
-  Bearer:
+  JWT:
     type: apiKey
     name: Authorization
     in: header
 paths:
   /signingCert:
     post:
+      security:
+        - JWT: []
       description: 'create a cert, return content with a location header (with URL to CTL entry)'
-      operationId: SubmitCSR
+      operationId: signingCert
       consumes:
         - "application/json"
       produces:
