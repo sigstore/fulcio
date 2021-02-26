@@ -28,6 +28,8 @@ jobs:
           go-version: ${{ env.GOVERSION }}
       # Download go-swagger
       - name: download go-swagger
+        env:
+          GO111MODULE: on
         run : go get -u github.com/go-swagger/go-swagger/cmd/swagger
       - name: Validate OpenAPI with Swagger
         run: swagger validate openapi.yaml
