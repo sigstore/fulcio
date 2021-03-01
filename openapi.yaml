@@ -1,0 +1,54 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: Fulcio
+schemes: [http, https]
+host: fulcio.sigstore.dev
+basePath: /api/v1
+securityDefinitions:
+  JWT:
+    type: apiKey
+    name: Authorization
+    in: header
+paths:
+  /signingCert:
+    post:
+      security:
+        - JWT: []
+      description: 'create a cert, return content with a location header (with URL to CTL entry)'
+      operationId: signingCert
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - name: 'submitcsr'
+          in: 'body'
+          required: true
+          description: 'Submit CSR JWT Payload'
+          schema:
+            $ref: '#/definitions/Submit'
+      responses:
+        201:
+          description: Successful CSR Submit
+          schema:
+            $ref: '#/definitions/SubmitSuccess'
+        400:
+          description: Bad Request
+        401:
+          schema:
+            type: string
+          description: Unauthorized
+        500:
+          schema:
+            type: string
+          description: Server error
+definitions:
+  Submit:
+    type: string
+    format: byte
+  SubmitSuccess:
+    type: object
+    properties:
+      certificate:
+        type: string
