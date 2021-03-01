@@ -1,3 +1,3 @@
-module github.com/SigStore/fulcio
+module github.com/sigstore/fulcio
 
 go 1.15
