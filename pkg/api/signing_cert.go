@@ -22,5 +22,6 @@ import (
 )
 
 func SigningCertHandler(params operations.SigningCertParams, principal interface{}) middleware.Responder {
+	metricNewEntries.Inc()
 	return middleware.NotImplemented("operation operations.SigningCert has not yet been implemented")
 }
