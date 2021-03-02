@@ -27,3 +27,11 @@ test:
 
 clean:
 	rm -rf server
+
+up:
+	docker-compose -f docker-compose.yml build
+	docker-compose -f docker-compose.yml up
+
+debug:
+	docker-compose -f docker-compose.yml -f docker-compose.debug.yml build fulcio-server-debug
+	docker-compose -f docker-compose.yml -f docker-compose.debug.yml up fulcio-server-debug
