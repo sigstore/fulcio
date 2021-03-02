@@ -26,3 +26,5 @@
 *.code-workspace
 .history/
 
+#output binaries
+server
