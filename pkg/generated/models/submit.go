@@ -32,6 +32,10 @@ import (
 // swagger:model Submit
 type Submit struct {
 
+	// proof
+	// Format: byte
+	Proof strfmt.Base64 `json:"proof,omitempty"`
+
 	// pub
 	// Format: byte
 	Pub strfmt.Base64 `json:"pub,omitempty"`

@@ -19,7 +19,10 @@ package api
 import (
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"net/http"
+
+	"github.com/sigstore/fulcio/pkg/log"
 
 	"github.com/coreos/go-oidc"
 
@@ -47,13 +50,21 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 
 	userInfo := principal.(*oidc.UserInfo)
 
+	fmt.Println(dec, params.Submitcsr.Proof, userInfo.Email)
+	// Check the proof
+	if !fca.Check(dec, string(params.Submitcsr.Proof), userInfo.Email) {
+		log.Logger.Info("email address was not signed correctly")
+		return middleware.Error(http.StatusBadRequest, "email address was not signed correctly")
+	}
 	// Now issue cert!
 	req := fca.Req(userInfo.Email, pemBytes)
 
 	resp, err := fca.Client.CreateCertificate(ctx, req)
 	if err != nil {
+		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
 	}
 
+	metricNewEntries.Inc()
 	return operations.NewSigningCertCreated().WithPayload(&models.SubmitSuccess{Certificate: resp.PemCertificate})
 }

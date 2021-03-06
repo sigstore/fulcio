@@ -2,6 +2,10 @@ package ca
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 
 	"github.com/spf13/viper"
 
@@ -18,6 +22,23 @@ func init() {
 		panic(err)
 	}
 	Client = c
+}
+
+func Check(pub []byte, proof string, email string) bool {
+	pkixPub, err := x509.ParsePKIXPublicKey(pub)
+	if err != nil {
+		return false
+	}
+	ecPub, ok := pkixPub.(*ecdsa.PublicKey)
+	if !ok {
+		return false
+	}
+	h := sha256.Sum256([]byte(email))
+	sig, err := base64.StdEncoding.DecodeString(proof)
+	if err != nil {
+		return false
+	}
+	return ecdsa.VerifyASN1(ecPub, h[:], sig)
 }
 
 func Req(email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {

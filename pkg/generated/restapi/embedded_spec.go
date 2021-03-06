@@ -103,6 +103,10 @@ func init() {
     "Submit": {
       "type": "object",
       "properties": {
+        "proof": {
+          "type": "string",
+          "format": "byte"
+        },
         "pub": {
           "type": "string",
           "format": "byte"
@@ -195,6 +199,10 @@ func init() {
     "Submit": {
       "type": "object",
       "properties": {
+        "proof": {
+          "type": "string",
+          "format": "byte"
+        },
         "pub": {
           "type": "string",
           "format": "byte"

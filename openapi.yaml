@@ -50,6 +50,9 @@ definitions:
       pub:
         type: string
         format: byte
+      proof:
+        type: string
+        format: byte
   SubmitSuccess:
     type: object
     properties:
