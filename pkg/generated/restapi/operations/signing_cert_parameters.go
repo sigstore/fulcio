@@ -34,8 +34,7 @@ import (
 )
 
 // NewSigningCertParams creates a new SigningCertParams object
-//
-// There are no default values defined in the spec.
+// no default values defined in spec.
 func NewSigningCertParams() SigningCertParams {
 
 	return SigningCertParams{}
@@ -50,11 +49,11 @@ type SigningCertParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
-	/*Submit CSR JWT Payload
+	/*Submit CSR
 	  Required: true
 	  In: body
 	*/
-	Submitcsr models.Submit
+	Submitcsr *models.Submit
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -76,6 +75,14 @@ func (o *SigningCertParams) BindRequest(r *http.Request, route *middleware.Match
 				res = append(res, errors.NewParseError("submitcsr", "body", "", err))
 			}
 		} else {
+			// validate body object
+			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
+
+			if len(res) == 0 {
+				o.Submitcsr = &body
+			}
 		}
 	} else {
 		res = append(res, errors.Required("submitcsr", "body", ""))

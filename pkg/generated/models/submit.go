@@ -23,8 +23,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"context"
-
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -32,25 +30,15 @@ import (
 // Submit submit
 //
 // swagger:model Submit
-type Submit strfmt.Base64
+type Submit struct {
 
-// UnmarshalJSON sets a Submit value from JSON input
-func (m *Submit) UnmarshalJSON(b []byte) error {
-	return ((*strfmt.Base64)(m)).UnmarshalJSON(b)
-}
-
-// MarshalJSON retrieves a Submit value as JSON output
-func (m Submit) MarshalJSON() ([]byte, error) {
-	return (strfmt.Base64(m)).MarshalJSON()
+	// pub
+	// Format: byte
+	Pub strfmt.Base64 `json:"pub,omitempty"`
 }
 
 // Validate validates this submit
-func (m Submit) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// ContextValidate validates this submit based on context it is used
-func (m Submit) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Submit) Validate(formats strfmt.Registry) error {
 	return nil
 }
 

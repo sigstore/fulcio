@@ -51,7 +51,7 @@ func init() {
       "post": {
         "security": [
           {
-            "JWT": []
+            "key": []
           }
         ],
         "description": "create a cert, return content with a location header (with URL to CTL entry)",
@@ -64,7 +64,7 @@ func init() {
         "operationId": "signingCert",
         "parameters": [
           {
-            "description": "Submit CSR JWT Payload",
+            "description": "Submit CSR",
             "name": "submitcsr",
             "in": "body",
             "required": true,
@@ -101,8 +101,13 @@ func init() {
   },
   "definitions": {
     "Submit": {
-      "type": "string",
-      "format": "byte"
+      "type": "object",
+      "properties": {
+        "pub": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
     },
     "SubmitSuccess": {
       "type": "object",
@@ -114,10 +119,10 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "JWT": {
+    "key": {
       "type": "apiKey",
-      "name": "Authorization",
-      "in": "header"
+      "name": "access_token",
+      "in": "query"
     }
   }
 }`))
@@ -138,7 +143,7 @@ func init() {
       "post": {
         "security": [
           {
-            "JWT": []
+            "key": []
           }
         ],
         "description": "create a cert, return content with a location header (with URL to CTL entry)",
@@ -151,7 +156,7 @@ func init() {
         "operationId": "signingCert",
         "parameters": [
           {
-            "description": "Submit CSR JWT Payload",
+            "description": "Submit CSR",
             "name": "submitcsr",
             "in": "body",
             "required": true,
@@ -188,8 +193,13 @@ func init() {
   },
   "definitions": {
     "Submit": {
-      "type": "string",
-      "format": "byte"
+      "type": "object",
+      "properties": {
+        "pub": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
     },
     "SubmitSuccess": {
       "type": "object",
@@ -201,10 +211,10 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "JWT": {
+    "key": {
       "type": "apiKey",
-      "name": "Authorization",
-      "in": "header"
+      "name": "access_token",
+      "in": "query"
     }
   }
 }`))

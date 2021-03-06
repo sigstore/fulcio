@@ -17,11 +17,43 @@ limitations under the License.
 package api
 
 import (
+	"encoding/base64"
+	"encoding/pem"
+	"net/http"
+
+	"github.com/coreos/go-oidc"
+
 	"github.com/go-openapi/runtime/middleware"
+	fca "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
+	"golang.org/x/net/context"
 )
 
 func SigningCertHandler(params operations.SigningCertParams, principal interface{}) middleware.Responder {
-	metricNewEntries.Inc()
-	return middleware.NotImplemented("operation operations.SigningCert has not yet been implemented")
+
+	ctx := context.Background()
+	key := params.Submitcsr.Pub
+
+	dec, err := base64.StdEncoding.DecodeString(string(key))
+	if err != nil {
+		return middleware.Error(http.StatusInternalServerError, err)
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Bytes: dec,
+		Type:  "PUBLIC KEY",
+	})
+
+	userInfo := principal.(*oidc.UserInfo)
+
+	// Now issue cert!
+	req := fca.Req(userInfo.Email, pemBytes)
+
+	resp, err := fca.Client.CreateCertificate(ctx, req)
+	if err != nil {
+		return middleware.Error(http.StatusInternalServerError, err)
+	}
+
+	return operations.NewSigningCertCreated().WithPayload(&models.SubmitSuccess{Certificate: resp.PemCertificate})
 }
