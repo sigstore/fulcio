@@ -140,7 +140,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://localhost:5555	", "address of fulcio server")
+	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://127.0.0.1:5555", "address of fulcio server")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Println(err)
