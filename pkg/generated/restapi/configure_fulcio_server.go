@@ -20,16 +20,19 @@
 package restapi
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/coreos/go-oidc"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/cors"
+	"golang.org/x/oauth2"
 
 	pkgapi "github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
@@ -57,22 +60,21 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// api.UseRedoc()
 
 	api.JSONConsumer = runtime.JSONConsumer()
-
 	api.JSONProducer = runtime.JSONProducer()
 
-	// Applies when the "Authorization" header is set
-	if api.JWTAuth == nil {
-		api.JWTAuth = func(token string) (interface{}, error) {
-			return nil, errors.NotImplemented("api key auth (JWT) Authorization from header param [Authorization] has not yet been implemented")
-		}
+	provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
+	if err != nil {
+		log.Logger.Panic(err)
 	}
-
-	// Set your custom authorizer if needed. Default one is security.Authorized()
-	// Expected interface runtime.Authorizer
-	//
-	// Example:
-	// api.APIAuthorizer = security.Authorized()
-
+	api.KeyAuth = func(token string) (interface{}, error) {
+		userInfo, err := provider.UserInfo(context.Background(), oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: token,
+		}))
+		if err != nil {
+			return nil, err
+		}
+		return userInfo, nil
+	}
 	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
 	api.PreServerShutdown = func() {}

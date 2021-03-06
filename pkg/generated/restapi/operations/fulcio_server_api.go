@@ -63,9 +63,9 @@ func NewFulcioServerAPI(spec *loads.Document) *FulcioServerAPI {
 			return middleware.NotImplemented("operation SigningCert has not yet been implemented")
 		}),
 
-		// Applies when the "Authorization" header is set
-		JWTAuth: func(token string) (interface{}, error) {
-			return nil, errors.NotImplemented("api key auth (JWT) Authorization from header param [Authorization] has not yet been implemented")
+		// Applies when the "access_token" query is set
+		KeyAuth: func(token string) (interface{}, error) {
+			return nil, errors.NotImplemented("api key auth (key) access_token from query param [access_token] has not yet been implemented")
 		},
 		// default authorizer is authorized meaning no requests are blocked
 		APIAuthorizer: security.Authorized(),
@@ -88,11 +88,9 @@ type FulcioServerAPI struct {
 	// BasicAuthenticator generates a runtime.Authenticator from the supplied basic auth function.
 	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	BasicAuthenticator func(security.UserPassAuthentication) runtime.Authenticator
-
 	// APIKeyAuthenticator generates a runtime.Authenticator from the supplied token auth function.
 	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	APIKeyAuthenticator func(string, string, security.TokenAuthentication) runtime.Authenticator
-
 	// BearerAuthenticator generates a runtime.Authenticator from the supplied bearer token auth function.
 	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	BearerAuthenticator func(string, security.ScopedTokenAuthentication) runtime.Authenticator
@@ -105,16 +103,15 @@ type FulcioServerAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
-	// JWTAuth registers a function that takes a token and returns a principal
-	// it performs authentication based on an api key Authorization provided in the header
-	JWTAuth func(string) (interface{}, error)
+	// KeyAuth registers a function that takes a token and returns a principal
+	// it performs authentication based on an api key access_token provided in the query
+	KeyAuth func(string) (interface{}, error)
 
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
 
 	// SigningCertHandler sets the operation handler for the signing cert operation
 	SigningCertHandler SigningCertHandler
-
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
 	ServeError func(http.ResponseWriter, *http.Request, error)
@@ -191,8 +188,8 @@ func (o *FulcioServerAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
-	if o.JWTAuth == nil {
-		unregistered = append(unregistered, "AuthorizationAuth")
+	if o.KeyAuth == nil {
+		unregistered = append(unregistered, "AccessTokenAuth")
 	}
 
 	if o.SigningCertHandler == nil {
@@ -216,9 +213,9 @@ func (o *FulcioServerAPI) AuthenticatorsFor(schemes map[string]spec.SecuritySche
 	result := make(map[string]runtime.Authenticator)
 	for name := range schemes {
 		switch name {
-		case "JWT":
+		case "key":
 			scheme := schemes[name]
-			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, o.JWTAuth)
+			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, o.KeyAuth)
 
 		}
 	}

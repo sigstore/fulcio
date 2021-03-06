@@ -23,8 +23,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"context"
-
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -40,11 +38,6 @@ type SubmitSuccess struct {
 
 // Validate validates this submit success
 func (m *SubmitSuccess) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// ContextValidate validates this submit success based on context it is used
-func (m *SubmitSuccess) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
