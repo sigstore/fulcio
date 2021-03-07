@@ -34,6 +34,9 @@ type SubmitSuccess struct {
 
 	// certificate
 	Certificate string `json:"certificate,omitempty"`
+
+	// chain
+	Chain []string `json:"chain"`
 }
 
 // Validate validates this submit success

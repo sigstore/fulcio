@@ -118,6 +118,12 @@ func init() {
       "properties": {
         "certificate": {
           "type": "string"
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
@@ -214,6 +220,12 @@ func init() {
       "properties": {
         "certificate": {
           "type": "string"
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
