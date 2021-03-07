@@ -6,15 +6,15 @@ schemes: [http, https]
 host: fulcio.sigstore.dev
 basePath: /api/v1
 securityDefinitions:
-  JWT:
+  key:
     type: apiKey
-    name: Authorization
-    in: header
+    in: query
+    name: access_token
 paths:
   /signingCert:
     post:
       security:
-        - JWT: []
+        - key: []
       description: 'create a cert, return content with a location header (with URL to CTL entry)'
       operationId: signingCert
       consumes:
@@ -25,7 +25,7 @@ paths:
         - name: 'submitcsr'
           in: 'body'
           required: true
-          description: 'Submit CSR JWT Payload'
+          description: 'Submit CSR'
           schema:
             $ref: '#/definitions/Submit'
       responses:
@@ -45,8 +45,14 @@ paths:
           description: Server error
 definitions:
   Submit:
-    type: string
-    format: byte
+    type: object
+    properties:
+      pub:
+        type: string
+        format: byte
+      proof:
+        type: string
+        format: byte
   SubmitSuccess:
     type: object
     properties:
