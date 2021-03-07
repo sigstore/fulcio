@@ -63,9 +63,9 @@ func NewFulcioServerAPI(spec *loads.Document) *FulcioServerAPI {
 			return middleware.NotImplemented("operation SigningCert has not yet been implemented")
 		}),
 
-		// Applies when the "access_token" query is set
+		// Applies when the "X-Access-Token" header is set
 		KeyAuth: func(token string) (interface{}, error) {
-			return nil, errors.NotImplemented("api key auth (key) access_token from query param [access_token] has not yet been implemented")
+			return nil, errors.NotImplemented("api key auth (key) X-Access-Token from header param [X-Access-Token] has not yet been implemented")
 		},
 		// default authorizer is authorized meaning no requests are blocked
 		APIAuthorizer: security.Authorized(),
@@ -104,7 +104,7 @@ type FulcioServerAPI struct {
 	JSONProducer runtime.Producer
 
 	// KeyAuth registers a function that takes a token and returns a principal
-	// it performs authentication based on an api key access_token provided in the query
+	// it performs authentication based on an api key X-Access-Token provided in the header
 	KeyAuth func(string) (interface{}, error)
 
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
@@ -189,7 +189,7 @@ func (o *FulcioServerAPI) Validate() error {
 	}
 
 	if o.KeyAuth == nil {
-		unregistered = append(unregistered, "AccessTokenAuth")
+		unregistered = append(unregistered, "XAccessTokenAuth")
 	}
 
 	if o.SigningCertHandler == nil {
