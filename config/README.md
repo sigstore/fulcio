@@ -6,15 +6,13 @@
 
 path should be: --gcp_private_ca_parent=projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore
 
-
 # Namespace
 
-Let's fun this in the `fulcio` namspace.
+Let's run this in the `fulcio` namspace.
 
 Create a new workloadidentity SA and worklaod binding:
 gcloud iam service-accounts create fulcio-dev`
 gcloud iam service-accounts add-iam-policy-binding   --role roles/iam.workloadIdentityUser   --member "serviceAccount:project-rekor.svc.id.goog[fulcio-dev/default]"   fulcio-dev@project-rekor.iam.gserviceaccount.com
-
 
 Create namespace:
 kubectl create ns fulcio-dev
@@ -38,7 +36,6 @@ CA : -> Add Member -> fulcio-dev@project-rekor.iam.gserviceaccount.com -> Role -
 
 (TODO: create an intermediary, take this one offline)
 
-
-
 # Debug
 kubectl port-forward deployment/fulcio-server -n fulcio-dev 5555:5555
+kubectl logs -f deployment/fulcio-server -n fulcio-dev
