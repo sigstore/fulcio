@@ -20,37 +20,30 @@ The fulcio root cert is:
   Ve/83WrFomwmNf056y1X48F9c4m3a3ozXAIxAKjRay5/aj/jsKKGIkmQatjI8uup
   Hr/+CxFvaJWmpYqNkLDGRU+9orzh5hI2RrcuaQ==
   -----END CERTIFICATE-----
-  ```
+```
 
 ## Status
 
-Fulcio is a work in progress.
-
-There's working code and a running instance and a plan, but you should not attempt
-to try to actually use it for anything.
+Fulcio is a *work in progress*.
+There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
 
 ## API
 
-The API is defined via OpenAPI.
-
-The defintiion is [here](openapi.yaml).
+The API is defined via OpenAPI, defined [here](openapi.yaml).
 
 ## Transparency
 
 Fulcio will publish issued certificates to a unique CT-log.
-
 That log will be hosted by the sigstore project.
 
 We encourage auditors to monitor this log, and aim to help people access the data.
 
-A simple example would be a service that emails users (on a different address) when ceritficates
-have been issued on their behalf.
-
+A simple example would be a service that emails users (on a different address) when ceritficates have been issued on their behalf.
 This can then be used to detect bad behavior or possible compromise.
 
 ## Parameters
 
-The fulcio root CA is running on GCP Private CA with the EC_P384_SHA384 algorithm.
+The fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA384 algorithm.
 
 ## Security Model
 
@@ -66,28 +59,24 @@ The fulcio root CA is running on GCP Private CA with the EC_P384_SHA384 algorith
 ### Revocation, Rotation and Expiry
 
 There are two main approaches to code signing:
-
-Long-term certs and trusted time-stamping.
+1. Long-term certs
+1. Trusted time-stamping
 
 #### Long-term certs
 
 These certificates are typically valid for years.
-
-All old code must be re-signed with a new çert before an old cert expires.
-
+All old code must be re-signed with a new cert before an old cert expires.
 Typically this works with long deprecation periods, dual-signing and planned rotations.
 
-This approach assumes users can keep acess to private keys and keep them secret over
-log periods of time.
+There are a couple problems with this approach:
+1. It assumes users can keep acess to private keys and keep them secret over
+log periods of time
+1. Revocation is hard and doesn't work well
 
-This other big problem with this approach is revocation.
-
-Revocation is hard and doesn't work well.
 
 #### Fulcio's Model
 
-Fulcio is designed to avoid revocation, by issuing short-lived certificates.
-
+Fulcio is designed to avoid revocation, by issuing *short-lived certificates*.
 What really matters for CodeSigning is to know that an artifact was signed while the
 certificate was valid.
 
@@ -100,57 +89,44 @@ This can be done a few ways:
 #### RFC3161 Timestamp Servers
 
 RFC3161 defines a protocol for Trusted Timestamps.
-
 Parties can send a payload to an RFC3161 service and the service digitally signs that payload with
 its own timestamp.
-
 This is the equivalent of posting a hash to Twitter - you are getting a third-party attestation that
 you had a particular piece of data at a particular time, as observed by that same third-party.
 
 The downside is that users need to interact with another service.
-
 They must timestamp all signatures and check the timestamps of all signatures - adding
 another dependency and set of keys they must trust (the timestamp servers).
-
 We could provide one for free, but if people don't trust the clock in our transparency ledger they might
 not trust another service we run.
 
 #### Transparency Logs
 
 The `rekor` service provides a transparency log of software signatures.
-
 As entries are appended into this log, `rekor` periodically signs the full tree along with a timestamp.
 
-An entry in Rekor provide a single-party attestation that a piece of data existed prior to a certain time.
-These tiemstamps cannot be tampered with later, providing long-term trust - but their strength gains from
-being monitored.
+An entry in Rekor provides a single-party attestation that a piece of data existed prior to a certain time.
+These timestamps cannot be tampered with later, providing long-term trust. 
+This long-term trust also requires that the log is monitored.
 
 Transparency Logs make it hard to forge timestamps long-term, but in short time-windows it would be much easier for
-the Rekor oeprator to fake or forge timestamps. 
-
-More skeptical parties don't have to trust Rekor at all!
-
-Rekor's timestamps and STH's are signed - a valid signed tree hash contains a non-repudiadable timestamp.
-They can save these signed timestamp tokens as evidence in case Rekor's clock changes in the future.
+the Rekor operator to fake or forge timestamps. 
+To mitigate this, Rekor's timestamps and STHs are signed - a valid signed tree hash contains a non-repudiadable timestamp.
+These signed timestamp tokens are saved as evidence in case Rekor's clock changes in the future.
+So, more skeptical parties don't have to trust Rekor at all!
 
 #### Why Not Both!?!?!?
 
-Like usual, we can combine these approaches and do a bit better.
+Like usual, we can combine timestamp servers and transparency logs to do a bit better.
 
-Rekor can interact with third-party TSAs automatically, allowing users to skip this step.
-
-Timestamp authorities provide signatures over pieces of data and a timestamp.
-
+Third-party timestamp authorities provide signatures for pieces of data, which includes a timestamp.
+Rekor can interact with these third-party TSAs automatically, allowing users to skip this step.
 Rekor can get its own STH (including the timestamp) signed by one or many third-party TSAs regularly.
 
 Each timestamp attestation in the Rekor log provides a fixed "fencepost" in time.
-
 Rekor, the client and a third-party can all provide evidence of the state of the world at a point in time.
-
 Fenceposts every ten minutes protect all data in between.
-
-Auditors can monitor Rekor's log to ensure these are added, shifting the complexity burden from users
-uditors.
+Auditors can monitor Rekor's log to ensure these are added, shifting the complexity burden from users to auditors.
 
 ## Info
 
