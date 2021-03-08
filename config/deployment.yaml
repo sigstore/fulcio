@@ -48,3 +48,34 @@ spec:
       port: 80
       targetPort: 5555
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ct-server
+  labels:
+    app: ct-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ct-server
+  template:
+    metadata:
+      labels:
+        app: ct-server
+    spec:
+      containers:
+        - name: ct-server
+          image: gcr.io/trillian-opensource-ci/ctfe
+          ports:
+            - containerPort: 8888
+          args: [
+              "--log_config ./ct_config.cfg",
+              "--log_rpc_server localhost:8091",
+              "--http_endpoint localhost:8888",
+          ]
+          resources:
+            requests:
+              memory: "1G"
+              cpu: ".5"
+---
