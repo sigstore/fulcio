@@ -16,7 +16,7 @@
 
 # IDE Specifics
 # intellij
-*/.idea/*
+.idea/*
 # vscode
 .vscode/*
 !.vscode/settings.json
