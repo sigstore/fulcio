@@ -8,9 +8,9 @@ env:
 # events but only for the main branch
 on:
   push:
-    branches: [ main, openapi ]
+    branches: [ main, development ]
   pull_request:
-    branches: [ main, openapi ]
+    branches: [ main, development ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -28,9 +28,7 @@ jobs:
           go-version: ${{ env.GOVERSION }}
       # Download go-swagger
       - name: download go-swagger
-        env:
-          GO111MODULE: on
-        run : go get -u github.com/go-swagger/go-swagger/cmd/swagger
+        run : go get -u github.com/go-swagger/go-swagger/cmd/swagger@v0.26.1
       - name: Validate OpenAPI with Swagger
         run: swagger validate openapi.yaml
       # Make it
@@ -46,7 +44,7 @@ jobs:
         run: go test -v ./...
       # Gosec It
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.6.1
+        uses: securego/gosec@v2.7.0
         env:
           GOROOT: ""
         with:

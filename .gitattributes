@@ -1,0 +1,2 @@
+/pkg/generated/** linguist-generated
+/pkg/generated/restapi/configure_fulcio_server.go -linguist-generated

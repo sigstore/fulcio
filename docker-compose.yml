@@ -1,0 +1,24 @@
+version: '3.1'
+services:
+  fulcio-server:
+    build:
+      context: .
+      target: "deploy"
+    command: [
+      "fulcio-server",
+      "serve",
+      "--host=0.0.0.0",
+      "--port=3000",
+      # Uncomment this for production logging
+      # "--log_type=prod",
+      ]
+    restart: always # keep the server running
+    ports:
+      - "3000:3000"
+      - "2112:2112"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
