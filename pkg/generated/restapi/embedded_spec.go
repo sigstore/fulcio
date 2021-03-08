@@ -125,8 +125,8 @@ func init() {
   "securityDefinitions": {
     "key": {
       "type": "apiKey",
-      "name": "access_token",
-      "in": "query"
+      "name": "X-Access-Token",
+      "in": "header"
     }
   }
 }`))
@@ -221,8 +221,8 @@ func init() {
   "securityDefinitions": {
     "key": {
       "type": "apiKey",
-      "name": "access_token",
-      "in": "query"
+      "name": "X-Access-Token",
+      "in": "header"
     }
   }
 }`))

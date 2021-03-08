@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		apiKeyQueryAuth := httptransport.APIKeyAuth("access_token", "query", tok)
+		apiKeyQueryAuth := httptransport.APIKeyAuth("X-Access-Token", "header", tok)
 
 		params := operations.NewSigningCertParams()
 		params.SetSubmitcsr(&models.Submit{
