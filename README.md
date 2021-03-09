@@ -4,7 +4,12 @@ fulcio is a free Root-CA for code signing certs - issuing certificates based on 
 
 fulcio only signs short-lived certificates that are valid for under 20 minutes.
 
-The fulcio root cert is:
+## Status
+
+Fulcio is a *work in progress*.
+There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
+
+The fulcio root cert is currently:
 
 ```
 -----BEGIN CERTIFICATE-----
@@ -22,10 +27,7 @@ The fulcio root cert is:
   -----END CERTIFICATE-----
 ```
 
-## Status
-
-Fulcio is a *work in progress*.
-There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
+We **WILL** change this and add intermediaries in the future.
 
 ## API
 
@@ -72,7 +74,6 @@ There are a couple problems with this approach:
 1. It assumes users can keep acess to private keys and keep them secret over
 log periods of time
 1. Revocation is hard and doesn't work well
-
 
 #### Fulcio's Model
 
