@@ -58,3 +58,7 @@ definitions:
     properties:
       certificate:
         type: string
+      chain:
+        type: array
+        items:
+          type: string

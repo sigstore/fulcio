@@ -62,7 +62,11 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
 	}
-
 	metricNewEntries.Inc()
-	return operations.NewSigningCertCreated().WithPayload(&models.SubmitSuccess{Certificate: resp.PemCertificate})
+
+	ret := &models.SubmitSuccess{
+		Certificate: resp.PemCertificate,
+		Chain:       resp.PemCertificateChain,
+	}
+	return operations.NewSigningCertCreated().WithPayload(ret)
 }

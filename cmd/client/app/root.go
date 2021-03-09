@@ -115,6 +115,10 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(resp.Payload.Certificate)
+		fmt.Println("-----CHAIN-----")
+		for _, c := range resp.Payload.Chain {
+			fmt.Println(c)
+		}
 
 		return nil
 	},
