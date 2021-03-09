@@ -132,4 +132,6 @@ Auditors can monitor Rekor's log to ensure these are added, shifting the complex
 ## Info
 
 `Fulcio` is developed as part of the [`sigstore`](https://sigstore.dev) project.
-Come on over to our [slack channel](https://sigstore.slack.com)!
+
+We also use a slack [slack channel](https://sigstore.slack.com)!
+Click [here](https://join.slack.com/t/sigstore/shared_invite/zt-mhs55zh0-XmY3bcfWn4XEyMqUUutbUQ) for the invite link.
