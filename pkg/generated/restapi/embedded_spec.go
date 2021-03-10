@@ -51,7 +51,7 @@ func init() {
       "post": {
         "security": [
           {
-            "key": []
+            "Bearer": []
           }
         ],
         "description": "create a cert, return content with a location header (with URL to CTL entry)",
@@ -129,9 +129,9 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "key": {
+    "Bearer": {
       "type": "apiKey",
-      "name": "X-Access-Token",
+      "name": "Authorization",
       "in": "header"
     }
   }
@@ -153,7 +153,7 @@ func init() {
       "post": {
         "security": [
           {
-            "key": []
+            "Bearer": []
           }
         ],
         "description": "create a cert, return content with a location header (with URL to CTL entry)",
@@ -231,9 +231,9 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "key": {
+    "Bearer": {
       "type": "apiKey",
-      "name": "X-Access-Token",
+      "name": "Authorization",
       "in": "header"
     }
   }

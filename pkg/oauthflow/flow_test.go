@@ -17,6 +17,7 @@ limitations under the License.
 package oauthflow
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -25,13 +26,14 @@ import (
 func TestGetCodeWorking(t *testing.T) {
 	desiredState := "foo"
 	desiredCode := "code"
+	redirectURL, _ := url.Parse("http://localhost:5556/auth/callback")
 	// We need to start this in the background and send our request to the server
 
 	var gotCode string
 	var gotErr error
 	doneCh := make(chan int)
 	go func() {
-		gotCode, gotErr = getCodeFromLocalServer(desiredState)
+		gotCode, gotErr = getCodeFromLocalServer(desiredState, redirectURL)
 		doneCh <- 1
 	}()
 
@@ -49,12 +51,13 @@ func TestGetCodeWorking(t *testing.T) {
 func TestGetCodeWrongState(t *testing.T) {
 	desiredState := "foo"
 	desiredCode := "code"
+	redirectURL, _ := url.Parse("http://localhost:5556/auth/callback")
 	// We need to start this in the background and send our request to the server
 
 	var gotErr error
 	doneCh := make(chan int)
 	go func() {
-		_, gotErr = getCodeFromLocalServer(desiredState)
+		_, gotErr = getCodeFromLocalServer(desiredState, redirectURL)
 		doneCh <- 1
 	}()
 
@@ -67,10 +70,8 @@ func TestGetCodeWrongState(t *testing.T) {
 }
 
 func sendCodeAndState(t *testing.T, code, state string) {
-	values := url.Values{}
-	values.Set("code", code)
-	values.Set("state", state)
-	if _, err := http.PostForm("http://localhost:5556", values); err != nil {
+	testURL, _ := url.Parse(fmt.Sprintf("http://localhost:5556/auth/callback?code=%v&state=%v", code, state))
+	if _, err := http.Get(testURL.String()); err != nil {
 		t.Fatal(err)
 	}
 }

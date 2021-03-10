@@ -63,9 +63,9 @@ func NewFulcioServerAPI(spec *loads.Document) *FulcioServerAPI {
 			return middleware.NotImplemented("operation SigningCert has not yet been implemented")
 		}),
 
-		// Applies when the "X-Access-Token" header is set
-		KeyAuth: func(token string) (interface{}, error) {
-			return nil, errors.NotImplemented("api key auth (key) X-Access-Token from header param [X-Access-Token] has not yet been implemented")
+		// Applies when the "Authorization" header is set
+		BearerAuth: func(token string) (interface{}, error) {
+			return nil, errors.NotImplemented("api key auth (Bearer) Authorization from header param [Authorization] has not yet been implemented")
 		},
 		// default authorizer is authorized meaning no requests are blocked
 		APIAuthorizer: security.Authorized(),
@@ -103,9 +103,9 @@ type FulcioServerAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
-	// KeyAuth registers a function that takes a token and returns a principal
-	// it performs authentication based on an api key X-Access-Token provided in the header
-	KeyAuth func(string) (interface{}, error)
+	// BearerAuth registers a function that takes a token and returns a principal
+	// it performs authentication based on an api key Authorization provided in the header
+	BearerAuth func(string) (interface{}, error)
 
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
@@ -188,8 +188,8 @@ func (o *FulcioServerAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
-	if o.KeyAuth == nil {
-		unregistered = append(unregistered, "XAccessTokenAuth")
+	if o.BearerAuth == nil {
+		unregistered = append(unregistered, "AuthorizationAuth")
 	}
 
 	if o.SigningCertHandler == nil {
@@ -213,9 +213,9 @@ func (o *FulcioServerAPI) AuthenticatorsFor(schemes map[string]spec.SecuritySche
 	result := make(map[string]runtime.Authenticator)
 	for name := range schemes {
 		switch name {
-		case "key":
+		case "Bearer":
 			scheme := schemes[name]
-			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, o.KeyAuth)
+			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, o.BearerAuth)
 
 		}
 	}
