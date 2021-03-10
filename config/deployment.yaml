@@ -27,8 +27,14 @@ spec:
         - containerPort: 2112 # metrics
         args: [
           "serve",
-          "--host=0.0.0.0", "--port=5555", "--gcp_private_ca_parent=projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore",
+          "--host=0.0.0.0", "--port=5555", "--gcp_private_ca_parent=$(CA_PARENT)",
         ]
+        env:
+        - name: CA_PARENT
+          valueFrom:
+            configMapKeyRef:
+              name: private-ca
+              key: connection
         resources:
           requests:
             memory: "1G"
@@ -79,3 +85,4 @@ spec:
               memory: "1G"
               cpu: ".5"
 ---
+

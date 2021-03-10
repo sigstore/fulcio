@@ -8,8 +8,8 @@ basePath: /api/v1
 securityDefinitions:
   key:
     type: apiKey
-    in: query
-    name: access_token
+    in: header
+    name: X-Access-Token
 paths:
   /signingCert:
     post:
@@ -58,3 +58,7 @@ definitions:
     properties:
       certificate:
         type: string
+      chain:
+        type: array
+        items:
+          type: string

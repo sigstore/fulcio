@@ -19,7 +19,6 @@ package api
 import (
 	"encoding/base64"
 	"encoding/pem"
-	"fmt"
 	"net/http"
 
 	"github.com/sigstore/fulcio/pkg/log"
@@ -50,7 +49,6 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 
 	userInfo := principal.(*oidc.UserInfo)
 
-	fmt.Println(dec, params.Submitcsr.Proof, userInfo.Email)
 	// Check the proof
 	if !fca.Check(dec, string(params.Submitcsr.Proof), userInfo.Email) {
 		log.Logger.Info("email address was not signed correctly")
@@ -64,7 +62,11 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
 	}
-
 	metricNewEntries.Inc()
-	return operations.NewSigningCertCreated().WithPayload(&models.SubmitSuccess{Certificate: resp.PemCertificate})
+
+	ret := &models.SubmitSuccess{
+		Certificate: resp.PemCertificate,
+		Chain:       resp.PemCertificateChain,
+	}
+	return operations.NewSigningCertCreated().WithPayload(ret)
 }

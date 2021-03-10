@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		apiKeyQueryAuth := httptransport.APIKeyAuth("access_token", "query", tok)
+		apiKeyQueryAuth := httptransport.APIKeyAuth("X-Access-Token", "header", tok)
 
 		params := operations.NewSigningCertParams()
 		params.SetSubmitcsr(&models.Submit{
@@ -115,6 +115,10 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(resp.Payload.Certificate)
+		fmt.Println("-----CHAIN-----")
+		for _, c := range resp.Payload.Chain {
+			fmt.Println(c)
+		}
 
 		return nil
 	},
@@ -140,7 +144,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://fulcio.sigstore.dev", "address of fulcio server")
+	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://127.0.0.1:5555", "address of fulcio server")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Println(err)

@@ -118,6 +118,12 @@ func init() {
       "properties": {
         "certificate": {
           "type": "string"
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
@@ -125,8 +131,8 @@ func init() {
   "securityDefinitions": {
     "key": {
       "type": "apiKey",
-      "name": "access_token",
-      "in": "query"
+      "name": "X-Access-Token",
+      "in": "header"
     }
   }
 }`))
@@ -214,6 +220,12 @@ func init() {
       "properties": {
         "certificate": {
           "type": "string"
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
@@ -221,8 +233,8 @@ func init() {
   "securityDefinitions": {
     "key": {
       "type": "apiKey",
-      "name": "access_token",
-      "in": "query"
+      "name": "X-Access-Token",
+      "in": "header"
     }
   }
 }`))
