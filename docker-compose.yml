@@ -51,9 +51,9 @@ services:
         source: ./config
         target: /tmp
     command: [
-        "--log_config /tmp/ct-fe/ct_config.cfg",
-        "--log_rpc_server localhost:8091",
-        "--http_endpoint localhost:8888",
+        "-log_config=/tmp/ct-fe/ct_config.cfg",
+        "-log_rpc_server=localhost:8091",
+        "-http_endpoint=localhost:8888",
     ]
     depends_on:
       - trillian-log-server
