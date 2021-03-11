@@ -50,11 +50,13 @@ The fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA38
 ## Security Model
 
 * Fulcio assumes that a valid OIDC token is a sufficient "proof of ownership" of an email address.
-* To mitigate against this: Fulcio uses a Transparency log to help protect against OIDC
-  compromise. This means:
-      * Fulcio MUST publish all certificates to the log.
-      * Clients MUST NOT trust certificates that are not in the log.
-    * This means users can detect any mis-issued certificates.
+
+* To mitigate against this, Fulcio uses a Transparency log to help protect against OIDC compromise. This means:
+    * Fulcio MUST publish all certificates to the log.
+    * Clients MUST NOT trust certificates that are not in the log.
+    
+  As a result users can detect any mis-issued certificates.
+  
 * Combined with `rekor's` signature transparency, artifacts signed with compromised accounts can
   be identified.
 
