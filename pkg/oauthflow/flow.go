@@ -69,6 +69,9 @@ func (a *AccessTokenGetter) getAccessToken(p *oidc.Provider, cfg oauth2.Config) 
 	}
 
 	code, err := getCodeFromLocalServer(stateToken)
+	if err != nil {
+		return "", err
+	}
 	token, err := cfg.Exchange(context.Background(), code)
 	if err != nil {
 		return "", err
@@ -84,7 +87,9 @@ func getCodeFromLocalServer(state string) (string, error) {
 		Addr:    "localhost:5556",
 		Handler: m,
 	}
-	defer s.Shutdown(context.Background())
+	defer func() {
+		_ = s.Shutdown(context.Background())
+	}()
 
 	go func() {
 		m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
