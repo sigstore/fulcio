@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"sync"
 
 	"github.com/spf13/viper"
 
@@ -30,14 +31,20 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-var Client *privateca.CertificateAuthorityClient
+var once sync.Once
 
-func init() {
-	c, err := privateca.NewCertificateAuthorityClient(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	Client = c
+func Client() *privateca.CertificateAuthorityClient {
+	var c *privateca.CertificateAuthorityClient
+
+	// Use a once block to avoid creating a new client every time.
+	once.Do(func() {
+		var err error
+		c, err = privateca.NewCertificateAuthorityClient(context.Background())
+		if err != nil {
+			panic(err)
+		}
+	})
+	return c
 }
 
 func Check(pub []byte, proof string, email string) bool {

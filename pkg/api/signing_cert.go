@@ -55,7 +55,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 	// Now issue cert!
 	req := fca.Req(email, pemBytes)
 
-	resp, err := fca.Client.CreateCertificate(ctx, req)
+	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
