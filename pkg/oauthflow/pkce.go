@@ -18,48 +18,59 @@ package oauthflow
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
+	"fmt"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
+
+	"github.com/sigstore/fulcio/pkg/log"
 )
 
-type PKCEMethod string
-
 const (
-	PKCEPlain PKCEMethod = "plain"
-	PKCES256  PKCEMethod = "S256"
+	PKCES256 = "S256"
 )
 
 type PKCE struct {
 	Challenge string
-	Method    PKCEMethod
+	Method    string
 	Value     string
 }
 
-func NewPKCE(method PKCEMethod) (*PKCE, error) {
-	switch method {
-	case PKCEPlain, PKCES256:
-	default:
-		return nil, errors.New("invalid PKCE method requested")
+func NewPKCE(provider *oidc.Provider) (*PKCE, error) {
+	var providerClaims struct {
+		CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
 	}
 
-	value, err := randStr()
-	if err != nil {
+	if err := provider.Claims(&providerClaims); err != nil {
+		// will only error out if the JSON was malformed, which shouldn't happen at this point
 		return nil, err
 	}
 
-	var challenge string
-	if method == PKCES256 {
-		h := sha256.New()
-		_, _ = h.Write([]byte(value))
-		challenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
-	} else {
-		challenge = value
+	var chosenMethod string
+	for _, method := range providerClaims.CodeChallengeMethodsSupported {
+		// per RFC7636, any server that supports PKCE must support S256
+		if method == PKCES256 && chosenMethod != PKCES256 {
+			chosenMethod = PKCES256
+			break
+		} else if method != "plain" {
+			log.Logger.Infof("Unsupported code challenge method in list: '%v'", method)
+		}
 	}
+	if chosenMethod == "" {
+		return nil, fmt.Errorf("PKCE is not supported by OIDC provider '%v'", provider.Endpoint().AuthURL)
+	}
+
+	// we use two 27 character strings to meet requirements of RFC 7636:
+	// (minimum length of 43 characters and a maximum length of 128 characters)
+	value := randStr() + randStr()
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(value))
+	challenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 
 	return &PKCE{
 		Challenge: challenge,
-		Method:    method,
+		Method:    chosenMethod,
 		Value:     value,
 	}, nil
 }

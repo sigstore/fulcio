@@ -18,8 +18,6 @@ package oauthflow
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +25,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/segmentio/ksuid"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
@@ -69,16 +68,15 @@ func (i *IDTokenGetter) getIDToken(p *oidc.Provider, cfg oauth2.Config) (*OIDCID
 		return nil, err
 	}
 
-	// generate random fields
-	stateToken, err := randStr()
+	// generate random fields and save them for comparison after OAuth2 dance
+	stateToken := randStr()
+	nonce := randStr()
+
+	// require that OIDC provider support PKCE to provide sufficient security for the CLI
+	pkce, err := NewPKCE(p)
 	if err != nil {
 		return nil, err
 	}
-	nonce, err := randStr()
-	if err != nil {
-		return nil, err
-	}
-	pkce, _ := NewPKCE(PKCES256)
 
 	authCodeURL := cfg.AuthCodeURL(stateToken, append(pkce.AuthURLOpts(), oauth2.AccessTypeOnline, oidc.Nonce(nonce))...)
 	fmt.Fprintf(os.Stderr, "Your browser will now be opened to:\n%s\n", authCodeURL)
@@ -162,15 +160,10 @@ func getCodeFromLocalServer(state string, redirectURL *url.URL) (string, error) 
 	}
 }
 
-func randStr() (string, error) {
-	len := 32
-	b := make([]byte, len)
-	n, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	} else if n != len {
-		return "", errors.New("short read")
-	}
+func randStr() string {
+	// we use ksuid here to ensure we get globally unique values to mitigate
+	// risk of replay attacks
 
-	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+	// output is a 27 character base62 string which is by default URL-safe
+	return ksuid.New().String()
 }

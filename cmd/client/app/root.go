@@ -32,7 +32,7 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/generated/client"
 	"github.com/sigstore/fulcio/pkg/generated/client/operations"
 	"github.com/sigstore/fulcio/pkg/generated/models"
