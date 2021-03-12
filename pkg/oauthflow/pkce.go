@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	PKCES256  = "S256"
+	PKCES256 = "S256"
 )
 
 type PKCE struct {
@@ -52,7 +52,7 @@ func NewPKCE(provider *oidc.Provider) (*PKCE, error) {
 		if method == PKCES256 && chosenMethod != PKCES256 {
 			chosenMethod = PKCES256
 			break
-		} else {
+		} else if method != "plain" {
 			log.Logger.Infof("Unsupported code challenge method in list: '%v'", method)
 		}
 	}
