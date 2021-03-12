@@ -16,8 +16,6 @@ on:
 jobs:
   build:
     environment: gcp
-    env:
-        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
     # The type of runner that the job will run on
     runs-on: ubuntu-20.04
 
@@ -42,6 +40,10 @@ jobs:
         uses: golangci/golangci-lint-action@v2.5.1
         with:
           version: v1.37.1
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_key: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
       # Test It
       - name: Test
         run: go test -v ./...
