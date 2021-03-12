@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	PKCEPlain = "plain"
 	PKCES256  = "S256"
 )
 
@@ -49,12 +48,10 @@ func NewPKCE(provider *oidc.Provider) (*PKCE, error) {
 
 	var chosenMethod string
 	for _, method := range providerClaims.CodeChallengeMethodsSupported {
-		// always choose S256 if it is a valid option
+		// per RFC7636, any server that supports PKCE must support S256
 		if method == PKCES256 && chosenMethod != PKCES256 {
 			chosenMethod = PKCES256
 			break
-		} else if method == PKCEPlain {
-			chosenMethod = PKCEPlain
 		} else {
 			log.Logger.Infof("Unsupported code challenge method in list: '%v'", method)
 		}
@@ -67,14 +64,9 @@ func NewPKCE(provider *oidc.Provider) (*PKCE, error) {
 	// (minimum length of 43 characters and a maximum length of 128 characters)
 	value := randStr() + randStr()
 
-	var challenge string
-	if chosenMethod == PKCES256 {
-		h := sha256.New()
-		_, _ = h.Write([]byte(value))
-		challenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
-	} else {
-		challenge = value
-	}
+	h := sha256.New()
+	_, _ = h.Write([]byte(value))
+	challenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 
 	return &PKCE{
 		Challenge: challenge,
