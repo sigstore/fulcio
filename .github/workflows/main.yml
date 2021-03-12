@@ -8,13 +8,14 @@ env:
 # events but only for the main branch
 on:
   push:
-    branches: [ main, development ]
+    branches: [ development ]
   pull_request:
-    branches: [ main, development ]
+    branches: [ development ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build:
+    environment: gcp
     # The type of runner that the job will run on
     runs-on: ubuntu-20.04
 
