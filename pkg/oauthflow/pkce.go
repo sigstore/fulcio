@@ -63,7 +63,9 @@ func NewPKCE(provider *oidc.Provider) (*PKCE, error) {
 		return nil, fmt.Errorf("PKCE is not supported by OIDC provider '%v'", provider.Endpoint().AuthURL)
 	}
 
-	value := randStr()
+	// we use two 27 character strings to meet requirements of RFC 7636:
+	// (minimum length of 43 characters and a maximum length of 128 characters)
+	value := randStr() + randStr()
 
 	var challenge string
 	if chosenMethod == PKCES256 {
