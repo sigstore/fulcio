@@ -24,6 +24,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -57,7 +58,6 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
 		pk, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 		if err != nil {
 			return err
@@ -66,34 +66,37 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
+		provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
 		if err != nil {
 			return err
 		}
 
 		config := oauth2.Config{
-			ClientID: "237800849078-rmntmr1b2tcu20kpid66q5dbh1vdt7aj.apps.googleusercontent.com",
-			// THIS IS NOT A SECRET - IT IS USED IN THE NATIVE/DESKTOP FLOW.
-			ClientSecret: "CkkuDoCgE2D_CCRRMyF_UIhS",
+			ClientID:     viper.GetString("oidc-client-id"),
+			ClientSecret: viper.GetString("oidc-client-secret"),
 			Endpoint:     provider.Endpoint(),
-			RedirectURL:  "http://127.0.0.1:5556/auth/google/callback",
+			RedirectURL:  "http://localhost:5556/auth/callback",
 			Scopes:       []string{oidc.ScopeOpenID, "email"},
 		}
-		tok, err := oauthflow.GetAccessToken(provider, config)
+		idToken, err := oauthflow.GetIDToken(provider, config)
 		if err != nil {
 			return err
 		}
 
-		userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: tok,
-		}))
-		if err != nil {
-			return nil
+		var claims struct {
+			Email    string `json:"email"`
+			Verified bool   `json:"email_verified"`
+		}
+		if err := idToken.ParsedToken.Claims(&claims); err != nil {
+			return err
+		}
+		if !claims.Verified {
+			return errors.New("email not verified by identity provider")
 		}
 
-		fmt.Println(userInfo.Email)
+		fmt.Println(claims.Email)
 		// Sign the email address as part of the request
-		h := sha256.Sum256([]byte(userInfo.Email))
+		h := sha256.Sum256([]byte(claims.Email))
 		proof, err := ecdsa.SignASN1(rand.Reader, pk, h[:])
 		if err != nil {
 			return err
@@ -103,14 +106,14 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		apiKeyQueryAuth := httptransport.APIKeyAuth("X-Access-Token", "header", tok)
+		bearerAuth := httptransport.BearerToken(idToken.RawString)
 
 		params := operations.NewSigningCertParams()
 		params.SetSubmitcsr(&models.Submit{
 			Pub:   strfmt.Base64(base64.StdEncoding.EncodeToString(pubBytes)),
 			Proof: strfmt.Base64(base64.StdEncoding.EncodeToString(proof)),
 		})
-		resp, err := fcli.Operations.SigningCert(params, apiKeyQueryAuth)
+		resp, err := fcli.Operations.SigningCert(params, bearerAuth)
 		if err != nil {
 			return err
 		}
@@ -145,6 +148,10 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://127.0.0.1:5555", "address of fulcio server")
+	rootCmd.PersistentFlags().String("oidc-issuer", "https://accounts.google.com", "OIDC provider to be used to issue ID token")
+	rootCmd.PersistentFlags().String("oidc-client-id", "237800849078-rmntmr1b2tcu20kpid66q5dbh1vdt7aj.apps.googleusercontent.com", "client ID for application")
+	// THIS IS NOT A SECRET - IT IS USED IN THE NATIVE/DESKTOP FLOW.
+	rootCmd.PersistentFlags().String("oidc-client-secret", "CkkuDoCgE2D_CCRRMyF_UIhS", "client secret for application")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Println(err)

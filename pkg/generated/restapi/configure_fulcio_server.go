@@ -22,17 +22,19 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc"
 	"github.com/go-chi/chi/middleware"
-	"github.com/go-openapi/errors"
+	goaerrors "github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/cors"
-	"golang.org/x/oauth2"
+	"github.com/spf13/viper"
 
 	pkgapi "github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
@@ -62,18 +64,31 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	api.JSONConsumer = runtime.JSONConsumer()
 	api.JSONProducer = runtime.JSONProducer()
 
-	provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
+	provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
 	if err != nil {
 		log.Logger.Panic(err)
 	}
-	api.KeyAuth = func(token string) (interface{}, error) {
-		userInfo, err := provider.UserInfo(context.Background(), oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: token,
-		}))
+	api.BearerAuth = func(token string) (interface{}, error) {
+		token = strings.Replace(token, "Bearer ", "", 1)
+		verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
+
+		idToken, err := verifier.Verify(context.Background(), token)
 		if err != nil {
 			return nil, err
 		}
-		return userInfo, nil
+
+		// Extract custom claims
+		var claims struct {
+			Email    string `json:"email"`
+			Verified bool   `json:"email_verified"`
+		}
+		if err := idToken.Claims(&claims); err != nil {
+			return nil, err
+		}
+		if !claims.Verified {
+			return nil, errors.New("email not verified by identity provider")
+		}
+		return claims.Email, nil
 	}
 	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
@@ -160,5 +175,5 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	if err := mapstructure.Decode(r, &requestFields); err == nil {
 		log.RequestIDLogger(r).Debug(requestFields)
 	}
-	errors.ServeError(w, r, err)
+	goaerrors.ServeError(w, r, err)
 }
