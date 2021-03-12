@@ -23,11 +23,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/coreos/go-oidc"
 	"github.com/skratchdot/open-golang/open"
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -40,51 +42,93 @@ const htmlPage = `<html>
 </html>
 `
 
-// AccessTokenGetter is a type to get access tokens for oauth flows
-type AccessTokenGetter struct {
+// IDTokenGetter is a type to get ID tokens for oauth flows
+type IDTokenGetter struct {
 	MessagePrinter func(url string)
 	HTMLPage       string
 }
 
-// DefaultAccessTokenGetter is the default implementation.
+type OIDCIDToken struct {
+	RawString   string
+	ParsedToken *oidc.IDToken
+}
+
+// DefaultIDTokenGetter is the default implementation.
 // The HTML page and message printed to the terminal can be customized.
-var DefaultAccessTokenGetter = AccessTokenGetter{
+var DefaultIDTokenGetter = IDTokenGetter{
 	MessagePrinter: func(url string) { fmt.Fprintf(os.Stderr, "Your browser will now be opened to:\n%s\n", url) },
 	HTMLPage:       htmlPage,
 }
 
-// GetAccessToken is the default implementation
-var GetAccessToken = DefaultAccessTokenGetter.getAccessToken
+// GetIDToken is the default implementation
+var GetIDToken = DefaultIDTokenGetter.getIDToken
 
-func (a *AccessTokenGetter) getAccessToken(p *oidc.Provider, cfg oauth2.Config) (string, error) {
+func (i *IDTokenGetter) getIDToken(p *oidc.Provider, cfg oauth2.Config) (*OIDCIDToken, error) {
+	redirectURL, err := url.Parse(cfg.RedirectURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate random fields
 	stateToken, err := randStr()
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	nonce, err := randStr()
+	if err != nil {
+		return nil, err
+	}
+	pkce, _ := NewPKCE(PKCES256)
+
+	authCodeURL := cfg.AuthCodeURL(stateToken, append(pkce.AuthURLOpts(), oauth2.AccessTypeOnline, oidc.Nonce(nonce))...)
+	fmt.Fprintf(os.Stderr, "Your browser will now be opened to:\n%s\n", authCodeURL)
+	if err := open.Run(authCodeURL); err != nil {
+		return nil, err
 	}
 
-	url := cfg.AuthCodeURL(stateToken, oauth2.AccessTypeOnline)
-	fmt.Fprintf(os.Stderr, "Your browser will now be opened to:\n%s\n", url)
-	if err := open.Run(url); err != nil {
-		return "", err
+	code, err := getCodeFromLocalServer(stateToken, redirectURL)
+	if err != nil {
+		return nil, err
+	}
+	token, err := cfg.Exchange(context.Background(), code, append(pkce.TokenURLOpts(), oidc.Nonce(nonce))...)
+	if err != nil {
+		return nil, err
 	}
 
-	code, err := getCodeFromLocalServer(stateToken)
-	if err != nil {
-		return "", err
+	// requesting 'openid' scope should ensure an id_token is given when exchanging the code for an access token
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return nil, errors.New("id_token not present")
 	}
-	token, err := cfg.Exchange(context.Background(), code)
+
+	// verify nonce, client ID, access token hash before using it
+	verifier := p.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
+	parsedIDToken, err := verifier.Verify(context.Background(), idToken)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return token.AccessToken, nil
+	if parsedIDToken.Nonce != nonce {
+		return nil, errors.New("nonce does not match value sent")
+	}
+	if parsedIDToken.AccessTokenHash != "" {
+		if err := parsedIDToken.VerifyAccessToken(token.AccessToken); err != nil {
+			return nil, err
+		}
+	}
+
+	returnToken := OIDCIDToken{
+		RawString:   idToken,
+		ParsedToken: parsedIDToken,
+	}
+	return &returnToken, nil
 }
 
-func getCodeFromLocalServer(state string) (string, error) {
+func getCodeFromLocalServer(state string, redirectURL *url.URL) (string, error) {
 	doneCh := make(chan string)
 	errCh := make(chan error)
 	m := http.NewServeMux()
 	s := http.Server{
-		Addr:    "localhost:5556",
+		Addr:    redirectURL.Host,
 		Handler: m,
 	}
 	defer func() {
@@ -92,7 +136,9 @@ func getCodeFromLocalServer(state string) (string, error) {
 	}()
 
 	go func() {
-		m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		m.HandleFunc(redirectURL.Path, func(w http.ResponseWriter, r *http.Request) {
+			// even though these are fetched from the FormValue method,
+			// these are supplied as query parameters
 			if r.FormValue("state") != state {
 				errCh <- errors.New("invalid state token")
 				return
@@ -117,13 +163,14 @@ func getCodeFromLocalServer(state string) (string, error) {
 }
 
 func randStr() (string, error) {
-	buf := [10]byte{}
-	n, err := rand.Read(buf[:])
+	len := 32
+	b := make([]byte, len)
+	n, err := rand.Read(b)
 	if err != nil {
 		return "", err
-	}
-	if n != len(buf) {
+	} else if n != len {
 		return "", errors.New("short read")
 	}
-	return base64.StdEncoding.EncodeToString(buf[:]), nil
+
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
 }

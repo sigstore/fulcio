@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.15
 
 require (
-	cloud.google.com/go v0.78.0
+	cloud.google.com/go v0.79.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
@@ -33,9 +33,8 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
-	golang.org/x/oauth2 v0.0.0-20210218202405-ba52d332ba99
-	golang.org/x/sys v0.0.0-20210301091718-77cc2087c03b // indirect
-	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb
+	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
+	google.golang.org/genproto v0.0.0-20210310155132-4ce2db91004e
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

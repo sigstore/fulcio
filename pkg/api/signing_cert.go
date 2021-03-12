@@ -23,8 +23,6 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/log"
 
-	"github.com/coreos/go-oidc"
-
 	"github.com/go-openapi/runtime/middleware"
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/generated/models"
@@ -47,17 +45,17 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 		Type:  "PUBLIC KEY",
 	})
 
-	userInfo := principal.(*oidc.UserInfo)
+	email := principal.(string)
 
 	// Check the proof
-	if !fca.Check(dec, string(params.Submitcsr.Proof), userInfo.Email) {
+	if !fca.Check(dec, string(params.Submitcsr.Proof), email) {
 		log.Logger.Info("email address was not signed correctly")
 		return middleware.Error(http.StatusBadRequest, "email address was not signed correctly")
 	}
 	// Now issue cert!
-	req := fca.Req(userInfo.Email, pemBytes)
+	req := fca.Req(email, pemBytes)
 
-	resp, err := fca.Client.CreateCertificate(ctx, req)
+	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)

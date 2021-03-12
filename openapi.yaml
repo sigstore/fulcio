@@ -6,15 +6,15 @@ schemes: [http, https]
 host: fulcio.sigstore.dev
 basePath: /api/v1
 securityDefinitions:
-  key:
+  Bearer:
     type: apiKey
     in: header
-    name: X-Access-Token
+    name: Authorization
 paths:
   /signingCert:
     post:
       security:
-        - key: []
+        - Bearer: []
       description: 'create a cert, return content with a location header (with URL to CTL entry)'
       operationId: signingCert
       consumes:
