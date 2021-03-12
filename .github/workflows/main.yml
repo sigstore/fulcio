@@ -16,6 +16,8 @@ on:
 jobs:
   build:
     environment: gcp
+    env:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
     # The type of runner that the job will run on
     runs-on: ubuntu-20.04
 
