@@ -63,8 +63,10 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 	// Submit to CTL
 	log.Logger.Info("Submiting CTL inclusion for OIDC grant: ", email)
 	log.Logger.Info("Submiting CTL inclusion for cert: ", resp.PemCertificateChain)
-    ctl.AddChain(resp.PemCertificate, resp.PemCertificateChain)
 
+	c := ctl.New()
+	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
+	println(ct)
 	metricNewEntries.Inc()
 
 	ret := &models.SubmitSuccess{

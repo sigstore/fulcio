@@ -5,13 +5,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"github.com/sigstore/fulcio/pkg/log"
-	"io/ioutil"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var ct_url = "http://127.0.0.1:8080/test/ct/v1/add-chain"
+
+type Client struct {
+	c      *http.Client
+}
+
+func New() *Client {
+	c := &http.Client{Timeout: 30 * time.Second}
+	return &Client{
+		c:      c,
+	}
+}
 
 type certChain struct {
 	Chain []string `json:"chain"`
@@ -25,7 +36,20 @@ type certChainResponse struct {
 	Signature  string `json:"signature"`
 }
 
-func AddChain(root string, clientcert []string)  {
+type ErrorResponse struct {
+	StatusCode int    `json:"statusCode"`
+	ErrorCode  string `json:"errorCode"`
+	Message    string `json:"message"`
+}
+
+func (err *ErrorResponse) Error() string {
+	if err.ErrorCode == "" {
+		return fmt.Sprintf("%d CT API error: %s", err.StatusCode, err.Message)
+	}
+	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
+}
+
+func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse, error) {
 	// Build the PEM Chain {root, client}
 	rootblock, _ := pem.Decode([]byte(root))
 	clientblock, _ := pem.Decode([]byte(strings.Join(clientcert,", ")))
@@ -34,26 +58,33 @@ func AddChain(root string, clientcert []string)  {
 
 	// Send to add-chain on CT log
 	req, err := http.NewRequest("POST", ct_url, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.c.Do(req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
 
+	switch resp.StatusCode {
+	case 200:
+		var ctlResp certChainResponse
+		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
+			return nil, err
+		}
+		return &ctlResp, nil
+	case 400, 401, 403, 500:
+		var errRes ErrorResponse
+		if err := json.NewDecoder(resp.Body).Decode(&errRes); err != nil {
+			return nil, err
+		}
 
-	var ctlresp certChainResponse
-	err = json.Unmarshal(body, &ctlresp)
-	if err != nil {
-		log.Logger.Fatal(err)
+		if errRes.StatusCode == 0 {
+			errRes.StatusCode = resp.StatusCode
+		}
+		return nil, &errRes
+	default:
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
-	log.Logger.Info("CT Submission ID: ", ctlresp.ID)
-	log.Logger.Info("CT Submission TIMESTAMP: ", ctlresp.Timestamp)
-	log.Logger.Info("CT Submission Signature: ", ctlresp.Signature)
-
-	//log.Logger.Info("CT Response Status:", resp.Status)
-	//log.Logger.Info("response Body:", string(body))
-
 }
