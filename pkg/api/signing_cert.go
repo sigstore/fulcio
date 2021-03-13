@@ -21,12 +21,12 @@ import (
 	"encoding/pem"
 	"net/http"
 
-	"github.com/sigstore/fulcio/pkg/log"
-
 	"github.com/go-openapi/runtime/middleware"
 	fca "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
+	"github.com/sigstore/fulcio/pkg/log"
 	"golang.org/x/net/context"
 )
 
@@ -54,12 +54,17 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 	}
 	// Now issue cert!
 	req := fca.Req(email, pemBytes)
-
 	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
 	}
+
+	// Submit to CTL
+	log.Logger.Info("Submiting CTL inclusion for OIDC grant: ", email)
+	log.Logger.Info("Submiting CTL inclusion for cert: ", resp.PemCertificateChain)
+    ctl.AddChain(resp.PemCertificate, resp.PemCertificateChain)
+
 	metricNewEntries.Inc()
 
 	ret := &models.SubmitSuccess{
