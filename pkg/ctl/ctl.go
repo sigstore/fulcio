@@ -88,3 +88,4 @@ func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse,
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 }
+
