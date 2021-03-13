@@ -53,7 +53,9 @@ func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse,
 	// Build the PEM Chain {root, client}
 	rootblock, _ := pem.Decode([]byte(root))
 	clientblock, _ := pem.Decode([]byte(strings.Join(clientcert,", ")))
-	chainjson := &certChain{Chain: []string{base64.StdEncoding.EncodeToString(rootblock.Bytes), base64.StdEncoding.EncodeToString(clientblock.Bytes)}}
+	chainjson := &certChain{Chain: []string{
+		base64.StdEncoding.EncodeToString(rootblock.Bytes),
+		base64.StdEncoding.EncodeToString(clientblock.Bytes)}}
 	jsonStr, _ := json.Marshal(chainjson)
 
 	// Send to add-chain on CT log
