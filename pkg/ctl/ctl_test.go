@@ -33,7 +33,7 @@ func Test_AddChain(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"sct_version": 0,
                          "id": "abc",
-						  "timestamp": 1615659852192,
+                         "timestamp": 1615659852192,
                           "extensions": "ext",
                           "signature": "sig"}`))
 	}))
