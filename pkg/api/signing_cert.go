@@ -21,12 +21,13 @@ import (
 	"encoding/pem"
 	"net/http"
 
-	"github.com/sigstore/fulcio/pkg/log"
-
 	"github.com/go-openapi/runtime/middleware"
 	fca "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
+	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -54,12 +55,23 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 	}
 	// Now issue cert!
 	req := fca.Req(email, pemBytes)
-
 	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		log.Logger.Info("error getting cert", err)
 		return middleware.Error(http.StatusInternalServerError, err)
 	}
+
+	// Submit to CTL
+	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", email)
+	c := ctl.New(viper.GetString("ct-log-url"))
+	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
+	if err != nil {
+		log.Logger.Info("Error submitting Cert Chain to CT", err)
+		return middleware.Error(http.StatusInternalServerError, err)
+	}
+	log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
+	log.Logger.Info("CTL Submission ID Received: ", ct.ID)
+
 	metricNewEntries.Inc()
 
 	ret := &models.SubmitSuccess{
