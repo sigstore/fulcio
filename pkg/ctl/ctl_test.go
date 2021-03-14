@@ -31,11 +31,15 @@ func Test_AddChain(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"sct_version": 0,
+		_, err := w.Write([]byte(`{
+                         "sct_version": 0,
                          "id": "abc",
                          "timestamp": 1615659852192,
-                          "extensions": "ext",
-                          "signature": "sig"}`))
+                         "extensions": "ext",
+                         "signature": "sig"}`))
+		if err != nil {
+			fmt.Println(err)
+		}
 	}))
 	defer server.Close()
 
