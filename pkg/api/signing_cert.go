@@ -27,6 +27,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -62,7 +63,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 
 	// Submit to CTL
 	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", email)
-	c := ctl.New()
+	c := ctl.New(viper.GetString("ct-log-url"))
 	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
 	if err != nil {
 		log.Logger.Info("Error submitting Cert Chain to CT", err)

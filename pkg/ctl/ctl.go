@@ -11,16 +11,18 @@ import (
 	"time"
 )
 
-var ct_url = "http://127.0.0.1:8080/test/ct/v1/add-chain"
+var addChainPath = "ct/v1/add-chain"
 
 type Client struct {
-	c      *http.Client
+	c   *http.Client
+	url string
 }
 
-func New() *Client {
+func New(url string) *Client {
 	c := &http.Client{Timeout: 30 * time.Second}
 	return &Client{
-		c:      c,
+		c:   c,
+		url: url,
 	}
 }
 
@@ -52,14 +54,15 @@ func (err *ErrorResponse) Error() string {
 func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse, error) {
 	// Build the PEM Chain {root, client}
 	rootblock, _ := pem.Decode([]byte(root))
-	clientblock, _ := pem.Decode([]byte(strings.Join(clientcert,", ")))
+	clientblock, _ := pem.Decode([]byte(strings.Join(clientcert, ", ")))
 	chainjson := &certChain{Chain: []string{
 		base64.StdEncoding.EncodeToString(rootblock.Bytes),
 		base64.StdEncoding.EncodeToString(clientblock.Bytes)}}
 	jsonStr, _ := json.Marshal(chainjson)
 
 	// Send to add-chain on CT log
-	req, err := http.NewRequest("POST", ct_url, bytes.NewBuffer(jsonStr))
+	url := fmt.Sprintf("%s/%s", c.url, addChainPath)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
 	}
@@ -90,4 +93,3 @@ func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse,
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 }
-
