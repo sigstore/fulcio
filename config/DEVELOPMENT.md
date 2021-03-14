@@ -52,3 +52,37 @@ BNieKlQUj41RB9p4IB2c+8XbMK69jXm6IHZRca65nOP4nMwFUqlE1W/OnlACMAht
 LTUlNndCw2IbG027fRqpElrc/IoIDBUa6aW7E1IL6gcnRk3MK38lkAg/jYaucw==
 -----END CERTIFICATE-----
 ```
+
+## Compose
+
+Docker compose can be used to bring up the ct-log server for local testing.
+This reuses the trillian components from Rekor.
+Make sure you have github.com/sigsture/rekor cloned as well, and in the same
+parent directory as `fulcio`.
+
+You will first need to create a trillian tree for the ct_log to use, and place that
+tree id in the `ctfe/ct_server.cfg` file.
+
+Then you can bring it all up with:
+
+```
+docker-compose -f ../rekor/docker-compose.yml -f docker-compose.yml
+```
+
+If it is all working, this should work:
+
+```
+ctclient -log_uri http://localhost:6962/test getroots
+```
+
+### Secrets
+
+There are some test secrets in `ctfe` for DEVELOPMENT ONLY.
+They were generated with:
+
+```shell
+openssl ec -in <(openssl ecparam -genkey -name prime256v1) -out privkey.pem -des
+openssl ec -in privkey.pem -pubout -out pubkey.pem
+```
+
+The password was `foobar` and is stored in the ct_server.cfg file.
