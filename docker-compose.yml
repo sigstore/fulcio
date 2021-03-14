@@ -1,24 +1,41 @@
-version: '3.1'
+version: '3.2'
 services:
   fulcio-server:
     build:
-      context: .
+      # This file must be used with the other rekor one first:
+      # $ docker-compose -f ../rekor/docker-compose.yml -f docker-compose.yml up -d --build
+      context: ../fulcio
       target: "deploy"
     command: [
       "fulcio-server",
       "serve",
       "--host=0.0.0.0",
-      "--port=3000",
+      "--port=3001",
       # Uncomment this for production logging
       # "--log_type=prod",
       ]
     restart: always # keep the server running
     ports:
-      - "3000:3000"
-      - "2112:2112"
+      - "3001:3001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/ping"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 5s
+  ct_server:
+    image: gcr.io/trillian-opensource-ci/ctfe
+    volumes:
+     # We need the .. since this is typically run from the rekor directory
+      - ../fulcio/config/ctfe:/etc/config/
+    command: [
+        "--log_config" ,"/etc/config/ct_server.cfg",
+        "--log_rpc_server", "trillian-log-server:8091",
+        "--http_endpoint", "0.0.0.0:6962",
+        "--alsologtostderr",
+    ]
+    depends_on:
+      - trillian-log-server
+      - trillian-log-signer
+    ports:
+      - "6962:6962"
