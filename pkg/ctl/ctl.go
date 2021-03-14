@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -51,14 +50,22 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) AddChain(root string, clientcert []string) (*certChainResponse, error) {
+func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, error) {
 	// Build the PEM Chain {root, client}
-	rootblock, _ := pem.Decode([]byte(root))
-	clientblock, _ := pem.Decode([]byte(strings.Join(clientcert, ", ")))
+	leafblock, _ := pem.Decode([]byte(leaf))
+
 	chainjson := &certChain{Chain: []string{
-		base64.StdEncoding.EncodeToString(rootblock.Bytes),
-		base64.StdEncoding.EncodeToString(clientblock.Bytes)}}
-	jsonStr, _ := json.Marshal(chainjson)
+		base64.StdEncoding.EncodeToString(leafblock.Bytes),
+	}}
+
+	for _, c := range chain {
+		pb, _ := pem.Decode([]byte(c))
+		chainjson.Chain = append(chainjson.Chain, base64.StdEncoding.EncodeToString(pb.Bytes))
+	}
+	jsonStr, err := json.Marshal(chainjson)
+	if err != nil {
+		return nil, err
+	}
 
 	// Send to add-chain on CT log
 	url := fmt.Sprintf("%s/%s", c.url, addChainPath)
