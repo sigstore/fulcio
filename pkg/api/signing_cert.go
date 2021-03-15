@@ -54,7 +54,10 @@ func SigningCertHandler(params operations.SigningCertParams, principal interface
 		return middleware.Error(http.StatusBadRequest, "email address was not signed correctly")
 	}
 	// Now issue cert!
-	req := fca.Req(email, pemBytes)
+	parent := viper.GetString("gcp_private_ca_parent")
+
+	req := fca.Req(parent, email, pemBytes)
+	log.Logger.Infof("requesting cert from %s for %s", parent, email)
 	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		log.Logger.Info("error getting cert", err)
