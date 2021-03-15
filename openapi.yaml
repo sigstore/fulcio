@@ -34,7 +34,7 @@ paths:
           schema:
             type: string
         400:
-          $ref: '#/responses/BadContent'
+          $ref: '#/responses/BadRequest'
         401:
           $ref: '#/responses/Unauthorized'
         default:
@@ -62,7 +62,7 @@ definitions:
         type: string
 
 responses:
-  BadContent:
+  BadRequest:
     description: The content supplied to the server was invalid
     schema:
       $ref: "#/definitions/Error"

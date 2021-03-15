@@ -81,7 +81,7 @@ func init() {
             }
           },
           "400": {
-            "$ref": "#/responses/BadContent"
+            "$ref": "#/responses/BadRequest"
           },
           "401": {
             "$ref": "#/responses/Unauthorized"
@@ -124,7 +124,7 @@ func init() {
     }
   },
   "responses": {
-    "BadContent": {
+    "BadRequest": {
       "description": "The content supplied to the server was invalid",
       "schema": {
         "$ref": "#/definitions/Error"
@@ -288,7 +288,7 @@ func init() {
     }
   },
   "responses": {
-    "BadContent": {
+    "BadRequest": {
       "description": "The content supplied to the server was invalid",
       "schema": {
         "$ref": "#/definitions/Error"
