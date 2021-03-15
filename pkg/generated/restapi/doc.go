@@ -29,7 +29,7 @@
 //    - application/json
 //
 //  Produces:
-//    - application/json
+//    - application/pem-certificate-chain
 //
 // swagger:meta
 package restapi

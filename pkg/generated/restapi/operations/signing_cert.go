@@ -26,19 +26,21 @@ import (
 	"net/http"
 
 	"github.com/go-openapi/runtime/middleware"
+
+	"github.com/coreos/go-oidc/v3/oidc"
 )
 
 // SigningCertHandlerFunc turns a function with the right signature into a signing cert handler
-type SigningCertHandlerFunc func(SigningCertParams, interface{}) middleware.Responder
+type SigningCertHandlerFunc func(SigningCertParams, *oidc.IDToken) middleware.Responder
 
 // Handle executing the request and returning a response
-func (fn SigningCertHandlerFunc) Handle(params SigningCertParams, principal interface{}) middleware.Responder {
+func (fn SigningCertHandlerFunc) Handle(params SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	return fn(params, principal)
 }
 
 // SigningCertHandler interface for that can handle valid signing cert params
 type SigningCertHandler interface {
-	Handle(SigningCertParams, interface{}) middleware.Responder
+	Handle(SigningCertParams, *oidc.IDToken) middleware.Responder
 }
 
 // NewSigningCert creates a new http.Handler for the signing cert operation
@@ -71,9 +73,9 @@ func (o *SigningCert) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if aCtx != nil {
 		r = aCtx
 	}
-	var principal interface{}
+	var principal *oidc.IDToken
 	if uprinc != nil {
-		principal = uprinc
+		principal = uprinc.(*oidc.IDToken) // this is really a oidc.IDToken, I promise
 	}
 
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params

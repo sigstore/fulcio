@@ -27,5 +27,5 @@
 .history/
 
 #output binaries
-client
-server
+/client
+/server

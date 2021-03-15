@@ -22,8 +22,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"testing"
 )
 
@@ -33,15 +31,12 @@ func failErr(t *testing.T, err error) {
 	}
 }
 
-func TestCheck(t *testing.T) {
+func TestCheckSignature(t *testing.T) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	failErr(t, err)
 
-	pub, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-	failErr(t, err)
-
 	email := "test@gmail.com"
-	if Check(pub, "foo", email) {
+	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -49,13 +44,12 @@ func TestCheck(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	sig := base64.StdEncoding.EncodeToString(signature)
-	if !Check(pub, sig, email) {
-		t.Fatal("check should have passed")
+	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if Check(pub, sig, "bad@email.com") {
+	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }
