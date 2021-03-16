@@ -102,8 +102,23 @@ func init() {
       ],
       "properties": {
         "publicKey": {
-          "type": "string",
-          "format": "byte"
+          "type": "object",
+          "required": [
+            "content",
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "ecdsa"
+              ]
+            },
+            "content": {
+              "type": "string",
+              "format": "byte"
+            }
+          }
         },
         "signedEmailAddress": {
           "type": "string",
@@ -266,10 +281,44 @@ func init() {
       ],
       "properties": {
         "publicKey": {
-          "type": "string",
-          "format": "byte"
+          "type": "object",
+          "required": [
+            "content",
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "ecdsa"
+              ]
+            },
+            "content": {
+              "type": "string",
+              "format": "byte"
+            }
+          }
         },
         "signedEmailAddress": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "CertificateRequestPublicKey": {
+      "type": "object",
+      "required": [
+        "content",
+        "algorithm"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "ecdsa"
+          ]
+        },
+        "content": {
           "type": "string",
           "format": "byte"
         }

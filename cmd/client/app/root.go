@@ -42,6 +42,7 @@ import (
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 	"github.com/spf13/viper"
 )
 
@@ -113,7 +114,10 @@ var rootCmd = &cobra.Command{
 
 		params := operations.NewSigningCertParams()
 		params.SetCertificateRequest(&models.CertificateRequest{
-			PublicKey:          &pubBytesB64,
+			PublicKey: &models.CertificateRequestPublicKey{
+				Content:   &pubBytesB64,
+				Algorithm: swag.String(models.CertificateRequestPublicKeyAlgorithmEcdsa),
+			},
 			SignedEmailAddress: &proofB64,
 		})
 		resp, err := fcli.Operations.SigningCert(params, bearerAuth)

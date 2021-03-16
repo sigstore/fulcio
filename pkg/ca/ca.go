@@ -18,11 +18,13 @@ package ca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"sync"
 
+	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/spf13/viper"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
@@ -46,10 +48,14 @@ func Client() *privateca.CertificateAuthorityClient {
 	return c
 }
 
-func CheckSignature(ecPub *ecdsa.PublicKey, proof []byte, email string) error {
+func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string) error {
 	h := sha256.Sum256([]byte(email))
-	if ok := ecdsa.VerifyASN1(ecPub, h[:], proof); !ok {
-		return errors.New("signature could not be verified")
+
+	switch alg {
+	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+		if ok := ecdsa.VerifyASN1(pub.(*ecdsa.PublicKey), h[:], proof); !ok {
+			return errors.New("signature could not be verified")
+		}
 	}
 	return nil
 }

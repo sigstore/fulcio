@@ -45,8 +45,17 @@ definitions:
     type: object
     properties:
       publicKey:
-        type: string
-        format: byte
+        type: object
+        properties:
+          content:
+            type: string
+            format: byte
+          algorithm:
+            type: string
+            enum: ['ecdsa']
+        required:
+          - content
+          - algorithm
       signedEmailAddress:
         type: string
         format: byte

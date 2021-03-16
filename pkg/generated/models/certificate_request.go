@@ -23,6 +23,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -36,8 +38,7 @@ type CertificateRequest struct {
 
 	// public key
 	// Required: true
-	// Format: byte
-	PublicKey *strfmt.Base64 `json:"publicKey"`
+	PublicKey *CertificateRequestPublicKey `json:"publicKey"`
 
 	// signed email address
 	// Required: true
@@ -69,6 +70,15 @@ func (m *CertificateRequest) validatePublicKey(formats strfmt.Registry) error {
 		return err
 	}
 
+	if m.PublicKey != nil {
+		if err := m.PublicKey.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("publicKey")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -92,6 +102,107 @@ func (m *CertificateRequest) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *CertificateRequest) UnmarshalBinary(b []byte) error {
 	var res CertificateRequest
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// CertificateRequestPublicKey certificate request public key
+//
+// swagger:model CertificateRequestPublicKey
+type CertificateRequestPublicKey struct {
+
+	// algorithm
+	// Required: true
+	// Enum: [ecdsa]
+	Algorithm *string `json:"algorithm"`
+
+	// content
+	// Required: true
+	// Format: byte
+	Content *strfmt.Base64 `json:"content"`
+}
+
+// Validate validates this certificate request public key
+func (m *CertificateRequestPublicKey) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateAlgorithm(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateContent(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+var certificateRequestPublicKeyTypeAlgorithmPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["ecdsa"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		certificateRequestPublicKeyTypeAlgorithmPropEnum = append(certificateRequestPublicKeyTypeAlgorithmPropEnum, v)
+	}
+}
+
+const (
+
+	// CertificateRequestPublicKeyAlgorithmEcdsa captures enum value "ecdsa"
+	CertificateRequestPublicKeyAlgorithmEcdsa string = "ecdsa"
+)
+
+// prop value enum
+func (m *CertificateRequestPublicKey) validateAlgorithmEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, certificateRequestPublicKeyTypeAlgorithmPropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *CertificateRequestPublicKey) validateAlgorithm(formats strfmt.Registry) error {
+
+	if err := validate.Required("publicKey"+"."+"algorithm", "body", m.Algorithm); err != nil {
+		return err
+	}
+
+	// value enum
+	if err := m.validateAlgorithmEnum("publicKey"+"."+"algorithm", "body", *m.Algorithm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *CertificateRequestPublicKey) validateContent(formats strfmt.Registry) error {
+
+	if err := validate.Required("publicKey"+"."+"content", "body", m.Content); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *CertificateRequestPublicKey) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *CertificateRequestPublicKey) UnmarshalBinary(b []byte) error {
+	var res CertificateRequestPublicKey
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

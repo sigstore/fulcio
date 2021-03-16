@@ -17,6 +17,7 @@ limitations under the License.
 package api
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -29,6 +30,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
+	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -37,25 +39,39 @@ import (
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
-	emailAddress, _, _ := oauthflow.EmailFromIDToken(principal)
+
+	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
+	if principal == nil {
+		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
+	}
+	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
+	if !emailVerified {
+		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("email_verified claim was false"), emailNotVerified)
+	} else if err != nil {
+		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidCredentials)
+	}
 
 	publicKey := *params.CertificateRequest.PublicKey
-	pkixPubKey, err := x509.ParsePKIXPublicKey(publicKey)
+	pkixPubKey, err := x509.ParsePKIXPublicKey(*publicKey.Content)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, malformedPublicKey)
 	}
-	ecdsaPubKey, ok := pkixPubKey.(*ecdsa.PublicKey)
-	if !ok {
-		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
-	}
 
+	var pk crypto.PublicKey
+	var ok bool
+	switch *publicKey.Algorithm {
+	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+		if pk, ok = pkixPubKey.(*ecdsa.PublicKey); !ok {
+			return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
+		}
+	}
 	// Check the proof
-	if err := fca.CheckSignature(ecdsaPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
+	if err := fca.CheckSignature(*publicKey.Algorithm, pk, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Bytes: publicKey,
+		Bytes: *publicKey.Content,
 		Type:  "PUBLIC KEY",
 	})
 	// Now issue cert!
