@@ -18,12 +18,13 @@ package ca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
+	"errors"
 	"sync"
 
+	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/spf13/viper"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
@@ -47,21 +48,16 @@ func Client() *privateca.CertificateAuthorityClient {
 	return c
 }
 
-func Check(pub []byte, proof string, email string) bool {
-	pkixPub, err := x509.ParsePKIXPublicKey(pub)
-	if err != nil {
-		return false
-	}
-	ecPub, ok := pkixPub.(*ecdsa.PublicKey)
-	if !ok {
-		return false
-	}
+func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string) error {
 	h := sha256.Sum256([]byte(email))
-	sig, err := base64.StdEncoding.DecodeString(proof)
-	if err != nil {
-		return false
+
+	switch alg {
+	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+		if ok := ecdsa.VerifyASN1(pub.(*ecdsa.PublicKey), h[:], proof); !ok {
+			return errors.New("signature could not be verified")
+		}
 	}
-	return ecdsa.VerifyASN1(ecPub, h[:], sig)
+	return nil
 }
 
 func Req(email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {

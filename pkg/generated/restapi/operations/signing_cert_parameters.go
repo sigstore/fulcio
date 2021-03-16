@@ -49,11 +49,11 @@ type SigningCertParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
-	/*Submit CSR
+	/*Request for signing certificate
 	  Required: true
 	  In: body
 	*/
-	Submitcsr *models.Submit
+	CertificateRequest *models.CertificateRequest
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -67,12 +67,12 @@ func (o *SigningCertParams) BindRequest(r *http.Request, route *middleware.Match
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.Submit
+		var body models.CertificateRequest
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("submitcsr", "body", ""))
+				res = append(res, errors.Required("certificateRequest", "body", ""))
 			} else {
-				res = append(res, errors.NewParseError("submitcsr", "body", "", err))
+				res = append(res, errors.NewParseError("certificateRequest", "body", "", err))
 			}
 		} else {
 			// validate body object
@@ -81,11 +81,11 @@ func (o *SigningCertParams) BindRequest(r *http.Request, route *middleware.Match
 			}
 
 			if len(res) == 0 {
-				o.Submitcsr = &body
+				o.CertificateRequest = &body
 			}
 		}
 	} else {
-		res = append(res, errors.Required("submitcsr", "body", ""))
+		res = append(res, errors.Required("certificateRequest", "body", ""))
 	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

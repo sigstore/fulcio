@@ -17,66 +17,90 @@ limitations under the License.
 package api
 
 import (
-	"encoding/base64"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
-func SigningCertHandler(params operations.SigningCertParams, principal interface{}) middleware.Responder {
+func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
+	ctx := params.HTTPRequest.Context()
 
-	ctx := context.Background()
-	key := params.Submitcsr.Pub
-
-	dec, err := base64.StdEncoding.DecodeString(string(key))
-	if err != nil {
-		return middleware.Error(http.StatusInternalServerError, err)
+	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
+	if principal == nil {
+		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
+	}
+	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
+	if !emailVerified {
+		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("email_verified claim was false"), emailNotVerified)
+	} else if err != nil {
+		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidCredentials)
 	}
 
-	pemBytes := pem.EncodeToMemory(&pem.Block{
-		Bytes: dec,
+	publicKey := *params.CertificateRequest.PublicKey
+	pkixPubKey, err := x509.ParsePKIXPublicKey(*publicKey.Content)
+	if err != nil {
+		return handleFulcioAPIError(params, http.StatusBadRequest, err, malformedPublicKey)
+	}
+
+	var pk crypto.PublicKey
+	var ok bool
+	switch *publicKey.Algorithm {
+	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+		if pk, ok = pkixPubKey.(*ecdsa.PublicKey); !ok {
+			return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
+		}
+	}
+	// Check the proof
+	if err := fca.CheckSignature(*publicKey.Algorithm, pk, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
+		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
+	}
+
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Bytes: *publicKey.Content,
 		Type:  "PUBLIC KEY",
 	})
-
-	email := principal.(string)
-
-	// Check the proof
-	if !fca.Check(dec, string(params.Submitcsr.Proof), email) {
-		log.Logger.Info("email address was not signed correctly")
-		return middleware.Error(http.StatusBadRequest, "email address was not signed correctly")
-	}
 	// Now issue cert!
-	req := fca.Req(email, pemBytes)
+	req := fca.Req(emailAddress, publicKeyPEM)
+
 	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
-		log.Logger.Info("error getting cert", err)
-		return middleware.Error(http.StatusInternalServerError, err)
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
 
 	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", email)
-	c := ctl.New(viper.GetString("ct-log-url"))
+	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
+	ctURL := viper.GetString("ct-log-url")
+	c := ctl.New(ctURL)
 	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
 	if err != nil {
-		log.Logger.Info("Error submitting Cert Chain to CT", err)
-		return middleware.Error(http.StatusInternalServerError, err)
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
 	}
 	log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
 	log.Logger.Info("CTL Submission ID Received: ", ct.ID)
 
 	metricNewEntries.Inc()
 
-	ret := &models.SubmitSuccess{
-		Certificate: resp.PemCertificate,
-		Chain:       resp.PemCertificateChain,
+	var ret strings.Builder
+	fmt.Fprintf(&ret, "%s\n", resp.PemCertificate)
+	for _, cert := range resp.PemCertificateChain {
+		fmt.Fprintf(&ret, "%s\n", cert)
 	}
-	return operations.NewSigningCertCreated().WithPayload(ret)
+
+	//TODO: return SCT and SCT URL
+	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
 }

@@ -59,71 +59,120 @@ func init() {
           "application/json"
         ],
         "produces": [
-          "application/json"
+          "application/pem-certificate-chain"
         ],
         "operationId": "signingCert",
         "parameters": [
           {
-            "description": "Submit CSR",
-            "name": "submitcsr",
+            "description": "Request for signing certificate",
+            "name": "CertificateRequest",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/Submit"
+              "$ref": "#/definitions/CertificateRequest"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Successful CSR Submit",
+            "description": "Generated Certificate Chain",
             "schema": {
-              "$ref": "#/definitions/SubmitSuccess"
+              "type": "string"
             }
           },
           "400": {
-            "description": "Bad Request"
+            "$ref": "#/responses/BadRequest"
           },
           "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/responses/Unauthorized"
           },
-          "500": {
-            "description": "Server error",
-            "schema": {
-              "type": "string"
-            }
+          "default": {
+            "$ref": "#/responses/InternalServerError"
           }
         }
       }
     }
   },
   "definitions": {
-    "Submit": {
+    "CertificateRequest": {
       "type": "object",
+      "required": [
+        "publicKey",
+        "signedEmailAddress"
+      ],
       "properties": {
-        "proof": {
-          "type": "string",
-          "format": "byte"
+        "publicKey": {
+          "type": "object",
+          "required": [
+            "content",
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "ecdsa"
+              ]
+            },
+            "content": {
+              "type": "string",
+              "format": "byte"
+            }
+          }
         },
-        "pub": {
+        "signedEmailAddress": {
           "type": "string",
           "format": "byte"
         }
       }
     },
-    "SubmitSuccess": {
+    "Error": {
       "type": "object",
       "properties": {
-        "certificate": {
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "responses": {
+    "BadRequest": {
+      "description": "The content supplied to the server was invalid",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
+          "type": "string"
+        }
+      }
+    },
+    "InternalServerError": {
+      "description": "There was an internal error in the server while processing the request",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
+          "type": "string"
+        }
+      }
+    },
+    "Unauthorized": {
+      "description": "The request could not be authorized",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
           "type": "string"
         },
-        "chain": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "WWW-Authenticate": {
+          "type": "string",
+          "description": "Information about required authentication to access server"
         }
       }
     }
@@ -161,40 +210,62 @@ func init() {
           "application/json"
         ],
         "produces": [
-          "application/json"
+          "application/pem-certificate-chain"
         ],
         "operationId": "signingCert",
         "parameters": [
           {
-            "description": "Submit CSR",
-            "name": "submitcsr",
+            "description": "Request for signing certificate",
+            "name": "CertificateRequest",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/Submit"
+              "$ref": "#/definitions/CertificateRequest"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Successful CSR Submit",
+            "description": "Generated Certificate Chain",
             "schema": {
-              "$ref": "#/definitions/SubmitSuccess"
+              "type": "string"
             }
           },
           "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized",
+            "description": "The content supplied to the server was invalid",
             "schema": {
-              "type": "string"
+              "$ref": "#/definitions/Error"
+            },
+            "headers": {
+              "Content-Type": {
+                "type": "string"
+              }
             }
           },
-          "500": {
-            "description": "Server error",
+          "401": {
+            "description": "The request could not be authorized",
             "schema": {
-              "type": "string"
+              "$ref": "#/definitions/Error"
+            },
+            "headers": {
+              "Content-Type": {
+                "type": "string"
+              },
+              "WWW-Authenticate": {
+                "type": "string",
+                "description": "Information about required authentication to access server"
+              }
+            }
+          },
+          "default": {
+            "description": "There was an internal error in the server while processing the request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "headers": {
+              "Content-Type": {
+                "type": "string"
+              }
             }
           }
         }
@@ -202,30 +273,104 @@ func init() {
     }
   },
   "definitions": {
-    "Submit": {
+    "CertificateRequest": {
       "type": "object",
+      "required": [
+        "publicKey",
+        "signedEmailAddress"
+      ],
       "properties": {
-        "proof": {
-          "type": "string",
-          "format": "byte"
+        "publicKey": {
+          "type": "object",
+          "required": [
+            "content",
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "ecdsa"
+              ]
+            },
+            "content": {
+              "type": "string",
+              "format": "byte"
+            }
+          }
         },
-        "pub": {
+        "signedEmailAddress": {
           "type": "string",
           "format": "byte"
         }
       }
     },
-    "SubmitSuccess": {
+    "CertificateRequestPublicKey": {
+      "type": "object",
+      "required": [
+        "content",
+        "algorithm"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "ecdsa"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "Error": {
       "type": "object",
       "properties": {
-        "certificate": {
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "responses": {
+    "BadRequest": {
+      "description": "The content supplied to the server was invalid",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
+          "type": "string"
+        }
+      }
+    },
+    "InternalServerError": {
+      "description": "There was an internal error in the server while processing the request",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
+          "type": "string"
+        }
+      }
+    },
+    "Unauthorized": {
+      "description": "The request could not be authorized",
+      "schema": {
+        "$ref": "#/definitions/Error"
+      },
+      "headers": {
+        "Content-Type": {
           "type": "string"
         },
-        "chain": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "WWW-Authenticate": {
+          "type": "string",
+          "description": "Information about required authentication to access server"
         }
       }
     }

@@ -27,25 +27,25 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// SubmitSuccess submit success
+// Error error
 //
-// swagger:model SubmitSuccess
-type SubmitSuccess struct {
+// swagger:model Error
+type Error struct {
 
-	// certificate
-	Certificate string `json:"certificate,omitempty"`
+	// code
+	Code int64 `json:"code,omitempty"`
 
-	// chain
-	Chain []string `json:"chain"`
+	// message
+	Message string `json:"message,omitempty"`
 }
 
-// Validate validates this submit success
-func (m *SubmitSuccess) Validate(formats strfmt.Registry) error {
+// Validate validates this error
+func (m *Error) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
 // MarshalBinary interface implementation
-func (m *SubmitSuccess) MarshalBinary() ([]byte, error) {
+func (m *Error) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -53,8 +53,8 @@ func (m *SubmitSuccess) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *SubmitSuccess) UnmarshalBinary(b []byte) error {
-	var res SubmitSuccess
+func (m *Error) UnmarshalBinary(b []byte) error {
+	var res Error
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
