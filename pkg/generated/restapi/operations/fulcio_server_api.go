@@ -24,6 +24,7 @@ package operations
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -35,6 +36,8 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+
+	"github.com/coreos/go-oidc/v3/oidc"
 )
 
 // NewFulcioServerAPI creates a new FulcioServer instance
@@ -57,14 +60,16 @@ func NewFulcioServerAPI(spec *loads.Document) *FulcioServerAPI {
 
 		JSONConsumer: runtime.JSONConsumer(),
 
-		JSONProducer: runtime.JSONProducer(),
+		ApplicationPemCertificateChainProducer: runtime.ProducerFunc(func(w io.Writer, data interface{}) error {
+			return errors.NotImplemented("applicationPemCertificateChain producer has not yet been implemented")
+		}),
 
-		SigningCertHandler: SigningCertHandlerFunc(func(params SigningCertParams, principal interface{}) middleware.Responder {
+		SigningCertHandler: SigningCertHandlerFunc(func(params SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 			return middleware.NotImplemented("operation SigningCert has not yet been implemented")
 		}),
 
 		// Applies when the "Authorization" header is set
-		BearerAuth: func(token string) (interface{}, error) {
+		BearerAuth: func(token string) (*oidc.IDToken, error) {
 			return nil, errors.NotImplemented("api key auth (Bearer) Authorization from header param [Authorization] has not yet been implemented")
 		},
 		// default authorizer is authorized meaning no requests are blocked
@@ -99,13 +104,13 @@ type FulcioServerAPI struct {
 	//   - application/json
 	JSONConsumer runtime.Consumer
 
-	// JSONProducer registers a producer for the following mime types:
-	//   - application/json
-	JSONProducer runtime.Producer
+	// ApplicationPemCertificateChainProducer registers a producer for the following mime types:
+	//   - application/pem-certificate-chain
+	ApplicationPemCertificateChainProducer runtime.Producer
 
 	// BearerAuth registers a function that takes a token and returns a principal
 	// it performs authentication based on an api key Authorization provided in the header
-	BearerAuth func(string) (interface{}, error)
+	BearerAuth func(string) (*oidc.IDToken, error)
 
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
@@ -184,8 +189,8 @@ func (o *FulcioServerAPI) Validate() error {
 		unregistered = append(unregistered, "JSONConsumer")
 	}
 
-	if o.JSONProducer == nil {
-		unregistered = append(unregistered, "JSONProducer")
+	if o.ApplicationPemCertificateChainProducer == nil {
+		unregistered = append(unregistered, "ApplicationPemCertificateChainProducer")
 	}
 
 	if o.BearerAuth == nil {
@@ -215,7 +220,9 @@ func (o *FulcioServerAPI) AuthenticatorsFor(schemes map[string]spec.SecuritySche
 		switch name {
 		case "Bearer":
 			scheme := schemes[name]
-			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, o.BearerAuth)
+			result[name] = o.APIKeyAuthenticator(scheme.Name, scheme.In, func(token string) (interface{}, error) {
+				return o.BearerAuth(token)
+			})
 
 		}
 	}
@@ -250,8 +257,8 @@ func (o *FulcioServerAPI) ProducersFor(mediaTypes []string) map[string]runtime.P
 	result := make(map[string]runtime.Producer, len(mediaTypes))
 	for _, mt := range mediaTypes {
 		switch mt {
-		case "application/json":
-			result["application/json"] = o.JSONProducer
+		case "application/pem-certificate-chain":
+			result["application/pem-certificate-chain"] = o.ApplicationPemCertificateChainProducer
 		}
 
 		if p, ok := o.customProducers[mt]; ok {

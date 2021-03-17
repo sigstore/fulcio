@@ -18,47 +18,80 @@ paths:
       description: 'create a cert, return content with a location header (with URL to CTL entry)'
       operationId: signingCert
       consumes:
-        - "application/json"
+        - application/json
       produces:
-        - "application/json"
+        - application/pem-certificate-chain
       parameters:
-        - name: 'submitcsr'
+        - name: 'CertificateRequest'
           in: 'body'
           required: true
-          description: 'Submit CSR'
+          description: 'Request for signing certificate'
           schema:
-            $ref: '#/definitions/Submit'
+            $ref: '#/definitions/CertificateRequest'
       responses:
         201:
-          description: Successful CSR Submit
+          description: Generated Certificate Chain
           schema:
-            $ref: '#/definitions/SubmitSuccess'
+            type: string
         400:
-          description: Bad Request
+          $ref: '#/responses/BadRequest'
         401:
-          schema:
-            type: string
-          description: Unauthorized
-        500:
-          schema:
-            type: string
-          description: Server error
+          $ref: '#/responses/Unauthorized'
+        default:
+          $ref: '#/responses/InternalServerError'
+
 definitions:
-  Submit:
+  CertificateRequest:
     type: object
     properties:
-      pub:
+      publicKey:
+        type: object
+        properties:
+          content:
+            type: string
+            format: byte
+          algorithm:
+            type: string
+            enum: ['ecdsa']
+        required:
+          - content
+          - algorithm
+      signedEmailAddress:
         type: string
         format: byte
-      proof:
-        type: string
-        format: byte
-  SubmitSuccess:
+    required:
+      - publicKey
+      - signedEmailAddress
+  Error:
     type: object
     properties:
-      certificate:
+      code:
+        type: integer
+      message:
         type: string
-      chain:
-        type: array
-        items:
-          type: string
+
+responses:
+  BadRequest:
+    description: The content supplied to the server was invalid
+    schema:
+      $ref: "#/definitions/Error"
+    headers:
+      Content-Type:
+        type: string
+  Unauthorized:
+    description: The request could not be authorized
+    schema:
+      $ref: "#/definitions/Error"
+    headers:
+      Content-Type:
+        type: string
+      WWW-Authenticate:
+        type: string
+        description: Information about required authentication to access server
+  InternalServerError:
+    description: There was an internal error in the server while processing the request
+    schema:
+      $ref: "#/definitions/Error"
+    headers:
+      Content-Type:
+        type: string

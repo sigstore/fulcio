@@ -79,11 +79,11 @@ for the signing cert operation typically these are written to a http.Request
 */
 type SigningCertParams struct {
 
-	/*Submitcsr
-	  Submit CSR
+	/*CertificateRequest
+	  Request for signing certificate
 
 	*/
-	Submitcsr *models.Submit
+	CertificateRequest *models.CertificateRequest
 
 	timeout    time.Duration
 	Context    context.Context
@@ -123,15 +123,15 @@ func (o *SigningCertParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithSubmitcsr adds the submitcsr to the signing cert params
-func (o *SigningCertParams) WithSubmitcsr(submitcsr *models.Submit) *SigningCertParams {
-	o.SetSubmitcsr(submitcsr)
+// WithCertificateRequest adds the certificateRequest to the signing cert params
+func (o *SigningCertParams) WithCertificateRequest(certificateRequest *models.CertificateRequest) *SigningCertParams {
+	o.SetCertificateRequest(certificateRequest)
 	return o
 }
 
-// SetSubmitcsr adds the submitcsr to the signing cert params
-func (o *SigningCertParams) SetSubmitcsr(submitcsr *models.Submit) {
-	o.Submitcsr = submitcsr
+// SetCertificateRequest adds the certificateRequest to the signing cert params
+func (o *SigningCertParams) SetCertificateRequest(certificateRequest *models.CertificateRequest) {
+	o.CertificateRequest = certificateRequest
 }
 
 // WriteToRequest writes these params to a swagger request
@@ -142,8 +142,8 @@ func (o *SigningCertParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	}
 	var res []error
 
-	if o.Submitcsr != nil {
-		if err := r.SetBodyParam(o.Submitcsr); err != nil {
+	if o.CertificateRequest != nil {
+		if err := r.SetBodyParam(o.CertificateRequest); err != nil {
 			return err
 		}
 	}
