@@ -75,9 +75,13 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		Type:  "PUBLIC KEY",
 	})
 	// Now issue cert!
-	req := fca.Req(emailAddress, publicKeyPEM)
 
-	resp, err := fca.Client().CreateCertificate(ctx, req)
+	parent := viper.GetString("gcp_private_ca_parent")
+
+	req := fca.Req(parent, emailAddress, publicKeyPEM)
+	log.Logger.Infof("requesting cert from %s for %s", parent, emailAddress)
+
+  resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}

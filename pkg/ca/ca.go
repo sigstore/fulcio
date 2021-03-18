@@ -25,17 +25,16 @@ import (
 	"sync"
 
 	"github.com/sigstore/fulcio/pkg/generated/models"
-	"github.com/spf13/viper"
-
+	
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var once sync.Once
+var c *privateca.CertificateAuthorityClient
 
 func Client() *privateca.CertificateAuthorityClient {
-	var c *privateca.CertificateAuthorityClient
 
 	// Use a once block to avoid creating a new client every time.
 	once.Do(func() {
@@ -60,8 +59,7 @@ func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string
 	return nil
 }
 
-func Req(email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
-	parent := viper.GetString("gcp_private_ca_parent")
+func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
