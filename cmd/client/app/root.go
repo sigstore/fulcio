@@ -28,6 +28,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 
@@ -124,7 +125,22 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println(resp.Payload)
+
+		outputFileStr := viper.GetString("output")
+		outputFile := os.Stdout
+		if outputFileStr != "-" {
+			var err error
+			outputFile, err = os.Create(filepath.Clean(outputFileStr))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer func() {
+				if err := outputFile.Close(); err != nil {
+					fmt.Fprint(os.Stderr, err)
+				}
+			}()
+		}
+		fmt.Fprint(outputFile, resp.Payload)
 
 		return nil
 	},
@@ -156,6 +172,7 @@ func init() {
 	rootCmd.PersistentFlags().String("oidc-client-id", "237800849078-rmntmr1b2tcu20kpid66q5dbh1vdt7aj.apps.googleusercontent.com", "client ID for application")
 	// THIS IS NOT A SECRET - IT IS USED IN THE NATIVE/DESKTOP FLOW.
 	rootCmd.PersistentFlags().String("oidc-client-secret", "CkkuDoCgE2D_CCRRMyF_UIhS", "client secret for application")
+	rootCmd.PersistentFlags().StringP("output", "o", "-", "output file to write certificate chain to")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Println(err)
