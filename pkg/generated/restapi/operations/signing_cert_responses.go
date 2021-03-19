@@ -33,7 +33,7 @@ import (
 // SigningCertCreatedCode is the HTTP code returned for type SigningCertCreated
 const SigningCertCreatedCode int = 201
 
-/*SigningCertCreated Successful CSR Submit
+/*SigningCertCreated Generated Certificate Chain
 
 swagger:response signingCertCreated
 */
@@ -42,7 +42,7 @@ type SigningCertCreated struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.SubmitSuccess `json:"body,omitempty"`
+	Payload string `json:"body,omitempty"`
 }
 
 // NewSigningCertCreated creates SigningCertCreated with default headers values
@@ -52,13 +52,13 @@ func NewSigningCertCreated() *SigningCertCreated {
 }
 
 // WithPayload adds the payload to the signing cert created response
-func (o *SigningCertCreated) WithPayload(payload *models.SubmitSuccess) *SigningCertCreated {
+func (o *SigningCertCreated) WithPayload(payload string) *SigningCertCreated {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the signing cert created response
-func (o *SigningCertCreated) SetPayload(payload *models.SubmitSuccess) {
+func (o *SigningCertCreated) SetPayload(payload string) {
 	o.Payload = payload
 }
 
@@ -66,22 +66,29 @@ func (o *SigningCertCreated) SetPayload(payload *models.SubmitSuccess) {
 func (o *SigningCertCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(201)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
 	}
 }
 
 // SigningCertBadRequestCode is the HTTP code returned for type SigningCertBadRequest
 const SigningCertBadRequestCode int = 400
 
-/*SigningCertBadRequest Bad Request
+/*SigningCertBadRequest The content supplied to the server was invalid
 
 swagger:response signingCertBadRequest
 */
 type SigningCertBadRequest struct {
+	/*
+
+	 */
+	ContentType string `json:"Content-Type"`
+
+	/*
+	  In: Body
+	*/
+	Payload *models.Error `json:"body,omitempty"`
 }
 
 // NewSigningCertBadRequest creates SigningCertBadRequest with default headers values
@@ -90,27 +97,68 @@ func NewSigningCertBadRequest() *SigningCertBadRequest {
 	return &SigningCertBadRequest{}
 }
 
+// WithContentType adds the contentType to the signing cert bad request response
+func (o *SigningCertBadRequest) WithContentType(contentType string) *SigningCertBadRequest {
+	o.ContentType = contentType
+	return o
+}
+
+// SetContentType sets the contentType to the signing cert bad request response
+func (o *SigningCertBadRequest) SetContentType(contentType string) {
+	o.ContentType = contentType
+}
+
+// WithPayload adds the payload to the signing cert bad request response
+func (o *SigningCertBadRequest) WithPayload(payload *models.Error) *SigningCertBadRequest {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the signing cert bad request response
+func (o *SigningCertBadRequest) SetPayload(payload *models.Error) {
+	o.Payload = payload
+}
+
 // WriteResponse to the client
 func (o *SigningCertBadRequest) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	// response header Content-Type
+
+	contentType := o.ContentType
+	if contentType != "" {
+		rw.Header().Set("Content-Type", contentType)
+	}
 
 	rw.WriteHeader(400)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
+	}
 }
 
 // SigningCertUnauthorizedCode is the HTTP code returned for type SigningCertUnauthorized
 const SigningCertUnauthorizedCode int = 401
 
-/*SigningCertUnauthorized Unauthorized
+/*SigningCertUnauthorized The request could not be authorized
 
 swagger:response signingCertUnauthorized
 */
 type SigningCertUnauthorized struct {
+	/*
+
+	 */
+	ContentType string `json:"Content-Type"`
+	/*Information about required authentication to access server
+
+	 */
+	WWWAuthenticate string `json:"WWW-Authenticate"`
 
 	/*
 	  In: Body
 	*/
-	Payload string `json:"body,omitempty"`
+	Payload *models.Error `json:"body,omitempty"`
 }
 
 // NewSigningCertUnauthorized creates SigningCertUnauthorized with default headers values
@@ -119,65 +167,141 @@ func NewSigningCertUnauthorized() *SigningCertUnauthorized {
 	return &SigningCertUnauthorized{}
 }
 
+// WithContentType adds the contentType to the signing cert unauthorized response
+func (o *SigningCertUnauthorized) WithContentType(contentType string) *SigningCertUnauthorized {
+	o.ContentType = contentType
+	return o
+}
+
+// SetContentType sets the contentType to the signing cert unauthorized response
+func (o *SigningCertUnauthorized) SetContentType(contentType string) {
+	o.ContentType = contentType
+}
+
+// WithWWWAuthenticate adds the wWWAuthenticate to the signing cert unauthorized response
+func (o *SigningCertUnauthorized) WithWWWAuthenticate(wWWAuthenticate string) *SigningCertUnauthorized {
+	o.WWWAuthenticate = wWWAuthenticate
+	return o
+}
+
+// SetWWWAuthenticate sets the wWWAuthenticate to the signing cert unauthorized response
+func (o *SigningCertUnauthorized) SetWWWAuthenticate(wWWAuthenticate string) {
+	o.WWWAuthenticate = wWWAuthenticate
+}
+
 // WithPayload adds the payload to the signing cert unauthorized response
-func (o *SigningCertUnauthorized) WithPayload(payload string) *SigningCertUnauthorized {
+func (o *SigningCertUnauthorized) WithPayload(payload *models.Error) *SigningCertUnauthorized {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the signing cert unauthorized response
-func (o *SigningCertUnauthorized) SetPayload(payload string) {
+func (o *SigningCertUnauthorized) SetPayload(payload *models.Error) {
 	o.Payload = payload
 }
 
 // WriteResponse to the client
 func (o *SigningCertUnauthorized) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	// response header Content-Type
+
+	contentType := o.ContentType
+	if contentType != "" {
+		rw.Header().Set("Content-Type", contentType)
+	}
+
+	// response header WWW-Authenticate
+
+	wWWAuthenticate := o.WWWAuthenticate
+	if wWWAuthenticate != "" {
+		rw.Header().Set("WWW-Authenticate", wWWAuthenticate)
+	}
+
 	rw.WriteHeader(401)
-	payload := o.Payload
-	if err := producer.Produce(rw, payload); err != nil {
-		panic(err) // let the recovery middleware deal with this
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
 	}
 }
 
-// SigningCertInternalServerErrorCode is the HTTP code returned for type SigningCertInternalServerError
-const SigningCertInternalServerErrorCode int = 500
+/*SigningCertDefault There was an internal error in the server while processing the request
 
-/*SigningCertInternalServerError Server error
-
-swagger:response signingCertInternalServerError
+swagger:response signingCertDefault
 */
-type SigningCertInternalServerError struct {
+type SigningCertDefault struct {
+	_statusCode int
+	/*
+
+	 */
+	ContentType string `json:"Content-Type"`
 
 	/*
 	  In: Body
 	*/
-	Payload string `json:"body,omitempty"`
+	Payload *models.Error `json:"body,omitempty"`
 }
 
-// NewSigningCertInternalServerError creates SigningCertInternalServerError with default headers values
-func NewSigningCertInternalServerError() *SigningCertInternalServerError {
+// NewSigningCertDefault creates SigningCertDefault with default headers values
+func NewSigningCertDefault(code int) *SigningCertDefault {
+	if code <= 0 {
+		code = 500
+	}
 
-	return &SigningCertInternalServerError{}
+	return &SigningCertDefault{
+		_statusCode: code,
+	}
 }
 
-// WithPayload adds the payload to the signing cert internal server error response
-func (o *SigningCertInternalServerError) WithPayload(payload string) *SigningCertInternalServerError {
+// WithStatusCode adds the status to the signing cert default response
+func (o *SigningCertDefault) WithStatusCode(code int) *SigningCertDefault {
+	o._statusCode = code
+	return o
+}
+
+// SetStatusCode sets the status to the signing cert default response
+func (o *SigningCertDefault) SetStatusCode(code int) {
+	o._statusCode = code
+}
+
+// WithContentType adds the contentType to the signing cert default response
+func (o *SigningCertDefault) WithContentType(contentType string) *SigningCertDefault {
+	o.ContentType = contentType
+	return o
+}
+
+// SetContentType sets the contentType to the signing cert default response
+func (o *SigningCertDefault) SetContentType(contentType string) {
+	o.ContentType = contentType
+}
+
+// WithPayload adds the payload to the signing cert default response
+func (o *SigningCertDefault) WithPayload(payload *models.Error) *SigningCertDefault {
 	o.Payload = payload
 	return o
 }
 
-// SetPayload sets the payload to the signing cert internal server error response
-func (o *SigningCertInternalServerError) SetPayload(payload string) {
+// SetPayload sets the payload to the signing cert default response
+func (o *SigningCertDefault) SetPayload(payload *models.Error) {
 	o.Payload = payload
 }
 
 // WriteResponse to the client
-func (o *SigningCertInternalServerError) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+func (o *SigningCertDefault) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.WriteHeader(500)
-	payload := o.Payload
-	if err := producer.Produce(rw, payload); err != nil {
-		panic(err) // let the recovery middleware deal with this
+	// response header Content-Type
+
+	contentType := o.ContentType
+	if contentType != "" {
+		rw.Header().Set("Content-Type", contentType)
+	}
+
+	rw.WriteHeader(o._statusCode)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
 	}
 }

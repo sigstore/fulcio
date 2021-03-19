@@ -130,7 +130,9 @@ func getCodeFromLocalServer(state string, redirectURL *url.URL) (string, error) 
 		Handler: m,
 	}
 	defer func() {
-		_ = s.Shutdown(context.Background())
+		go func() {
+			_ = s.Shutdown(context.Background())
+		}()
 	}()
 
 	go func() {
@@ -141,10 +143,10 @@ func getCodeFromLocalServer(state string, redirectURL *url.URL) (string, error) 
 				errCh <- errors.New("invalid state token")
 				return
 			}
-			doneCh <- r.FormValue("code")
 			fmt.Fprint(w, htmlPage)
+			doneCh <- r.FormValue("code")
 		})
-		if err := s.ListenAndServe(); err != nil {
+		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
 	}()

@@ -22,13 +22,12 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/middleware"
 	goaerrors "github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -39,6 +38,7 @@ import (
 	pkgapi "github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/fulcio/pkg/oauthflow"
 )
 
 //go:generate swagger generate server --target ../../generated --name FulcioServer --spec ../../../openapi.yaml --principal interface{} --exclude-main
@@ -62,33 +62,32 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// api.UseRedoc()
 
 	api.JSONConsumer = runtime.JSONConsumer()
-	api.JSONProducer = runtime.JSONProducer()
+	api.ApplicationPemCertificateChainProducer = runtime.TextProducer()
 
+	// OIDC objects used for authentication
 	provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
 	if err != nil {
 		log.Logger.Panic(err)
 	}
-	api.BearerAuth = func(token string) (interface{}, error) {
+	verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
+
+	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
+
 		token = strings.Replace(token, "Bearer ", "", 1)
-		verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
 
 		idToken, err := verifier.Verify(context.Background(), token)
 		if err != nil {
-			return nil, err
+			return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
 		}
 
-		// Extract custom claims
-		var claims struct {
-			Email    string `json:"email"`
-			Verified bool   `json:"email_verified"`
+		if _, ok, err := oauthflow.EmailFromIDToken(idToken); !ok || err != nil {
+			if err != nil {
+				return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
+			}
+			return nil, goaerrors.New(http.StatusUnauthorized, "email has not been verified with token issuer")
 		}
-		if err := idToken.Claims(&claims); err != nil {
-			return nil, err
-		}
-		if !claims.Verified {
-			return nil, errors.New("email not verified by identity provider")
-		}
-		return claims.Email, nil
+
+		return idToken, nil
 	}
 	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
@@ -174,6 +173,15 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	requestFields := map[string]interface{}{}
 	if err := mapstructure.Decode(r, &requestFields); err == nil {
 		log.RequestIDLogger(r).Debug(requestFields)
+	}
+	// errors should always be in JSON
+	w.Header()["Content-Type"] = []string{"application/json"}
+	if e, ok := err.(goaerrors.Error); ok && e.Code() == http.StatusUnauthorized {
+		// this is set directly so the header name is not canonicalized
+		w.Header()["WWW-Authenticate"] = []string{"Bearer realm=\"fulcio.sigstore.dev\",scope=\"openid email\""}
+		w.WriteHeader(int(e.Code()))
+		// mask actual auth reason from client
+		err = goaerrors.New(e.Code(), "authentication credentials could not be validated")
 	}
 	goaerrors.ServeError(w, r, err)
 }

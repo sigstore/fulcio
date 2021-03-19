@@ -23,12 +23,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 
@@ -40,8 +40,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 	"github.com/spf13/viper"
 )
 
@@ -58,14 +60,6 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		pk, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-		if err != nil {
-			return err
-		}
-		pubBytes, err := x509.MarshalPKIXPublicKey(&pk.PublicKey)
-		if err != nil {
-			return err
-		}
 		provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
 		if err != nil {
 			return err
@@ -95,12 +89,23 @@ var rootCmd = &cobra.Command{
 		}
 
 		fmt.Println(claims.Email)
+		// Generate key pair
+		pk, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		if err != nil {
+			return err
+		}
+		pubBytes, err := x509.MarshalPKIXPublicKey(&pk.PublicKey)
+		if err != nil {
+			return err
+		}
+		pubBytesB64 := strfmt.Base64(pubBytes)
 		// Sign the email address as part of the request
 		h := sha256.Sum256([]byte(claims.Email))
 		proof, err := ecdsa.SignASN1(rand.Reader, pk, h[:])
 		if err != nil {
 			return err
 		}
+		proofB64 := strfmt.Base64(proof)
 		fcli, err := GetFulcioClient(fulcioAddr)
 		if err != nil {
 			return err
@@ -109,19 +114,33 @@ var rootCmd = &cobra.Command{
 		bearerAuth := httptransport.BearerToken(idToken.RawString)
 
 		params := operations.NewSigningCertParams()
-		params.SetSubmitcsr(&models.Submit{
-			Pub:   strfmt.Base64(base64.StdEncoding.EncodeToString(pubBytes)),
-			Proof: strfmt.Base64(base64.StdEncoding.EncodeToString(proof)),
+		params.SetCertificateRequest(&models.CertificateRequest{
+			PublicKey: &models.CertificateRequestPublicKey{
+				Content:   &pubBytesB64,
+				Algorithm: swag.String(models.CertificateRequestPublicKeyAlgorithmEcdsa),
+			},
+			SignedEmailAddress: &proofB64,
 		})
 		resp, err := fcli.Operations.SigningCert(params, bearerAuth)
 		if err != nil {
 			return err
 		}
-		fmt.Println(resp.Payload.Certificate)
-		fmt.Println("-----CHAIN-----")
-		for _, c := range resp.Payload.Chain {
-			fmt.Println(c)
+
+		outputFileStr := viper.GetString("output")
+		outputFile := os.Stdout
+		if outputFileStr != "-" {
+			var err error
+			outputFile, err = os.Create(filepath.Clean(outputFileStr))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer func() {
+				if err := outputFile.Close(); err != nil {
+					fmt.Fprint(os.Stderr, err)
+				}
+			}()
 		}
+		fmt.Fprint(outputFile, resp.Payload)
 
 		return nil
 	},
@@ -134,6 +153,7 @@ func GetFulcioClient(addr string) (*client.Fulcio, error) {
 	}
 
 	rt := httptransport.New(url.Host, client.DefaultBasePath, []string{url.Scheme})
+	rt.Consumers["application/pem-certificate-chain"] = runtime.TextConsumer()
 	return client.New(rt, strfmt.Default), nil
 }
 
@@ -152,6 +172,7 @@ func init() {
 	rootCmd.PersistentFlags().String("oidc-client-id", "237800849078-rmntmr1b2tcu20kpid66q5dbh1vdt7aj.apps.googleusercontent.com", "client ID for application")
 	// THIS IS NOT A SECRET - IT IS USED IN THE NATIVE/DESKTOP FLOW.
 	rootCmd.PersistentFlags().String("oidc-client-secret", "CkkuDoCgE2D_CCRRMyF_UIhS", "client secret for application")
+	rootCmd.PersistentFlags().StringP("output", "o", "-", "output file to write certificate chain to")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Println(err)

@@ -58,15 +58,15 @@ func (o *SigningCertReader) ReadResponse(response runtime.ClientResponse, consum
 			return nil, err
 		}
 		return nil, result
-	case 500:
-		result := NewSigningCertInternalServerError()
+	default:
+		result := NewSigningCertDefault(response.Code())
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
+		if response.Code()/100 == 2 {
+			return result, nil
+		}
 		return nil, result
-
-	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -77,26 +77,24 @@ func NewSigningCertCreated() *SigningCertCreated {
 
 /*SigningCertCreated handles this case with default header values.
 
-Successful CSR Submit
+Generated Certificate Chain
 */
 type SigningCertCreated struct {
-	Payload *models.SubmitSuccess
+	Payload string
 }
 
 func (o *SigningCertCreated) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCertCreated  %+v", 201, o.Payload)
 }
 
-func (o *SigningCertCreated) GetPayload() *models.SubmitSuccess {
+func (o *SigningCertCreated) GetPayload() string {
 	return o.Payload
 }
 
 func (o *SigningCertCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.SubmitSuccess)
-
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 
@@ -110,16 +108,33 @@ func NewSigningCertBadRequest() *SigningCertBadRequest {
 
 /*SigningCertBadRequest handles this case with default header values.
 
-Bad Request
+The content supplied to the server was invalid
 */
 type SigningCertBadRequest struct {
+	ContentType string
+
+	Payload *models.Error
 }
 
 func (o *SigningCertBadRequest) Error() string {
-	return fmt.Sprintf("[POST /signingCert][%d] signingCertBadRequest ", 400)
+	return fmt.Sprintf("[POST /signingCert][%d] signingCertBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *SigningCertBadRequest) GetPayload() *models.Error {
+	return o.Payload
 }
 
 func (o *SigningCertBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response header Content-Type
+	o.ContentType = response.GetHeader("Content-Type")
+
+	o.Payload = new(models.Error)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
@@ -131,55 +146,84 @@ func NewSigningCertUnauthorized() *SigningCertUnauthorized {
 
 /*SigningCertUnauthorized handles this case with default header values.
 
-Unauthorized
+The request could not be authorized
 */
 type SigningCertUnauthorized struct {
-	Payload string
+	ContentType string
+	/*Information about required authentication to access server
+	 */
+	WWWAuthenticate string
+
+	Payload *models.Error
 }
 
 func (o *SigningCertUnauthorized) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCertUnauthorized  %+v", 401, o.Payload)
 }
 
-func (o *SigningCertUnauthorized) GetPayload() string {
+func (o *SigningCertUnauthorized) GetPayload() *models.Error {
 	return o.Payload
 }
 
 func (o *SigningCertUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
+	// response header Content-Type
+	o.ContentType = response.GetHeader("Content-Type")
+
+	// response header WWW-Authenticate
+	o.WWWAuthenticate = response.GetHeader("WWW-Authenticate")
+
+	o.Payload = new(models.Error)
+
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 
 	return nil
 }
 
-// NewSigningCertInternalServerError creates a SigningCertInternalServerError with default headers values
-func NewSigningCertInternalServerError() *SigningCertInternalServerError {
-	return &SigningCertInternalServerError{}
+// NewSigningCertDefault creates a SigningCertDefault with default headers values
+func NewSigningCertDefault(code int) *SigningCertDefault {
+	return &SigningCertDefault{
+		_statusCode: code,
+	}
 }
 
-/*SigningCertInternalServerError handles this case with default header values.
+/*SigningCertDefault handles this case with default header values.
 
-Server error
+There was an internal error in the server while processing the request
 */
-type SigningCertInternalServerError struct {
-	Payload string
+type SigningCertDefault struct {
+	_statusCode int
+
+	ContentType string
+
+	Payload *models.Error
 }
 
-func (o *SigningCertInternalServerError) Error() string {
-	return fmt.Sprintf("[POST /signingCert][%d] signingCertInternalServerError  %+v", 500, o.Payload)
+// Code gets the status code for the signing cert default response
+func (o *SigningCertDefault) Code() int {
+	return o._statusCode
 }
 
-func (o *SigningCertInternalServerError) GetPayload() string {
+func (o *SigningCertDefault) Error() string {
+	return fmt.Sprintf("[POST /signingCert][%d] signingCert default  %+v", o._statusCode, o.Payload)
+}
+
+func (o *SigningCertDefault) GetPayload() *models.Error {
 	return o.Payload
 }
 
-func (o *SigningCertInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+func (o *SigningCertDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response header Content-Type
+	o.ContentType = response.GetHeader("Content-Type")
+
+	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 
