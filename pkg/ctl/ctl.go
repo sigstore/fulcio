@@ -16,10 +16,7 @@ limitations under the License.
 package ctl
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -95,53 +92,28 @@ func (c *Client) AddPreChain(ctx context.Context, leaf string, chain []string) (
 	return sct, nil
 }
 
-func (c *Client) AddChain(leaf string, chain []string, addChainPath string) (*certChainResponse, error) {
+func (c *Client) AddChain(ctx context.Context, leaf string, chain []string) (*ct.SignedCertificateTimestamp, error) {
+	tclient, err := logclient.New(c.url, c.c, jsonclient.Options{})
+	if err != nil {
+		return nil, errors.Wrap(err, "getting client")
+	}
+
 	// Build the PEM Chain {root, client}
 	leafblock, _ := pem.Decode([]byte(leaf))
-
-	chainjson := &certChain{Chain: []string{
-		base64.StdEncoding.EncodeToString(leafblock.Bytes),
-	}}
+	var codeChain []ct.ASN1Cert
+	codeChain = append(codeChain, ct.ASN1Cert{
+		Data: leafblock.Bytes,
+	})
 
 	for _, c := range chain {
-		pb, _ := pem.Decode([]byte(c))
-		chainjson.Chain = append(chainjson.Chain, base64.StdEncoding.EncodeToString(pb.Bytes))
+		decoded, _ := pem.Decode([]byte(c))
+		codeChain = append(codeChain, ct.ASN1Cert{
+			Data: []byte(decoded.Bytes),
+		})
 	}
-	jsonStr, err := json.Marshal(chainjson)
+	sct, err := tclient.AddChain(ctx, codeChain)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "adding pre chain")
 	}
-
-	// Send to add-chain on CT log
-	url := fmt.Sprintf("%s/%s", c.url, addChainPath)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	switch resp.StatusCode {
-	case 200:
-		var ctlResp certChainResponse
-		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
-			return nil, err
-		}
-		return &ctlResp, nil
-	case 400, 401, 403, 500:
-		var errRes ErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errRes); err != nil {
-			return nil, err
-		}
-
-		if errRes.StatusCode == 0 {
-			errRes.StatusCode = resp.StatusCode
-		}
-		return nil, &errRes
-	default:
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
+	return sct, nil
 }

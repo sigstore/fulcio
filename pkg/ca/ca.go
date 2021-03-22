@@ -21,11 +21,14 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/asn1"
-	"errors"
 	"sync"
 
+	"github.com/google/certificate-transparency-go/asn1"
+
+	ct "github.com/google/certificate-transparency-go"
+	cttls "github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/generated/models"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
@@ -61,69 +64,26 @@ func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string
 	return nil
 }
 
-func PrecertReq(parent, email string, publicKeyPEM []byte) *privatecapb.CreateCertificateRequest {
-	return &privatecapb.CreateCertificateRequest{
-		Parent: parent,
-		Certificate: &privatecapb.Certificate{
-			Lifetime: &durationpb.Duration{Seconds: 20 * 60},
-			CertificateConfig: &privatecapb.Certificate_Config{
-				Config: &privatecapb.CertificateConfig{
-					PublicKey: &privatecapb.PublicKey{
-						Type: privatecapb.PublicKey_PEM_EC_KEY,
-						Key:  publicKeyPEM,
-					},
-					ReusableConfig: &privatecapb.ReusableConfigWrapper{
-						ConfigValues: &privatecapb.ReusableConfigWrapper_ReusableConfigValues{
-							ReusableConfigValues: &privatecapb.ReusableConfigValues{
-								KeyUsage: &privatecapb.KeyUsage{
-									BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
-										DigitalSignature: true,
-									},
-									ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
-										CodeSigning: true,
-									},
-								},
-								AdditionalExtensions: []*privatecapb.X509Extension{
-									// poison extension to mark this as a precert
-									getPoisonExtension(),
-								},
-							},
-						},
-					},
-					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
-						CommonName: email,
-						SubjectAltName: &privatecapb.SubjectAltNames{
-							EmailAddresses: []string{email},
-						},
-						Subject: &privatecapb.Subject{
-							Organization: email,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func getPoisonExtension() *privatecapb.X509Extension {
+func PoisonExtension() []*privatecapb.X509Extension {
 	poison := x509.OIDExtensionCTPoison
-	// poison is []int, convert to []int32
-	var pExt []int32
-	for _, p := range poison {
-		pExt = append(pExt, int32(p))
-	}
-
-	return &privatecapb.X509Extension{
+	return []*privatecapb.X509Extension{{
 		ObjectId: &privatecapb.ObjectId{
-			ObjectIdPath: pExt,
+			ObjectIdPath: convertASN1ObjectToObjectID(poison),
 		},
 		Critical: true,
 		Value:    asn1.NullBytes,
-	}
+	}}
 }
 
-func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
-	// TODO, use the right fields :)
+func convertASN1ObjectToObjectID(a asn1.ObjectIdentifier) []int32 {
+	var ext []int32
+	for _, p := range a {
+		ext = append(ext, int32(p))
+	}
+	return ext
+}
+
+func Req(parent, email string, pemBytes []byte, extensions []*privatecapb.X509Extension) *privatecapb.CreateCertificateRequest {
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -145,6 +105,7 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 										CodeSigning: true,
 									},
 								},
+								AdditionalExtensions: extensions,
 							},
 						},
 					},
@@ -161,4 +122,30 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 			},
 		},
 	}
+}
+
+func SCTListExtensions(scts []ct.SignedCertificateTimestamp) ([]*privatecapb.X509Extension, error) {
+	list := x509.SignedCertificateTimestampList{}
+	for _, sct := range scts {
+		sctBytes, err := cttls.Marshal(sct)
+		if err != nil {
+			return nil, err
+		}
+		list.SCTList = append(list.SCTList, x509.SerializedSCT{Val: sctBytes})
+	}
+	listBytes, err := cttls.Marshal(list)
+	if err != nil {
+		return nil, err
+	}
+	extBytes, err := asn1.Marshal(listBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*privatecapb.X509Extension{{
+		ObjectId: &privatecapb.ObjectId{
+			ObjectIdPath: convertASN1ObjectToObjectID(x509.OIDExtensionCTSCT),
+		},
+		Value: extBytes,
+	}}, nil
 }

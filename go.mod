@@ -15,6 +15,7 @@ require (
 	github.com/go-openapi/swag v0.19.14
 	github.com/go-openapi/validate v0.20.2
 	github.com/google/certificate-transparency-go v1.1.1 // indirect
+	github.com/letsencrypt/boulder v0.0.0-20210320004905-cdce9f0f2f0d // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
@@ -34,7 +35,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.0.2 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
 	google.golang.org/genproto v0.0.0-20210310155132-4ce2db91004e
