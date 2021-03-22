@@ -80,7 +80,8 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		Bytes: *publicKey.Content,
 		Type:  "PUBLIC KEY",
 	})
-	ctx, _ = context.WithDeadline(ctx, time.Now().Add(20*time.Second))
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(20*time.Second))
+	defer cancel()
 	parent := viper.GetString("gcp_private_ca_parent")
 
 	// Now issue precert!

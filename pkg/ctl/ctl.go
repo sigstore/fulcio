@@ -44,14 +44,6 @@ type certChain struct {
 	Chain []string `json:"chain"`
 }
 
-type certChainResponse struct {
-	SctVersion int    `json:"sct_version"`
-	ID         string `json:"id"`
-	Timestamp  int64  `json:"timestamp"`
-	Extensions string `json:"extensions"`
-	Signature  string `json:"signature"`
-}
-
 type ErrorResponse struct {
 	StatusCode int    `json:"statusCode"`
 	ErrorCode  string `json:"errorCode"`
