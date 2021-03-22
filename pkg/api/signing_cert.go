@@ -17,17 +17,20 @@ limitations under the License.
 package api
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
-	"strings"
+	"time"
+
+	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/pkg/errors"
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/models"
@@ -74,37 +77,58 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		Bytes: *publicKey.Content,
 		Type:  "PUBLIC KEY",
 	})
-	// Now issue cert!
-
+	ctx, _ = context.WithDeadline(ctx, time.Now().Add(20*time.Second))
 	parent := viper.GetString("gcp_private_ca_parent")
 
-	req := fca.Req(parent, emailAddress, publicKeyPEM)
+	// Now issue precert!
+	precert, sct, err := issuePrecert(ctx, parent, emailAddress, publicKeyPEM)
+	if err != nil {
+		return handleFulcioAPIError(params, http.StatusBadRequest, err, failedToCreatePrecert)
+	}
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~ successfully issued a precert!")
+	fmt.Println(precert.EmailAddresses, sct.Timestamp)
+
+	// Strip out the poison extension and embed the new SCT into the cert
+
+	// var ret strings.Builder
+	// fmt.Fprintf(&ret, "%s\n", resp.PemCertificate)
+	// for _, cert := range resp.PemCertificateChain {
+	// 	fmt.Fprintf(&ret, "%s\n", cert)
+	// }
+
+	//TODO: return SCT and SCT URL
+	// return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+	return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
+}
+
+func issuePrecert(ctx context.Context, parent, emailAddress string, publicKeyPEM []byte) (*x509.Certificate, *ct.SignedCertificateTimestamp, error) {
+	precertReq := fca.PrecertReq(parent, emailAddress, publicKeyPEM)
 	log.Logger.Infof("requesting cert from %s for %s", parent, emailAddress)
 
-  resp, err := fca.Client().CreateCertificate(ctx, req)
+	resp, err := fca.Client().CreateCertificate(ctx, precertReq)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return nil, nil, errors.Wrap(err, "creating precert")
 	}
 
-	// Submit to CTL
+	derBytes, _ := pem.Decode([]byte(resp.GetPemCertificate()))
+	precert, err := x509.ParseCertificate(derBytes.Bytes)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "parsing precert")
+	}
+	if !precert.IsPrecertificate() {
+		return nil, nil, errors.Wrap(err, "precert is not valid")
+	}
+	// Submit the precert to CTL
 	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
 	ctURL := viper.GetString("ct-log-url")
 	c := ctl.New(ctURL)
-	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
+	sct, err := c.AddPreChain(ctx, resp.GetPemCertificate(), resp.GetPemCertificateChain())
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
+		return nil, nil, errors.Wrap(err, "adding prechain to CTL")
 	}
-	log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
-	log.Logger.Info("CTL Submission ID Received: ", ct.ID)
+	log.Logger.Info("CTL Submission Signature Received: ", sct.Signature)
+	log.Logger.Info("CTL Submission ID Received: ", string(sct.LogID.KeyID[:]))
 
 	metricNewEntries.Inc()
-
-	var ret strings.Builder
-	fmt.Fprintf(&ret, "%s\n", resp.PemCertificate)
-	for _, cert := range resp.PemCertificateChain {
-		fmt.Fprintf(&ret, "%s\n", cert)
-	}
-
-	//TODO: return SCT and SCT URL
-	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+	return precert, sct, nil
 }

@@ -21,11 +21,13 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/asn1"
 	"errors"
 	"sync"
 
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/generated/models"
-	
+
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -57,6 +59,67 @@ func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string
 		}
 	}
 	return nil
+}
+
+func PrecertReq(parent, email string, publicKeyPEM []byte) *privatecapb.CreateCertificateRequest {
+	return &privatecapb.CreateCertificateRequest{
+		Parent: parent,
+		Certificate: &privatecapb.Certificate{
+			Lifetime: &durationpb.Duration{Seconds: 20 * 60},
+			CertificateConfig: &privatecapb.Certificate_Config{
+				Config: &privatecapb.CertificateConfig{
+					PublicKey: &privatecapb.PublicKey{
+						Type: privatecapb.PublicKey_PEM_EC_KEY,
+						Key:  publicKeyPEM,
+					},
+					ReusableConfig: &privatecapb.ReusableConfigWrapper{
+						ConfigValues: &privatecapb.ReusableConfigWrapper_ReusableConfigValues{
+							ReusableConfigValues: &privatecapb.ReusableConfigValues{
+								KeyUsage: &privatecapb.KeyUsage{
+									BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
+										DigitalSignature: true,
+									},
+									ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
+										CodeSigning: true,
+									},
+								},
+								AdditionalExtensions: []*privatecapb.X509Extension{
+									// poison extension to mark this as a precert
+									getPoisonExtension(),
+								},
+							},
+						},
+					},
+					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
+						CommonName: email,
+						SubjectAltName: &privatecapb.SubjectAltNames{
+							EmailAddresses: []string{email},
+						},
+						Subject: &privatecapb.Subject{
+							Organization: email,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getPoisonExtension() *privatecapb.X509Extension {
+	poison := x509.OIDExtensionCTPoison
+	// poison is []int, convert to []int32
+	var pExt []int32
+	for _, p := range poison {
+		pExt = append(pExt, int32(p))
+	}
+
+	return &privatecapb.X509Extension{
+		ObjectId: &privatecapb.ObjectId{
+			ObjectIdPath: pExt,
+		},
+		Critical: true,
+		Value:    asn1.NullBytes,
+	}
 }
 
 func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {

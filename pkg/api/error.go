@@ -30,6 +30,7 @@ import (
 const (
 	malformedPublicKey     = "The public key supplied in the request could not be parsed"
 	invalidSignature       = "The signature supplied in the request could not be verified"
+	failedToCreatePrecert  = "Error creating precertificate"
 	failedToCreateCert     = "Error creating certificate"
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	invalidCredentials     = "There was an error processing the credentials for this request"
