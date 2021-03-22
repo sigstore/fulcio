@@ -86,12 +86,12 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	// Now issue precert!
 	sct, err := issuePrecert(ctx, parent, emailAddress, publicKeyPEM)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, failedToCreatePrecert)
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreatePrecert)
 	}
 	log.Logger.Info("Successfully issued precert")
 	resp, err := issueCert(ctx, sct, parent, emailAddress, publicKeyPEM)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, failedToCreateCert)
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
 	log.Logger.Info("Successfully issued certificate based on precert")
 

@@ -65,7 +65,7 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) Add(leaf string, chain []string, apiPath string) (*ct.SignedCertificateTimestamp, error) {
+func (c *Client) Add(leaf string, chain []string, apiEndpoint string) (*ct.SignedCertificateTimestamp, error) {
 	// Build the PEM Chain {root, client}
 	leafblock, _ := pem.Decode([]byte(leaf))
 
@@ -82,8 +82,8 @@ func (c *Client) Add(leaf string, chain []string, apiPath string) (*ct.SignedCer
 		return nil, err
 	}
 
-	// Send to add-chain on CT log
-	url := fmt.Sprintf("%s%s", c.url, apiPath)
+	// Send to correct endpoint on CT log (could be add-chain or add-prechain)
+	url := fmt.Sprintf("%s%s", c.url, apiEndpoint)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err

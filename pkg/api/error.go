@@ -28,14 +28,13 @@ import (
 )
 
 const (
-	malformedPublicKey      = "The public key supplied in the request could not be parsed"
-	invalidSignature        = "The signature supplied in the request could not be verified"
-	failedToCreatePrecert   = "Error creating precertificate"
-	buildingCertFromPrecert = "Error building cert from precertificate"
-	failedToCreateCert      = "Error creating certificate"
-	failedToEnterCertInCTL  = "Error entering certificate in CTL @ '%v'"
-	invalidCredentials      = "There was an error processing the credentials for this request"
-	emailNotVerified        = "The identity provider reported that the email address for this request has not be verified"
+	malformedPublicKey     = "The public key supplied in the request could not be parsed"
+	invalidSignature       = "The signature supplied in the request could not be verified"
+	failedToCreatePrecert  = "Error creating precertificate"
+	failedToCreateCert     = "Error creating certificate"
+	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
+	invalidCredentials     = "There was an error processing the credentials for this request"
+	emailNotVerified       = "The identity provider reported that the email address for this request has not be verified"
 )
 
 func errorMsg(message string, code int) *models.Error {
