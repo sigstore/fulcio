@@ -16,16 +16,15 @@ limitations under the License.
 package ctl
 
 import (
-	"context"
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
-	logclient "github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/pkg/errors"
 )
 
 type Client struct {
@@ -66,54 +65,53 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) AddPreChain(ctx context.Context, leaf string, chain []string) (*ct.SignedCertificateTimestamp, error) {
-	tclient, err := logclient.New(c.url, c.c, jsonclient.Options{})
-	if err != nil {
-		return nil, errors.Wrap(err, "getting client")
-	}
-
+func (c *Client) Add(leaf string, chain []string, apiPath string) (*ct.SignedCertificateTimestamp, error) {
 	// Build the PEM Chain {root, client}
 	leafblock, _ := pem.Decode([]byte(leaf))
-	var codeChain []ct.ASN1Cert
-	codeChain = append(codeChain, ct.ASN1Cert{
-		Data: leafblock.Bytes,
-	})
+
+	chainjson := &certChain{Chain: []string{
+		base64.StdEncoding.EncodeToString(leafblock.Bytes),
+	}}
 
 	for _, c := range chain {
-		decoded, _ := pem.Decode([]byte(c))
-		codeChain = append(codeChain, ct.ASN1Cert{
-			Data: []byte(decoded.Bytes),
-		})
+		pb, _ := pem.Decode([]byte(c))
+		chainjson.Chain = append(chainjson.Chain, base64.StdEncoding.EncodeToString(pb.Bytes))
 	}
-	sct, err := tclient.AddPreChain(ctx, codeChain)
+	jsonStr, err := json.Marshal(chainjson)
 	if err != nil {
-		return nil, errors.Wrap(err, "adding pre chain")
-	}
-	return sct, nil
-}
-
-func (c *Client) AddChain(ctx context.Context, leaf string, chain []string) (*ct.SignedCertificateTimestamp, error) {
-	tclient, err := logclient.New(c.url, c.c, jsonclient.Options{})
-	if err != nil {
-		return nil, errors.Wrap(err, "getting client")
+		return nil, err
 	}
 
-	// Build the PEM Chain {root, client}
-	leafblock, _ := pem.Decode([]byte(leaf))
-	var codeChain []ct.ASN1Cert
-	codeChain = append(codeChain, ct.ASN1Cert{
-		Data: leafblock.Bytes,
-	})
-
-	for _, c := range chain {
-		decoded, _ := pem.Decode([]byte(c))
-		codeChain = append(codeChain, ct.ASN1Cert{
-			Data: []byte(decoded.Bytes),
-		})
-	}
-	sct, err := tclient.AddChain(ctx, codeChain)
+	// Send to add-chain on CT log
+	url := fmt.Sprintf("%s%s", c.url, apiPath)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		return nil, errors.Wrap(err, "adding pre chain")
+		return nil, err
 	}
-	return sct, nil
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		var ctlResp ct.SignedCertificateTimestamp
+		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
+			return nil, err
+		}
+		return &ctlResp, nil
+	case 400, 401, 403, 500:
+		var errRes ErrorResponse
+		if err := json.NewDecoder(resp.Body).Decode(&errRes); err != nil {
+			return nil, err
+		}
+
+		if errRes.StatusCode == 0 {
+			errRes.StatusCode = resp.StatusCode
+		}
+		return nil, &errRes
+	default:
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
 }

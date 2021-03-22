@@ -124,6 +124,8 @@ func Req(parent, email string, pemBytes []byte, extensions []*privatecapb.X509Ex
 	}
 }
 
+// SCTListExtensions converts the SCT extension between types
+// For more info, look at https://github.com/letsencrypt/boulder/blob/54b697d51b9f63cfd6055577cd317d4096aeab08/issuance/issuance.go#L497
 func SCTListExtensions(scts []ct.SignedCertificateTimestamp) ([]*privatecapb.X509Extension, error) {
 	list := x509.SignedCertificateTimestampList{}
 	for _, sct := range scts {

@@ -105,6 +105,34 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
 }
 
+func issuePrecert(ctx context.Context, parent, emailAddress string, publicKeyPEM []byte) (*ct.SignedCertificateTimestamp, error) {
+	extensions := fca.PoisonExtension()
+	precertReq := fca.Req(parent, emailAddress, publicKeyPEM, extensions)
+	log.Logger.Infof("requesting precert from %s for %s", parent, emailAddress)
+
+	resp, err := fca.Client().CreateCertificate(ctx, precertReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating precert")
+	}
+
+	derBytes, _ := pem.Decode([]byte(resp.GetPemCertificate()))
+	precert, err := x509.ParseCertificate(derBytes.Bytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing precert")
+	}
+	if !precert.IsPrecertificate() {
+		return nil, errors.Wrap(err, "precert is not valid")
+	}
+	// Submit the precert to CTL
+	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
+	sct, err := submitCertToCTL(resp, ct.AddPreChainPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "submitting precert to CTL")
+	}
+	metricNewEntries.Inc()
+	return sct, nil
+}
+
 func issueCert(ctx context.Context, sct *ct.SignedCertificateTimestamp, parent, emailAddress string, publicKeyPEM []byte) (*privatecapb.Certificate, error) {
 	extensions, err := fca.SCTListExtensions([]ct.SignedCertificateTimestamp{*sct})
 	if err != nil {
@@ -126,49 +154,21 @@ func issueCert(ctx context.Context, sct *ct.SignedCertificateTimestamp, parent, 
 	}
 	// Submit the precert to CTL
 	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
-	ctURL := viper.GetString("ct-log-url")
-	c := ctl.New(ctURL)
-	certSCT, err := c.AddChain(ctx, resp.GetPemCertificate(), resp.GetPemCertificateChain())
-	if err != nil {
-		return nil, errors.Wrap(err, "adding chain to CTL")
+	if _, err := submitCertToCTL(resp, ct.AddChainPath); err != nil {
+		return nil, errors.Wrap(err, "submitting precert to CTL")
 	}
-	log.Logger.Info("CTL Submission Signature Received: ", certSCT.Signature)
-	log.Logger.Info("CTL Submission ID Received: ", string(certSCT.LogID.KeyID[:]))
-
 	metricNewEntries.Inc()
-
 	return resp, nil
 }
 
-func issuePrecert(ctx context.Context, parent, emailAddress string, publicKeyPEM []byte) (*ct.SignedCertificateTimestamp, error) {
-	extensions := fca.PoisonExtension()
-	precertReq := fca.Req(parent, emailAddress, publicKeyPEM, extensions)
-	log.Logger.Infof("requesting precert from %s for %s", parent, emailAddress)
-
-	resp, err := fca.Client().CreateCertificate(ctx, precertReq)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating precert")
-	}
-
-	derBytes, _ := pem.Decode([]byte(resp.GetPemCertificate()))
-	precert, err := x509.ParseCertificate(derBytes.Bytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "parsing precert")
-	}
-	if !precert.IsPrecertificate() {
-		return nil, errors.Wrap(err, "precert is not valid")
-	}
-	// Submit the precert to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
+func submitCertToCTL(resp *privatecapb.Certificate, apiPath string) (*ct.SignedCertificateTimestamp, error) {
 	ctURL := viper.GetString("ct-log-url")
 	c := ctl.New(ctURL)
-	sct, err := c.AddPreChain(ctx, resp.GetPemCertificate(), resp.GetPemCertificateChain())
+	sct, err := c.Add(resp.GetPemCertificate(), resp.GetPemCertificateChain(), apiPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "adding prechain to CTL")
 	}
 	log.Logger.Info("CTL Submission Signature Received: ", sct.Signature)
 	log.Logger.Info("CTL Submission ID Received: ", string(sct.LogID.KeyID[:]))
-
-	metricNewEntries.Inc()
 	return sct, nil
 }
