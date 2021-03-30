@@ -29,6 +29,17 @@ The fulcio root cert is currently:
 
 We **WILL** change this and add intermediaries in the future.
 
+## Build for development
+
+After cloning the repository:
+
+```
+$ go get -u github.com/go-swagger/go-swagger/cmd/swagger@v0.26.1
+$ make
+```
+
+There are other targets available in the [`Makefile`](Makefile), check it out.
+
 ## API
 
 The API is defined via OpenAPI, defined [here](openapi.yaml).
