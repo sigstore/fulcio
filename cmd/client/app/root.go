@@ -167,6 +167,7 @@ func Execute() {
 }
 
 func init() {
+
 	rootCmd.PersistentFlags().StringVar(&fulcioAddr, "fulcio_address", "http://127.0.0.1:5555", "address of fulcio server")
 	rootCmd.PersistentFlags().String("oidc-issuer", "https://oauth2.sigstore.dev/auth", "OIDC provider to be used to issue ID token")
 	rootCmd.PersistentFlags().String("oidc-client-id", "sigstore", "client ID for application")

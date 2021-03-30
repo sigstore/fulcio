@@ -22,7 +22,9 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -67,7 +69,7 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// OIDC objects used for authentication
 	provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
 	if err != nil {
-		log.Logger.Panic(err)
+		log.Logger.Fatal(err)
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
 
@@ -177,8 +179,13 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	// errors should always be in JSON
 	w.Header()["Content-Type"] = []string{"application/json"}
 	if e, ok := err.(goaerrors.Error); ok && e.Code() == http.StatusUnauthorized {
-		// this is set directly so the header name is not canonicalized
-		w.Header()["WWW-Authenticate"] = []string{"Bearer realm=\"fulcio.sigstore.dev\",scope=\"openid email\""}
+		issuerURL, parseErr := url.Parse(viper.GetString("oidc-issuer"))
+		if parseErr != nil {
+			log.RequestIDLogger(r).Error(fmt.Errorf("error parsing OIDC provider: %w", parseErr))
+		} else {
+			// this is set directly so the header name is not canonicalized
+			w.Header()["WWW-Authenticate"] = []string{fmt.Sprintf("Bearer realm=\"%v\",scope=\"openid email\"", issuerURL.Host)}
+		}
 		w.WriteHeader(int(e.Code()))
 		// mask actual auth reason from client
 		err = goaerrors.New(e.Code(), "authentication credentials could not be validated")
