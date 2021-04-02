@@ -75,7 +75,7 @@ func NewSigningCertCreated() *SigningCertCreated {
 	return &SigningCertCreated{}
 }
 
-/*SigningCertCreated handles this case with default header values.
+/* SigningCertCreated describes a response with status code 201, with default header values.
 
 Generated Certificate Chain
 */
@@ -86,7 +86,6 @@ type SigningCertCreated struct {
 func (o *SigningCertCreated) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCertCreated  %+v", 201, o.Payload)
 }
-
 func (o *SigningCertCreated) GetPayload() string {
 	return o.Payload
 }
@@ -106,7 +105,7 @@ func NewSigningCertBadRequest() *SigningCertBadRequest {
 	return &SigningCertBadRequest{}
 }
 
-/*SigningCertBadRequest handles this case with default header values.
+/* SigningCertBadRequest describes a response with status code 400, with default header values.
 
 The content supplied to the server was invalid
 */
@@ -119,15 +118,18 @@ type SigningCertBadRequest struct {
 func (o *SigningCertBadRequest) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCertBadRequest  %+v", 400, o.Payload)
 }
-
 func (o *SigningCertBadRequest) GetPayload() *models.Error {
 	return o.Payload
 }
 
 func (o *SigningCertBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	// response header Content-Type
-	o.ContentType = response.GetHeader("Content-Type")
+	// hydrates response header Content-Type
+	hdrContentType := response.GetHeader("Content-Type")
+
+	if hdrContentType != "" {
+		o.ContentType = hdrContentType
+	}
 
 	o.Payload = new(models.Error)
 
@@ -144,13 +146,14 @@ func NewSigningCertUnauthorized() *SigningCertUnauthorized {
 	return &SigningCertUnauthorized{}
 }
 
-/*SigningCertUnauthorized handles this case with default header values.
+/* SigningCertUnauthorized describes a response with status code 401, with default header values.
 
 The request could not be authorized
 */
 type SigningCertUnauthorized struct {
 	ContentType string
-	/*Information about required authentication to access server
+
+	/* Information about required authentication to access server
 	 */
 	WWWAuthenticate string
 
@@ -160,18 +163,25 @@ type SigningCertUnauthorized struct {
 func (o *SigningCertUnauthorized) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCertUnauthorized  %+v", 401, o.Payload)
 }
-
 func (o *SigningCertUnauthorized) GetPayload() *models.Error {
 	return o.Payload
 }
 
 func (o *SigningCertUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	// response header Content-Type
-	o.ContentType = response.GetHeader("Content-Type")
+	// hydrates response header Content-Type
+	hdrContentType := response.GetHeader("Content-Type")
 
-	// response header WWW-Authenticate
-	o.WWWAuthenticate = response.GetHeader("WWW-Authenticate")
+	if hdrContentType != "" {
+		o.ContentType = hdrContentType
+	}
+
+	// hydrates response header WWW-Authenticate
+	hdrWWWAuthenticate := response.GetHeader("WWW-Authenticate")
+
+	if hdrWWWAuthenticate != "" {
+		o.WWWAuthenticate = hdrWWWAuthenticate
+	}
 
 	o.Payload = new(models.Error)
 
@@ -190,13 +200,12 @@ func NewSigningCertDefault(code int) *SigningCertDefault {
 	}
 }
 
-/*SigningCertDefault handles this case with default header values.
+/* SigningCertDefault describes a response with status code -1, with default header values.
 
 There was an internal error in the server while processing the request
 */
 type SigningCertDefault struct {
 	_statusCode int
-
 	ContentType string
 
 	Payload *models.Error
@@ -210,15 +219,18 @@ func (o *SigningCertDefault) Code() int {
 func (o *SigningCertDefault) Error() string {
 	return fmt.Sprintf("[POST /signingCert][%d] signingCert default  %+v", o._statusCode, o.Payload)
 }
-
 func (o *SigningCertDefault) GetPayload() *models.Error {
 	return o.Payload
 }
 
 func (o *SigningCertDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	// response header Content-Type
-	o.ContentType = response.GetHeader("Content-Type")
+	// hydrates response header Content-Type
+	hdrContentType := response.GetHeader("Content-Type")
+
+	if hdrContentType != "" {
+		o.ContentType = hdrContentType
+	}
 
 	o.Payload = new(models.Error)
 

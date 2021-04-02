@@ -35,59 +35,73 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/models"
 )
 
-// NewSigningCertParams creates a new SigningCertParams object
-// with the default values initialized.
+// NewSigningCertParams creates a new SigningCertParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewSigningCertParams() *SigningCertParams {
-	var ()
 	return &SigningCertParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewSigningCertParamsWithTimeout creates a new SigningCertParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewSigningCertParamsWithTimeout(timeout time.Duration) *SigningCertParams {
-	var ()
 	return &SigningCertParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewSigningCertParamsWithContext creates a new SigningCertParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewSigningCertParamsWithContext(ctx context.Context) *SigningCertParams {
-	var ()
 	return &SigningCertParams{
-
 		Context: ctx,
 	}
 }
 
 // NewSigningCertParamsWithHTTPClient creates a new SigningCertParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewSigningCertParamsWithHTTPClient(client *http.Client) *SigningCertParams {
-	var ()
 	return &SigningCertParams{
 		HTTPClient: client,
 	}
 }
 
-/*SigningCertParams contains all the parameters to send to the API endpoint
-for the signing cert operation typically these are written to a http.Request
+/* SigningCertParams contains all the parameters to send to the API endpoint
+   for the signing cert operation.
+
+   Typically these are written to a http.Request.
 */
 type SigningCertParams struct {
 
-	/*CertificateRequest
-	  Request for signing certificate
+	/* CertificateRequest.
 
+	   Request for signing certificate
 	*/
 	CertificateRequest *models.CertificateRequest
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the signing cert params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *SigningCertParams) WithDefaults() *SigningCertParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the signing cert params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *SigningCertParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the signing cert params
@@ -141,7 +155,6 @@ func (o *SigningCertParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
-
 	if o.CertificateRequest != nil {
 		if err := r.SetBodyParam(o.CertificateRequest); err != nil {
 			return err
