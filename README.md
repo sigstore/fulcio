@@ -65,9 +65,9 @@ The fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA38
 * To mitigate against this, Fulcio uses a Transparency log to help protect against OIDC compromise. This means:
     * Fulcio MUST publish all certificates to the log.
     * Clients MUST NOT trust certificates that are not in the log.
-    
+
   As a result users can detect any mis-issued certificates.
-  
+
 * Combined with `rekor's` signature transparency, artifacts signed with compromised accounts can
   be identified.
 
@@ -120,11 +120,11 @@ The `rekor` service provides a transparency log of software signatures.
 As entries are appended into this log, `rekor` periodically signs the full tree along with a timestamp.
 
 An entry in Rekor provides a single-party attestation that a piece of data existed prior to a certain time.
-These timestamps cannot be tampered with later, providing long-term trust. 
+These timestamps cannot be tampered with later, providing long-term trust.
 This long-term trust also requires that the log is monitored.
 
 Transparency Logs make it hard to forge timestamps long-term, but in short time-windows it would be much easier for
-the Rekor operator to fake or forge timestamps. 
+the Rekor operator to fake or forge timestamps.
 To mitigate this, Rekor's timestamps and STHs are signed - a valid signed tree hash contains a non-repudiadable timestamp.
 These signed timestamp tokens are saved as evidence in case Rekor's clock changes in the future.
 So, more skeptical parties don't have to trust Rekor at all!
@@ -141,6 +141,11 @@ Each timestamp attestation in the Rekor log provides a fixed "fencepost" in time
 Rekor, the client and a third-party can all provide evidence of the state of the world at a point in time.
 Fenceposts every ten minutes protect all data in between.
 Auditors can monitor Rekor's log to ensure these are added, shifting the complexity burden from users to auditors.
+
+## Security
+
+Should you discover any security issues, please refer to sigstores [security
+process](https://github.com/sigstore/community/blob/main/SECURITY.md)
 
 ## Info
 
