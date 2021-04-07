@@ -22,8 +22,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/sigstore/fulcio/pkg/log"
+
 	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -34,13 +37,12 @@ import (
 var (
 	pubKeyFile string
 	uri        string
-	commonName string
 )
 
 var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate a fulcio-signed certificate",
-	Long:  `Generate is used to create a fulcio-signed certificate`,
+	Long:  `Generate is used to create a fulcio-signed certificate without OIDC`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := generateCert(context.Background()); err != nil {
 			fmt.Println(err)
@@ -54,21 +56,28 @@ func generateCert(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "reading pub key file")
 	}
-
-	// TODO: we probably want this to be the API endpoint?
-	uri := "https://sigstore.dev"
 	parent := viper.GetString("gcp_private_ca_parent")
-
 	req := cert(parent, uri, pemBytes)
-
 	resp, err := ca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, "creating cert")
 	}
 
-	// TODO: Add to CTL once there is an exposed IP for it
+	// Submit to CTL
+	log.Logger.Info("Submitting cert to CT log")
+	ctURL := viper.GetString("ct-log-url")
+	c := ctl.New(ctURL)
+	ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
+	if err != nil {
+		return errors.Wrap(err, "add chain")
+	}
+	log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
+	log.Logger.Info("CTL Submission ID Received: ", ct.ID)
 
+	// print cert and cert chain to STDOUT
 	fmt.Println(resp.GetPemCertificate())
+	fmt.Println("")
+	fmt.Println(resp.GetPemCertificateChain())
 	return nil
 }
 
@@ -77,7 +86,8 @@ func cert(parent, uri string, pemBytes []byte) *privatecapb.CreateCertificateReq
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
-			Lifetime: &durationpb.Duration{Seconds: 20 * 60},
+			// should be 6 months
+			Lifetime: &durationpb.Duration{Seconds: 6 * 30 * 24 * 60 * 60},
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
@@ -110,16 +120,13 @@ func cert(parent, uri string, pemBytes []byte) *privatecapb.CreateCertificateReq
 }
 
 func init() {
-	generateCmd.PersistentFlags().String("gcp_private_ca_parent", "projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore", "private ca parent: /projects/<project>/locations/<location>/<name>")
+	generateCmd.PersistentFlags().String("gcp-private-ca-parent", "projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore", "private ca parent: /projects/<project>/locations/<location>/<name>")
 	generateCmd.PersistentFlags().StringVar(&pubKeyFile, "public-key-file", "", "path to the PEM encoded public key")
 	generateCmd.PersistentFlags().StringVar(&uri, "uri", "", "uri for the cert")
-	generateCmd.PersistentFlags().StringVar(&commonName, "common-name", "", "common name for the cert")
-
-	cobra.MarkFlagRequired(generateCmd.Flags(), "public-key-file")
+	generateCmd.PersistentFlags().String("ct-log-url", "", "host and path (with log prefix at the end) to the ct log")
 
 	if err := viper.BindPFlags(generateCmd.PersistentFlags()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	rootCmd.AddCommand(generateCmd)
-
 }

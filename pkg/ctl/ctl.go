@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 var addChainPath = "ct/v1/add-chain"
@@ -79,32 +81,32 @@ func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, erro
 	}
 	jsonStr, err := json.Marshal(chainjson)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "json marshal")
 	}
 
 	// Send to add-chain on CT log
 	url := fmt.Sprintf("%s/%s", c.url, addChainPath)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "new request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "do")
 	}
 
 	switch resp.StatusCode {
 	case 200:
 		var ctlResp certChainResponse
 		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "decoding response")
 		}
 		return &ctlResp, nil
 	case 400, 401, 403, 500:
 		var errRes ErrorResponse
 		if err := json.NewDecoder(resp.Body).Decode(&errRes); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "response")
 		}
 
 		if errRes.StatusCode == 0 {
