@@ -56,7 +56,7 @@ func generateCert(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "reading pub key file")
 	}
-	parent := viper.GetString("gcp_private_ca_parent")
+	parent := viper.GetString("gcp-private-ca-parent")
 	req := cert(parent, uri, pemBytes)
 	resp, err := ca.Client().CreateCertificate(ctx, req)
 	if err != nil {
@@ -87,7 +87,7 @@ func cert(parent, uri string, pemBytes []byte) *privatecapb.CreateCertificateReq
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
 			// should be 6 months
-			Lifetime: &durationpb.Duration{Seconds: 6 * 30 * 24 * 60 * 60},
+			Lifetime: &durationpb.Duration{Seconds: int64(15780000)},
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
