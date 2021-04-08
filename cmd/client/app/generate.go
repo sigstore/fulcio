@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/log"
 
@@ -52,7 +53,7 @@ var generateCmd = &cobra.Command{
 }
 
 func generateCert(ctx context.Context) error {
-	pemBytes, err := ioutil.ReadFile(pubKeyFile)
+	pemBytes, err := ioutil.ReadFile(filepath.Clean(pubKeyFile))
 	if err != nil {
 		return errors.Wrap(err, "reading pub key file")
 	}
