@@ -51,8 +51,7 @@ func Client() *privateca.CertificateAuthorityClient {
 func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string) error {
 	h := sha256.Sum256([]byte(email))
 
-	switch alg {
-	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+	if alg == models.CertificateRequestPublicKeyAlgorithmEcdsa {
 		if ok := ecdsa.VerifyASN1(pub.(*ecdsa.PublicKey), h[:], proof); !ok {
 			return errors.New("signature could not be verified")
 		}

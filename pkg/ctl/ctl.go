@@ -44,7 +44,7 @@ type certChain struct {
 	Chain []string `json:"chain"`
 }
 
-type certChainResponse struct {
+type CertChainResponse struct {
 	SctVersion int    `json:"sct_version"`
 	ID         string `json:"id"`
 	Timestamp  int64  `json:"timestamp"`
@@ -65,7 +65,7 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, error) {
+func (c *Client) AddChain(leaf string, chain []string) (*CertChainResponse, error) {
 	// Build the PEM Chain {root, client}
 	leafblock, _ := pem.Decode([]byte(leaf))
 
@@ -96,7 +96,7 @@ func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, erro
 
 	switch resp.StatusCode {
 	case 200:
-		var ctlResp certChainResponse
+		var ctlResp CertChainResponse
 		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
 			return nil, err
 		}

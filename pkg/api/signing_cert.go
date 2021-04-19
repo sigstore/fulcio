@@ -59,8 +59,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	var pk crypto.PublicKey
 	var ok bool
-	switch *publicKey.Algorithm {
-	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+	if *publicKey.Algorithm == models.CertificateRequestPublicKeyAlgorithmEcdsa {
 		if pk, ok = pkixPubKey.(*ecdsa.PublicKey); !ok {
 			return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
 		}
