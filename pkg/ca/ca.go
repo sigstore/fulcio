@@ -1,18 +1,17 @@
-/*
-Copyright © 2021 Dan Lorenc <lorenc.d@gmail.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 
 package ca
 
@@ -24,18 +23,19 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/sigstore/fulcio/pkg/generated/models"
-	
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/sigstore/fulcio/pkg/generated/models"
 )
 
-var once sync.Once
-var c *privateca.CertificateAuthorityClient
+var (
+	once sync.Once
+	c    *privateca.CertificateAuthorityClient
+)
 
 func Client() *privateca.CertificateAuthorityClient {
-
 	// Use a once block to avoid creating a new client every time.
 	once.Do(func() {
 		var err error
@@ -44,6 +44,7 @@ func Client() *privateca.CertificateAuthorityClient {
 			panic(err)
 		}
 	})
+
 	return c
 }
 
@@ -56,6 +57,7 @@ func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string
 			return errors.New("signature could not be verified")
 		}
 	}
+
 	return nil
 }
 

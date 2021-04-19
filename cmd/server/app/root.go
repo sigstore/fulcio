@@ -1,18 +1,17 @@
-/*
-Copyright © 2021 Bob Callaway <bcallawa@redhat.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 
 package app
 
@@ -21,16 +20,18 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
-	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
 	"github.com/spf13/viper"
+
+	"github.com/mitchellh/go-homedir"
+	"github.com/sigstore/fulcio/pkg/log"
 )
 
-var cfgFile string
-var logType string
+var (
+	cfgFile string
+	logType string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -53,11 +54,11 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logType, "log_type", "dev", "logger type to use (dev/prod)")
-
 	rootCmd.PersistentFlags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name>")
 	rootCmd.PersistentFlags().String("oidc-issuer", "https://oauth2.sigstore.dev/auth", "OIDC provider to be used to issue ID token")
 	rootCmd.PersistentFlags().String("oidc-client-id", "sigstore", "client ID for application")
 	rootCmd.PersistentFlags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
+
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)
 	}
@@ -110,5 +111,6 @@ func initConfig(cmd *cobra.Command) error {
 	} else {
 		log.Logger.Infof("Using config file: %s", viper.ConfigFileUsed())
 	}
+
 	return nil
 }
