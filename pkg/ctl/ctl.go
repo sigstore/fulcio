@@ -1,18 +1,18 @@
-/*
-Copyright © 2021 Luke Hinds <lhinds@redhat.com>
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package ctl
 
 import (
@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-var addChainPath = "ct/v1/add-chain"
+const addChainPath = "ct/v1/add-chain"
 
 type Client struct {
 	c   *http.Client
@@ -44,7 +44,7 @@ type certChain struct {
 	Chain []string `json:"chain"`
 }
 
-type certChainResponse struct {
+type CertChainResponse struct {
 	SctVersion int    `json:"sct_version"`
 	ID         string `json:"id"`
 	Timestamp  int64  `json:"timestamp"`
@@ -65,7 +65,7 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, error) {
+func (c *Client) AddChain(leaf string, chain []string) (*CertChainResponse, error) {
 	// Build the PEM Chain {root, client}
 	leafblock, _ := pem.Decode([]byte(leaf))
 
@@ -96,7 +96,7 @@ func (c *Client) AddChain(leaf string, chain []string) (*certChainResponse, erro
 
 	switch resp.StatusCode {
 	case 200:
-		var ctlResp certChainResponse
+		var ctlResp CertChainResponse
 		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
 			return nil, err
 		}

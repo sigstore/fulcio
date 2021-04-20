@@ -1,18 +1,17 @@
-/*
-Copyright © 2021 Bob Callaway <bcallawa@redhat.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 
 package api
 
@@ -28,13 +27,14 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/spf13/viper"
+
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
-	"github.com/spf13/viper"
 )
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
@@ -59,8 +59,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	var pk crypto.PublicKey
 	var ok bool
-	switch *publicKey.Algorithm {
-	case models.CertificateRequestPublicKeyAlgorithmEcdsa:
+	if *publicKey.Algorithm == models.CertificateRequestPublicKeyAlgorithmEcdsa {
 		if pk, ok = pkixPubKey.(*ecdsa.PublicKey); !ok {
 			return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
 		}
@@ -81,7 +80,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	req := fca.Req(parent, emailAddress, publicKeyPEM)
 	log.Logger.Infof("requesting cert from %s for %s", parent, emailAddress)
 
-  resp, err := fca.Client().CreateCertificate(ctx, req)
+	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}

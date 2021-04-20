@@ -13,27 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: '3.1'
-services:
-  fulcio-server-debug:
-    build:
-      context: .
-      target: "debug"
-    command: [
-      "dlv",
-      "exec",
-      "--listen=:2345",
-      "--headless=true",
-      "--log=true",
-      "--api-version=2",
-      "--",
-      "/usr/local/bin/fulcio-server",
-      "serve",
-      "--host=0.0.0.0",
-      "--port=3000",
-      ]
-    restart: always # keep the server running
-    ports:
-      - "3000:3000"
-      - "2345:2345"
-      - "2112:2112"
+linters:
+  enable:
+  - deadcode
+  - errcheck
+  - gofmt
+  - goimports
+  - gosec
+  - gocritic
+  - golint
+  - misspell
+output:
+  uniq-by-line: false
+issues:
+  exclude-rules:
+  - path: _test\.go
+    linters:
+    - errcheck
+    - gosec
+  max-issues-per-linter: 0
+  max-same-issues: 0
+run:
+  issues-exit-code: 1
+  timeout: 10m
