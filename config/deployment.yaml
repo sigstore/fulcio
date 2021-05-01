@@ -17,9 +17,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: fulcio-dev
-  name: fulcio-dev-server
+  name: fulcio-server
   labels:
-    app: fulcio-dev-server
+    app: fulcio-server
 spec:
   replicas: 3
   selector:
@@ -59,10 +59,10 @@ apiVersion: v1
 kind: Service
 metadata:
   namespace: fulcio-dev
-  name: fulcio-dev-server
+  name: fulcio-server
 spec:
   selector:
-    app: fulcio-dev-server
+    app: fulcio-server
   type: LoadBalancer
   ports:
     - protocol: TCP
