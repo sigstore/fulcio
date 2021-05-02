@@ -78,6 +78,7 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 								KeyUsage: &privatecapb.KeyUsage{
 									BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
 										DigitalSignature: true,
+										KeyEncipherment: true,
 									},
 									ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
 										CodeSigning: true,
