@@ -19,6 +19,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/pelletier/go-toml v1.8.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rs/cors v1.7.0
 	github.com/segmentio/ksuid v1.0.3
