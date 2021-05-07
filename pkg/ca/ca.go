@@ -19,15 +19,15 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"sync"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
-
-	"github.com/sigstore/fulcio/pkg/generated/models"
 )
 
 var (
@@ -48,12 +48,17 @@ func Client() *privateca.CertificateAuthorityClient {
 	return c
 }
 
-func CheckSignature(alg string, pub crypto.PublicKey, proof []byte, email string) error {
+func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 	h := sha256.Sum256([]byte(email))
 
-	if alg == models.CertificateRequestPublicKeyAlgorithmEcdsa {
-		if ok := ecdsa.VerifyASN1(pub.(*ecdsa.PublicKey), h[:], proof); !ok {
+	switch k := pub.(type) {
+	case *ecdsa.PublicKey:
+		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
 			return errors.New("signature could not be verified")
+		}
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
+			return fmt.Errorf("signature could not be verified: %v", err)
 		}
 	}
 

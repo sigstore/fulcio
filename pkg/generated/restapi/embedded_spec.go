@@ -103,8 +103,7 @@ func init() {
         "publicKey": {
           "type": "object",
           "required": [
-            "content",
-            "algorithm"
+            "content"
           ],
           "properties": {
             "algorithm": {
@@ -282,8 +281,7 @@ func init() {
         "publicKey": {
           "type": "object",
           "required": [
-            "content",
-            "algorithm"
+            "content"
           ],
           "properties": {
             "algorithm": {
@@ -307,8 +305,7 @@ func init() {
     "CertificateRequestPublicKey": {
       "type": "object",
       "required": [
-        "content",
-        "algorithm"
+        "content"
       ],
       "properties": {
         "algorithm": {

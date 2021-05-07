@@ -16,8 +16,6 @@
 package api
 
 import (
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -31,7 +29,6 @@ import (
 
 	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
-	"github.com/sigstore/fulcio/pkg/generated/models"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -57,15 +54,8 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, malformedPublicKey)
 	}
 
-	var pk crypto.PublicKey
-	var ok bool
-	if *publicKey.Algorithm == models.CertificateRequestPublicKeyAlgorithmEcdsa {
-		if pk, ok = pkixPubKey.(*ecdsa.PublicKey); !ok {
-			return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("public key is not ECDSA"), malformedPublicKey)
-		}
-	}
 	// Check the proof
-	if err := fca.CheckSignature(*publicKey.Algorithm, pk, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
+	if err := fca.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 

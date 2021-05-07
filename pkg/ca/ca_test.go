@@ -20,10 +20,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"testing"
-
-	"github.com/sigstore/fulcio/pkg/generated/models"
 )
 
 func failErr(t *testing.T, err error) {
@@ -32,12 +31,13 @@ func failErr(t *testing.T, err error) {
 	}
 }
 
-func TestCheckSignature(t *testing.T) {
+func TestCheckSignatureECDSA(t *testing.T) {
+
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	failErr(t, err)
 
 	email := "test@gmail.com"
-	if err := CheckSignature(models.CertificateRequestPublicKeyAlgorithmEcdsa, &priv.PublicKey, []byte("foo"), email); err == nil {
+	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -45,12 +45,35 @@ func TestCheckSignature(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	if err := CheckSignature(models.CertificateRequestPublicKeyAlgorithmEcdsa, &priv.PublicKey, signature, email); err != nil {
+	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if err := CheckSignature(models.CertificateRequestPublicKeyAlgorithmEcdsa, &priv.PublicKey, signature, "bad@email.com"); err == nil {
+	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
+		t.Fatal("check should have failed")
+	}
+}
+
+func TestCheckSignatureRSA(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	failErr(t, err)
+
+	email := "test@gmail.com"
+	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
+		t.Fatal("check should have failed")
+	}
+
+	h := sha256.Sum256([]byte(email))
+	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
+	failErr(t, err)
+
+	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+		t.Fatal(err)
+	}
+
+	// Try a bad email but "good" signature
+	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }

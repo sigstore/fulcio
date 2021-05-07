@@ -143,9 +143,8 @@ func (m *CertificateRequest) UnmarshalBinary(b []byte) error {
 type CertificateRequestPublicKey struct {
 
 	// algorithm
-	// Required: true
 	// Enum: [ecdsa]
-	Algorithm *string `json:"algorithm"`
+	Algorithm string `json:"algorithm,omitempty"`
 
 	// content
 	// Required: true
@@ -198,13 +197,12 @@ func (m *CertificateRequestPublicKey) validateAlgorithmEnum(path, location strin
 }
 
 func (m *CertificateRequestPublicKey) validateAlgorithm(formats strfmt.Registry) error {
-
-	if err := validate.Required("publicKey"+"."+"algorithm", "body", m.Algorithm); err != nil {
-		return err
+	if swag.IsZero(m.Algorithm) { // not required
+		return nil
 	}
 
 	// value enum
-	if err := m.validateAlgorithmEnum("publicKey"+"."+"algorithm", "body", *m.Algorithm); err != nil {
+	if err := m.validateAlgorithmEnum("publicKey"+"."+"algorithm", "body", m.Algorithm); err != nil {
 		return err
 	}
 
