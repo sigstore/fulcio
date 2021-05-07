@@ -33,7 +33,6 @@ import (
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
@@ -113,8 +112,7 @@ var rootCmd = &cobra.Command{
 		params := operations.NewSigningCertParams()
 		params.SetCertificateRequest(&models.CertificateRequest{
 			PublicKey: &models.CertificateRequestPublicKey{
-				Content:   &pubBytesB64,
-				Algorithm: swag.String(models.CertificateRequestPublicKeyAlgorithmEcdsa),
+				Content: &pubBytesB64,
 			},
 			SignedEmailAddress: &proofB64,
 		})

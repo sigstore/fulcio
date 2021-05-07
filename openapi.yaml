@@ -70,7 +70,6 @@ definitions:
             enum: ['ecdsa']
         required:
           - content
-          - algorithm
       signedEmailAddress:
         type: string
         format: byte
