@@ -15,7 +15,7 @@
 
 .PHONY: all test clean lint gosec
 
-all: server client
+all: fulcio
 
 GENSRC = pkg/generated/models/%.go pkg/generated/restapi/%.go
 OPENAPIDEPS = openapi.yaml
@@ -23,7 +23,6 @@ SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go"|grep -v pk
 
 $(GENSRC): $(OPENAPIDEPS)
 	swagger generate server -f openapi.yaml -q -r COPYRIGHT.txt -t pkg/generated --exclude-main -A fulcio_server --exclude-spec --flag-strategy=pflag -P github.com/coreos/go-oidc/v3/oidc.IDToken
-	swagger generate client -f openapi.yaml -q -r COPYRIGHT.txt -t pkg/generated -P github.com/coreos/go-oidc/v3/oidc.IDToken
 
 # this exists to override pattern match rule above since this file is in the generated directory but should not be treated as generated code
 pkg/generated/restapi/configure_fulcio_server.go: $(OPENAPIDEPS)
@@ -35,17 +34,14 @@ lint:
 gosec:
 	$(GOBIN)/gosec ./...
 
-server: $(SRCS)
-	go build ./cmd/server
-
-client: $(SRCS)
-	go build ./cmd/client
+fulcio: $(SRCS)
+	go build
 
 test:
 	go test ./...
 
 clean:
-	rm -rf server client
+	rm -rf fulcio
 
 up:
 	docker-compose -f docker-compose.yml build
