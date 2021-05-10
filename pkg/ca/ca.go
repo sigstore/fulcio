@@ -67,9 +67,9 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 	return nil
 }
 
+// Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
+// https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1#PublicKey_KeyType
 func getPubKeyType(pemBytes []byte)  interface{} {
-	// Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
-	// https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1#PublicKey_KeyType
 	block, _ := pem.Decode(pemBytes)
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
