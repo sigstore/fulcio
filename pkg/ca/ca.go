@@ -83,12 +83,11 @@ func getPubKeyType(pemBytes []byte)  interface{} {
 	default:
 		panic(fmt.Errorf("unknown public key type: %v", pub))
 	}
-	return nil
 }
 
 func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
-	pubkey_type := getPubKeyType(pemBytes)
+	pubkeyType := getPubKeyType(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -96,7 +95,7 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
-						Type: pubkey_type.(privatecapb.PublicKey_KeyType),
+						Type: pubkeyType.(privatecapb.PublicKey_KeyType),
 						Key:  pemBytes,
 					},
 					ReusableConfig: &privatecapb.ReusableConfigWrapper{
