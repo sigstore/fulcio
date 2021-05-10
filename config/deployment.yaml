@@ -24,18 +24,18 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      app: fulcio-dev-server
+      app: fulcio-server
   template:
     metadata:
       labels:
-        app: fulcio-dev-server
+        app: fulcio-server
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /metrics
         prometheus.io/port: "2112"
     spec:
       containers:
-      - name: fulcio-dev-server
+      - name: fulcio-server
         image: ko://github.com/sigstore/fulcio/cmd/server
         ports:
         - containerPort: 5555
