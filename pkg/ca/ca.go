@@ -21,6 +21,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"sync"
@@ -65,8 +67,27 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 	return nil
 }
 
+// Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
+// https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1#PublicKey_KeyType
+func getPubKeyType(pemBytes []byte) interface{} {
+	block, _ := pem.Decode(pemBytes)
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic("failed to parse public key: " + err.Error())
+	}
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		return privatecapb.PublicKey_KeyType(1)
+	case *ecdsa.PublicKey:
+		return privatecapb.PublicKey_KeyType(2)
+	default:
+		panic(fmt.Errorf("unknown public key type: %v", pub))
+	}
+}
+
 func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
+	pubkeyType := getPubKeyType(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -74,7 +95,7 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
-						Type: privatecapb.PublicKey_PEM_EC_KEY,
+						Type: pubkeyType.(privatecapb.PublicKey_KeyType),
 						Key:  pemBytes,
 					},
 					ReusableConfig: &privatecapb.ReusableConfigWrapper{
