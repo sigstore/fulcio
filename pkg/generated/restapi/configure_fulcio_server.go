@@ -67,19 +67,35 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	api.ApplicationPemCertificateChainProducer = runtime.TextProducer()
 
 	// OIDC objects used for authentication
-	provider, err := oidc.NewProvider(context.Background(), viper.GetString("oidc-issuer"))
-	if err != nil {
-		log.Logger.Fatal(err)
-	}
-	verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
 
+	verifierMap := map[string]*oidc.IDTokenVerifier{}
+	for _, iss := range viper.GetStringSlice("oidc-issuer") {
+		provider, err := oidc.NewProvider(context.Background(), iss)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
+		verifierMap[iss] = verifier
+
+	}
 	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
 
 		token = strings.Replace(token, "Bearer ", "", 1)
 
-		idToken, err := verifier.Verify(context.Background(), token)
-		if err != nil {
-			return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
+		errs := []string{}
+		var idToken *oidc.IDToken
+		for _, verifier := range verifierMap {
+			tok, err := verifier.Verify(context.Background(), token)
+			if err != nil {
+				errs = append(errs, err.Error())
+				continue
+			}
+			idToken = tok
+			break
+		}
+
+		if idToken == nil {
+			return nil, goaerrors.New(http.StatusUnauthorized, strings.Join(errs, ","))
 		}
 
 		if _, ok, err := oauthflow.EmailFromIDToken(idToken); !ok || err != nil {
