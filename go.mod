@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.16
 
 require (
-	cloud.google.com/go v0.81.0
+	cloud.google.com/go v0.82.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
@@ -21,8 +21,6 @@ require (
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rs/cors v1.7.0
-	github.com/segmentio/ksuid v1.0.3
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.3
@@ -33,9 +31,8 @@ require (
 	github.com/tidwall/pretty v1.0.2 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
-	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
-	golang.org/x/oauth2 v0.0.0-20210313182246-cd4f82c27b84
-	google.golang.org/genproto v0.0.0-20210402141018-6c239bbf2bb1
+	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
+	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 )
