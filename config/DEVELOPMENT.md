@@ -5,7 +5,7 @@ Fulcio uses Go and can be run with no other dependencies, other than a GCP CA.
 You can run locally (outside a container) with:
 
 ```
-go run ./cmd/server/ serve --port 5555 --gcp_private_ca_parent=projects/<project>/locations/<location>/certificateAuthorities/<name>
+go run main.go serve --port 5555 --gcp_private_ca_parent=projects/<project>/locations/<location>/certificateAuthorities/<name>
 ```
 
 where you fill in project, location and name for the `--gcp_private_ca_parent` flag

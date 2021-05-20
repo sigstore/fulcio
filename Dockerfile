@@ -24,17 +24,16 @@ RUN go mod download
 # Add source code
 ADD ./ $APP_ROOT/src/
 
-RUN go build ./cmd/server
-RUN CGO_ENABLED=0 go build -gcflags "all=-N -l" -o server_debug ./cmd/server
+RUN go build -o server main.go
+RUN CGO_ENABLED=0 go build -gcflags "all=-N -l" -o server_debug main.go
 
 # Multi-Stage production build
 FROM golang:1.16.4 as deploy
 
 # Retrieve the binary from the previous stage
 COPY --from=builder /opt/app-root/src/server /usr/local/bin/fulcio-server
-
 # Set the binary as the entrypoint of the container
-CMD ["fulcio-server", "serve"]
+ENTRYPOINT ["/usr/local/bin/fulcio-server", "serve"]
 
 # debug compile options & debugger
 FROM deploy as debug
