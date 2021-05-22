@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: fulcio-server
-        image: ko://github.com/sigstore/fulcio/cmd/server
+        image: ko://github.com/sigstore/fulcio
         ports:
         - containerPort: 5555
         - containerPort: 2112 # metrics
