@@ -16,20 +16,15 @@
 package app
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
 var (
-	cfgFile string
 	logType string
 )
 
@@ -38,9 +33,6 @@ var rootCmd = &cobra.Command{
 	Use:   "fulcio-server",
 	Short: "Fulcio",
 	Long:  "Fulcio generates certificates that can be used to sign software artifacts",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initConfig(cmd)
-	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -67,55 +59,4 @@ func init() {
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)
 	}
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig(cmd *cobra.Command) error {
-	viper.SetEnvPrefix("fulcio")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
-
-	// manually set all values provided from viper through pflag validation logic
-	var changedFlags []string
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		if !f.Changed && viper.IsSet(f.Name) {
-			changedFlags = append(changedFlags, f.Name)
-		}
-	})
-
-	for _, flag := range changedFlags {
-		val := viper.Get(flag)
-		if err := cmd.Flags().Set(flag, fmt.Sprintf("%v", val)); err != nil {
-			return err
-		}
-	}
-
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			return err
-		}
-
-		viper.AddConfigPath(home)
-		viper.AddConfigPath(".")
-		viper.SetConfigName("fulcio-server")
-		viper.SetConfigType("yaml")
-	}
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err != nil {
-		switch err.(type) {
-		case viper.ConfigFileNotFoundError:
-		default:
-			return err
-		}
-	} else {
-		log.Logger.Infof("Using config file: %s", viper.ConfigFileUsed())
-	}
-
-	return nil
 }
