@@ -113,12 +113,8 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 						},
 					},
 					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
-						CommonName: email,
 						SubjectAltName: &privatecapb.SubjectAltNames{
 							EmailAddresses: []string{email},
-						},
-						Subject: &privatecapb.Subject{
-							Organization: email,
 						},
 					},
 				},
