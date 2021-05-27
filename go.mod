@@ -28,7 +28,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.0.2 // indirect
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.17.0
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
 	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
