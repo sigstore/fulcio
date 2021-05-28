@@ -85,7 +85,7 @@ func getPubKeyType(pemBytes []byte) interface{} {
 	}
 }
 
-func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRequest {
+func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
 	pubkeyType := getPubKeyType(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
@@ -112,13 +112,25 @@ func Req(parent, email string, pemBytes []byte) *privatecapb.CreateCertificateRe
 							},
 						},
 					},
-					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
-						SubjectAltName: &privatecapb.SubjectAltNames{
-							EmailAddresses: []string{email},
-						},
-					},
+					SubjectConfig: subject,
 				},
 			},
+		},
+	}
+}
+
+func EmailSubject(email string) *privatecapb.CertificateConfig_SubjectConfig {
+	return &privatecapb.CertificateConfig_SubjectConfig{
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			EmailAddresses: []string{email},
+		}}
+}
+
+// SPIFFE IDs go as "Uris" according to the spec: https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md
+func SpiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+	return &privatecapb.CertificateConfig_SubjectConfig{
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			Uris: []string{id},
 		},
 	}
 }

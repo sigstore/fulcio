@@ -38,7 +38,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/sigstore/fulcio/pkg/oauthflow"
 )
 
 //go:generate swagger generate server --target ../../generated --name FulcioServer --spec ../../../openapi.yaml --principal interface{} --exclude-main
@@ -95,13 +94,6 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 
 		if idToken == nil {
 			return nil, goaerrors.New(http.StatusUnauthorized, strings.Join(errs, ","))
-		}
-
-		if _, ok, err := oauthflow.EmailFromIDToken(idToken); !ok || err != nil {
-			if err != nil {
-				return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
-			}
-			return nil, goaerrors.New(http.StatusUnauthorized, "email has not been verified with token issuer")
 		}
 
 		return idToken, nil
@@ -194,8 +186,8 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	// errors should always be in JSON
 	w.Header()["Content-Type"] = []string{"application/json"}
 	if e, ok := err.(goaerrors.Error); ok && e.Code() == http.StatusUnauthorized {
-		// this is set directly so the header name is not canonicalized
 		fulcioCfg := config.Config()
+		// this is set directly so the header name is not canonicalized
 		issuers := []string{}
 		for iss := range fulcioCfg.OIDCIssuers {
 			issuers = append(issuers, "Bearer realm=\""+iss+"\",scope=\"openid email\"")

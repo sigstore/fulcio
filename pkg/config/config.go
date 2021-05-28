@@ -30,7 +30,15 @@ type FulcioConfig struct {
 type OIDCIssuer struct {
 	IssuerURL string
 	ClientID  string
+	Type      IssuerType
 }
+
+type IssuerType string
+
+const (
+	IssuerTypeEmail  = "email"
+	IssuerTypeSpiffe = "spiffe"
+)
 
 func ParseConfig(b []byte) (FulcioConfig, error) {
 	cfg := FulcioConfig{}
@@ -45,10 +53,12 @@ var DefaultConfig = FulcioConfig{
 		"https://oauth2.sigstore.dev/auth": {
 			IssuerURL: "https://oauth2.sigstore.dev/auth",
 			ClientID:  "sigstore",
+			Type:      IssuerTypeEmail,
 		},
 		"https://accounts.google.com": {
 			IssuerURL: "https://accounts.google.com",
 			ClientID:  "sigstore",
+			Type:      IssuerTypeEmail,
 		},
 	},
 }
@@ -78,6 +88,6 @@ func Load(configPath string) error {
 		return err
 	}
 	config = &cfg
-	log.Logger.Info("Loaded config %v from %s", cfg, configPath)
+	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
 	return nil
 }

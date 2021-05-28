@@ -16,12 +16,15 @@
 package api
 
 import (
-	"crypto/x509"
+	"context"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/config"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
@@ -31,7 +34,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/sigstore/fulcio/pkg/oauthflow"
+	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 )
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
@@ -41,34 +44,23 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	if principal == nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
 	}
-	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
-	if !emailVerified {
-		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("email_verified claim was false"), emailNotVerified)
-	} else if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidCredentials)
-	}
 
-	publicKey := *params.CertificateRequest.PublicKey
-	pkixPubKey, err := x509.ParsePKIXPublicKey(*publicKey.Content)
+	publicKey := *params.CertificateRequest.PublicKey.Content
+	subj, err := subject(ctx, principal, config.Config(), publicKey, *params.CertificateRequest.SignedEmailAddress)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, malformedPublicKey)
-	}
-
-	// Check the proof
-	if err := fca.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Bytes: *publicKey.Content,
+		Bytes: publicKey,
 		Type:  "PUBLIC KEY",
 	})
 	// Now issue cert!
 
 	parent := viper.GetString("gcp_private_ca_parent")
 
-	req := fca.Req(parent, emailAddress, publicKeyPEM)
-	log.Logger.Infof("requesting cert from %s for %s", parent, emailAddress)
+	req := fca.Req(parent, subj, publicKeyPEM)
+	log.Logger.Infof("requesting cert from %s for %v", parent, subject)
 
 	resp, err := fca.Client().CreateCertificate(ctx, req)
 	if err != nil {
@@ -76,7 +68,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	}
 
 	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", emailAddress)
+	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subject)
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
 		c := ctl.New(ctURL)
@@ -100,4 +92,16 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	//TODO: return SCT and SCT URL
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+}
+
+func subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+	iss := cfg.OIDCIssuers[tok.Issuer]
+	switch iss.Type {
+	case config.IssuerTypeEmail:
+		return challenges.Email(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeSpiffe:
+		return challenges.Spiffe(ctx, tok, publicKey, challenge)
+	default:
+		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
+	}
 }
