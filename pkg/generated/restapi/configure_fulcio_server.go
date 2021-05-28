@@ -22,9 +22,7 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -35,9 +33,9 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/cors"
-	"github.com/spf13/viper"
 
 	pkgapi "github.com/sigstore/fulcio/pkg/api"
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -67,15 +65,16 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	api.ApplicationPemCertificateChainProducer = runtime.TextProducer()
 
 	// OIDC objects used for authentication
+	fulcioCfg := config.Config()
 
 	verifierMap := map[string]*oidc.IDTokenVerifier{}
-	for _, iss := range viper.GetStringSlice("oidc-issuer") {
-		provider, err := oidc.NewProvider(context.Background(), iss)
+	for _, iss := range fulcioCfg.OIDCIssuers {
+		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
-		verifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oidc-client-id")})
-		verifierMap[iss] = verifier
+		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+		verifierMap[iss.IssuerURL] = verifier
 
 	}
 	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
@@ -195,13 +194,13 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	// errors should always be in JSON
 	w.Header()["Content-Type"] = []string{"application/json"}
 	if e, ok := err.(goaerrors.Error); ok && e.Code() == http.StatusUnauthorized {
-		issuerURL, parseErr := url.Parse(viper.GetString("oidc-issuer"))
-		if parseErr != nil {
-			log.RequestIDLogger(r).Error(fmt.Errorf("error parsing OIDC provider: %w", parseErr))
-		} else {
-			// this is set directly so the header name is not canonicalized
-			w.Header()["WWW-Authenticate"] = []string{fmt.Sprintf("Bearer realm=\"%v\",scope=\"openid email\"", issuerURL.Host)}
+		// this is set directly so the header name is not canonicalized
+		fulcioCfg := config.Config()
+		issuers := []string{}
+		for iss := range fulcioCfg.OIDCIssuers {
+			issuers = append(issuers, "Bearer realm=\""+iss+"\",scope=\"openid email\"")
 		}
+		w.Header()["WWW-Authenticate"] = []string{strings.Join(issuers, ", ")}
 		w.WriteHeader(int(e.Code()))
 		// mask actual auth reason from client
 		err = goaerrors.New(e.Code(), "authentication credentials could not be validated")

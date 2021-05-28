@@ -44,17 +44,11 @@ func Execute() {
 	}
 }
 
-var defaultIssuers = []string{
-	"https://oauth2.sigstore.dev/auth",
-	"https://accounts.google.com",
-}
-
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logType, "log_type", "dev", "logger type to use (dev/prod)")
 	rootCmd.PersistentFlags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name>")
-	rootCmd.PersistentFlags().StringSlice("oidc-issuer", defaultIssuers, "OIDC provider(s) to be used to issue ID token")
-	rootCmd.PersistentFlags().String("oidc-client-id", "sigstore", "client ID for application")
 	rootCmd.PersistentFlags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
+	rootCmd.PersistentFlags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)

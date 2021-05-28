@@ -50,10 +50,17 @@ spec:
             configMapKeyRef:
               name: private-ca
               key: connection
+        volumeMounts:
+        - name: fulcio-config
+          mountPath: /etc/fulcio-config
         resources:
           requests:
             memory: "1G"
             cpu: ".5"
+      volumes:
+      - name: fulcio-config
+        configMap:
+          name: fulcio-config
 ---
 apiVersion: v1
 kind: Service
