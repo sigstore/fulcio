@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -50,6 +51,10 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
+		// Crash if we can't parse the config correctly
+		if err := config.Load(viper.GetString("config-path")); err != nil {
+			log.Logger.Panic(err)
+		}
 		server.EnabledListeners = []string{"http"}
 
 		server.ConfigureAPI()
