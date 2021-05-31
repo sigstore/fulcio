@@ -15,7 +15,7 @@ require (
 	github.com/go-openapi/strfmt v0.20.1
 	github.com/go-openapi/swag v0.19.15
 	github.com/go-openapi/validate v0.20.2
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
