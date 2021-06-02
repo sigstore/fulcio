@@ -24,11 +24,13 @@ data:
       "OIDCIssuers": {
         "https://accounts.google.com": {
           "IssuerURL": "https://accounts.google.com",
-          "ClientID": "sigstore"
+          "ClientID": "sigstore",
+          "Type": "email"
         },
         "https://oauth2.sigstore.dev/auth": {
           "IssuerURL": "https://oauth2.sigstore.dev/auth",
           "ClientID": "sigstore"
+          "Type": "email"
         }
       }
     }
