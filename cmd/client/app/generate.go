@@ -87,27 +87,34 @@ func generateCert(ctx context.Context) error {
 
 func cert(parent, uri string, pemBytes []byte, timestamping bool) *privatecapb.CreateCertificateRequest {
 	baseKeyUsage := privatecapb.KeyUsage_KeyUsageOptions{}
-	extendedKeyUsage := privatecapb.KeyUsage_ExtendedKeyUsageOptions{}
-	additionalExtensions := []*privatecapb.X509Extension{}
+	var reuseableConfig privatecapb.ReusableConfigValues
 	if timestamping {
 		baseKeyUsage.ContentCommitment = true
-		extendedKeyUsage.TimeStamping = true
 		timestampExt, err := asn1.Marshal([]asn1.ObjectIdentifier{{1, 3, 6, 1, 5, 5, 7, 3, 8}})
 		if err != nil {
 			return nil
 		}
-		additionalExtensions = append(additionalExtensions, &privateca.X509Extension{
+		additionalExtensions := []*privatecapb.X509Extension{&privateca.X509Extension{
 			ObjectId: &privatecapb.ObjectId{ObjectIdPath: []int32{2, 5, 29, 37}},
 			Critical: true,
 			Value:    timestampExt,
-		})
+		}}
+		reuseableConfig = privatecapb.ReusableConfigValues{
+			KeyUsage: &privatecapb.KeyUsage{
+				BaseKeyUsage: &baseKeyUsage,
+			},
+			AdditionalExtensions: additionalExtensions,
+		}
 	} else {
+		extendedKeyUsage := privatecapb.KeyUsage_ExtendedKeyUsageOptions{}
 		baseKeyUsage.DigitalSignature = true
 		extendedKeyUsage.CodeSigning = true
-	}
-	keyUsage := privatecapb.KeyUsage{
-		BaseKeyUsage:     &baseKeyUsage,
-		ExtendedKeyUsage: &extendedKeyUsage,
+		reuseableConfig = privatecapb.ReusableConfigValues{
+			KeyUsage: &privatecapb.KeyUsage{
+				BaseKeyUsage:     &baseKeyUsage,
+				ExtendedKeyUsage: &extendedKeyUsage,
+			},
+		}
 	}
 
 	// TODO, use the right fields :)
@@ -124,10 +131,7 @@ func cert(parent, uri string, pemBytes []byte, timestamping bool) *privatecapb.C
 					},
 					ReusableConfig: &privatecapb.ReusableConfigWrapper{
 						ConfigValues: &privatecapb.ReusableConfigWrapper_ReusableConfigValues{
-							ReusableConfigValues: &privatecapb.ReusableConfigValues{
-								KeyUsage:             &keyUsage,
-								AdditionalExtensions: additionalExtensions,
-							},
+							ReusableConfigValues: &reuseableConfig,
 						},
 					},
 					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
