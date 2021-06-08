@@ -45,7 +45,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Logger.Info("Binding to PKCS11 HSM model: SoftHSM")
-		p11Ctx, err := crypto11.ConfigureFromFile("crypto11.conf")
+		p11Ctx, err := crypto11.ConfigureFromFile("config/crypto11.conf")
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
