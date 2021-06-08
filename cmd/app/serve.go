@@ -37,6 +37,10 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
+		if viper.GetString("ca") == "google" && ! viper.IsSet("gcp_private_ca_parent") {
+			panic("gcp_private_ca_parent must be set when using google ca")
+		}
+
 		// Setup the logger to dev/prod
 		log.ConfigureLogger(viper.GetString("log_type"))
 

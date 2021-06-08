@@ -20,14 +20,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"net/url"
 	"strings"
 
 	"github.com/sigstore/fulcio/pkg/config"
 
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
-
-	"github.com/sigstore/fulcio/pkg/ca"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -47,12 +46,12 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	// Check the proof
-	if err := ca.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := googleca.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return ca.EmailSubject(emailAddress), nil
+	return googleca.EmailSubject(emailAddress), nil
 }
 
 func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
@@ -77,12 +76,12 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := ca.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := googleca.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return ca.SpiffeSubject(spiffeID), nil
+	return googleca.SpiffeSubject(spiffeID), nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {

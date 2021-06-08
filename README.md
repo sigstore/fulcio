@@ -54,9 +54,73 @@ We encourage auditors to monitor this log, and aim to help people access the dat
 A simple example would be a service that emails users (on a different address) when ceritficates have been issued on their behalf.
 This can then be used to detect bad behavior or possible compromise.
 
-## Parameters
+## CA
 
-The fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA384 algorithm.
+### GCP Private CA
+
+The public fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA384 algorithm.
+
+You can also run with your own GCP Private CA, by passing in a parent and google as the CA
+
+```
+go run main.go serve --ca google  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
+```
+
+
+### pkcs11 HSM / SoftHSM.
+
+fulcio may also be used with a pkcs11 HSM / SoftHSM. You will also need pkcs11-tool
+
+Create a `config/crypto11.conf` file::
+
+```
+{
+"Path" : "/usr/lib64/softhsm/libsofthsm.so",
+"TokenLabel": "fulcio",
+"Pin" : "2324"
+}
+```
+
+And a `config/softhsm2.conf`
+
+```
+directories.tokendir = /tmp/tokens
+objectstore.backend = file
+log.level = INFO
+```
+
+Export the `config/softhsm2.conf`
+
+```
+export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg 
+```
+
+### Start a SoftHSM instance
+
+```
+softhsm2-util --init-token --slot 0 --label fulcio
+```
+
+```
+pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA  --key-type EC:secp384r1
+```
+
+* Note: you can import existing keys and import using pkcs11-tool, see pkcs11-tool manual for details
+
+### Create a root CA
+
+Now that you're keys are generated into the HSM, you can use fulcio to create a Root CA
+
+```
+fulcio createca --ca fulcio --org=acme --country=UK --locality=Chippenham --province=Wiltshire --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99
+```
+
+### Run fulcio with the HSM
+
+```
+fulcio serve --ca fulcio --hsm-caroot-id 99
+```
+
 
 ## Security Model
 

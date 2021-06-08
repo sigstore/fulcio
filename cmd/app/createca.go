@@ -1,0 +1,127 @@
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+package app
+
+import (
+	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"fmt"
+	"github.com/ThalesIgnite/crypto11"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"math/big"
+	"time"
+
+	"github.com/sigstore/fulcio/pkg/log"
+)
+
+// createcaCmd represents the createca command
+var createcaCmd = &cobra.Command{
+	Use:   "createca",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		log.Logger.Info("Binding to PKCS11 HSM model: SoftHSM")
+		p11Ctx, err := crypto11.ConfigureFromFile("crypto11.conf")
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		defer p11Ctx.Close()
+
+		rootID := []byte(viper.GetString("hsm-caroot-id"))
+
+		// Check if CA already exists (or a cert within the provided ID)
+		findCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		if findCA != nil {
+			panic("certificate already exists with this ID")
+		}
+
+		// This gets the private key pair we loaded:
+		// pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384r1
+		log.Logger.Info("Finding slot for private key \"FulcioCA\"")
+		privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		pubKey := privKey.Public().(crypto.PublicKey).(*ecdsa.PublicKey)
+
+		rootCA := &x509.Certificate{
+			SerialNumber: big.NewInt(2021),
+			Subject: pkix.Name{
+				Organization:  []string{viper.GetString("org")},
+				Country:       []string{viper.GetString("country")},
+				Province:      []string{viper.GetString("province")},
+				Locality:      []string{viper.GetString("locality")},
+				StreetAddress: []string{viper.GetString("street-address")},
+				PostalCode:    []string{viper.GetString("postal-code")},
+			},
+			NotBefore:             time.Now(),
+			NotAfter:              time.Now().AddDate(10, 0, 0),
+			IsCA:                  true,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+			KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+			BasicConstraintsValid: true,
+		}
+
+		caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, pubKey, privKey)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		rootPEM := new(bytes.Buffer)
+		pem.Encode(rootPEM, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: caBytes,
+		})
+		log.Logger.Info("Root CA:")
+		fmt.Println(rootPEM)
+
+		certParse, err := x509.ParseCertificate(caBytes)
+
+		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte("FulcioCA"), certParse)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		log.Logger.Info("Root CA created with ID: ", viper.GetString("hsm-caroot-id"))
+
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(createcaCmd)
+	createcaCmd.PersistentFlags().StringVar(&logType, "org", "Fuclio Root CA", "Organization name for root CA")
+	createcaCmd.PersistentFlags().StringVar(&logType, "country", "", "Country name for root CA")
+	createcaCmd.PersistentFlags().StringVar(&logType, "province", "", "Province name for root CA")
+	createcaCmd.PersistentFlags().StringVar(&logType, "locality", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().StringVar(&logType, "street-address", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().StringVar(&logType, "postal-code", "", "Locality name for root CA")
+	if err := viper.BindPFlags(createcaCmd.PersistentFlags()); err != nil {
+		log.Logger.Fatal(err)
+	}
+}

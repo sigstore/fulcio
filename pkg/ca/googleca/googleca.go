@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package ca
+package googleca
 
 import (
 	"context"

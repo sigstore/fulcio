@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package ca
+package fulcioca
 
 import (
 	"crypto"

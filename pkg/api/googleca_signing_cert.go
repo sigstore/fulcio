@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"net/http"
 	"strings"
 
@@ -30,14 +31,13 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/viper"
 
-	fca "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 )
 
-func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
+func GoogleSigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
 
 	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
@@ -59,10 +59,10 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	parent := viper.GetString("gcp_private_ca_parent")
 
-	req := fca.Req(parent, subj, publicKeyPEM)
+	req := googleca.Req(parent, subj, publicKeyPEM)
 	log.Logger.Infof("requesting cert from %s for %v", parent, subject)
 
-	resp, err := fca.Client().CreateCertificate(ctx, req)
+	resp, err := googleca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
@@ -89,7 +89,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	for _, cert := range resp.PemCertificateChain {
 		fmt.Fprintf(&ret, "%s\n", cert)
 	}
-
+	fmt.Println(resp.PemCertificate)
 	//TODO: return SCT and SCT URL
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
 }
