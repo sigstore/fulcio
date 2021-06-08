@@ -20,7 +20,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.7.0
 	github.com/smartystreets/assertions v1.0.0 // indirect
 	github.com/spf13/afero v1.5.1 // indirect
