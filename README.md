@@ -69,7 +69,10 @@ go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/l
 
 ### pkcs11 HSM / SoftHSM.
 
-fulcio may also be used with a pkcs11 HSM / SoftHSM. You will also need pkcs11-tool
+fulcio may also be used with a pkcs11 SoftHSM. You will also need pkcs11-tool
+
+> :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM
+> Use for test development purposes only.
 
 Create a `config/crypto11.conf` file::
 
