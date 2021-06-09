@@ -37,11 +37,11 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if viper.GetString("ca") == "googleca" && ! viper.IsSet("gcp_private_ca_parent") {
+		if viper.GetString("ca") == "googleca" && !viper.IsSet("gcp_private_ca_parent") {
 			panic("gcp_private_ca_parent must be set when using googleca")
 		}
 
-		if viper.GetString("ca") == "fulcioca" && ! viper.IsSet("hsm-caroot-id") {
+		if viper.GetString("ca") == "fulcioca" && !viper.IsSet("hsm-caroot-id") {
 			panic("hsm-caroot-id must be set when using fulcioca")
 		}
 

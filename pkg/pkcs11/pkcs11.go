@@ -13,14 +13,13 @@
 // limitations under the License.
 //
 
-
 package pkcs11
 
 import (
 	"github.com/ThalesIgnite/crypto11"
 )
 
-func InitHSMCtx()  (*crypto11.Context, error){
+func InitHSMCtx() (*crypto11.Context, error) {
 	p11Ctx, err := crypto11.ConfigureFromFile("config/crypto11.conf")
 	if err != nil {
 		return nil, err

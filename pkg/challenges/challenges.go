@@ -23,8 +23,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ca/googleca"
+	"github.com/sigstore/fulcio/pkg/config"
 
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 

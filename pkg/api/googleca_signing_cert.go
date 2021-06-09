@@ -20,9 +20,10 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"net/http"
 	"strings"
+
+	"github.com/sigstore/fulcio/pkg/ca/googleca"
 
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"

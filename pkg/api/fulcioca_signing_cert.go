@@ -106,7 +106,7 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
 		c := ctl.New(ctURL)
-		ct, err := c.AddChain(string(certPEM),[]string{string(rootPEM)})
+		ct, err := c.AddChain(string(certPEM), []string{string(rootPEM)})
 		if err != nil {
 			return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
 		}

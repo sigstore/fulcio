@@ -24,10 +24,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/ThalesIgnite/crypto11"
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/ThalesIgnite/crypto11"
 )
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {

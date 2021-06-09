@@ -23,13 +23,14 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"github.com/ThalesIgnite/crypto11"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"math"
 	"math/big"
 	"os"
 	"time"
+
+	"github.com/ThalesIgnite/crypto11"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/sigstore/fulcio/pkg/log"
 )
@@ -107,6 +108,9 @@ certificate authority for an instance of sigstore fulcio`,
 		fmt.Println(string(pemBytes))
 
 		certParse, err := x509.ParseCertificate(caBytes)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
 
 		// Import the root CA into the HSM
 		// TODO: We could make the TAG customizable
@@ -122,10 +126,12 @@ certificate authority for an instance of sigstore fulcio`,
 			if err != nil {
 				log.Logger.Fatal(err)
 			}
-			pem.Encode(certOut, &pem.Block{
-				Type: "CERTIFICATE",
+			if err := pem.Encode(certOut, &pem.Block{ //nolint
+				Type:  "CERTIFICATE",
 				Bytes: caBytes},
-			)
+			); err != nil {
+				log.Logger.Fatal(err)
+			}
 			certOut.Close()
 			log.Logger.Info("root CA saved to file: ", viper.GetString("out"))
 		}

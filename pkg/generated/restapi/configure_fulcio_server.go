@@ -22,12 +22,13 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
-	"github.com/sigstore/fulcio/pkg/oauthflow"
-	"github.com/spf13/viper"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sigstore/fulcio/pkg/oauthflow"
+	"github.com/spf13/viper"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/middleware"
