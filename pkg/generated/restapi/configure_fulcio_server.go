@@ -22,7 +22,6 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/spf13/viper"
 	"net/http"
@@ -108,18 +107,19 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 		return idToken, nil
 	}
 
+	// Select which CA / KMS system to use
+	// Currently supported:
+	// googleca: Google Certficate Authority Service
+	// fulcio: Generic PKCS11 / HSM backed service
 	CAType := viper.GetString("ca")
 	switch CAType {
-	case "google":
-		fmt.Println("Google type.")
+	case "googleca":
 		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleSigningCertHandler)
-	case "fulcio":
-		fmt.Println("fulcio type.")
+	case "fulcioca":
 		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.FulcioSigningCertHandler)
 	default:
-		fmt.Printf("default")
+		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleSigningCertHandler)
 	}
-
 
 	api.PreServerShutdown = func() {}
 

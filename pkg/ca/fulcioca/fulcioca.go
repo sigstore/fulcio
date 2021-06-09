@@ -49,7 +49,7 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 
 func CreateClientCertificate(rootCA *x509.Certificate, emailAddress string, publicKeyPEM interface{}, privKey crypto11.Signer) ([]byte, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MinInt64))
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 	if err != nil {
 		return nil, err
 	}

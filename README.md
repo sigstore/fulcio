@@ -63,7 +63,7 @@ The public fulcio root CA is currently running on GCP Private CA with the EC_P38
 You can also run with your own GCP Private CA, by passing in a parent and google as the CA
 
 ```
-go run main.go serve --ca google  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
+go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
 ```
 
 
@@ -112,13 +112,13 @@ pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user 
 Now that you're keys are generated into the HSM, you can use fulcio to create a Root CA
 
 ```
-fulcio createca --ca fulcio --org=acme --country=UK --locality=Chippenham --province=Wiltshire --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99
+fulcio createca--org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
 ```
 
 ### Run fulcio with the HSM
 
 ```
-fulcio serve --ca fulcio --hsm-caroot-id 99
+fulcio serve --ca fulcioca --hsm-caroot-id 99
 ```
 
 
