@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/log"
@@ -107,17 +108,26 @@ certificate authority for an instance of sigstore fulcio`,
 		}
 		log.Logger.Info("Root CA created with ID: ", viper.GetString("hsm-caroot-id"))
 
+		if viper.IsSet("out") {
+			certOut, err := os.Create(viper.GetString("out"))
+			if err != nil {
+				log.Logger.Fatal(err)
+			}
+			pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: caBytes})
+			certOut.Close()
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(createcaCmd)
-	createcaCmd.PersistentFlags().StringVar(&logType, "org", "Fuclio Root CA", "Organization name for root CA")
-	createcaCmd.PersistentFlags().StringVar(&logType, "country", "", "Country name for root CA")
-	createcaCmd.PersistentFlags().StringVar(&logType, "province", "", "Province name for root CA")
-	createcaCmd.PersistentFlags().StringVar(&logType, "locality", "", "Locality name for root CA")
-	createcaCmd.PersistentFlags().StringVar(&logType, "street-address", "", "Locality name for root CA")
-	createcaCmd.PersistentFlags().StringVar(&logType, "postal-code", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().String("org", "Fuclio Root CA", "Organization name for root CA")
+	createcaCmd.PersistentFlags().String("country", "", "Country name for root CA")
+	createcaCmd.PersistentFlags().String("province", "", "Province name for root CA")
+	createcaCmd.PersistentFlags().String("locality", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().String("street-address", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().String("postal-code", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().String("out", "", "output root CA to file")
 	if err := viper.BindPFlags(createcaCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)
 	}

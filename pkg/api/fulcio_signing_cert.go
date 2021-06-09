@@ -20,8 +20,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	"net/http"
 	"strings"
 
@@ -29,6 +27,8 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/viper"
 
+	"github.com/sigstore/fulcio/pkg/ctl"
+	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -97,9 +97,7 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 		Bytes: rootCA.Raw,
 	})
 
-
 	// Submit to CTL
-	// TODO: Make a function for this to save replicated code
 	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subject)
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
