@@ -37,7 +37,7 @@ import (
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 )
 
-func GoogleSigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
+func GoogleCASigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
 
 	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
@@ -89,7 +89,7 @@ func GoogleSigningCertHandler(params operations.SigningCertParams, principal *oi
 	for _, cert := range resp.PemCertificateChain {
 		fmt.Fprintf(&ret, "%s\n", cert)
 	}
-	fmt.Println(resp.PemCertificate)
+
 	//TODO: return SCT and SCT URL
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
 }

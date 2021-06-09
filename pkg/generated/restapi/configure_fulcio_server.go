@@ -114,11 +114,11 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	CAType := viper.GetString("ca")
 	switch CAType {
 	case "googleca":
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleSigningCertHandler)
+		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleCASigningCertHandler)
 	case "fulcioca":
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.FulcioSigningCertHandler)
+		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.FulcioCASigningCertHandler)
 	default:
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleSigningCertHandler)
+		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleCASigningCertHandler)
 	}
 
 	api.PreServerShutdown = func() {}

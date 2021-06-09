@@ -27,15 +27,15 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/viper"
 
-	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
 )
 
-func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
+func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 
 	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
 	if principal == nil {
@@ -70,6 +70,7 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 
 	rootID := []byte(viper.GetString("hsm-caroot-id"))
 
+	// get the existing root CA from the HSM
 	rootCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
@@ -80,6 +81,8 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
+
+	// Generate the client signing certificate
 
 	clientCert, err := fulcioca.CreateClientCertificate(rootCA, emailAddress, pkixPubKey, privKey)
 	if err != nil {
@@ -92,6 +95,7 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 		Bytes: clientCert,
 	})
 
+	// Format in PEM
 	rootPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: rootCA.Raw,
