@@ -16,7 +16,6 @@
 package app
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -92,13 +91,14 @@ certificate authority for an instance of sigstore fulcio`,
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
-		rootPEM := new(bytes.Buffer)
-		pem.Encode(rootPEM, &pem.Block{
+
+		pemBytes := pem.EncodeToMemory(&pem.Block{
 			Type:  "CERTIFICATE",
 			Bytes: caBytes,
 		})
+
 		log.Logger.Info("Root CA:")
-		fmt.Println(rootPEM)
+		fmt.Println(string(pemBytes))
 
 		certParse, err := x509.ParseCertificate(caBytes)
 
@@ -113,8 +113,12 @@ certificate authority for an instance of sigstore fulcio`,
 			if err != nil {
 				log.Logger.Fatal(err)
 			}
-			pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: caBytes})
+			pem.Encode(certOut, &pem.Block{
+				Type: "CERTIFICATE",
+				Bytes: caBytes},
+			)
 			certOut.Close()
+			log.Logger.Info("Root CA saved to file: ", viper.GetString("out"))
 		}
 	},
 }

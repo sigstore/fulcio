@@ -20,11 +20,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"net/url"
 	"strings"
 
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/ca/googleca"
 
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 

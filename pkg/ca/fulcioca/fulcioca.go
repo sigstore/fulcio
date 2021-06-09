@@ -55,12 +55,12 @@ func CreateClientCertificate(rootCA *x509.Certificate, emailAddress string, publ
 	}
 	email := []string{emailAddress}
 	cert := &x509.Certificate{
-		SerialNumber: serialNumber,
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(time.Minute * 10),
-		SubjectKeyId: []byte{1, 2, 3, 4, 6},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		KeyUsage:     x509.KeyUsageCertSign,
+		SerialNumber:   serialNumber,
+		NotBefore:      time.Now(),
+		NotAfter:       time.Now().Add(time.Minute * 10),
+		SubjectKeyId:   []byte{1, 2, 3, 4, 6},
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		KeyUsage:       x509.KeyUsageCertSign,
 		EmailAddresses: email,
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
