@@ -54,9 +54,9 @@ We encourage auditors to monitor this log, and aim to help people access the dat
 A simple example would be a service that emails users (on a different address) when ceritficates have been issued on their behalf.
 This can then be used to detect bad behavior or possible compromise.
 
-## CA
+## CA / KMS support
 
-### GCP Private CA
+### Google Cloud Platform Private CA
 
 The public fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA384 algorithm.
 
@@ -67,12 +67,13 @@ go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/l
 ```
 
 
-### pkcs11 HSM / SoftHSM.
-
-fulcio may also be used with a pkcs11 SoftHSM. You will also need pkcs11-tool
+### SoftHSM (pkcs11)
 
 > :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM
 > Use for test development purposes only.
+
+fulcio may also be used with a pkcs11 SoftHSM. You will also need `pkcs11-tool`
+
 
 Create a `config/crypto11.conf` file::
 
@@ -104,6 +105,8 @@ export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg
 softhsm2-util --init-token --slot 0 --label fulcio
 ```
 
+### Create keys within the SoftHSM
+
 ```
 pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA  --key-type EC:secp384r1
 ```
@@ -112,18 +115,27 @@ pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user 
 
 ### Create a root CA
 
-Now that you're keys are generated into the HSM, you can use fulcio to create a Root CA
+Now that your keys are generated, you can use the fulcio `createca` command to generate a Root CA. This command
+will also store the generated Root CA into the HSM by the delegated id passed to `--hsm-caroot-id`
 
 ```
 fulcio createca--org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
 ```
 
-### Run fulcio with the HSM
+### Run fulcio with the SoftHSM
 
 ```
 fulcio serve --ca fulcioca --hsm-caroot-id 99
 ```
 
+### Other KMS / CA support
+
+Support will be extended to the following CA / KMS systems, feel free to contribute to expedite support coverage
+
+Planned support for:
+- [ ] AWS CloudHSM
+- [ ] Azure Dedicated HSM
+- [ ] YubiHSM
 
 ## Security Model
 
