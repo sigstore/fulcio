@@ -41,7 +41,7 @@ var createcaCmd = &cobra.Command{
 such as organization, country etc. This can then be used as the root
 certificate authority for an instance of sigstore fulcio`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Logger.Info("Binding to PKCS11 HSM model: SoftHSM")
+		log.Logger.Info("binding to PKCS11 HSM")
 		p11Ctx, err := crypto11.ConfigureFromFile("config/crypto11.conf")
 		if err != nil {
 			log.Logger.Fatal(err)
@@ -62,7 +62,7 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// This gets the private key pair we loaded:
 		// pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384r1
-		log.Logger.Info("Finding slot for private key \"FulcioCA\"")
+		log.Logger.Info("finding slot for private key \"FulcioCA\"")
 		privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
 		if err != nil {
 			log.Logger.Fatal(err)
@@ -106,7 +106,7 @@ certificate authority for an instance of sigstore fulcio`,
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
-		log.Logger.Info("Root CA created with ID: ", viper.GetString("hsm-caroot-id"))
+		log.Logger.Info("root CA created with PKCS11 ID: ", viper.GetString("hsm-caroot-id"))
 
 		if viper.IsSet("out") {
 			certOut, err := os.Create(viper.GetString("out"))
@@ -118,7 +118,7 @@ certificate authority for an instance of sigstore fulcio`,
 				Bytes: caBytes},
 			)
 			certOut.Close()
-			log.Logger.Info("Root CA saved to file: ", viper.GetString("out"))
+			log.Logger.Info("root CA saved to file: ", viper.GetString("out"))
 		}
 	},
 }
