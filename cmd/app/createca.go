@@ -56,19 +56,21 @@ certificate authority for an instance of sigstore fulcio`,
 		if err != nil {
 			panic(err)
 		}
-
 		if findCA != nil {
 			panic("certificate already exists with this ID")
 		}
 
-		// This gets the private key pair we loaded:
-		// pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384r1
+		// Find the existing Key Pair
+		// TODO: We could make the TAG customizable
 		log.Logger.Info("finding slot for private key \"FulcioCA\"")
 		privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
 		pubKey := privKey.Public().(crypto.PublicKey).(*ecdsa.PublicKey)
+
+		// Generate a Random Serial Number
+		// TODO: We could make it so this could be passed in by the user
 		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 		if err != nil {
 			panic(err)
@@ -106,12 +108,15 @@ certificate authority for an instance of sigstore fulcio`,
 
 		certParse, err := x509.ParseCertificate(caBytes)
 
+		// Import the root CA into the HSM
+		// TODO: We could make the TAG customizable
 		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte("FulcioCA"), certParse)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
 		log.Logger.Info("root CA created with PKCS11 ID: ", viper.GetString("hsm-caroot-id"))
 
+		// Save out the file in pem format for easy import to CTL chain
 		if viper.IsSet("out") {
 			certOut, err := os.Create(viper.GetString("out"))
 			if err != nil {
