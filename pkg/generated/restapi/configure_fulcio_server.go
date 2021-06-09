@@ -220,3 +220,4 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	goaerrors.ServeError(w, r, err)
 }
+
