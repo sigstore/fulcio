@@ -36,13 +36,10 @@ import (
 // createcaCmd represents the createca command
 var createcaCmd = &cobra.Command{
 	Use:   "createca",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Create a root CA in a pkcs11 device",
+	Long: `Create an x509 root CA within a pkcs11 device using values
+such as organization, country etc. This can then be used as the root
+certificate authority for an instance of sigstore fulcio`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Logger.Info("Binding to PKCS11 HSM model: SoftHSM")
 		p11Ctx, err := crypto11.ConfigureFromFile("config/crypto11.conf")

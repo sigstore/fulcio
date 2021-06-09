@@ -52,7 +52,6 @@ func init() {
 	rootCmd.PersistentFlags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	rootCmd.PersistentFlags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 	rootCmd.PersistentFlags().String("hsm-caroot-id", "", "HSM ID for Root CA")
-	rootCmd.MarkPersistentFlagRequired("ca")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)

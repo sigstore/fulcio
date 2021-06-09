@@ -57,7 +57,6 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 
 	// Perform a proof challenge verification
 	if err := fulcioca.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
-		log.Logger.Error("CheckSignature", err)
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 
@@ -73,26 +72,24 @@ func FulcioSigningCertHandler(params operations.SigningCertParams, principal *oi
 
 	rootCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
 	if err != nil {
-		log.Logger.Error(err)
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
 
 	// get the private key object from HSM
 	privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
 	if err != nil {
-		log.Logger.Error(err)
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
 
-	resp := fulcioca.CreateClientCertificate(rootCA, emailAddress, pkixPubKey, privKey)
+	clientCert, err := fulcioca.CreateClientCertificate(rootCA, emailAddress, pkixPubKey, privKey)
 	if err != nil {
-		log.Logger.Error("CreateClientCertificate", err)
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 	}
 
 	// Format in PEM
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: resp,
+		Bytes: clientCert,
 	})
 
 	rootPEM := pem.EncodeToMemory(&pem.Block{
