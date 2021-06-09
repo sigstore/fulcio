@@ -26,6 +26,7 @@ import (
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"math"
 	"math/big"
 	"os"
 	"time"
@@ -68,9 +69,12 @@ certificate authority for an instance of sigstore fulcio`,
 			log.Logger.Fatal(err)
 		}
 		pubKey := privKey.Public().(crypto.PublicKey).(*ecdsa.PublicKey)
-
+		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
+		if err != nil {
+			panic(err)
+		}
 		rootCA := &x509.Certificate{
-			SerialNumber: big.NewInt(2021),
+			SerialNumber: serialNumber,
 			Subject: pkix.Name{
 				Organization:  []string{viper.GetString("org")},
 				Country:       []string{viper.GetString("country")},
