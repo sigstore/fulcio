@@ -9,7 +9,7 @@ fulcio only signs short-lived certificates that are valid for under 20 minutes.
 Fulcio is a *work in progress*.
 There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
 
-The fulcio root cert is currently:
+The fulcio root cert running on our public instance (https://fulcio.sigstore.dev) is currently:
 
 ```
 -----BEGIN CERTIFICATE-----
@@ -65,7 +65,6 @@ You can also run with your own GCP Private CA, by passing in a parent and google
 ```
 go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
 ```
-
 
 ### SoftHSM (pkcs11)
 
