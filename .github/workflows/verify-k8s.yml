@@ -1,0 +1,61 @@
+#
+# Copyright 2021 The Sigstore Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Verify-K8s
+
+on: [push, pull_request]
+
+jobs:
+  verify-k8s-manifests:
+    name: k8s manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.x
+      - name: Install kubeval
+        run: go get github.com/instrumenta/kubeval
+      - run: kubeval config/*.yaml
+
+  verify-k8s-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.x
+      - name: Install ko
+        run: |
+          curl -L https://github.com/google/ko/releases/download/v0.8.3/ko_0.8.3_Linux_x86_64.tar.gz | tar xzf - ko && \
+          chmod +x ./ko && sudo mv ko /usr/local/bin/
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1.1.0
+        with:
+          cluster_name: fulcio-cluster
+      - name: Deploy fulcio-dev
+        run: |
+          sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
+          sed -i -e 's,cpu: ".5",memory: "50m",g' ${{ github.workspace }}/config/deployment.yaml
+
+          kubectl create ns fulcio-dev
+
+          export KO_DOCKER_REPO=kind.local
+          export KIND_CLUSTER_NAME=fulcio-cluster
+          ko resolve -f config/ | kubectl apply -f -
+
+          kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
+
+          kubectl get po -n fulcio-dev
