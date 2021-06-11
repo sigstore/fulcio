@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	label     = "FulcioCA"
+	label = "FulcioCA"
 )
 
 func publicKeyFromPrivate(privKey crypto.PrivateKey) (crypto.PublicKey, error) {
