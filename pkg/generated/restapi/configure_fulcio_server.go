@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/spf13/viper"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -98,12 +97,6 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 
 		if idToken == nil {
 			return nil, goaerrors.New(http.StatusUnauthorized, strings.Join(errs, ","))
-		}
-		if _, ok, err := oauthflow.EmailFromIDToken(idToken); !ok || err != nil {
-			if err != nil {
-				return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
-			}
-			return nil, goaerrors.New(http.StatusUnauthorized, "email has not been verified with token issuer")
 		}
 
 		return idToken, nil
