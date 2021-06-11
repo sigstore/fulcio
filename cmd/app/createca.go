@@ -152,6 +152,7 @@ certificate authority for an instance of sigstore fulcio`,
 				Type:  "CERTIFICATE",
 				Bytes: caBytes},
 			); err != nil {
+				certOut.Close()
 				log.Logger.Fatal(err)
 			}
 			certOut.Close()

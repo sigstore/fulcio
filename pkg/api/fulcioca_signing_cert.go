@@ -18,13 +18,13 @@ package api
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
@@ -64,7 +64,8 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 	// internal security controls
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return handleFulcioAPIError(params, http.StatusInternalServerError,
+			errors.Wrap(err, "initializing HSM context"), failedToCreateCert)
 	}
 	defer p11Ctx.Close()
 
