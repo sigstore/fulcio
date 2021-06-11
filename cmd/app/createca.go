@@ -19,9 +19,11 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -29,11 +31,27 @@ import (
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"github.com/sigstore/fulcio/pkg/log"
 )
+
+const (
+	label     = "FulcioCA"
+)
+
+func publicKeyFromPrivate(privKey crypto.PrivateKey) (crypto.PublicKey, error) {
+	var err error
+	switch key := privKey.(type) {
+	case *ecdsa.PrivateKey:
+		return key.Public().(crypto.PublicKey).(*ecdsa.PublicKey), nil
+	case *rsa.PrivateKey:
+		return key.Public().(crypto.PublicKey).(*rsa.PublicKey), nil
+	default:
+		err = errors.New("error generating public key")
+	}
+	return nil, err
+}
 
 // createcaCmd represents the createca command
 var createcaCmd = &cobra.Command{
@@ -55,26 +73,30 @@ certificate authority for an instance of sigstore fulcio`,
 		// Check if CA already exists (or a cert within the provided ID)
 		findCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
 		if err != nil {
-			panic(err)
+			log.Logger.Fatal(err)
 		}
 		if findCA != nil {
-			panic("certificate already exists with this ID")
+			log.Logger.Fatal("certificate already exists with this ID")
 		}
 
 		// Find the existing Key Pair
 		// TODO: We could make the TAG customizable
-		log.Logger.Info("finding slot for private key \"FulcioCA\"")
-		privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
+		log.Logger.Info("finding slot for private key: ", label)
+		privKey, err := p11Ctx.FindKeyPair(nil, []byte(label))
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
-		pubKey := privKey.Public().(crypto.PublicKey).(*ecdsa.PublicKey)
+
+		pubKey, err := publicKeyFromPrivate(privKey)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
 
 		// Generate a Random Serial Number
 		// TODO: We could make it so this could be passed in by the user
 		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 		if err != nil {
-			panic(err)
+			log.Logger.Fatal(err)
 		}
 		rootCA := &x509.Certificate{
 			SerialNumber: serialNumber,
@@ -114,7 +136,7 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// Import the root CA into the HSM
 		// TODO: We could make the TAG customizable
-		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte("FulcioCA"), certParse)
+		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte(label), certParse)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}

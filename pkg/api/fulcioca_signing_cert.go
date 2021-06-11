@@ -102,7 +102,7 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 	})
 
 	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subject)
+	log.RequestIDLogger(params.HTTPRequest).Info("Submitting CTL inclusion for OIDC grant: ", subject)
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
 		c := ctl.New(ctURL)
@@ -110,10 +110,10 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 		if err != nil {
 			return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
 		}
-		log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
-		log.Logger.Info("CTL Submission ID Received: ", ct.ID)
+		log.RequestIDLogger(params.HTTPRequest).Info("CTL Submission Signature Received: ", ct.Signature)
+		log.RequestIDLogger(params.HTTPRequest).Info("CTL Submission ID Received: ", ct.ID)
 	} else {
-		log.Logger.Info("Skipping CT log upload.")
+		log.RequestIDLogger(params.HTTPRequest).Info("Skipping CT log upload.")
 	}
 
 	metricNewEntries.Inc()

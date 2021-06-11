@@ -24,11 +24,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/google/uuid"
 )
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
@@ -50,13 +50,12 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 
 func CreateClientCertificate(rootCA *x509.Certificate, emailAddress string, publicKeyPEM interface{}, privKey crypto11.Signer) ([]byte, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
-	if err != nil {
-		return nil, err
-	}
+	uuid := uuid.New()
+	var serialNumber big.Int
+	serialNumber.SetBytes(uuid[:])
 	email := []string{emailAddress}
 	cert := &x509.Certificate{
-		SerialNumber:   serialNumber,
+		SerialNumber:   &serialNumber,
 		NotBefore:      time.Now(),
 		NotAfter:       time.Now().Add(time.Minute * 10),
 		SubjectKeyId:   []byte{1, 2, 3, 4, 6},

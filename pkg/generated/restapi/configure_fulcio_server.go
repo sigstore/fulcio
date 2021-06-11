@@ -22,6 +22,7 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -119,7 +120,7 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	case "fulcioca":
 		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.FulcioCASigningCertHandler)
 	default:
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleCASigningCertHandler)
+		panic(fmt.Sprintf("unrecognised CA: %s", CAType))
 	}
 
 	api.PreServerShutdown = func() {}
