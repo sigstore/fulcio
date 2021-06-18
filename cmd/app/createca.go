@@ -17,13 +17,10 @@ package app
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -37,21 +34,8 @@ import (
 )
 
 const (
-	label = "FulcioCA"
+	LABEL = "FulcioCA"
 )
-
-func publicKeyFromPrivate(privKey crypto.PrivateKey) (crypto.PublicKey, error) {
-	var err error
-	switch key := privKey.(type) {
-	case *ecdsa.PrivateKey:
-		return key.Public().(crypto.PublicKey).(*ecdsa.PublicKey), nil
-	case *rsa.PrivateKey:
-		return key.Public().(crypto.PublicKey).(*rsa.PublicKey), nil
-	default:
-		err = errors.New("error generating public key")
-	}
-	return nil, err
-}
 
 // createcaCmd represents the createca command
 var createcaCmd = &cobra.Command{
@@ -81,18 +65,14 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// Find the existing Key Pair
 		// TODO: We could make the TAG customizable
-		log.Logger.Info("finding slot for private key: ", label)
-		privKey, err := p11Ctx.FindKeyPair(nil, []byte(label))
+		log.Logger.Info("finding slot for private key: ", LABEL)
+		privKey, err := p11Ctx.FindKeyPair(nil, []byte(LABEL))
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
 
-		pubKey, err := publicKeyFromPrivate(privKey)
-		if err != nil {
-			log.Logger.Fatal(err)
-		}
+		pubKey:= privKey.Public().(crypto.PublicKey)
 
-		// Generate a Random Serial Number
 		// TODO: We could make it so this could be passed in by the user
 		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 		if err != nil {
@@ -136,7 +116,7 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// Import the root CA into the HSM
 		// TODO: We could make the TAG customizable
-		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte(label), certParse)
+		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte(LABEL), certParse)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
