@@ -25,6 +25,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
@@ -124,7 +125,7 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// Save out the file in pem format for easy import to CTL chain
 		if viper.IsSet("out") {
-			certOut, err := os.Create(viper.GetString("out"))
+			certOut, err := os.Create(filepath.Clean(viper.GetString("out")))
 			if err != nil {
 				log.Logger.Fatal(err)
 			}
