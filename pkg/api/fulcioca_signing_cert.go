@@ -19,13 +19,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
 	"github.com/spf13/viper"
 )
-
 
 func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
@@ -40,7 +40,6 @@ func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byt
 	// get the existing root CA from the HSM
 	rootCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
 	if err != nil {
-		//return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
 		return "", nil, err
 	}
 

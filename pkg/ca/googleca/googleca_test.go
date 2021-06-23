@@ -22,8 +22,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"github.com/sigstore/fulcio/pkg/ca/cautils"
 	"testing"
+
+	"github.com/sigstore/fulcio/pkg/ca/cautils"
 )
 
 func failErr(t *testing.T, err error) {

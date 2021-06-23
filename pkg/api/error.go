@@ -29,13 +29,10 @@ import (
 )
 
 const (
-	malformedPublicKey     = "The public key supplied in the request could not be parsed"
 	invalidSignature       = "The signature supplied in the request could not be verified"
-	failedToCreateCert     = "Error creating certificate"
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	invalidCredentials     = "There was an error processing the credentials for this request"
-	invalidCA			   = "Unrecognised certificate authority %s"
-	emailNotVerified       = "The identity provider reported that the email address for this request has not be verified"
+	invalidCA              = "Unrecognised certificate authority %s"
 )
 
 func errorMsg(message string, code int) *models.Error {

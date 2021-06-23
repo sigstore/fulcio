@@ -4,6 +4,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -11,14 +14,12 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/viper"
-	"net/http"
-	"strings"
 )
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
 
-    //none of the following cases should happen if the authentication path is working correctly; checking to be defensive
+	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
 	if principal == nil {
 		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
 	}

@@ -72,7 +72,7 @@ certificate authority for an instance of sigstore fulcio`,
 			log.Logger.Fatal(err)
 		}
 
-		pubKey:= privKey.Public().(crypto.PublicKey)
+		pubKey := privKey.Public().(crypto.PublicKey)
 
 		// TODO: We could make it so this could be passed in by the user
 		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))

@@ -18,6 +18,7 @@ package api
 import (
 	"context"
 	"fmt"
+
 	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 

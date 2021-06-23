@@ -20,9 +20,10 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/sigstore/fulcio/pkg/ca/cautils"
 	"net/url"
 	"strings"
+
+	"github.com/sigstore/fulcio/pkg/ca/cautils"
 
 	"github.com/sigstore/fulcio/pkg/config"
 
@@ -77,7 +78,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	// The Spiffe ID must be a subdomain of the issuer (spiffe://foo.example.com -> example.com/...)
 	u, err := url.Parse(cfg.OIDCIssuers[principal.Issuer].IssuerURL)
 	if err != nil {
-		return nil , err
+		return nil, err
 	}
 
 	issuerHostname := u.Hostname()

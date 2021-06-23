@@ -46,7 +46,7 @@ The API is defined via OpenAPI, defined [here](openapi.yaml).
 
 ## Transparency
 
-Fulcio will publish issued certificates to a unique CT-log.
+Fulcio will publish issued certificates to a unique Certificate Transparency log (CT-log).
 That log will be hosted by the sigstore project.
 
 We encourage auditors to monitor this log, and aim to help people access the data.
@@ -205,7 +205,7 @@ not trust another service we run.
 
 #### Transparency Logs
 
-The `rekor` service provides a transparency log of software signatures.
+The `rekor` service provides a [transparency log](https://transparency.dev/verifiable-data-structures/) of software signatures.
 As entries are appended into this log, `rekor` periodically signs the full tree along with a timestamp.
 
 An entry in Rekor provides a single-party attestation that a piece of data existed prior to a certain time.
@@ -214,7 +214,7 @@ This long-term trust also requires that the log is monitored.
 
 Transparency Logs make it hard to forge timestamps long-term, but in short time-windows it would be much easier for
 the Rekor operator to fake or forge timestamps.
-To mitigate this, Rekor's timestamps and STHs are signed - a valid signed tree hash contains a non-repudiadable timestamp.
+To mitigate this, Rekor's timestamps and tree head are signed - a valid Signed Tree Head (STH) contains a non-repudiadable timestamp.
 These signed timestamp tokens are saved as evidence in case Rekor's clock changes in the future.
 So, more skeptical parties don't have to trust Rekor at all!
 
