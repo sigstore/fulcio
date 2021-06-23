@@ -19,55 +19,19 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/sigstore/fulcio/pkg/ca/cautils"
-	"net/http"
-	"strings"
-
-	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/pkg/errors"
-	"github.com/spf13/viper"
-
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
-	"github.com/sigstore/fulcio/pkg/ctl"
-	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
+	"github.com/spf13/viper"
 )
 
-func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 
-	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
-	if principal == nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
-	}
+func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
-
-	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
-	if !emailVerified {
-		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("email_verified claim was false"), emailNotVerified)
-	} else if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidCredentials)
-	}
-
-	publicKey := *params.CertificateRequest.PublicKey
-	pkixPubKey, err := x509.ParsePKIXPublicKey(*publicKey.Content)
-	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, malformedPublicKey)
-	}
-
-	// Perform a proof challenge verification
-	if err := cautils.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
-	}
-
-	// Use a generic Cert failure message as we don't want to tell the client about a HSM failure and risk exposure of
-	// internal security controls
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError,
-			errors.Wrap(err, "initializing HSM context"), failedToCreateCert)
+		return "", nil, err
 	}
 	defer p11Ctx.Close()
 
@@ -76,57 +40,32 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 	// get the existing root CA from the HSM
 	rootCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		//return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return "", nil, err
 	}
 
 	// get the private key object from HSM
 	privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return "", nil, err
 	}
 
-	// Generate the client signing certificate
-
-	clientCert, err := fulcioca.CreateClientCertificate(rootCA, emailAddress, pkixPubKey, privKey)
+	pkixPubKey, err := x509.ParsePKIXPublicKey(publicKey)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return "", nil, err
 	}
 
-	// Format in PEM
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: clientCert,
-	})
-
+	clientCert, _, err := fulcioca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
+	if err != nil {
+		fmt.Println(err)
+		return "", nil, err
+	}
+	log.Logger.Error("client cert", clientCert)
 	// Format in PEM
 	rootPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: rootCA.Raw,
 	})
 
-	// Submit to CTL
-	log.RequestIDLogger(params.HTTPRequest).Info("Submitting CTL inclusion for OIDC grant: ", subject)
-	ctURL := viper.GetString("ct-log-url")
-	if ctURL != "" {
-		c := ctl.New(ctURL)
-		ct, err := c.AddChain(string(certPEM), []string{string(rootPEM)})
-		if err != nil {
-			return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
-		}
-		log.RequestIDLogger(params.HTTPRequest).Info("CTL Submission Signature Received: ", ct.Signature)
-		log.RequestIDLogger(params.HTTPRequest).Info("CTL Submission ID Received: ", ct.ID)
-	} else {
-		log.RequestIDLogger(params.HTTPRequest).Info("Skipping CT log upload.")
-	}
-
-	metricNewEntries.Inc()
-
-	var ret strings.Builder
-	fmt.Fprintf(&ret, "%s\n", string(certPEM))
-	for _, cert := range []string{string(rootPEM)} {
-		fmt.Fprintf(&ret, "%s\n", cert)
-	}
-
-	//TODO: return SCT and SCT URL
-	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+	return clientCert, []string{string(rootPEM)}, nil
 }

@@ -34,6 +34,7 @@ const (
 	failedToCreateCert     = "Error creating certificate"
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	invalidCredentials     = "There was an error processing the credentials for this request"
+	invalidCA			   = "Unrecognised certificate authority %s"
 	emailNotVerified       = "The identity provider reported that the email address for this request has not be verified"
 )
 

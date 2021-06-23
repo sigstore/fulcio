@@ -15,7 +15,6 @@ import (
 	"strings"
 )
 
-
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
 
@@ -37,11 +36,17 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	var PemCertificate string
 	var PemCertificateChain []string
+
 	switch viper.GetString("ca") {
 	case "googleca":
 		PemCertificate, PemCertificateChain, err = GoogleCASigningCertHandler(ctx, *subj, publicKeyPEM)
+	case "fulcioca":
+		PemCertificate, PemCertificateChain, err = FulcioCASigningCertHandler(*subj, publicKey)
 	default:
-		panic("sort this later!")
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(invalidCA, viper.GetString("ca")))
+	}
+	if err != nil {
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(invalidCA, viper.GetString("ca")))
 	}
 
 	// Submit to CTL
@@ -66,7 +71,6 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	for _, cert := range PemCertificateChain {
 		fmt.Fprintf(&ret, "%s\n", cert)
 	}
-
 
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
 
