@@ -1,6 +1,25 @@
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
 package api
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -15,6 +34,23 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/viper"
 )
+
+func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
+	h := sha256.Sum256([]byte(email))
+
+	switch k := pub.(type) {
+	case *ecdsa.PublicKey:
+		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
+			return errors.New("signature could not be verified")
+		}
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
+			return fmt.Errorf("signature could not be verified: %v", err)
+		}
+	}
+
+	return nil
+}
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
