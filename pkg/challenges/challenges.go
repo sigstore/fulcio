@@ -20,19 +20,29 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/sigstore/fulcio/pkg/ca/cautils"
 	"net/url"
 	"strings"
 
-	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"github.com/sigstore/fulcio/pkg/config"
-
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 )
 
-func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+type ChallengeType int
+
+const (
+	EmailValue ChallengeType = iota
+	SpiffeValue
+)
+
+type ChallengeResult struct {
+	TypeVal ChallengeType
+	Value   string
+}
+
+func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
@@ -46,15 +56,15 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	// Check the proof
-	if err := googleca.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := cautils.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return googleca.EmailSubject(emailAddress), nil
+	return &ChallengeResult{EmailValue, emailAddress}, nil
 }
 
-func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 
 	spiffeID := principal.Subject
 
@@ -67,7 +77,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	// The Spiffe ID must be a subdomain of the issuer (spiffe://foo.example.com -> example.com/...)
 	u, err := url.Parse(cfg.OIDCIssuers[principal.Issuer].IssuerURL)
 	if err != nil {
-		return nil, err
+		return nil , err
 	}
 
 	issuerHostname := u.Hostname()
@@ -76,12 +86,12 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := googleca.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := cautils.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return googleca.SpiffeSubject(spiffeID), nil
+	return &ChallengeResult{SpiffeValue, spiffeID}, nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {

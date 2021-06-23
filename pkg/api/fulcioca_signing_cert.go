@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/sigstore/fulcio/pkg/ca/cautils"
 	"net/http"
 	"strings"
 
@@ -42,6 +43,7 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
 	}
 
+
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return handleFulcioAPIError(params, http.StatusBadRequest, errors.New("email_verified claim was false"), emailNotVerified)
@@ -56,7 +58,7 @@ func FulcioCASigningCertHandler(params operations.SigningCertParams, principal *
 	}
 
 	// Perform a proof challenge verification
-	if err := fulcioca.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
+	if err := cautils.CheckSignature(pkixPubKey, *params.CertificateRequest.SignedEmailAddress, emailAddress); err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 

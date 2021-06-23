@@ -16,37 +16,14 @@
 package fulcioca
 
 import (
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
-	"errors"
-	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
 )
-
-func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
-	h := sha256.Sum256([]byte(email))
-
-	switch k := pub.(type) {
-	case *ecdsa.PublicKey:
-		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
-			return errors.New("signature could not be verified")
-		}
-	case *rsa.PublicKey:
-		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
-			return fmt.Errorf("signature could not be verified: %v", err)
-		}
-	}
-
-	return nil
-}
 
 func CreateClientCertificate(rootCA *x509.Certificate, emailAddress string, publicKeyPEM interface{}, privKey crypto11.Signer) ([]byte, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen

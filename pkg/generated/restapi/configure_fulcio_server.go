@@ -22,13 +22,10 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/spf13/viper"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/middleware"
@@ -105,16 +102,8 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// Select which CA / KMS system to use
 	// Currently supported:
 	// googleca: Google Certficate Authority Service
-	// fulcio: Generic PKCS11 / HSM backed service
-	CAType := viper.GetString("ca")
-	switch CAType {
-	case "googleca":
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.GoogleCASigningCertHandler)
-	case "fulcioca":
-		api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.FulcioCASigningCertHandler)
-	default:
-		panic(fmt.Sprintf("unrecognised CA: %s", CAType))
-	}
+	// fulcio: Generic PKCS11 / HSM backed servic
+	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
 	api.PreServerShutdown = func() {}
 

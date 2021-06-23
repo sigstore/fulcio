@@ -17,85 +17,43 @@ package api
 
 import (
 	"context"
-	"encoding/pem"
-	"errors"
 	"fmt"
-	"net/http"
-	"strings"
-
 	"github.com/sigstore/fulcio/pkg/ca/googleca"
+	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/viper"
 
-	"github.com/sigstore/fulcio/pkg/ctl"
-	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 )
 
-func GoogleCASigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
-	ctx := params.HTTPRequest.Context()
-
-	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
-	if principal == nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
-	}
-
-	publicKey := *params.CertificateRequest.PublicKey.Content
-	subj, err := subject(ctx, principal, config.Config(), publicKey, *params.CertificateRequest.SignedEmailAddress)
-	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
-	}
-
-	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Bytes: publicKey,
-		Type:  "PUBLIC KEY",
-	})
-	// Now issue cert!
+func GoogleCASigningCertHandler(ctx context.Context, subj challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
 	parent := viper.GetString("gcp_private_ca_parent")
 
-	req := googleca.Req(parent, subj, publicKeyPEM)
+	// call a new function here to set the type, we may need to pass back the issuer?
+	var privca *privatecapb.CertificateConfig_SubjectConfig
+	switch subj.TypeVal {
+	case challenges.EmailValue:
+		privca = googleca.EmailSubject(subj.Value)
+	case challenges.SpiffeValue:
+		privca = googleca.SpiffeSubject(subj.Value)
+
+	}
+	req := googleca.Req(parent, privca, publicKey)
 	log.Logger.Infof("requesting cert from %s for %v", parent, subject)
 
 	resp, err := googleca.Client().CreateCertificate(ctx, req)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToCreateCert)
+		return "", nil, err
 	}
-
-	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subject)
-	ctURL := viper.GetString("ct-log-url")
-	if ctURL != "" {
-		c := ctl.New(ctURL)
-		ct, err := c.AddChain(resp.PemCertificate, resp.PemCertificateChain)
-		if err != nil {
-			return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
-		}
-		log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
-		log.Logger.Info("CTL Submission ID Received: ", ct.ID)
-	} else {
-		log.Logger.Info("Skipping CT log upload.")
-	}
-
-	metricNewEntries.Inc()
-
-	var ret strings.Builder
-	fmt.Fprintf(&ret, "%s\n", resp.PemCertificate)
-	for _, cert := range resp.PemCertificateChain {
-		fmt.Fprintf(&ret, "%s\n", cert)
-	}
-
-	//TODO: return SCT and SCT URL
-	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+	return resp.PemCertificate, resp.PemCertificateChain, nil
 }
 
-func subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+func subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
 	iss := cfg.OIDCIssuers[tok.Issuer]
 	switch iss.Type {
 	case config.IssuerTypeEmail:

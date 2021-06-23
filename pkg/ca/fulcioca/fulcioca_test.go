@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"github.com/sigstore/fulcio/pkg/ca/cautils"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestCheckSignatureECDSA(t *testing.T) {
 	failErr(t, err)
 
 	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -45,12 +46,12 @@ func TestCheckSignatureECDSA(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, signature, email); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }
@@ -60,7 +61,7 @@ func TestCheckSignatureRSA(t *testing.T) {
 	failErr(t, err)
 
 	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -68,12 +69,12 @@ func TestCheckSignatureRSA(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, signature, email); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
+	if err := cautils.CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }
