@@ -1,18 +1,108 @@
 # Developing Fulcio
 
-Fulcio uses Go and can be run with no other dependencies, other than a GCP CA.
+Fulcio uses Go and can be run with no other dependencies, other than a trust root PKIX / CA capable system.  Currently
+fulcio supports Google certificate authority service (GCP SA)  or a PKCS11 capable HSM (such as SoftHSM).
 
-You can run locally (outside a container) with:
+## GCP SA configuration
+
+You can run locally (outside a container) with GCP SA:
 
 ```
-go run main.go serve --port 5555 --gcp_private_ca_parent=projects/<project>/locations/<location>/certificateAuthorities/<name>
+go run main.go serve --port 5555 --ca googleca --gcp_private_ca_parent=projects/<project>/locations/<location>/certificateAuthorities/<name>
 ```
 
 where you fill in project, location and name for the `--gcp_private_ca_parent` flag
 
 This can be any GCP SA that you have credentials to.
+
 We use the default credential helpers so you can authenticate with Workload Identity in a cluster
 or Application Default Credentials locally (remember to `gcloud application-default login`).
+
+## SoftHSM configuration
+
+fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`
+
+To configure a SoftHSM:
+
+Create a `config/crypto11.conf` file:
+
+```
+{
+"Path" : "/usr/lib64/softhsm/libsofthsm.so",
+"TokenLabel": "fulcio",
+"Pin" : "2324"
+}
+```
+
+And a `config/softhsm2.conf`
+
+```
+directories.tokendir = /tmp/tokens
+objectstore.backend = file
+log.level = INFO
+```
+
+Export the `config/softhsm2.conf`
+
+```
+export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg 
+```
+
+### Start a SoftHSM instance
+
+```
+softhsm2-util --init-token --slot 0 --label fulcio
+```
+
+### Create keys within the SoftHSM
+
+```
+pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA  --key-type EC:secp384r1
+```
+
+* Note: you can import existing keys and import using pkcs11-tool, see pkcs11-tool manual for details
+
+### Create a root CA
+
+Now that your keys are generated, you can use the fulcio `createca` command to generate a Root CA. This command
+will also store the generated Root CA into the HSM by the delegated id passed to `--hsm-caroot-id`
+
+```
+fulcio createca --org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
+```
+
+`fuclio createca` will return a root certificate if used with the `-o` flag. If you plan to run fuclio with a CTFE,
+then you will need to configure the root certificate as the trust chain. This can be done as follows::
+
+Copy your root certification from the above step `myrootCA.pem` and then set this within your `ct.cfg` as follows:
+
+
+```json
+config {
+	log_id: $log_id
+	prefix: "test"
+	roots_pem_file: "/etc/config/myrootCA.pem"
+....
+}
+```
+
+
+### Run FulcioCA
+
+```
+fulcio serve --ca fulcioca --hsm-caroot-id 99
+```
+
+> :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM.
+> Use for test development purposes only.
+
+---
+**NOTE**
+
+FuclioCA has only been validated against a SoftHSM. In theory this should also work with all PKCS11 compliant
+HSM's, but to date we have only tested against a SoftHSM.
+
+---
 
 ## Testing with the client
 
