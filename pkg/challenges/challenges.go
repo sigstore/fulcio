@@ -17,13 +17,15 @@ package challenges
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/sigstore/fulcio/pkg/ca/cautils"
 
 	"github.com/sigstore/fulcio/pkg/config"
 
@@ -43,6 +45,23 @@ type ChallengeResult struct {
 	Value   string
 }
 
+func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
+	h := sha256.Sum256([]byte(email))
+
+	switch k := pub.(type) {
+	case *ecdsa.PublicKey:
+		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
+			return errors.New("signature could not be verified")
+		}
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
+			return fmt.Errorf("signature could not be verified: %v", err)
+		}
+	}
+
+	return nil
+}
+
 func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
@@ -57,7 +76,7 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	// Check the proof
-	if err := cautils.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
@@ -87,7 +106,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := cautils.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
