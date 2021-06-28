@@ -16,6 +16,7 @@
 FROM golang:1.16.5 AS builder
 ENV APP_ROOT=/opt/app-root
 ENV GOPATH=$APP_ROOT
+ENV CGO_ENABLED=1
 
 WORKDIR $APP_ROOT/src/
 ADD go.mod go.sum $APP_ROOT/src/

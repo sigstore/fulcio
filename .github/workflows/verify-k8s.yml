@@ -51,7 +51,7 @@ jobs:
           sed -i -e 's,cpu: ".5",memory: "50m",g' ${{ github.workspace }}/config/deployment.yaml
 
           kubectl create ns fulcio-dev
-
+          export CGO_ENABLED=1
           export KO_DOCKER_REPO=kind.local
           export KIND_CLUSTER_NAME=fulcio-cluster
           ko resolve -f config/ | kubectl apply -f -
