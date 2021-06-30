@@ -42,7 +42,7 @@ jobs:
           curl -L https://github.com/google/ko/releases/download/v0.8.3/ko_0.8.3_Linux_x86_64.tar.gz | tar xzf - ko && \
           chmod +x ./ko && sudo mv ko /usr/local/bin/
       - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.1.0
+        uses: helm/kind-action@v1.2.0
         with:
           cluster_name: fulcio-cluster
           wait: 300s
