@@ -22,7 +22,6 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
 	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
 	"github.com/spf13/viper"
 )
@@ -59,7 +58,7 @@ func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byt
 		fmt.Println(err)
 		return "", nil, err
 	}
-	log.Logger.Error("client cert", clientCert)
+
 	// Format in PEM
 	rootPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",

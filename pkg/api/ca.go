@@ -16,11 +16,14 @@
 package api
 
 import (
+	"context"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/sigstore/fulcio/pkg/challenges"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
@@ -40,7 +43,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	}
 
 	publicKey := *params.CertificateRequest.PublicKey.Content
-	subj, err := subject(ctx, principal, config.Config(), publicKey, *params.CertificateRequest.SignedEmailAddress)
+	subj, err := Subject(ctx, principal, config.Config(), publicKey, *params.CertificateRequest.SignedEmailAddress)
 	if err != nil {
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
@@ -66,7 +69,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	}
 
 	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subject)
+	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", Subject)
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
 		c := ctl.New(ctURL)
@@ -89,5 +92,16 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	}
 
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+}
 
+func Subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
+	iss := cfg.OIDCIssuers[tok.Issuer]
+	switch iss.Type {
+	case config.IssuerTypeEmail:
+		return challenges.Email(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeSpiffe:
+		return challenges.Spiffe(ctx, tok, publicKey, challenge)
+	default:
+		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
+	}
 }

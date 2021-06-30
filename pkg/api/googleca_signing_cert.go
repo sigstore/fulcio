@@ -17,15 +17,11 @@ package api
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 
 	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/fulcio/pkg/config"
-
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spf13/viper"
 
 	"github.com/sigstore/fulcio/pkg/log"
@@ -45,23 +41,11 @@ func GoogleCASigningCertHandler(ctx context.Context, subj challenges.ChallengeRe
 
 	}
 	req := googleca.Req(parent, privca, publicKey)
-	log.Logger.Infof("requesting cert from %s for %v", parent, subject)
+	log.Logger.Infof("requesting cert from %s for %v", parent, Subject)
 
 	resp, err := googleca.Client().CreateCertificate(ctx, req)
 	if err != nil {
 		return "", nil, err
 	}
 	return resp.PemCertificate, resp.PemCertificateChain, nil
-}
-
-func subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
-	iss := cfg.OIDCIssuers[tok.Issuer]
-	switch iss.Type {
-	case config.IssuerTypeEmail:
-		return challenges.Email(ctx, tok, publicKey, challenge)
-	case config.IssuerTypeSpiffe:
-		return challenges.Spiffe(ctx, tok, publicKey, challenge)
-	default:
-		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
-	}
 }
