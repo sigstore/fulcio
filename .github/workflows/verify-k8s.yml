@@ -44,9 +44,8 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.2.0
         with:
-          cluster_name: fulcio-cluster
           wait: 300s
-          version: v0.11.1
+          cluster_name: fulcio-cluster
       - name: Deploy fulcio-dev
         run: |
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
