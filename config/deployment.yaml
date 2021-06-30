@@ -42,7 +42,7 @@ spec:
         - containerPort: 2112 # metrics
         args: [
           "serve",
-          "--host=0.0.0.0", "--port=5555", "--ca fulcioca", "--hsm-caroot-id 1", "--ct-log-url=http://ct-log/test",
+          "--host=0.0.0.0", "--port=5555", "--gcp_private_ca_parent=$(CA_PARENT)", "--ct-log-url=http://ct-log/test",
         ]
         env:
         - name: CA_PARENT
