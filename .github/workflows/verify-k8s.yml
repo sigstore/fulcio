@@ -56,6 +56,8 @@ jobs:
           ko resolve -f config/ | kubectl apply -f -
 
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
+          export KUBECONFIG="$(kind get kubeconfig-path --name="kind-fulcio-cluster")"
+          kubectl cluster-info
 
           kubectl get po -n fulcio-dev
         env:
