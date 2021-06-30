@@ -50,6 +50,8 @@ spec:
             configMapKeyRef:
               name: private-ca
               key: connection
+        - name: CGO_ENABLED
+          value: 1
         volumeMounts:
         - name: fulcio-config
           mountPath: /etc/fulcio-config
