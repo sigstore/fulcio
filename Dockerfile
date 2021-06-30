@@ -16,7 +16,6 @@
 FROM golang:1.16.5 AS builder
 ENV APP_ROOT=/opt/app-root
 ENV GOPATH=$APP_ROOT
-ENV CGO_ENABLED=1
 
 WORKDIR $APP_ROOT/src/
 ADD go.mod go.sum $APP_ROOT/src/
@@ -26,7 +25,7 @@ RUN go mod download
 ADD ./ $APP_ROOT/src/
 
 RUN go build -o server main.go
-RUN CGO_ENABLED=0 go build -gcflags "all=-N -l" -o server_debug main.go
+RUN CGO_ENABLED=1 go build -gcflags "all=-N -l" -o server_debug main.go
 
 # Multi-Stage production build
 FROM golang:1.16.5 as deploy
