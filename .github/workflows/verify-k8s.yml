@@ -60,3 +60,14 @@ jobs:
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
           kubectl get po -n fulcio-dev
+      - name: Collect logs
+        if: ${{ always() }}
+        run: |
+          mkdir -p /tmp/logs
+          kind export logs --name fulcio-cluster /tmp/logs
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs
+          path: /tmp/logs
