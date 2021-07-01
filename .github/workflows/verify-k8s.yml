@@ -60,8 +60,6 @@ jobs:
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
           kubectl get po -n fulcio-dev
-        env:
-          CGO_ENABLED: 1
       - name: Collect logs
         if: ${{ always() }}
         run: |
