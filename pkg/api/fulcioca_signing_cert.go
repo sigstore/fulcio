@@ -55,7 +55,6 @@ func FulcioCASigningCertHandler(subj *challenges.ChallengeResult, publicKey []by
 
 	clientCert, _, err := fulcioca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
 	if err != nil {
-		fmt.Println(err)
 		return "", nil, err
 	}
 
