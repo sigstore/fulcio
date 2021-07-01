@@ -27,7 +27,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
-func GoogleCASigningCertHandler(ctx context.Context, subj challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
 	parent := viper.GetString("gcp_private_ca_parent")
 
