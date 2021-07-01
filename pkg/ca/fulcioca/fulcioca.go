@@ -61,7 +61,6 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	})
-	log.Logger.Info("certPEM:", string(certPEM))
 
 	return string(certPEM), nil, nil
 }
