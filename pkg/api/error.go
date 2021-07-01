@@ -32,7 +32,7 @@ const (
 	invalidSignature       = "The signature supplied in the request could not be verified"
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	invalidCredentials     = "There was an error processing the credentials for this request"
-	invalidCA              = "Unrecognised certificate authority %s"
+	genericCAError           = "error communicating with CA backend"
 )
 
 func errorMsg(message string, code int) *models.Error {
