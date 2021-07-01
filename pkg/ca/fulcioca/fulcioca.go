@@ -26,7 +26,6 @@ import (
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
 	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/fulcio/pkg/log"
 )
 
 func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {

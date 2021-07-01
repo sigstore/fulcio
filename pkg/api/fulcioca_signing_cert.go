@@ -18,7 +18,6 @@ package api
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 
 	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
 	"github.com/sigstore/fulcio/pkg/challenges"

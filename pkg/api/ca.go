@@ -62,10 +62,10 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	case "fulcioca":
 		PemCertificate, PemCertificateChain, err = FulcioCASigningCertHandler(subj, publicKey)
 	default:
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(genericCAError))
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
 	}
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(genericCAError))
+		return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
 	}
 
 	// Submit to CTL
