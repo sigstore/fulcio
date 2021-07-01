@@ -44,7 +44,6 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.2.0
         with:
-          wait: 300s
           cluster_name: fulcio-cluster
           wait: 300s
       - name: Deploy fulcio-dev
