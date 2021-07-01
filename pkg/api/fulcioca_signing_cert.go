@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func FulcioCASigningCertHandler(subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
@@ -55,7 +55,6 @@ func FulcioCASigningCertHandler(subj challenges.ChallengeResult, publicKey []byt
 
 	clientCert, _, err := fulcioca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
 	if err != nil {
-		fmt.Println(err)
 		return "", nil, err
 	}
 

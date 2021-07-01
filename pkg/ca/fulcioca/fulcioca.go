@@ -29,7 +29,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
-func CreateClientCertificate(rootCA *x509.Certificate, subject challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
+func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
@@ -61,7 +61,6 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject challenges.Challe
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	})
-	log.Logger.Info("certPEM:", string(certPEM))
 
 	return string(certPEM), nil, nil
 }
