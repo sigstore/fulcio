@@ -44,26 +44,30 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.2.0
         with:
-          wait: 300s
           cluster_name: fulcio-cluster
+          wait: 300s
       - name: Deploy fulcio-dev
         run: |
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
           sed -i -e 's,cpu: ".5",memory: "50m",g' ${{ github.workspace }}/config/deployment.yaml
 
           kubectl create ns fulcio-dev
+
           export KO_DOCKER_REPO=kind.local
           export KIND_CLUSTER_NAME=fulcio-cluster
           ko resolve -f config/ | kubectl apply -f -
 
-          kubectl get po -n fulcio-dev
-          sleep 5
-          kubectl get po -n fulcio-dev
-
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
-          kubectl cluster-info
-
           kubectl get po -n fulcio-dev
-        env:
-          CGO_ENABLED: 1
+      - name: Collect logs
+        if: ${{ always() }}
+        run: |
+          mkdir -p /tmp/logs
+          kind export logs --name fulcio-cluster /tmp/logs
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs
+          path: /tmp/logs
