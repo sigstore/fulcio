@@ -17,6 +17,10 @@ package challenges
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -25,15 +29,40 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/config"
 
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
-
-	"github.com/sigstore/fulcio/pkg/ca"
-
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 )
 
-func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+type ChallengeType int
+
+const (
+	EmailValue ChallengeType = iota
+	SpiffeValue
+)
+
+type ChallengeResult struct {
+	TypeVal ChallengeType
+	Value   string
+}
+
+func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
+	h := sha256.Sum256([]byte(email))
+
+	switch k := pub.(type) {
+	case *ecdsa.PublicKey:
+		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
+			return errors.New("signature could not be verified")
+		}
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
+			return fmt.Errorf("signature could not be verified: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
@@ -47,15 +76,15 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	// Check the proof
-	if err := ca.CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return ca.EmailSubject(emailAddress), nil
+	return &ChallengeResult{EmailValue, emailAddress}, nil
 }
 
-func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*privatecapb.CertificateConfig_SubjectConfig, error) {
+func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 
 	spiffeID := principal.Subject
 
@@ -77,12 +106,12 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := ca.CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return ca.SpiffeSubject(spiffeID), nil
+	return &ChallengeResult{SpiffeValue, spiffeID}, nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {

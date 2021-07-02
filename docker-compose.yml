@@ -24,6 +24,7 @@ services:
       "serve",
       "--host=0.0.0.0",
       "--port=5555",
+      "--ca googleca"
       "--gcp_private_ca_parent=projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore",
       "--ct-log-url=http://ct_server:6962/test",
       "--oidc-issuer=http://dex-idp:8888/auth",

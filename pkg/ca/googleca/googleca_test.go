@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package ca
+package googleca
 
 import (
 	"crypto"
@@ -23,6 +23,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"testing"
+
+	"github.com/sigstore/fulcio/pkg/challenges"
 )
 
 func failErr(t *testing.T, err error) {
@@ -37,7 +39,7 @@ func TestCheckSignatureECDSA(t *testing.T) {
 	failErr(t, err)
 
 	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -45,12 +47,12 @@ func TestCheckSignatureECDSA(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, signature, email); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }
@@ -60,7 +62,7 @@ func TestCheckSignatureRSA(t *testing.T) {
 	failErr(t, err)
 
 	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
 		t.Fatal("check should have failed")
 	}
 
@@ -68,12 +70,12 @@ func TestCheckSignatureRSA(t *testing.T) {
 	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
 	failErr(t, err)
 
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, signature, email); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
+	if err := challenges.CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
 	}
 }

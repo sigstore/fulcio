@@ -46,7 +46,6 @@ jobs:
         with:
           wait: 300s
           cluster_name: fulcio-cluster
-          wait: 300s
       - name: Deploy fulcio-dev
         run: |
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
@@ -61,6 +60,8 @@ jobs:
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
           kubectl get po -n fulcio-dev
+        env:
+          CGO_ENABLED: 1
       - name: Collect logs
         if: ${{ always() }}
         run: |

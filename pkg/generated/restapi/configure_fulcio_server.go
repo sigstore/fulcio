@@ -98,6 +98,11 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 
 		return idToken, nil
 	}
+
+	// Select which CA / KMS system to use
+	// Currently supported:
+	// googleca: Google Certficate Authority Service
+	// fulcio: Generic PKCS11 / HSM backed servic
 	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
 	api.PreServerShutdown = func() {}

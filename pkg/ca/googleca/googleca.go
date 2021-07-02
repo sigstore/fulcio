@@ -13,17 +13,14 @@
 // limitations under the License.
 //
 
-package ca
+package googleca
 
 import (
 	"context"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -48,23 +45,6 @@ func Client() *privateca.CertificateAuthorityClient {
 	})
 
 	return c
-}
-
-func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
-	h := sha256.Sum256([]byte(email))
-
-	switch k := pub.(type) {
-	case *ecdsa.PublicKey:
-		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
-			return errors.New("signature could not be verified")
-		}
-	case *rsa.PublicKey:
-		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
-			return fmt.Errorf("signature could not be verified: %v", err)
-		}
-	}
-
-	return nil
 }
 
 // Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)

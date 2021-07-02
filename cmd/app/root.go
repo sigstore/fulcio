@@ -46,7 +46,9 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logType, "log_type", "dev", "logger type to use (dev/prod)")
-	rootCmd.PersistentFlags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name>")
+	rootCmd.PersistentFlags().String("ca", "", "googleca | fulcioca")
+	rootCmd.PersistentFlags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
+	rootCmd.PersistentFlags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca fulcio)")
 	rootCmd.PersistentFlags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	rootCmd.PersistentFlags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 
