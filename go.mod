@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.86.0
-	github.com/ThalesIgnite/crypto11 v1.2.4 // indirect
+	github.com/ThalesIgnite/crypto11 v1.2.4
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.8.0
 	github.com/smartystreets/assertions v1.0.0 // indirect
-	github.com/spf13/cobra v1.2.0
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
