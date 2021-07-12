@@ -47,3 +47,15 @@ jobs:
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
           version: v1.41
+
+  oidc-config:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - uses: actions/setup-go@v2
+      - name: check-config
+        run: |
+          set -e
+          go run federation/main.go
+          git diff --exit-code

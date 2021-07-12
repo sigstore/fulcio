@@ -43,4 +43,5 @@ require (
 	google.golang.org/genproto v0.0.0-20210721163202-f1cecdd8b78a
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
