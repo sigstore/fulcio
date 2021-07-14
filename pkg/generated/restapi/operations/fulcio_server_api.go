@@ -62,7 +62,11 @@ func NewFulcioServerAPI(spec *loads.Document) *FulcioServerAPI {
 		ApplicationPemCertificateChainProducer: runtime.ProducerFunc(func(w io.Writer, data interface{}) error {
 			return errors.NotImplemented("applicationPemCertificateChain producer has not yet been implemented")
 		}),
+		TxtProducer: runtime.TextProducer(),
 
+		HomepageHandler: HomepageHandlerFunc(func(params HomepageParams) middleware.Responder {
+			return middleware.NotImplemented("operation Homepage has not yet been implemented")
+		}),
 		SigningCertHandler: SigningCertHandlerFunc(func(params SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 			return middleware.NotImplemented("operation SigningCert has not yet been implemented")
 		}),
@@ -108,6 +112,9 @@ type FulcioServerAPI struct {
 	// ApplicationPemCertificateChainProducer registers a producer for the following mime types:
 	//   - application/pem-certificate-chain
 	ApplicationPemCertificateChainProducer runtime.Producer
+	// TxtProducer registers a producer for the following mime types:
+	//   - text/plain
+	TxtProducer runtime.Producer
 
 	// BearerAuth registers a function that takes a token and returns a principal
 	// it performs authentication based on an api key Authorization provided in the header
@@ -116,6 +123,8 @@ type FulcioServerAPI struct {
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
 
+	// HomepageHandler sets the operation handler for the homepage operation
+	HomepageHandler HomepageHandler
 	// SigningCertHandler sets the operation handler for the signing cert operation
 	SigningCertHandler SigningCertHandler
 
@@ -194,11 +203,17 @@ func (o *FulcioServerAPI) Validate() error {
 	if o.ApplicationPemCertificateChainProducer == nil {
 		unregistered = append(unregistered, "ApplicationPemCertificateChainProducer")
 	}
+	if o.TxtProducer == nil {
+		unregistered = append(unregistered, "TxtProducer")
+	}
 
 	if o.BearerAuth == nil {
 		unregistered = append(unregistered, "AuthorizationAuth")
 	}
 
+	if o.HomepageHandler == nil {
+		unregistered = append(unregistered, "HomepageHandler")
+	}
 	if o.SigningCertHandler == nil {
 		unregistered = append(unregistered, "SigningCertHandler")
 	}
@@ -261,6 +276,8 @@ func (o *FulcioServerAPI) ProducersFor(mediaTypes []string) map[string]runtime.P
 		switch mt {
 		case "application/pem-certificate-chain":
 			result["application/pem-certificate-chain"] = o.ApplicationPemCertificateChainProducer
+		case "text/plain":
+			result["text/plain"] = o.TxtProducer
 		}
 
 		if p, ok := o.customProducers[mt]; ok {
@@ -301,10 +318,14 @@ func (o *FulcioServerAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"][""] = NewHomepage(o.context, o.HomepageHandler)
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
-	o.handlers["POST"]["/signingCert"] = NewSigningCert(o.context, o.SigningCertHandler)
+	o.handlers["POST"]["/api/v1/signingCert"] = NewSigningCert(o.context, o.SigningCertHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

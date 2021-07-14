@@ -27,15 +27,15 @@ import (
 	golangswaggerpaths "path"
 )
 
-// SigningCertURL generates an URL for the signing cert operation
-type SigningCertURL struct {
+// HomepageURL generates an URL for the homepage operation
+type HomepageURL struct {
 	_basePath string
 }
 
 // WithBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *SigningCertURL) WithBasePath(bp string) *SigningCertURL {
+func (o *HomepageURL) WithBasePath(bp string) *HomepageURL {
 	o.SetBasePath(bp)
 	return o
 }
@@ -43,15 +43,15 @@ func (o *SigningCertURL) WithBasePath(bp string) *SigningCertURL {
 // SetBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *SigningCertURL) SetBasePath(bp string) {
+func (o *HomepageURL) SetBasePath(bp string) {
 	o._basePath = bp
 }
 
 // Build a url path and query string
-func (o *SigningCertURL) Build() (*url.URL, error) {
+func (o *HomepageURL) Build() (*url.URL, error) {
 	var _result url.URL
 
-	var _path = "/api/v1/signingCert"
+	var _path = "/"
 
 	_basePath := o._basePath
 	if _basePath == "" {
@@ -63,7 +63,7 @@ func (o *SigningCertURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *SigningCertURL) Must(u *url.URL, err error) *url.URL {
+func (o *HomepageURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -74,17 +74,17 @@ func (o *SigningCertURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *SigningCertURL) String() string {
+func (o *HomepageURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *SigningCertURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *HomepageURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on SigningCertURL")
+		return nil, errors.New("scheme is required for a full url on HomepageURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on SigningCertURL")
+		return nil, errors.New("host is required for a full url on HomepageURL")
 	}
 
 	base, err := o.Build()
@@ -98,6 +98,6 @@ func (o *SigningCertURL) BuildFull(scheme, host string) (*url.URL, error) {
 }
 
 // StringFull returns the string representation of a complete url
-func (o *SigningCertURL) StringFull(scheme, host string) string {
+func (o *HomepageURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

@@ -21,7 +21,7 @@
 //    http
 //    https
 //  Host: fulcio.sigstore.dev
-//  BasePath: /api/v1
+//  BasePath: /
 //  Version: 1.0.0
 //
 //  Consumes:
@@ -29,6 +29,7 @@
 //
 //  Produces:
 //    - application/pem-certificate-chain
+//    - text/plain
 //
 // swagger:meta
 package restapi

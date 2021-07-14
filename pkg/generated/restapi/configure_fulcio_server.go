@@ -105,11 +105,15 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// fulcio: Generic PKCS11 / HSM backed servic
 	api.SigningCertHandler = operations.SigningCertHandlerFunc(pkgapi.SigningCertHandler)
 
+	api.HomepageHandler = operations.HomepageHandlerFunc(pkgapi.HomePageHandler)
+
 	api.PreServerShutdown = func() {}
 
 	api.ServerShutdown = func() {}
 
 	api.AddMiddlewareFor("POST", "/api/v1/signingCert", middleware.NoCache)
+
+	api.AddMiddlewareFor("GET", "/", middleware.NoCache)
 
 	return setupGlobalMiddleware(api.Serve(setupMiddlewares))
 }
