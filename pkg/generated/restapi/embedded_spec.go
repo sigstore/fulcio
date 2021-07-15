@@ -44,29 +44,9 @@ func init() {
     "version": "1.0.0"
   },
   "host": "fulcio.sigstore.dev",
-  "basePath": "/",
+  "basePath": "/api/v1",
   "paths": {
-    "/": {
-      "get": {
-        "description": "open HomePage",
-        "produces": [
-          "text/plain"
-        ],
-        "operationId": "homepage",
-        "responses": {
-          "200": {
-            "$ref": "#/responses/OK"
-          },
-          "400": {
-            "$ref": "#/responses/BadRequest"
-          },
-          "default": {
-            "$ref": "#/responses/InternalServerError"
-          }
-        }
-      }
-    },
-    "/api/v1/signingCert": {
+    "/signingCert": {
       "post": {
         "security": [
           {
@@ -179,17 +159,6 @@ func init() {
         }
       }
     },
-    "OK": {
-      "description": "Ok message",
-      "schema": {
-        "type": "string"
-      },
-      "headers": {
-        "Content-Type": {
-          "type": "string"
-        }
-      }
-    },
     "Unauthorized": {
       "description": "The request could not be authorized",
       "schema": {
@@ -225,53 +194,9 @@ func init() {
     "version": "1.0.0"
   },
   "host": "fulcio.sigstore.dev",
-  "basePath": "/",
+  "basePath": "/api/v1",
   "paths": {
-    "/": {
-      "get": {
-        "description": "open HomePage",
-        "produces": [
-          "text/plain"
-        ],
-        "operationId": "homepage",
-        "responses": {
-          "200": {
-            "description": "Ok message",
-            "schema": {
-              "type": "string"
-            },
-            "headers": {
-              "Content-Type": {
-                "type": "string"
-              }
-            }
-          },
-          "400": {
-            "description": "The content supplied to the server was invalid",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "headers": {
-              "Content-Type": {
-                "type": "string"
-              }
-            }
-          },
-          "default": {
-            "description": "There was an internal error in the server while processing the request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "headers": {
-              "Content-Type": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/signingCert": {
+    "/signingCert": {
       "post": {
         "security": [
           {
@@ -423,17 +348,6 @@ func init() {
       "description": "There was an internal error in the server while processing the request",
       "schema": {
         "$ref": "#/definitions/Error"
-      },
-      "headers": {
-        "Content-Type": {
-          "type": "string"
-        }
-      }
-    },
-    "OK": {
-      "description": "Ok message",
-      "schema": {
-        "type": "string"
       },
       "headers": {
         "Content-Type": {

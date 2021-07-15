@@ -19,27 +19,14 @@ info:
   title: Fulcio
 schemes: [http, https]
 host: fulcio.sigstore.dev
-basePath: /
+basePath: /api/v1
 securityDefinitions:
   Bearer:
     type: apiKey
     in: header
     name: Authorization
 paths:
-  /:
-    get:
-      description: 'open HomePage'
-      operationId: homepage
-      produces:
-        - text/plain
-      responses:
-        200:
-          $ref: '#/responses/OK'
-        400:
-          $ref: '#/responses/BadRequest'
-        default:
-          $ref: '#/responses/InternalServerError'
-  /api/v1/signingCert:
+  /signingCert:
     post:
       security:
         - Bearer: []
@@ -98,13 +85,6 @@ definitions:
         type: string
 
 responses:
-  OK:
-    description: Ok message
-    schema:
-      type: string
-    headers:
-      Content-Type:
-        type: string
   BadRequest:
     description: The content supplied to the server was invalid
     schema:

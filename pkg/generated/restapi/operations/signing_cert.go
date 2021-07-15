@@ -47,7 +47,7 @@ func NewSigningCert(ctx *middleware.Context, handler SigningCertHandler) *Signin
 	return &SigningCert{Context: ctx, Handler: handler}
 }
 
-/* SigningCert swagger:route POST /api/v1/signingCert signingCert
+/* SigningCert swagger:route POST /signingCert signingCert
 
 create a cert, return content with a location header (with URL to CTL entry)
 
@@ -60,7 +60,7 @@ type SigningCert struct {
 func (o *SigningCert) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewSigningCertParams()
 	uprinc, aCtx, err := o.Context.Authorize(r, route)
@@ -69,7 +69,7 @@ func (o *SigningCert) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if aCtx != nil {
-		r = aCtx
+		*r = *aCtx
 	}
 	var principal *oidc.IDToken
 	if uprinc != nil {
