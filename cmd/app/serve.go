@@ -37,7 +37,7 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if viper.GetString("ca") == "fulcioca" || viper.GetString("ca") != "googleca" {
+		if viper.GetString("ca") != "fulcioca" || viper.GetString("ca") != "googleca" {
 			log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
 		}
 
