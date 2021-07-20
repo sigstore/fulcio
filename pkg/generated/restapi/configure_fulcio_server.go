@@ -217,7 +217,7 @@ func serveStaticContent(handler http.Handler) http.Handler {
 		if r.URL.Path == "/" {
 			w.Header().Add("Content-Type", "text/html")
 			w.WriteHeader(200)
-			w.Write(homePageBytes)
+			_, _ = w.Write(homePageBytes)
 			return
 		}
 		handler.ServeHTTP(w, r)
