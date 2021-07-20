@@ -16,7 +16,6 @@
 package app
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -72,7 +71,7 @@ certificate authority for an instance of sigstore fulcio`,
 			log.Logger.Fatal(err)
 		}
 
-		pubKey := privKey.Public().(crypto.PublicKey)
+		pubKey := privKey.Public()
 
 		// TODO: We could make it so this could be passed in by the user
 		serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))

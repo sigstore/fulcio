@@ -27,6 +27,9 @@ import (
 	"strings"
 	"time"
 
+	// using embed to add the static html page duing build time
+	_ "embed"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/middleware"
 	goaerrors "github.com/go-openapi/errors"
@@ -148,6 +151,7 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	returnHandler := middleware.Logger(handler)
 	returnHandler = middleware.Recoverer(returnHandler)
 	returnHandler = middleware.Heartbeat("/ping")(returnHandler)
+	returnHandler = serveStaticContent(returnHandler)
 
 	handleCORS := cors.Default().Handler
 	returnHandler = handleCORS(returnHandler)
@@ -203,4 +207,19 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 		err = goaerrors.New(e.Code(), "authentication credentials could not be validated")
 	}
 	goaerrors.ServeError(w, r, err)
+}
+
+//go:embed fulcioHomePage.html
+var homePageBytes []byte
+
+func serveStaticContent(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.Header().Add("Content-Type", "text/html")
+			w.WriteHeader(200)
+			_, _ = w.Write(homePageBytes)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
 }

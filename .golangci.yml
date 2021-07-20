@@ -21,8 +21,8 @@ linters:
   - goimports
   - gosec
   - gocritic
-  - golint
   - misspell
+  - revive
 output:
   uniq-by-line: false
 issues:
