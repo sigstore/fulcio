@@ -91,9 +91,8 @@ certificate authority for an instance of sigstore fulcio`,
 			NotBefore:             time.Now(),
 			NotAfter:              time.Now().AddDate(10, 0, 0),
 			IsCA:                  true,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-			KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-			BasicConstraintsValid: true,
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+			BasicConstraintsValid: true, MaxPathLen: 1,
 		}
 
 		caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, pubKey, privKey)
