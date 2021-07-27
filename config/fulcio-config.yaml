@@ -12,25 +12,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 apiVersion: v1
+data:
+    config.json: |-
+        {
+          "OIDCIssuers": {
+            "https://accounts.google.com": {
+              "IssuerURL": "https://accounts.google.com",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
+            "https://oauth2.sigstore.dev/auth": {
+              "IssuerURL": "https://oauth2.sigstore.dev/auth",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
+            "https://oidc.dlorenc.dev": {
+              "IssuerURL": "https://oidc.dlorenc.dev",
+              "ClientID": "sigstore",
+              "Type": "spiffe"
+            }
+          }
+        }
 kind: ConfigMap
 metadata:
-  name: fulcio-config
-  namespace: fulcio-dev
-data:
-  config.json: |
-    {
-      "OIDCIssuers": {
-        "https://accounts.google.com": {
-          "IssuerURL": "https://accounts.google.com",
-          "ClientID": "sigstore",
-          "Type": "email"
-        },
-        "https://oauth2.sigstore.dev/auth": {
-          "IssuerURL": "https://oauth2.sigstore.dev/auth",
-          "ClientID": "sigstore",
-          "Type": "email"
-        }
-      }
-    }
+    name: fulcio-config
+    namespace: fulcio-dev
