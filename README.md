@@ -34,7 +34,6 @@ We **WILL** change this and add intermediaries in the future.
 After cloning the repository:
 
 ```
-$ go get -u github.com/go-swagger/go-swagger/cmd/swagger@v0.26.1
 $ make
 ```
 
@@ -94,7 +93,7 @@ log.level = INFO
 Export the `config/softhsm2.conf`
 
 ```
-export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg 
+export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg
 ```
 
 ### Start a SoftHSM instance
