@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/strfmt"
 
 	"github.com/sigstore/fulcio/pkg/generated/models"
 )
@@ -37,6 +38,10 @@ const SigningCertCreatedCode int = 201
 swagger:response signingCertCreated
 */
 type SigningCertCreated struct {
+	/*Signed Certificate Timestamp from Entry in CT Log
+
+	 */
+	SCT strfmt.Base64 `json:"SCT"`
 
 	/*
 	  In: Body
@@ -48,6 +53,17 @@ type SigningCertCreated struct {
 func NewSigningCertCreated() *SigningCertCreated {
 
 	return &SigningCertCreated{}
+}
+
+// WithSCT adds the sct to the signing cert created response
+func (o *SigningCertCreated) WithSCT(sct strfmt.Base64) *SigningCertCreated {
+	o.SCT = sct
+	return o
+}
+
+// SetSCT sets the sct to the signing cert created response
+func (o *SigningCertCreated) SetSCT(sct strfmt.Base64) {
+	o.SCT = sct
 }
 
 // WithPayload adds the payload to the signing cert created response
@@ -63,6 +79,13 @@ func (o *SigningCertCreated) SetPayload(payload string) {
 
 // WriteResponse to the client
 func (o *SigningCertCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	// response header SCT
+
+	sct := o.SCT.String()
+	if sct != "" {
+		rw.Header().Set("SCT", sct)
+	}
 
 	rw.WriteHeader(201)
 	payload := o.Payload

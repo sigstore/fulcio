@@ -46,6 +46,11 @@ paths:
       responses:
         201:
           description: Generated Certificate Chain
+          headers:
+            SCT:
+              description: Signed Certificate Timestamp from Entry in CT Log
+              type: string
+              format: byte
           schema:
             type: string
         400:

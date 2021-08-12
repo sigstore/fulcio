@@ -77,6 +77,13 @@ func init() {
             "description": "Generated Certificate Chain",
             "schema": {
               "type": "string"
+            },
+            "headers": {
+              "SCT": {
+                "type": "string",
+                "format": "byte",
+                "description": "Signed Certificate Timestamp from Entry in CT Log"
+              }
             }
           },
           "400": {
@@ -227,6 +234,13 @@ func init() {
             "description": "Generated Certificate Chain",
             "schema": {
               "type": "string"
+            },
+            "headers": {
+              "SCT": {
+                "type": "string",
+                "format": "byte",
+                "description": "Signed Certificate Timestamp from Entry in CT Log"
+              }
             }
           },
           "400": {

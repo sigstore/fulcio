@@ -17,6 +17,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -70,12 +71,17 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	// Submit to CTL
 	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", Subject)
+	var sctBytes []byte
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
 		c := ctl.New(ctURL)
 		ct, err := c.AddChain(PemCertificate, PemCertificateChain)
 		if err != nil {
 			return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
+		}
+		sctBytes, err = json.Marshal(ct)
+		if err != nil {
+			return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToMarshalSCT)
 		}
 		log.Logger.Info("CTL Submission Signature Received: ", ct.Signature)
 		log.Logger.Info("CTL Submission ID Received: ", ct.ID)
@@ -91,7 +97,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		fmt.Fprintf(&ret, "%s\n", cert)
 	}
 
-	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String()))
+	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String())).WithSCT(sctBytes)
 }
 
 func Subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
