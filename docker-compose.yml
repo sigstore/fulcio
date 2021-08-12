@@ -35,7 +35,7 @@ services:
       - "5555:5555"
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z
-      - ./config/config.json:/etc/fulcio-config/config.json:z
+      - ./config/config.jsn:/etc/fulcio-config/config.json:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/ping"]
       interval: 10s
