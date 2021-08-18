@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.16
 
 require (
-	cloud.google.com/go v0.91.1
+	cloud.google.com/go/security v0.1.0
 	github.com/ThalesIgnite/crypto11 v1.2.4
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/coreos/go-oidc/v3 v3.0.0
@@ -40,7 +40,7 @@ require (
 	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
-	google.golang.org/genproto v0.0.0-20210811021853-ddbe55d93216
+	google.golang.org/genproto v0.0.0-20210813162853-db860fec028c
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
