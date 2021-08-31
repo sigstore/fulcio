@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
@@ -79,6 +80,13 @@ func NewSigningCertCreated() *SigningCertCreated {
 Generated Certificate Chain
 */
 type SigningCertCreated struct {
+
+	/* Signed Certificate Timestamp from Entry in CT Log
+
+	   Format: byte
+	*/
+	SCT strfmt.Base64
+
 	Payload string
 }
 
@@ -90,6 +98,17 @@ func (o *SigningCertCreated) GetPayload() string {
 }
 
 func (o *SigningCertCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// hydrates response header SCT
+	hdrSCT := response.GetHeader("SCT")
+
+	if hdrSCT != "" {
+		valsCT, err := formats.Parse("byte", hdrSCT)
+		if err != nil {
+			return errors.InvalidType("SCT", "header", "strfmt.Base64", hdrSCT)
+		}
+		o.SCT = *(valsCT.(*strfmt.Base64))
+	}
 
 	// response payload
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {

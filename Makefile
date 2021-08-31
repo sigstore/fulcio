@@ -50,6 +50,7 @@ SWAGGER := $(TOOLS_BIN_DIR)/swagger
 
 $(GENSRC): $(SWAGGER) $(OPENAPIDEPS)
 	$(SWAGGER) generate server -f openapi.yaml -q -r COPYRIGHT.txt -t pkg/generated --exclude-main -A fulcio_server --exclude-spec --flag-strategy=pflag -P github.com/coreos/go-oidc/v3/oidc.IDToken --additional-initialism=SCT
+	$(SWAGGER) generate client -f openapi.yaml -r COPYRIGHT.txt -t pkg/generated -P github.com/coreos/go-oidc/v3/oidc.IDToken
 
 # this exists to override pattern match rule above since this file is in the generated directory but should not be treated as generated code
 pkg/generated/restapi/configure_fulcio_server.go: $(OPENAPIDEPS)
