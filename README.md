@@ -65,7 +65,7 @@ You can also run with your own GCP Private CA, by passing in a parent and google
 go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
 ```
 
-### FuclioCA (PKCS11)
+### FulcioCA (PKCS11)
 
 
 fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`
@@ -131,7 +131,7 @@ fulcio serve --ca fulcioca --hsm-caroot-id 99
 ---
 **NOTE**
 
-FuclioCA has only been validated against a SoftHSM. In theory this should also work with all PCKS11 compliant
+FulcioCA has only been validated against a SoftHSM. In theory this should also work with all PCKS11 compliant
 HSM's, but to date we have only tested against a SoftHSM.
 
 ---
