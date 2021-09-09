@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/sigstore/fulcio/pkg/config"
@@ -38,6 +39,7 @@ type ChallengeType int
 const (
 	EmailValue ChallengeType = iota
 	SpiffeValue
+	GithubWorkflowValue
 )
 
 type ChallengeResult struct {
@@ -81,7 +83,10 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	// Now issue cert!
-	return &ChallengeResult{EmailValue, emailAddress}, nil
+	return &ChallengeResult{
+		TypeVal: EmailValue,
+		Value:   emailAddress,
+	}, nil
 }
 
 func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
@@ -111,7 +116,51 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Now issue cert!
-	return &ChallengeResult{SpiffeValue, spiffeID}, nil
+	return &ChallengeResult{
+		TypeVal: SpiffeValue,
+		Value:   spiffeID,
+	}, nil
+}
+
+func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+	workflowRef, _, err := workflowFromIDToken(principal)
+	if err != nil {
+		return nil, err
+	}
+
+	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the proof
+	if err := CheckSignature(pkixPubKey, challenge, principal.Subject); err != nil {
+		return nil, err
+	}
+
+	// Now issue cert!
+	return &ChallengeResult{
+		TypeVal: GithubWorkflowValue,
+		Value:   workflowRef,
+	}, nil
+}
+
+func workflowFromIDToken(token *oidc.IDToken) (string, bool, error) {
+	// Extract custom claims
+	var claims struct {
+		JobWorkflowRef string `json:"job_workflow_ref"`
+		RefProtected   string `json:"ref_protected"`
+	}
+	if err := token.Claims(&claims); err != nil {
+		return "", false, err
+	}
+	rp, err := strconv.ParseBool(claims.RefProtected)
+	if err != nil {
+		return "", false, err
+	}
+
+	// We use this in URIs, so it has to be a URI.
+	return "https://github.com/" + claims.JobWorkflowRef, rp, nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {

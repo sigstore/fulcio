@@ -36,8 +36,9 @@ type OIDCIssuer struct {
 type IssuerType string
 
 const (
-	IssuerTypeEmail  = "email"
-	IssuerTypeSpiffe = "spiffe"
+	IssuerTypeEmail          = "email"
+	IssuerTypeGithubWorkflow = "github-workflow"
+	IssuerTypeSpiffe         = "spiffe"
 )
 
 func ParseConfig(b []byte) (FulcioConfig, error) {
@@ -59,6 +60,11 @@ var DefaultConfig = FulcioConfig{
 			IssuerURL: "https://accounts.google.com",
 			ClientID:  "sigstore",
 			Type:      IssuerTypeEmail,
+		},
+		"https://vstoken.actions.githubusercontent.com": {
+			IssuerURL: "https://vstoken.actions.githubusercontent.com",
+			ClientID:  "sigstore",
+			Type:      IssuerTypeGithubWorkflow,
 		},
 	},
 }
