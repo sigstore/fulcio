@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/sigstore/fulcio/pkg/config"
@@ -123,7 +122,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 }
 
 func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
-	workflowRef, _, err := workflowFromIDToken(principal)
+	workflowRef, err := workflowFromIDToken(principal)
 	if err != nil {
 		return nil, err
 	}
@@ -145,22 +144,19 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 	}, nil
 }
 
-func workflowFromIDToken(token *oidc.IDToken) (string, bool, error) {
+func workflowFromIDToken(token *oidc.IDToken) (string, error) {
 	// Extract custom claims
 	var claims struct {
 		JobWorkflowRef string `json:"job_workflow_ref"`
-		RefProtected   string `json:"ref_protected"`
+		// The other fields that are present here seem to depend on the type
+		// of workflow trigger that initiated the action.
 	}
 	if err := token.Claims(&claims); err != nil {
-		return "", false, err
-	}
-	rp, err := strconv.ParseBool(claims.RefProtected)
-	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	// We use this in URIs, so it has to be a URI.
-	return "https://github.com/" + claims.JobWorkflowRef, rp, nil
+	return "https://github.com/" + claims.JobWorkflowRef, nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {
