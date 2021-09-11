@@ -107,6 +107,8 @@ func Subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, pu
 		return challenges.Email(ctx, tok, publicKey, challenge)
 	case config.IssuerTypeSpiffe:
 		return challenges.Spiffe(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeGithubWorkflow:
+		return challenges.GithubWorkflow(ctx, tok, publicKey, challenge)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}

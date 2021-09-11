@@ -114,3 +114,11 @@ func SpiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
 		},
 	}
 }
+
+func GithubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+	return &privatecapb.CertificateConfig_SubjectConfig{
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			Uris: []string{id},
+		},
+	}
+}
