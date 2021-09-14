@@ -51,6 +51,12 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 			return "", nil, err
 		}
 		cert.URIs = []*url.URL{challengeURL}
+	case challenges.GithubWorkflowValue:
+		jobWorkflowURI, err := url.Parse(subject.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		cert.URIs = []*url.URL{jobWorkflowURI}
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
 	if err != nil {
