@@ -30,7 +30,7 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "fulcio-server",
+	Use:   "fulcio",
 	Short: "Fulcio",
 	Long:  "Fulcio generates certificates that can be used to sign software artifacts",
 }
