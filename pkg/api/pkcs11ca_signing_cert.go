@@ -18,14 +18,17 @@ package api
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"os"
+	"path/filepath"
 
-	"github.com/sigstore/fulcio/pkg/ca/fulcioca"
+	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
 	"github.com/spf13/viper"
 )
 
-func FulcioCASigningCertHandler(subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func Pkcs11CASigningCertHandler(subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
@@ -35,14 +38,31 @@ func FulcioCASigningCertHandler(subj *challenges.ChallengeResult, publicKey []by
 
 	rootID := []byte(viper.GetString("hsm-caroot-id"))
 
-	// get the existing root CA from the HSM
-	rootCA, err := p11Ctx.FindCertificate(rootID, nil, nil)
-	if err != nil {
-		return "", nil, err
+	// get the existing root CA from the HSM or from disk
+	var rootCA *x509.Certificate
+	if !viper.IsSet("aws-hsm-root-ca-path") {
+		rootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
+		if err != nil {
+			return "", nil, err
+		}
+	} else {
+		rootCaPath := filepath.Clean(viper.GetString("aws-hsm-root-ca-path"))
+		pubPEMData, err := os.ReadFile(rootCaPath)
+		if err != nil {
+			return "", nil, err
+		}
+		block, _ := pem.Decode(pubPEMData)
+		if block == nil || block.Type != "CERTIFICATE" {
+			log.Logger.Fatal("failed to decode PEM block containing certificate")
+		}
+		rootCA, err = x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// get the private key object from HSM
-	privKey, err := p11Ctx.FindKeyPair(nil, []byte("FulcioCA"))
+	privKey, err := p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
 	if err != nil {
 		return "", nil, err
 	}
@@ -52,7 +72,7 @@ func FulcioCASigningCertHandler(subj *challenges.ChallengeResult, publicKey []by
 		return "", nil, err
 	}
 
-	clientCert, _, err := fulcioca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
+	clientCert, _, err := pkcs11ca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
 	if err != nil {
 		return "", nil, err
 	}

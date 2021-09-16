@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package fulcioca
+package pkcs11ca
 
 import (
 	"crypto"

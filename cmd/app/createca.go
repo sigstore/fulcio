@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	LABEL = "FulcioCA"
+	LABEL = "PKCS11CA"
 )
 
 // createcaCmd represents the createca command
@@ -115,11 +115,17 @@ certificate authority for an instance of sigstore fulcio`,
 
 		// Import the root CA into the HSM
 		// TODO: We could make the TAG customizable
-		err = p11Ctx.ImportCertificateWithLabel(rootID, []byte(LABEL), certParse)
-		if err != nil {
-			log.Logger.Fatal(err)
+		if viper.GetString("hsm") == "aws" {
+			log.Logger.Info("Running in AWS mode; skipping root CA storage in HSM")
+			if !viper.IsSet("out") {
+				log.Logger.Warn("WARNING: --out is not set. Root CA will not be saved.")
+			}
+		} else {
+			if err = p11Ctx.ImportCertificateWithLabel(rootID, []byte(LABEL), certParse); err != nil {
+				log.Logger.Fatal(err)
+			}
+			log.Logger.Info("root CA created with PKCS11 ID: ", viper.GetString("hsm-caroot-id"))
 		}
-		log.Logger.Info("root CA created with PKCS11 ID: ", viper.GetString("hsm-caroot-id"))
 
 		// Save out the file in pem format for easy import to CTL chain
 		if viper.IsSet("out") {
@@ -149,6 +155,7 @@ func init() {
 	createcaCmd.PersistentFlags().String("street-address", "", "Locality name for root CA")
 	createcaCmd.PersistentFlags().String("postal-code", "", "Locality name for root CA")
 	createcaCmd.PersistentFlags().String("out", "", "output root CA to file")
+	createcaCmd.PersistentFlags().String("hsm", "softhsm", "The HSM provider to use. Valid values: softhsm (default), aws")
 	if err := viper.BindPFlags(createcaCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)
 	}
