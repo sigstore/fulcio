@@ -65,7 +65,7 @@ You can also run with your own GCP Private CA, by passing in a parent and google
 go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
 ```
 
-### FulcioCA (PKCS11)
+### PKCS11CA
 
 
 fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`
@@ -105,7 +105,7 @@ softhsm2-util --init-token --slot 0 --label fulcio
 ### Create keys within the SoftHSM
 
 ```
-pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA  --key-type EC:secp384r1
+pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label PKCS11CA  --key-type EC:secp384r1
 ```
 
 * Note: you can import existing keys and import using pkcs11-tool, see pkcs11-tool manual for details
@@ -119,10 +119,10 @@ will also store the generated Root CA into the HSM by the delegated id passed to
 fulcio createca --org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
 ```
 
-### Run FulcioCA
+### Run PKCS11CA
 
 ```
-fulcio serve --ca fulcioca --hsm-caroot-id 99
+fulcio serve --ca pkcs11ca --hsm-caroot-id 99
 ```
 
 > :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM
@@ -131,7 +131,7 @@ fulcio serve --ca fulcioca --hsm-caroot-id 99
 ---
 **NOTE**
 
-FulcioCA has only been validated against a SoftHSM. In theory this should also work with all PCKS11 compliant
+PKCS11CA has only been validated against a SoftHSM. In theory this should also work with all PCKS11 compliant
 HSM's, but to date we have only tested against a SoftHSM.
 
 ---

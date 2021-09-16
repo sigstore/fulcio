@@ -45,7 +45,7 @@ log.level = INFO
 Export the `config/softhsm2.conf`
 
 ```
-export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg 
+export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg
 ```
 
 ### Start a SoftHSM instance
@@ -57,7 +57,7 @@ softhsm2-util --init-token --slot 0 --label fulcio
 ### Create keys within the SoftHSM
 
 ```
-pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label FulcioCA  --key-type EC:secp384r1
+pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label PKCS11CA  --key-type EC:secp384r1
 ```
 
 * Note: you can import existing keys and import using pkcs11-tool, see pkcs11-tool manual for details
@@ -87,10 +87,10 @@ config {
 ```
 
 
-### Run FulcioCA
+### Run PKCS11CA
 
 ```
-fulcio serve --ca fulcioca --hsm-caroot-id 99
+fulcio serve --ca pkcs11ca --hsm-caroot-id 99
 ```
 
 > :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM.
