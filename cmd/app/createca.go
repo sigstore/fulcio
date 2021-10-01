@@ -46,7 +46,7 @@ such as organization, country etc. This can then be used as the root
 certificate authority for an instance of sigstore fulcio`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Logger.Info("binding to PKCS11 HSM")
-		p11Ctx, err := crypto11.ConfigureFromFile("config/crypto11.conf")
+		p11Ctx, err := crypto11.ConfigureFromFile(viper.GetString("pkcs11-config-path"))
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
