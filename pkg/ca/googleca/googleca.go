@@ -65,7 +65,7 @@ func getPubKeyType(pemBytes []byte) interface{} {
 	}
 }
 
-func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte) *privatecapb.CreateCertificateRequest {
+func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte, extensions []*privatecapb.X509Extension) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
 	pubkeyType := getPubKeyType(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
@@ -89,6 +89,7 @@ func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pe
 										CodeSigning: true,
 									},
 								},
+								AdditionalExtensions: extensions,
 							},
 						},
 					},
@@ -121,4 +122,17 @@ func GithubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConf
 			Uris: []string{id},
 		},
 	}
+}
+
+func IssuerExtension(issuer string) []*privatecapb.X509Extension {
+	if issuer == "" {
+		return nil
+	}
+
+	return []*privatecapb.X509Extension{{
+		ObjectId: &privatecapb.ObjectId{
+			ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+		},
+		Value: []byte(issuer),
+	}}
 }

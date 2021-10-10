@@ -36,7 +36,7 @@ oauth2:
 
 connectors:
 - type: mockCallback
-  id: mock
+  id: https://any.valid.url/
   name: AlwaysApprovesOIDCProvider
 
 staticClients:

@@ -42,6 +42,7 @@ const (
 )
 
 type ChallengeResult struct {
+	Issuer  string
 	TypeVal ChallengeType
 	Value   string
 }
@@ -81,8 +82,20 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 		return nil, err
 	}
 
+	globalCfg := config.Config()
+	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
 	// Now issue cert!
 	return &ChallengeResult{
+		Issuer:  issuer,
 		TypeVal: EmailValue,
 		Value:   emailAddress,
 	}, nil
@@ -96,10 +109,14 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	if err != nil {
 		return nil, err
 	}
-	cfg := config.Config()
+	globalCfg := config.Config()
+	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
 
 	// The Spiffe ID must be a subdomain of the issuer (spiffe://foo.example.com -> example.com/...)
-	u, err := url.Parse(cfg.OIDCIssuers[principal.Issuer].IssuerURL)
+	u, err := url.Parse(cfg.IssuerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +131,14 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 		return nil, err
 	}
 
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
 	// Now issue cert!
 	return &ChallengeResult{
+		Issuer:  issuer,
 		TypeVal: SpiffeValue,
 		Value:   spiffeID,
 	}, nil
@@ -137,8 +160,20 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 		return nil, err
 	}
 
+	globalCfg := config.Config()
+	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
 	// Now issue cert!
 	return &ChallengeResult{
+		Issuer:  issuer,
 		TypeVal: GithubWorkflowValue,
 		Value:   workflowRef,
 	}, nil

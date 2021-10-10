@@ -15,7 +15,12 @@
 
 package oauthflow
 
-import "github.com/coreos/go-oidc/v3/oidc"
+import (
+	"fmt"
+
+	"github.com/PaesslerAG/jsonpath"
+	"github.com/coreos/go-oidc/v3/oidc"
+)
 
 func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 	// Extract custom claims
@@ -28,4 +33,20 @@ func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 	}
 
 	return claims.Email, claims.Verified, nil
+}
+
+func IssuerFromIDToken(token *oidc.IDToken, claimJSONPath string) (string, error) {
+	if claimJSONPath == "" {
+		return token.Issuer, nil
+	} else {
+		v := interface{}(nil)
+		if err := token.Claims(&v); err != nil {
+			return "", err
+		}
+		result, err := jsonpath.Get(claimJSONPath, v)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%v", result), nil
+	}
 }

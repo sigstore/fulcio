@@ -10,6 +10,12 @@
       "ClientID": "sigstore",
       "Type": "email"
     },
+    "http://dex-idp:8888/auth": {
+      "IssuerURL": "http://dex-idp:8888/auth",
+      "ClientID": "fulcio",
+      "IssuerClaim": "$.federated_claims.connector_id",
+      "Type": "email"
+    },
     "https://oidc.dlorenc.dev": {
       "IssuerURL": "https://oidc.dlorenc.dev",
       "ClientID": "sigstore",

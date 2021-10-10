@@ -46,7 +46,7 @@ services:
       - dex-idp
       - ct_server
   dex-idp:
-    image: dexidp/dex:v2.28.0
+    image: dexidp/dex:v2.30.0
     command: [
       "dex",
       "serve",

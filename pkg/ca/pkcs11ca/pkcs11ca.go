@@ -18,6 +18,8 @@ package pkcs11ca
 import (
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"net/url"
@@ -58,6 +60,8 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 		}
 		cert.URIs = []*url.URL{jobWorkflowURI}
 	}
+	cert.ExtraExtensions = IssuerExtension(subject.Issuer)
+
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
 	if err != nil {
 		return "", nil, err
@@ -68,4 +72,15 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 	})
 
 	return string(certPEM), nil, nil
+}
+
+func IssuerExtension(issuer string) []pkix.Extension {
+	if issuer == "" {
+		return nil
+	}
+
+	return []pkix.Extension{{
+		Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+		Value: []byte(issuer),
+	}}
 }
