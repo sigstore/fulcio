@@ -38,15 +38,14 @@ func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 func IssuerFromIDToken(token *oidc.IDToken, claimJSONPath string) (string, error) {
 	if claimJSONPath == "" {
 		return token.Issuer, nil
-	} else {
-		v := interface{}(nil)
-		if err := token.Claims(&v); err != nil {
-			return "", err
-		}
-		result, err := jsonpath.Get(claimJSONPath, v)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%v", result), nil
 	}
+	v := interface{}(nil)
+	if err := token.Claims(&v); err != nil {
+		return "", err
+	}
+	result, err := jsonpath.Get(claimJSONPath, v)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%v", result), nil
 }

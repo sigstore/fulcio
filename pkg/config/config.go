@@ -31,7 +31,7 @@ type OIDCIssuer struct {
 	IssuerURL   string
 	ClientID    string
 	Type        IssuerType
-	IssuerClaim string `json:"omitempty"`
+	IssuerClaim string `json:"IssuerClaim,omitempty"`
 }
 
 type IssuerType string
