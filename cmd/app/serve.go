@@ -37,7 +37,7 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if viper.GetString("ca") != "fulcioca" && viper.GetString("ca") != "googleca" {
+		if viper.GetString("ca") != "pkcs11ca" && viper.GetString("ca") != "googleca" {
 			log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
 		}
 
@@ -45,8 +45,8 @@ var serveCmd = &cobra.Command{
 			panic("gcp_private_ca_parent must be set when using googleca")
 		}
 
-		if viper.GetString("ca") == "fulcioca" && !viper.IsSet("hsm-caroot-id") {
-			panic("hsm-caroot-id must be set when using fulcioca")
+		if viper.GetString("ca") == "pkcs11ca" && !viper.IsSet("hsm-caroot-id") {
+			panic("hsm-caroot-id must be set when using pkcs11ca")
 		}
 
 		// Setup the logger to dev/prod
