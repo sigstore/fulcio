@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-url: https://vstoken.actions.githubusercontent.com
+url: https://token.actions.githubusercontent.com
 contact: support@sigstore.dev
 description: "github actions OIDC auth"
 type: "github-workflow"
