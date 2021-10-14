@@ -61,8 +61,8 @@ var DefaultConfig = FulcioConfig{
 			ClientID:  "sigstore",
 			Type:      IssuerTypeEmail,
 		},
-		"https://vstoken.actions.githubusercontent.com": {
-			IssuerURL: "https://vstoken.actions.githubusercontent.com",
+		"https://token.actions.githubusercontent.com": {
+			IssuerURL: "https://token.actions.githubusercontent.com",
 			ClientID:  "sigstore",
 			Type:      IssuerTypeGithubWorkflow,
 		},
