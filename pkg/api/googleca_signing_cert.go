@@ -28,6 +28,7 @@ import (
 )
 
 func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+	logger := log.ContextLogger(ctx)
 
 	parent := viper.GetString("gcp_private_ca_parent")
 
@@ -42,7 +43,7 @@ func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 		privca = googleca.GithubWorkflowSubject(subj.Value)
 	}
 	req := googleca.Req(parent, privca, publicKey)
-	log.Logger.Infof("requesting cert from %s for %v", parent, Subject)
+	logger.Infof("requesting cert from %s for %v", parent, Subject)
 
 	resp, err := googleca.Client().CreateCertificate(ctx, req)
 	if err != nil {
