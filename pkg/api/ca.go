@@ -87,7 +87,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		logger.Info("CTL Submission Signature Received: ", sct.Signature)
 		logger.Info("CTL Submission ID Received: ", sct.ID)
 	} else {
-		log.Logger.Info("Skipping CT log upload.")
+		logger.Info("Skipping CT log upload.")
 	}
 
 	metricNewEntries.Inc()
