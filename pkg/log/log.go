@@ -69,9 +69,13 @@ func WithRequestID(ctx context.Context, id string) context.Context {
 }
 
 func RequestIDLogger(r *http.Request) *zap.SugaredLogger {
+	return ContextLogger(r.Context())
+}
+
+func ContextLogger(ctx context.Context) *zap.SugaredLogger {
 	proposedLogger := Logger
-	if r != nil {
-		if ctxRequestID, ok := r.Context().Value(middleware.RequestIDKey).(string); ok {
+	if ctx != nil {
+		if ctxRequestID, ok := ctx.Value(middleware.RequestIDKey).(string); ok {
 			proposedLogger = proposedLogger.With(zap.String("requestID", ctxRequestID))
 		}
 	}

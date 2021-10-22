@@ -16,6 +16,7 @@
 package api
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"os"
@@ -28,7 +29,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Pkcs11CASigningCertHandler(subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func Pkcs11CASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+	logger := log.ContextLogger(ctx)
 
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
@@ -53,7 +55,7 @@ func Pkcs11CASigningCertHandler(subj *challenges.ChallengeResult, publicKey []by
 		}
 		block, _ := pem.Decode(pubPEMData)
 		if block == nil || block.Type != "CERTIFICATE" {
-			log.Logger.Fatal("failed to decode PEM block containing certificate")
+			logger.Fatal("failed to decode PEM block containing certificate")
 		}
 		rootCA, err = x509.ParseCertificate(block.Bytes)
 		if err != nil {

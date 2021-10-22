@@ -37,6 +37,7 @@ import (
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
+	logger := log.ContextLogger(ctx)
 
 	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
 	if principal == nil {
@@ -61,7 +62,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	case "googleca":
 		PemCertificate, PemCertificateChain, err = GoogleCASigningCertHandler(ctx, subj, publicKeyPEM)
 	case "pkcs11ca":
-		PemCertificate, PemCertificateChain, err = Pkcs11CASigningCertHandler(subj, publicKey)
+		PemCertificate, PemCertificateChain, err = Pkcs11CASigningCertHandler(ctx, subj, publicKey)
 	default:
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
 	}
@@ -70,7 +71,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	}
 
 	// Submit to CTL
-	log.Logger.Info("Submitting CTL inclusion for OIDC grant: ", subj.Value)
+	logger.Info("Submitting CTL inclusion for OIDC grant: ", subj.Value)
 	var sctBytes []byte
 	ctURL := viper.GetString("ct-log-url")
 	if ctURL != "" {
@@ -83,10 +84,10 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		if err != nil {
 			return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToMarshalSCT)
 		}
-		log.Logger.Info("CTL Submission Signature Received: ", sct.Signature)
-		log.Logger.Info("CTL Submission ID Received: ", sct.ID)
+		logger.Info("CTL Submission Signature Received: ", sct.Signature)
+		logger.Info("CTL Submission ID Received: ", sct.ID)
 	} else {
-		log.Logger.Info("Skipping CT log upload.")
+		logger.Info("Skipping CT log upload.")
 	}
 
 	metricNewEntries.Inc()
