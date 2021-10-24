@@ -18,6 +18,7 @@ package api
 import (
 	"context"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 
@@ -27,7 +28,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
-func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func GoogleCASigningCertHandler(ctx context.Context, principal *oidc.IDToken, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 	logger := log.ContextLogger(ctx)
 
 	parent := viper.GetString("gcp_private_ca_parent")
@@ -42,6 +43,10 @@ func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 	case challenges.GithubWorkflowValue:
 		privca = googleca.GithubWorkflowSubject(subj.Value)
 	}
+
+	// Prepend the OIDC token's Issuer as a URI in the certificate.
+	privca.SubjectAltName.Uris = append([]string{principal.Issuer}, privca.SubjectAltName.Uris...)
+
 	req := googleca.Req(parent, privca, publicKey)
 	logger.Infof("requesting cert from %s for %v", parent, Subject)
 

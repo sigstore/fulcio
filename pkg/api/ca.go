@@ -60,9 +60,9 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 
 	switch viper.GetString("ca") {
 	case "googleca":
-		PemCertificate, PemCertificateChain, err = GoogleCASigningCertHandler(ctx, subj, publicKeyPEM)
+		PemCertificate, PemCertificateChain, err = GoogleCASigningCertHandler(ctx, principal, subj, publicKeyPEM)
 	case "pkcs11ca":
-		PemCertificate, PemCertificateChain, err = Pkcs11CASigningCertHandler(ctx, subj, publicKey)
+		PemCertificate, PemCertificateChain, err = Pkcs11CASigningCertHandler(ctx, principal, subj, publicKey)
 	default:
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
 	}

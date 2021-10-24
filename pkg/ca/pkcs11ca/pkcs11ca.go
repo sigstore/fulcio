@@ -24,15 +24,21 @@ import (
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/sigstore/fulcio/pkg/challenges"
 )
 
-func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
+func CreateClientCertificate(rootCA *x509.Certificate, principal *oidc.IDToken, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
 	serialNumber.SetBytes(uuid[:])
+
+	issuerURL, err := url.Parse(principal.Issuer)
+	if err != nil {
+		return "", nil, err
+	}
 
 	cert := &x509.Certificate{
 		SerialNumber: &serialNumber,
@@ -41,7 +47,9 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		KeyUsage:     x509.KeyUsageCertSign,
+		URIs:         []*url.URL{issuerURL},
 	}
+
 	switch subject.TypeVal {
 	case challenges.EmailValue:
 		cert.EmailAddresses = []string{subject.Value}
@@ -50,14 +58,15 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 		if err != nil {
 			return "", nil, err
 		}
-		cert.URIs = []*url.URL{challengeURL}
+		cert.URIs = append(cert.URIs, challengeURL)
 	case challenges.GithubWorkflowValue:
 		jobWorkflowURI, err := url.Parse(subject.Value)
 		if err != nil {
 			return "", nil, err
 		}
-		cert.URIs = []*url.URL{jobWorkflowURI}
+		cert.URIs = append(cert.URIs, jobWorkflowURI)
 	}
+
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
 	if err != nil {
 		return "", nil, err

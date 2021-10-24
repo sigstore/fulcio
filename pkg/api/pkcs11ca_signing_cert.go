@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -29,7 +30,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Pkcs11CASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
+func Pkcs11CASigningCertHandler(ctx context.Context, principal *oidc.IDToken, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 	logger := log.ContextLogger(ctx)
 
 	p11Ctx, err := pkcs11.InitHSMCtx()
@@ -74,7 +75,7 @@ func Pkcs11CASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 		return "", nil, err
 	}
 
-	clientCert, _, err := pkcs11ca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
+	clientCert, _, err := pkcs11ca.CreateClientCertificate(rootCA, principal, subj, pkixPubKey, privKey)
 	if err != nil {
 		return "", nil, err
 	}
