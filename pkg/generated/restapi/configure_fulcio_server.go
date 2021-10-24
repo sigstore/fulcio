@@ -22,6 +22,9 @@ package restapi
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,6 +50,25 @@ import (
 
 func configureFlags(api *operations.FulcioServerAPI) {
 	// api.CommandLineOptionsGroups = []swag.CommandLineOptionsGroup{ ... }
+}
+
+func extractIssuer(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("oidc: malformed jwt payload: %w", err)
+	}
+	var payload struct {
+		Issuer string `json:"iss"`
+	}
+
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return "", fmt.Errorf("oidc: failed to unmarshal claims: %w", err)
+	}
+	return payload.Issuer, nil
 }
 
 func configureAPI(api *operations.FulcioServerAPI) http.Handler {
@@ -77,28 +99,25 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 		}
 		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
 		verifierMap[iss.IssuerURL] = verifier
-
 	}
-	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
 
+	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
 		token = strings.Replace(token, "Bearer ", "", 1)
 
-		errs := []string{}
-		var idToken *oidc.IDToken
-		for _, verifier := range verifierMap {
-			tok, err := verifier.Verify(context.Background(), token)
-			if err != nil {
-				errs = append(errs, err.Error())
-				continue
-			}
-			idToken = tok
-			break
+		issuer, err := extractIssuer(token)
+		if err != nil {
+			return nil, goaerrors.New(http.StatusBadRequest, err.Error())
 		}
 
-		if idToken == nil {
-			return nil, goaerrors.New(http.StatusUnauthorized, strings.Join(errs, ","))
+		verifier, ok := verifierMap[issuer]
+		if !ok {
+			return nil, goaerrors.New(http.StatusBadRequest, fmt.Sprintf("unsupported issuer: %s", issuer))
 		}
 
+		idToken, err := verifier.Verify(context.Background(), token)
+		if err != nil {
+			return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
+		}
 		return idToken, nil
 	}
 
