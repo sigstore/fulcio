@@ -44,10 +44,7 @@ func GoogleCASigningCertHandler(ctx context.Context, principal *oidc.IDToken, su
 		privca = googleca.GithubWorkflowSubject(subj.Value)
 	}
 
-	// Prepend the OIDC token's Issuer as a URI in the certificate.
-	privca.SubjectAltName.Uris = append([]string{principal.Issuer}, privca.SubjectAltName.Uris...)
-
-	req := googleca.Req(parent, privca, publicKey)
+	req := googleca.Req(parent, privca, principal, publicKey)
 	logger.Infof("requesting cert from %s for %v", parent, Subject)
 
 	resp, err := googleca.Client().CreateCertificate(ctx, req)

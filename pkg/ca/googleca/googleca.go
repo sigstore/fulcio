@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
+	"github.com/coreos/go-oidc/v3/oidc"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -65,7 +66,7 @@ func getPubKeyType(pemBytes []byte) interface{} {
 	}
 }
 
-func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte) *privatecapb.CreateCertificateRequest {
+func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, principal *oidc.IDToken, pemBytes []byte) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
 	pubkeyType := getPubKeyType(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
@@ -89,6 +90,12 @@ func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pe
 										CodeSigning: true,
 									},
 								},
+								AdditionalExtensions: []*privatecapb.X509Extension{{
+									ObjectId: &privatecapb.ObjectId{
+										ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+									},
+									Value: []byte(principal.Issuer),
+								}},
 							},
 						},
 					},
