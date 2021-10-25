@@ -13,6 +13,7 @@
 # limitations under the License.
 
 url: https://oauth2.sigstore.dev/auth
+issuerclaim: $.federated_claims.connector_id
 contact: lorenc.d@gmail.com
 description: "dex address for fulcio"
 type: "email"
