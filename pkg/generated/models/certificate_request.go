@@ -74,6 +74,8 @@ func (m *CertificateRequest) validatePublicKey(formats strfmt.Registry) error {
 		if err := m.PublicKey.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("publicKey")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("publicKey")
 			}
 			return err
 		}
@@ -111,6 +113,8 @@ func (m *CertificateRequest) contextValidatePublicKey(ctx context.Context, forma
 		if err := m.PublicKey.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("publicKey")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("publicKey")
 			}
 			return err
 		}
