@@ -63,7 +63,7 @@ gosec:
 	$(GOBIN)/gosec ./...
 
 fulcio: $(SRCS)
-	go build -ldflags $(SERVER_LDFLAGS)
+	go build -trimpath -ldflags $(SERVER_LDFLAGS)
 
 test:
 	go test ./...
@@ -102,11 +102,11 @@ modules: ## Runs go mod to ensure modules are up to date.
 .PHONY: dist
 dist:
 	mkdir -p dist
-	docker run -it -v $(PWD):/go/src/sigstore/fulcio -w /go/src/sigstore/fulcio golang:1.16.6 /bin/bash -c "GOOS=linux GOARCH=amd64 go build -o dist/fulcio-server-linux-amd64"
+	docker run -it -v $(PWD):/go/src/sigstore/fulcio -w /go/src/sigstore/fulcio golang:1.16.6 /bin/bash -c "GOOS=linux GOARCH=amd64 go build -trimpath -o dist/fulcio-server-linux-amd64"
 
 ## --------------------------------------
 ## Tooling Binaries
 ## --------------------------------------
 
 $(SWAGGER): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -tags=tools -o $(TOOLS_BIN_DIR)/swagger github.com/go-swagger/go-swagger/cmd/swagger
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/swagger github.com/go-swagger/go-swagger/cmd/swagger
