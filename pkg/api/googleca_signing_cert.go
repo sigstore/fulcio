@@ -42,7 +42,9 @@ func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 	case challenges.GithubWorkflowValue:
 		privca = googleca.GithubWorkflowSubject(subj.Value)
 	}
-	req := googleca.Req(parent, privca, publicKey)
+
+	extensions := googleca.IssuerExtension(subj.Issuer)
+	req := googleca.Req(parent, privca, publicKey, extensions)
 	logger.Infof("requesting cert from %s for %v", parent, Subject)
 
 	resp, err := googleca.Client().CreateCertificate(ctx, req)

@@ -28,9 +28,10 @@ type FulcioConfig struct {
 }
 
 type OIDCIssuer struct {
-	IssuerURL string
-	ClientID  string
-	Type      IssuerType
+	IssuerURL   string
+	ClientID    string
+	Type        IssuerType
+	IssuerClaim string `json:"IssuerClaim,omitempty"`
 }
 
 type IssuerType string
@@ -52,9 +53,10 @@ func ParseConfig(b []byte) (FulcioConfig, error) {
 var DefaultConfig = FulcioConfig{
 	OIDCIssuers: map[string]OIDCIssuer{
 		"https://oauth2.sigstore.dev/auth": {
-			IssuerURL: "https://oauth2.sigstore.dev/auth",
-			ClientID:  "sigstore",
-			Type:      IssuerTypeEmail,
+			IssuerURL:   "https://oauth2.sigstore.dev/auth",
+			ClientID:    "sigstore",
+			IssuerClaim: "$.federated_claims.connector_id",
+			Type:        IssuerTypeEmail,
 		},
 		"https://accounts.google.com": {
 			IssuerURL: "https://accounts.google.com",

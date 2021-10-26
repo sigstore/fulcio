@@ -25,7 +25,8 @@ data:
             "https://oauth2.sigstore.dev/auth": {
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
               "ClientID": "sigstore",
-              "Type": "email"
+              "Type": "email",
+              "IssuerClaim": "$.federated_claims.connector_id"
             },
             "https://oidc.dlorenc.dev": {
               "IssuerURL": "https://oidc.dlorenc.dev",

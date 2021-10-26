@@ -42,8 +42,9 @@ var boilerPlate = `#
 `
 
 type federationConfig struct {
-	URL  string
-	Type string
+	URL         string
+	Type        string
+	IssuerClaim string
 }
 
 func main() {
@@ -70,9 +71,10 @@ func main() {
 		}
 
 		fulcioCfg := config.OIDCIssuer{
-			IssuerURL: cfg.URL,
-			ClientID:  "sigstore",
-			Type:      config.IssuerType(cfg.Type),
+			IssuerURL:   cfg.URL,
+			ClientID:    "sigstore",
+			Type:        config.IssuerType(cfg.Type),
+			IssuerClaim: cfg.IssuerClaim,
 		}
 		fulcioConfig.OIDCIssuers[cfg.URL] = fulcioCfg
 	}
