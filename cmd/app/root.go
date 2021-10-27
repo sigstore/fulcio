@@ -46,7 +46,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logType, "log_type", "dev", "logger type to use (dev/prod)")
-	rootCmd.PersistentFlags().String("ca", "", "googleca | pkcs11ca")
+	rootCmd.PersistentFlags().String("ca", "", "googleca | pkcs11ca | ephemeralca (for testing)")
 	rootCmd.PersistentFlags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	rootCmd.PersistentFlags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	rootCmd.PersistentFlags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")

@@ -22,7 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
@@ -74,7 +74,7 @@ func Pkcs11CASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 		return "", nil, err
 	}
 
-	clientCert, _, err := pkcs11ca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
+	clientCert, _, err := x509ca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
 	if err != nil {
 		return "", nil, err
 	}

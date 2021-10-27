@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package pkcs11ca
+package x509ca
 
 import (
 	"crypto/rand"
@@ -25,12 +25,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
 	"github.com/sigstore/fulcio/pkg/challenges"
 )
 
-func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
+func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey interface{}) (string, []string, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
@@ -59,6 +58,12 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 			return "", nil, err
 		}
 		cert.URIs = []*url.URL{jobWorkflowURI}
+	case challenges.KubernetesValue:
+		k8sURI, err := url.Parse(subject.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		cert.URIs = []*url.URL{k8sURI}
 	}
 	cert.ExtraExtensions = IssuerExtension(subject.Issuer)
 

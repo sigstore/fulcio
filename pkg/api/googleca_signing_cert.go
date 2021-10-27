@@ -41,6 +41,8 @@ func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeR
 		privca = googleca.SpiffeSubject(subj.Value)
 	case challenges.GithubWorkflowValue:
 		privca = googleca.GithubWorkflowSubject(subj.Value)
+	case challenges.KubernetesValue:
+		privca = googleca.KubernetesSubject(subj.Value)
 	}
 
 	extensions := googleca.IssuerExtension(subj.Issuer)
