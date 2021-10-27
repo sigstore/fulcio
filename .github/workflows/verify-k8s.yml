@@ -32,41 +32,112 @@ jobs:
 
   verify-k8s-deployment:
     runs-on: ubuntu-latest
+
+    env:
+      # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
+      # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
+      # thus allowing us to test without bypassing tag-to-digest resolution.
+      REGISTRY_NAME: registry.local
+      REGISTRY_PORT: 5000
+      KO_DOCKER_REPO: registry.local:5000/fulcio
+
     steps:
       - uses: actions/checkout@v2.3.5
       - uses: actions/setup-go@v2
         with:
           go-version: 1.16.x
-      - name: Install ko
+
+      - uses: imjasonh/setup-ko@v0.4
+
+      - name: Install KinD
         run: |
-          curl -L https://github.com/google/ko/releases/download/v0.8.3/ko_0.8.3_Linux_x86_64.tar.gz | tar xzf - ko && \
-          chmod +x ./ko && sudo mv ko /usr/local/bin/
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.2.0
-        with:
-          wait: 300s
-          cluster_name: fulcio-cluster
+          # Disable swap otherwise memory enforcement doesn't work
+          # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600009955324200
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          # Use in-memory storage to avoid etcd server timeouts.
+          # https://kubernetes.slack.com/archives/CEKK1KTN2/p1615134111016300
+          # https://github.com/kubernetes-sigs/kind/issues/845
+          sudo mkdir -p /tmp/etcd
+          sudo mount -t tmpfs tmpfs /tmp/etcd
+          curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-$(uname)-amd64
+          chmod +x ./kind
+          sudo mv kind /usr/local/bin
+
+      - name: Configure KinD Cluster
+        run: |
+          set -x
+          # KinD configuration.
+          cat > kind.yaml <<EOF
+          apiVersion: kind.x-k8s.io/v1alpha4
+          kind: Cluster
+          # Configure registry for KinD.
+          containerdConfigPatches:
+          - |-
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
+              endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
+          # This is needed in order to support projected volumes with service account tokens.
+          # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
+          kubeadmConfigPatches:
+            - |
+              apiVersion: kubeadm.k8s.io/v1beta2
+              kind: ClusterConfiguration
+              metadata:
+                name: config
+              apiServer:
+                extraArgs:
+                  "service-account-issuer": "https://kubernetes.default.svc"
+                  "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+                  "service-account-jwks-uri": "https://kubernetes.default.svc/openid/v1/jwks"
+                  "service-account-key-file": "/etc/kubernetes/pki/sa.pub"
+              networking:
+                dnsDomain: "cluster.local"
+          nodes:
+          - role: control-plane
+            image: kindest/node:v1.22.0@sha256:f97edf7f7ed53c57762b24f90a34fad101386c5bd4d93baeb45449557148c717
+            extraMounts:
+            - containerPath: /var/lib/etcd
+              hostPath: /tmp/etcd
+          - role: worker
+            image: kindest/node:v1.22.0@sha256:f97edf7f7ed53c57762b24f90a34fad101386c5bd4d93baeb45449557148c717
+          EOF
+
+      - name: Create KinD Cluster
+        run: |
+          kind create cluster --config kind.yaml
+
+      - name: Setup local registry
+        run: |
+          # Run a registry.
+          docker run -d --restart=always \
+            -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
+          # Connect the registry to the KinD network.
+          docker network connect "kind" $REGISTRY_NAME
+          # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+          # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+          sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+
       - name: Deploy fulcio-dev
+        env:
+          CGO_ENABLED: 1
         run: |
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
           sed -i -e 's,cpu: ".5",memory: "50m",g' ${{ github.workspace }}/config/deployment.yaml
 
           kubectl create ns fulcio-dev
 
-          export KO_DOCKER_REPO=kind.local
-          export KIND_CLUSTER_NAME=fulcio-cluster
-          ko resolve -f config/ | kubectl apply -f -
+          ko apply -Bf config/
 
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
           kubectl get po -n fulcio-dev
-        env:
-          CGO_ENABLED: 1
+
       - name: Collect logs
         if: ${{ always() }}
         run: |
           mkdir -p /tmp/logs
-          kind export logs --name fulcio-cluster /tmp/logs
+          kind export logs /tmp/logs
+
       - name: Upload artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v2
