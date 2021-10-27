@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"sync"
 
-	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
+	privateca "cloud.google.com/go/security/privateca/apiv1"
+	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -47,19 +47,17 @@ func Client() *privateca.CertificateAuthorityClient {
 	return c
 }
 
-// Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
-// https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1#PublicKey_KeyType
-func getPubKeyType(pemBytes []byte) interface{} {
+// getPubKeyFormat Returns the PublicKey KeyFormat required by gcp privateca.
+// https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1#PublicKey_KeyType
+func getPubKeyFormat(pemBytes []byte) privatecapb.PublicKey_KeyFormat {
 	block, _ := pem.Decode(pemBytes)
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		panic("failed to parse public key: " + err.Error())
 	}
 	switch pub := pub.(type) {
-	case *rsa.PublicKey:
-		return privatecapb.PublicKey_KeyType(1)
-	case *ecdsa.PublicKey:
-		return privatecapb.PublicKey_KeyType(2)
+	case *rsa.PublicKey, *ecdsa.PublicKey:
+		return privatecapb.PublicKey_PEM
 	default:
 		panic(fmt.Errorf("unknown public key type: %v", pub))
 	}
@@ -67,7 +65,7 @@ func getPubKeyType(pemBytes []byte) interface{} {
 
 func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte, extensions []*privatecapb.X509Extension) *privatecapb.CreateCertificateRequest {
 	// TODO, use the right fields :)
-	pubkeyType := getPubKeyType(pemBytes)
+	pubkeyFormat := getPubKeyFormat(pemBytes)
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -75,23 +73,19 @@ func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pe
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
-						Type: pubkeyType.(privatecapb.PublicKey_KeyType),
-						Key:  pemBytes,
+						Format: pubkeyFormat,
+						Key:    pemBytes,
 					},
-					ReusableConfig: &privatecapb.ReusableConfigWrapper{
-						ConfigValues: &privatecapb.ReusableConfigWrapper_ReusableConfigValues{
-							ReusableConfigValues: &privatecapb.ReusableConfigValues{
-								KeyUsage: &privatecapb.KeyUsage{
-									BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
-										DigitalSignature: true,
-									},
-									ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
-										CodeSigning: true,
-									},
-								},
-								AdditionalExtensions: extensions,
+					X509Config: &privatecapb.X509Parameters{
+						KeyUsage: &privatecapb.KeyUsage{
+							BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
+								DigitalSignature: true,
+							},
+							ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
+								CodeSigning: true,
 							},
 						},
+						AdditionalExtensions: extensions,
 					},
 					SubjectConfig: subject,
 				},

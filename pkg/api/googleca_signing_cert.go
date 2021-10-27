@@ -18,12 +18,11 @@ package api
 import (
 	"context"
 
-	"github.com/sigstore/fulcio/pkg/ca/googleca"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
-
-	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/spf13/viper"
+	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 
+	"github.com/sigstore/fulcio/pkg/ca/googleca"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 )
 

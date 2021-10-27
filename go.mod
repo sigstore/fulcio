@@ -37,7 +37,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
-	google.golang.org/genproto v0.0.0-20210828152312-66f60bf46e71
+	google.golang.org/genproto v0.0.0-20211027162914-98a5263abeca
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
