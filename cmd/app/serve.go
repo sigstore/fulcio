@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
@@ -37,16 +38,24 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if viper.GetString("ca") != "pkcs11ca" && viper.GetString("ca") != "googleca" {
+		switch viper.GetString("ca") {
+		case "pkcs11ca":
+			if !viper.IsSet("hsm-caroot-id") {
+				log.Logger.Fatal("hsm-caroot-id must be set when using pkcs11ca")
+			}
+
+		case "googleca":
+			if !viper.IsSet("gcp_private_ca_parent") {
+				log.Logger.Fatal("gcp_private_ca_parent must be set when using googleca")
+			}
+
+		case "ephemeralca":
+			if err := ephemeralca.Initialize(cmd.Context()); err != nil {
+				log.Logger.Fatalw("error initializing ephemeral CA", err)
+			}
+
+		default:
 			log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
-		}
-
-		if viper.GetString("ca") == "googleca" && !viper.IsSet("gcp_private_ca_parent") {
-			panic("gcp_private_ca_parent must be set when using googleca")
-		}
-
-		if viper.GetString("ca") == "pkcs11ca" && !viper.IsSet("hsm-caroot-id") {
-			panic("hsm-caroot-id must be set when using pkcs11ca")
 		}
 
 		// Setup the logger to dev/prod
