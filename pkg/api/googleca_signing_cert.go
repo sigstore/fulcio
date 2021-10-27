@@ -17,11 +17,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/viper"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 
-	"github.com/sigstore/fulcio/pkg/ca/googleca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 )
@@ -29,26 +28,15 @@ import (
 func GoogleCASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
 	logger := log.ContextLogger(ctx)
 
-	parent := viper.GetString("gcp_private_ca_parent")
+	version := viper.GetString("gcp_private_ca_version")
 
-	// call a new function here to set the type, we may need to pass back the issuer?
-	var privca *privatecapb.CertificateConfig_SubjectConfig
-	switch subj.TypeVal {
-	case challenges.EmailValue:
-		privca = googleca.EmailSubject(subj.Value)
-	case challenges.SpiffeValue:
-		privca = googleca.SpiffeSubject(subj.Value)
-	case challenges.GithubWorkflowValue:
-		privca = googleca.GithubWorkflowSubject(subj.Value)
+	logger.Infof("using privateca api version %v", version)
+
+	switch version {
+	case "v1":
+		return GoogleCASigningCertHandlerV1(ctx, subj, publicKey)
+	case "v1beta1":
+		return GoogleCASigningCertHandlerV1Beta1(ctx, subj, publicKey)
 	}
-
-	extensions := googleca.IssuerExtension(subj.Issuer)
-	req := googleca.Req(parent, privca, publicKey, extensions)
-	logger.Infof("requesting cert from %s for %v", parent, Subject)
-
-	resp, err := googleca.Client().CreateCertificate(ctx, req)
-	if err != nil {
-		return "", nil, err
-	}
-	return resp.PemCertificate, resp.PemCertificateChain, nil
+	panic(fmt.Errorf("unknown gcp private ca version: %v", version))
 }
