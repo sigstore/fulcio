@@ -139,6 +139,26 @@ jobs:
             --clusterrole=system:service-account-issuer-discovery \
             --group=system:unauthenticated
 
+          # Overwrite the configuration to be what we need for KinD.
+          cat <<EOF > config/fulcio-config.yaml
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: fulcio-config
+            namespace: fulcio-dev
+          data:
+            config.json: |-
+                {
+                  "OIDCIssuers": {
+                    "https://kubernetes.default.svc": {
+                      "IssuerURL": "https://kubernetes.default.svc",
+                      "ClientID": "sigstore",
+                      "Type": "kubernetes"
+                    }
+                  }
+                }
+          EOF
+
           kubectl create ns fulcio-dev
 
           ko apply -Bf config/
