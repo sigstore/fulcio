@@ -32,6 +32,20 @@ jobs:
 
   verify-k8s-deployment:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Keep running if one leg fails.
+      matrix:
+        issuer:
+        - "OIDC Issuer"
+        - "Meta Issuer"
+
+        include:
+        - issuer: "OIDC Issuer"
+          issuer-config: |
+            "OIDCIssuers": {"https://kubernetes.default.svc": {"IssuerURL": "https://kubernetes.default.svc","ClientID": "sigstore","Type": "kubernetes"}}
+        - issuer: "Meta Issuer"
+          issuer-config: |
+            "MetaIssuers": {"https://kubernetes.*.svc": {"ClientID": "sigstore","Type": "kubernetes"}}
 
     env:
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
@@ -149,13 +163,7 @@ jobs:
           data:
             config.json: |-
                 {
-                  "OIDCIssuers": {
-                    "https://kubernetes.default.svc": {
-                      "IssuerURL": "https://kubernetes.default.svc",
-                      "ClientID": "sigstore",
-                      "Type": "kubernetes"
-                    }
-                  }
+                  ${{ matrix.issuer-config }}
                 }
           EOF
 
