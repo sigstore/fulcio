@@ -91,16 +91,6 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	// OIDC objects used for authentication
 	fulcioCfg := config.Config()
 
-	verifierMap := map[string]*oidc.IDTokenVerifier{}
-	for _, iss := range fulcioCfg.OIDCIssuers {
-		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
-		if err != nil {
-			log.Logger.Fatal(err)
-		}
-		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
-		verifierMap[iss.IssuerURL] = verifier
-	}
-
 	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
 		token = strings.Replace(token, "Bearer ", "", 1)
 
@@ -109,7 +99,7 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 			return nil, goaerrors.New(http.StatusBadRequest, err.Error())
 		}
 
-		verifier, ok := verifierMap[issuer]
+		verifier, ok := fulcioCfg.GetVerifier(issuer)
 		if !ok {
 			return nil, goaerrors.New(http.StatusBadRequest, fmt.Sprintf("unsupported issuer: %s", issuer))
 		}

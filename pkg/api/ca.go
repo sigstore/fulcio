@@ -103,8 +103,8 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String())).WithSCT(sctBytes)
 }
 
-func Subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
-	iss := cfg.OIDCIssuers[tok.Issuer]
+func Subject(ctx context.Context, tok *oidc.IDToken, cfg *config.FulcioConfig, publicKey, challenge []byte) (*challenges.ChallengeResult, error) {
+	iss, _ := cfg.GetIssuer(tok.Issuer)
 	switch iss.Type {
 	case config.IssuerTypeEmail:
 		return challenges.Email(ctx, tok, publicKey, challenge)
