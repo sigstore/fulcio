@@ -16,20 +16,79 @@
 package x509ca
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/pkcs11"
+	"github.com/spf13/viper"
 )
 
-func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey interface{}) (string, []string, error) {
+type X509CA struct {
+	RootCA  *x509.Certificate
+	PrivKey crypto11.Signer
+}
+
+func NewX509CA() (*X509CA, error) {
+	ca := &X509CA{}
+	p11Ctx, err := pkcs11.InitHSMCtx()
+	if err != nil {
+		return nil, err
+	}
+	defer p11Ctx.Close()
+
+	rootID := []byte(viper.GetString("hsm-caroot-id"))
+
+	// get the existing root CA from the HSM or from disk
+	if !viper.IsSet("aws-hsm-root-ca-path") {
+		ca.RootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		rootCaPath := filepath.Clean(viper.GetString("aws-hsm-root-ca-path"))
+		pubPEMData, err := os.ReadFile(rootCaPath)
+		if err != nil {
+			return nil, err
+		}
+		block, _ := pem.Decode(pubPEMData)
+		if block == nil || block.Type != "CERTIFICATE" {
+			return nil, errors.New("failed to decode PEM block containing certificate")
+		}
+		ca.RootCA, err = x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// get the private key object from HSM
+	ca.PrivKey, err = p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
+	if err != nil {
+		return nil, err
+	}
+
+	return ca, nil
+
+}
+
+func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	return x.CreateCertificateWithCA(x, subject)
+}
+
+func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
@@ -49,34 +108,30 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 	case challenges.SpiffeValue:
 		challengeURL, err := url.Parse(subject.Value)
 		if err != nil {
-			return "", nil, err
+			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{challengeURL}
 	case challenges.GithubWorkflowValue:
 		jobWorkflowURI, err := url.Parse(subject.Value)
 		if err != nil {
-			return "", nil, err
+			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{jobWorkflowURI}
 	case challenges.KubernetesValue:
 		k8sURI, err := url.Parse(subject.Value)
 		if err != nil {
-			return "", nil, err
+			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{k8sURI}
 	}
 	cert.ExtraExtensions = IssuerExtension(subject.Issuer)
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certauth.RootCA, subject.PublicKey, certauth.PrivKey)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
 
-	return string(certPEM), nil, nil
+	return ca.CreateCSCFromDER(subject, finalCertBytes, nil)
 }
 
 func IssuerExtension(issuer string) []pkix.Extension {

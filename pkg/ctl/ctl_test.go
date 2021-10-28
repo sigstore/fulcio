@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,7 +48,8 @@ func Test_AddChain(t *testing.T) {
 	defer server.Close()
 
 	api := Client{server.Client(), server.URL}
-	body, err := api.AddChain(rootCert, clientCert)
+	csc, _ := ca.CreateCSCFromPEM(nil, rootCert, clientCert)
+	body, err := api.AddChain(csc)
 	assert.NoError(t, err)
 	assert.Equal(t, body.SctVersion, 0)
 	assert.Equal(t, body.ID, "abc")

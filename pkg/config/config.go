@@ -24,10 +24,12 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/spf13/viper"
 )
 
 type FulcioConfig struct {
@@ -170,18 +172,23 @@ var DefaultConfig = &FulcioConfig{
 	},
 }
 
-var config *FulcioConfig
-var originalTransport = http.DefaultTransport
+var (
+	once              sync.Once
+	config            *FulcioConfig
+	originalTransport = http.DefaultTransport
+)
 
 func Config() *FulcioConfig {
-	if config == nil {
-		log.Logger.Panic("Config() called without loading config first")
-	}
+	once.Do(func() {
+		if err := load(viper.GetString("config-path")); err != nil {
+			log.Logger.Panic(err)
+		}
+	})
 	return config
 }
 
 // Load a config from disk, or use defaults
-func Load(configPath string) error {
+func load(configPath string) error {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
 		config = DefaultConfig

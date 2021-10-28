@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/spf13/viper"
 )
 
 var validCfg = `
@@ -98,10 +99,7 @@ func TestLoad(t *testing.T) {
 	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
 		t.Fatal(err)
 	}
-
-	if err := Load(cfgPath); err != nil {
-		t.Fatal(err)
-	}
+	viper.GetViper().Set("config-path", cfgPath)
 
 	cfg := Config()
 	got, ok := cfg.GetIssuer("https://accounts.google.com")
@@ -128,6 +126,10 @@ func TestLoad(t *testing.T) {
 	if got.IssuerURL != "https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER" {
 		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
 	}
+
+	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
+		t.Error("no error returned from an unconfigured issuer")
+	}
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -135,7 +137,7 @@ func TestLoadDefaults(t *testing.T) {
 
 	// Don't put anything here!
 	cfgPath := filepath.Join(td, "config.json")
-	if err := Load(cfgPath); err != nil {
+	if err := load(cfgPath); err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,6 +145,5 @@ func TestLoadDefaults(t *testing.T) {
 
 	if diff := cmp.Diff(DefaultConfig, cfg, cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
 		t.Errorf("DefaultConfig(): -want +got: %s", diff)
-
 	}
 }

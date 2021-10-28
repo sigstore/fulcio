@@ -17,32 +17,43 @@ package ephemeralca
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-var (
-	ca      *x509.Certificate
-	privKey interface{}
-)
+type EphemeralCA struct {
+	x509ca.X509CA
+	signer signature.Signer
+}
 
-func Initialize(context.Context) error {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+func (e *EphemeralCA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	return e.CreateCertificateWithCA(&e.X509CA, subject)
+}
+
+func NewEphemeralCA() (*EphemeralCA, error) {
+	e := &EphemeralCA{}
+	var err error
+
+	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	privKey = priv
+
+	e.signer = signer
 
 	// TODO: We could make it so this could be passed in by the user
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rootCA := &x509.Certificate{
 		SerialNumber: serialNumber,
@@ -61,19 +72,15 @@ func Initialize(context.Context) error {
 		BasicConstraintsValid: true, MaxPathLen: 1,
 	}
 
-	caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, priv.Public(), priv)
+	caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, signer.Public(), signer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	ca, err = x509.ParseCertificate(caBytes)
+	e.RootCA, err = x509.ParseCertificate(caBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
-}
-
-func CA() (*x509.Certificate, interface{}) {
-	return ca, privKey
+	return e, nil
 }

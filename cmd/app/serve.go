@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
@@ -50,10 +49,7 @@ var serveCmd = &cobra.Command{
 			}
 
 		case "ephemeralca":
-			if err := ephemeralca.Initialize(cmd.Context()); err != nil {
-				log.Logger.Fatalw("error initializing ephemeral CA", err)
-			}
-
+			// this is a no-op since this is a self-signed in-memory CA for testing
 		default:
 			log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
 		}
@@ -72,10 +68,9 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
-		// Crash if we can't parse the config correctly
-		if err := config.Load(viper.GetString("config-path")); err != nil {
-			log.Logger.Panic(err)
-		}
+		// This will panic if we can't parse the config correctly
+		config.Config()
+
 		server.EnabledListeners = []string{"http"}
 
 		server.ConfigureAPI()
