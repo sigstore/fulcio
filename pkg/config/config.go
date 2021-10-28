@@ -75,52 +75,11 @@ const (
 	IssuerTypeSpiffe         = "spiffe"
 )
 
-func ParseConfig(b []byte) (cfg *FulcioConfig, err error) {
+func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
 	cfg = &FulcioConfig{}
 	if err := json.Unmarshal(b, cfg); err != nil {
 		return nil, err
 	}
-
-	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
-		// If we hit any errors, then restore the http.DefaultTransport
-		// to what it was prior to parsing this config
-		defer func(before http.RoundTripper) {
-			if err != nil {
-				http.DefaultTransport = before
-			}
-		}(http.DefaultTransport)
-
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := ioutil.ReadFile(k8sCA)
-		if err != nil {
-			return nil, err
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return nil, err
-		}
-
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	}
-
-	// Eagerly populate the verifiers for the OIDCIssuers.
-	cfg.verifiers = make(map[string]*oidc.IDTokenVerifier, len(cfg.OIDCIssuers))
-	for _, iss := range cfg.OIDCIssuers {
-		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
-		if err != nil {
-			return nil, err
-		}
-		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
-		cfg.verifiers[iss.IssuerURL] = verifier
-	}
-
 	return cfg, nil
 }
 
@@ -166,16 +125,46 @@ func Load(configPath string) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := ParseConfig(b)
+	cfg, err := parseConfig(b)
 	if err != nil {
 		return err
 	}
 
-	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; !ok {
+	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
+		// Add the Kubernetes cluster's CA to the system CA pool, and to
+		// the default transport.
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		const k8sCA = "/var/run/fulcio/ca.crt"
+		certs, err := ioutil.ReadFile(k8sCA)
+		if err != nil {
+			return err
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return err
+		}
+
+		t := originalTransport.(*http.Transport).Clone()
+		t.TLSClientConfig.RootCAs = rootCAs
+		http.DefaultTransport = t
+	} else {
 		// If we parse a config that doesn't include a cluster issuer
 		// signed with the cluster'sCA, then restore the original transport
 		// (in case we overwrote it)
 		http.DefaultTransport = originalTransport
+	}
+
+	// Eagerly populate the verifiers for the OIDCIssuers.
+	cfg.verifiers = make(map[string]*oidc.IDTokenVerifier, len(cfg.OIDCIssuers))
+	for _, iss := range cfg.OIDCIssuers {
+		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
+		if err != nil {
+			return err
+		}
+		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+		cfg.verifiers[iss.IssuerURL] = verifier
 	}
 
 	config = cfg
