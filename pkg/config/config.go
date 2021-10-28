@@ -16,17 +16,25 @@
 package config
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer
+
+	// TODO(mattmoor): We want to match these kinds of meta-URLs.
+	// https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
+	// https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
+
+	verifiers map[string]*oidc.IDTokenVerifier
 }
 
 type OIDCIssuer struct {
@@ -34,6 +42,28 @@ type OIDCIssuer struct {
 	ClientID    string
 	Type        IssuerType
 	IssuerClaim string `json:"IssuerClaim,omitempty"`
+}
+
+// GetIssuer looks up the issuer configuration for an `issuerURL`
+// coming from an incoming OIDC token.  If no matching configuration
+// is found, then it returns `false`.
+func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
+	iss, ok := fc.OIDCIssuers[issuerURL]
+
+	// TODO(mattmoor): Add support for meta-URLs.
+
+	return iss, ok
+}
+
+// GetVerifier fetches a token verifier for the given `issuerURL`
+// coming from an incoming OIDC token.  If no matching configuration
+// is found, then it returns `false`.
+func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bool) {
+	v, ok := fc.verifiers[issuerURL]
+
+	// TODO(mattmoor): Add an LRU cache of verifiers for issuers that match one of our meta-URLs
+
+	return v, ok
 }
 
 type IssuerType string
@@ -45,15 +75,56 @@ const (
 	IssuerTypeSpiffe         = "spiffe"
 )
 
-func ParseConfig(b []byte) (FulcioConfig, error) {
-	cfg := FulcioConfig{}
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return FulcioConfig{}, err
+func ParseConfig(b []byte) (cfg *FulcioConfig, err error) {
+	cfg = &FulcioConfig{}
+	if err := json.Unmarshal(b, cfg); err != nil {
+		return nil, err
 	}
+
+	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
+		// If we hit any errors, then restore the http.DefaultTransport
+		// to what it was prior to parsing this config
+		defer func(before http.RoundTripper) {
+			if err != nil {
+				http.DefaultTransport = before
+			}
+		}(http.DefaultTransport)
+
+		// Add the Kubernetes cluster's CA to the system CA pool, and to
+		// the default transport.
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		const k8sCA = "/var/run/fulcio/ca.crt"
+		certs, err := ioutil.ReadFile(k8sCA)
+		if err != nil {
+			return nil, err
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return nil, err
+		}
+
+		t := originalTransport.(*http.Transport).Clone()
+		t.TLSClientConfig.RootCAs = rootCAs
+		http.DefaultTransport = t
+	}
+
+	// Eagerly populate the verifiers for the OIDCIssuers.
+	cfg.verifiers = make(map[string]*oidc.IDTokenVerifier, len(cfg.OIDCIssuers))
+	for _, iss := range cfg.OIDCIssuers {
+		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
+		if err != nil {
+			return nil, err
+		}
+		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+		cfg.verifiers[iss.IssuerURL] = verifier
+	}
+
 	return cfg, nil
 }
 
-var DefaultConfig = FulcioConfig{
+var DefaultConfig = &FulcioConfig{
 	OIDCIssuers: map[string]OIDCIssuer{
 		"https://oauth2.sigstore.dev/auth": {
 			IssuerURL:   "https://oauth2.sigstore.dev/auth",
@@ -77,18 +148,18 @@ var DefaultConfig = FulcioConfig{
 var config *FulcioConfig
 var originalTransport = http.DefaultTransport
 
-func Config() FulcioConfig {
+func Config() *FulcioConfig {
 	if config == nil {
 		log.Logger.Panic("Config() called without loading config first")
 	}
-	return *config
+	return config
 }
 
 // Load a config from disk, or use defaults
 func Load(configPath string) error {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
-		config = &DefaultConfig
+		config = DefaultConfig
 		return nil
 	}
 	b, err := ioutil.ReadFile(configPath)
@@ -100,33 +171,14 @@ func Load(configPath string) error {
 		return err
 	}
 
-	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := ioutil.ReadFile(k8sCA)
-		if err != nil {
-			return err
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return err
-		}
-
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	} else {
+	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; !ok {
 		// If we parse a config that doesn't include a cluster issuer
 		// signed with the cluster'sCA, then restore the original transport
 		// (in case we overwrote it)
 		http.DefaultTransport = originalTransport
 	}
 
-	config = &cfg
+	config = cfg
 	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
 	return nil
 }

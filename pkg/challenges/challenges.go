@@ -75,7 +75,7 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 	}
 
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -102,7 +102,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 		return nil, err
 	}
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -153,7 +153,7 @@ func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey, challenge 
 	}
 
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -188,7 +188,7 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 	}
 
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}

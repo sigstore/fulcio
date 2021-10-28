@@ -57,7 +57,7 @@ func main() {
 		}
 		matches = append(matches, globs...)
 	}
-	fulcioConfig := config.FulcioConfig{
+	fulcioConfig := &config.FulcioConfig{
 		OIDCIssuers: map[string]config.OIDCIssuer{},
 	}
 	for _, m := range matches {

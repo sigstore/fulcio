@@ -21,13 +21,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var validCfg = `
 {
 	"OIDCIssuers": {
-		"foobar.com": {
-			"IssuerURL": "foobar.com",
+		"https://accounts.google.com": {
+			"IssuerURL": "https://accounts.google.com",
 			"ClientID": "foo"
 		}
 	}
@@ -46,16 +47,21 @@ func TestLoad(t *testing.T) {
 	}
 
 	cfg := Config()
-	if got := cfg.OIDCIssuers["foobar.com"].ClientID; got != "foo" {
-		t.Errorf("expected foo, got %s", got)
+	got, ok := cfg.GetIssuer("https://accounts.google.com")
+	if !ok {
+		t.Error("expected true, got false")
 	}
-	if got := cfg.OIDCIssuers["foobar.com"].IssuerURL; got != "foobar.com" {
-		t.Errorf("expected foo, got %s", got)
+	if got.ClientID != "foo" {
+		t.Errorf("expected foo, got %s", got.ClientID)
+	}
+	if got.IssuerURL != "https://accounts.google.com" {
+		t.Errorf("expected https://accounts.google.com, got %s", got.IssuerURL)
 	}
 	if got := len(cfg.OIDCIssuers); got != 1 {
 		t.Errorf("expected 1 issuer, got %d", got)
 	}
 }
+
 func TestLoadDefaults(t *testing.T) {
 	td := t.TempDir()
 
@@ -67,7 +73,7 @@ func TestLoadDefaults(t *testing.T) {
 
 	cfg := Config()
 
-	if diff := cmp.Diff(DefaultConfig, cfg); diff != "" {
+	if diff := cmp.Diff(DefaultConfig, cfg, cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
 		t.Errorf("DefaultConfig(): -want +got: %s", diff)
 
 	}
