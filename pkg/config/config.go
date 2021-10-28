@@ -22,26 +22,52 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/log"
 )
 
 type FulcioConfig struct {
-	OIDCIssuers map[string]OIDCIssuer
+	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
 
-	// TODO(mattmoor): We want to match these kinds of meta-URLs.
-	// https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
-	// https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
+	// A meta issuer has a templated URL of the form:
+	//   https://oidc.eks.*.amazonaws.com/id/*
+	// Where * can match a single hostname or URI path parts
+	// (in particular, no '.' or '/' are permitted, among
+	// other special characters)  Some examples we want to match:
+	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
+	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
+	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
 
+	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string]*oidc.IDTokenVerifier
+	// lru is an LRU cache of recently used verifiers for our meta issuers.
+	lru *lru.TwoQueueCache
 }
 
 type OIDCIssuer struct {
-	IssuerURL   string
-	ClientID    string
-	Type        IssuerType
-	IssuerClaim string `json:"IssuerClaim,omitempty"`
+	IssuerURL   string     `json:"IssuerURL,omitempty"`
+	ClientID    string     `json:"ClientID"`
+	Type        IssuerType `json:"Type"`
+	IssuerClaim string     `json:"IssuerClaim,omitempty"`
+}
+
+func metaRegex(issuer string) (*regexp.Regexp, error) {
+	// Quote all of the "meta" characters like `.` to avoid
+	// those literal characters in the URL matching any character.
+	// This will ALSO quote `*`, so we replace the quoted version.
+	quoted := regexp.QuoteMeta(issuer)
+
+	// Replace the quoted `*` with a regular expression that
+	// will match alpha-numeric parts with common additional
+	// "special" characters.
+	replaced := strings.ReplaceAll(quoted, regexp.QuoteMeta("*"), "[-_a-zA-Z0-9]+")
+
+	// Compile into a regular expression.
+	return regexp.Compile(replaced)
 }
 
 // GetIssuer looks up the issuer configuration for an `issuerURL`
@@ -49,21 +75,61 @@ type OIDCIssuer struct {
 // is found, then it returns `false`.
 func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 	iss, ok := fc.OIDCIssuers[issuerURL]
+	if ok {
+		return iss, ok
+	}
 
-	// TODO(mattmoor): Add support for meta-URLs.
+	for meta, iss := range fc.MetaIssuers {
+		re, err := metaRegex(meta)
+		if err != nil {
+			continue // Shouldn't happen, we check parsing the config
+		}
+		if re.MatchString(issuerURL) {
+			// If it matches, then return a concrete OIDCIssuer
+			// configuration for this issuer URL.
+			return OIDCIssuer{
+				IssuerURL:   issuerURL,
+				ClientID:    iss.ClientID,
+				Type:        iss.Type,
+				IssuerClaim: iss.IssuerClaim,
+			}, true
+		}
+	}
 
-	return iss, ok
+	return OIDCIssuer{}, false
 }
 
 // GetVerifier fetches a token verifier for the given `issuerURL`
 // coming from an incoming OIDC token.  If no matching configuration
 // is found, then it returns `false`.
 func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bool) {
+	// Look up our fixed issuer verifiers
 	v, ok := fc.verifiers[issuerURL]
+	if ok {
+		return v, true
+	}
 
-	// TODO(mattmoor): Add an LRU cache of verifiers for issuers that match one of our meta-URLs
+	// Look in the LRU cache for a verifier
+	untyped, ok := fc.lru.Get(issuerURL)
+	if ok {
+		return untyped.(*oidc.IDTokenVerifier), true
+	}
+	// If this issuer hasn't been recently used, then create a new verifier
+	// and add it to the LRU cache.
 
-	return v, ok
+	iss, ok := fc.GetIssuer(issuerURL)
+	if !ok {
+		return nil, false
+	}
+
+	provider, err := oidc.NewProvider(context.Background(), issuerURL)
+	if err != nil {
+		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
+		return nil, false
+	}
+	verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+	fc.lru.Add(issuerURL, verifier)
+	return verifier, true
 }
 
 type IssuerType string

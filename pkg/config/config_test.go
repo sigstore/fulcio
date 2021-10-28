@@ -31,9 +31,66 @@ var validCfg = `
 			"IssuerURL": "https://accounts.google.com",
 			"ClientID": "foo"
 		}
+	},
+	"MetaIssuers": {
+		"https://oidc.eks.*.amazonaws.com/id/*": {
+			"ClientID": "bar"
+		}
 	}
 }
 `
+
+func TestMetaURLs(t *testing.T) {
+	tests := []struct {
+		name    string
+		issuer  string
+		matches []string
+		misses  []string
+	}{{
+		name:   "AWS meta URL",
+		issuer: "https://oidc.eks.*.amazonaws.com/id/*",
+		matches: []string{
+			"https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB",
+		},
+		misses: []string{
+			// Extra dots
+			"https://oidc.eks.us.west.2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB",
+			// Extra slashes
+			"https://oidc.eks.us-west/2.amazonaws.com/id/B02C93B6A2D3/0341AD01E1B6D48164CB",
+		},
+	}, {
+		name:   "GKE meta URL",
+		issuer: "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*",
+		matches: []string{
+			"https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster",
+		},
+		misses: []string{
+			// Extra dots
+			"https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us.west1.b/clusters/tenant-cluster",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			re, err := metaRegex(test.issuer)
+			if err != nil {
+				t.Errorf("metaRegex() = %v", err)
+			}
+
+			for _, match := range test.matches {
+				if !re.MatchString(match) {
+					t.Errorf("MatchString(%q) = false, wanted true", match)
+				}
+			}
+
+			for _, miss := range test.misses {
+				if re.MatchString(miss) {
+					t.Errorf("MatchString(%q) = true, wanted false", miss)
+				}
+			}
+		})
+	}
+}
 
 func TestLoad(t *testing.T) {
 	td := t.TempDir()
@@ -59,6 +116,17 @@ func TestLoad(t *testing.T) {
 	}
 	if got := len(cfg.OIDCIssuers); got != 1 {
 		t.Errorf("expected 1 issuer, got %d", got)
+	}
+
+	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
+	if !ok {
+		t.Error("expected true, got false")
+	}
+	if got.ClientID != "bar" {
+		t.Errorf("expected bar, got %s", got.ClientID)
+	}
+	if got.IssuerURL != "https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER" {
+		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
 	}
 }
 
