@@ -43,6 +43,16 @@ data:
               "ClientID": "sigstore",
               "Type": "github-workflow"
             }
+          },
+          "MetaIssuers": {
+            "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
+              "ClientID": "sigstore",
+              "Type": "kubernetes"
+            },
+            "https://oidc.eks.*.amazonaws.com/id/*": {
+              "ClientID": "sigstore",
+              "Type": "kubernetes"
+            }
           }
         }
 kind: ConfigMap
