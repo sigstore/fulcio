@@ -16,11 +16,9 @@
 package challenges
 
 import (
+	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -31,6 +29,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type ChallengeType int
@@ -48,20 +47,12 @@ type ChallengeResult struct {
 }
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
-	h := sha256.Sum256([]byte(email))
-
-	switch k := pub.(type) {
-	case *ecdsa.PublicKey:
-		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
-			return errors.New("signature could not be verified")
-		}
-	case *rsa.PublicKey:
-		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
-			return fmt.Errorf("signature could not be verified: %v", err)
-		}
+	verifier, err := signature.LoadVerifier(pub, crypto.SHA256)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(email))
 }
 
 func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
