@@ -63,6 +63,8 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		PemCertificate, PemCertificateChain, err = GoogleCASigningCertHandler(ctx, subj, publicKeyPEM)
 	case "pkcs11ca":
 		PemCertificate, PemCertificateChain, err = Pkcs11CASigningCertHandler(ctx, subj, publicKey)
+	case "ephemeralca":
+		PemCertificate, PemCertificateChain, err = EphemeralCASigningCertHandler(ctx, subj, publicKey)
 	default:
 		return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
 	}
@@ -110,6 +112,8 @@ func Subject(ctx context.Context, tok *oidc.IDToken, cfg config.FulcioConfig, pu
 		return challenges.Spiffe(ctx, tok, publicKey, challenge)
 	case config.IssuerTypeGithubWorkflow:
 		return challenges.GithubWorkflow(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeKubernetes:
+		return challenges.Kubernetes(ctx, tok, publicKey, challenge)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}

@@ -38,6 +38,7 @@ const (
 	EmailValue ChallengeType = iota
 	SpiffeValue
 	GithubWorkflowValue
+	KubernetesValue
 )
 
 type ChallengeResult struct {
@@ -135,6 +136,41 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}, nil
 }
 
+func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+	k8sURI, err := kubernetesToken(principal)
+	if err != nil {
+		return nil, err
+	}
+
+	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the proof
+	if err := CheckSignature(pkixPubKey, challenge, principal.Subject); err != nil {
+		return nil, err
+	}
+
+	globalCfg := config.Config()
+	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now issue cert!
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: KubernetesValue,
+		Value:   k8sURI,
+	}, nil
+}
+
 func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
 	workflowRef, err := workflowFromIDToken(principal)
 	if err != nil {
@@ -168,6 +204,40 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 		TypeVal: GithubWorkflowValue,
 		Value:   workflowRef,
 	}, nil
+}
+
+func kubernetesToken(token *oidc.IDToken) (string, error) {
+	// Extract custom claims
+	var claims struct {
+		// "kubernetes.io": {
+		//   "namespace": "default",
+		//   "pod": {
+		// 	    "name": "oidc-test",
+		// 	    "uid": "49ad3572-b3dd-43a6-8d77-5858d3660275"
+		//   },
+		//   "serviceaccount": {
+		// 	    "name": "default",
+		//      "uid": "f5720c1d-e152-4356-a897-11b07aff165d"
+		//   }
+		// }
+		Kubernetes struct {
+			Namespace string `json:"namespace"`
+			Pod       struct {
+				Name string `json:"name"`
+				UID  string `json:"uid"`
+			} `json:"pod"`
+			ServiceAccount struct {
+				Name string `json:"name"`
+				UID  string `json:"uid"`
+			} `json:"serviceaccount"`
+		} `json:"kubernetes.io"`
+	}
+	if err := token.Claims(&claims); err != nil {
+		return "", err
+	}
+
+	// We use this in URIs, so it has to be a URI.
+	return "https://kubernetes.io/namespaces/" + claims.Kubernetes.Namespace + "/serviceaccounts/" + claims.Kubernetes.ServiceAccount.Name, nil
 }
 
 func workflowFromIDToken(token *oidc.IDToken) (string, error) {

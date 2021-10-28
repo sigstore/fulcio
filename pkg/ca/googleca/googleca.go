@@ -124,6 +124,14 @@ func GithubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConf
 	}
 }
 
+func KubernetesSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+	return &privatecapb.CertificateConfig_SubjectConfig{
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			Uris: []string{id},
+		},
+	}
+}
+
 func IssuerExtension(issuer string) []*privatecapb.X509Extension {
 	if issuer == "" {
 		return nil

@@ -16,8 +16,10 @@
 package config
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"os"
 
 	"github.com/sigstore/fulcio/pkg/log"
@@ -39,6 +41,7 @@ type IssuerType string
 const (
 	IssuerTypeEmail          = "email"
 	IssuerTypeGithubWorkflow = "github-workflow"
+	IssuerTypeKubernetes     = "kubernetes"
 	IssuerTypeSpiffe         = "spiffe"
 )
 
@@ -72,6 +75,7 @@ var DefaultConfig = FulcioConfig{
 }
 
 var config *FulcioConfig
+var originalTransport = http.DefaultTransport
 
 func Config() FulcioConfig {
 	if config == nil {
@@ -95,6 +99,33 @@ func Load(configPath string) error {
 	if err != nil {
 		return err
 	}
+
+	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
+		// Add the Kubernetes cluster's CA to the system CA pool, and to
+		// the default transport.
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		const k8sCA = "/var/run/fulcio/ca.crt"
+		certs, err := ioutil.ReadFile(k8sCA)
+		if err != nil {
+			return err
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return err
+		}
+
+		t := originalTransport.(*http.Transport).Clone()
+		t.TLSClientConfig.RootCAs = rootCAs
+		http.DefaultTransport = t
+	} else {
+		// If we parse a config that doesn't include a cluster issuer
+		// signed with the cluster'sCA, then restore the original transport
+		// (in case we overwrote it)
+		http.DefaultTransport = originalTransport
+	}
+
 	config = &cfg
 	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
 	return nil
