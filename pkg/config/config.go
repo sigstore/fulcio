@@ -196,7 +196,7 @@ func Load(configPath string) error {
 		return err
 	}
 
-	if _, ok := cfg.OIDCIssuers["https://kubernetes.default.svc"]; ok {
+	if _, ok := cfg.GetIssuer("https://kubernetes.default.svc"); ok {
 		// Add the Kubernetes cluster's CA to the system CA pool, and to
 		// the default transport.
 		rootCAs, _ := x509.SystemCertPool()
@@ -232,6 +232,12 @@ func Load(configPath string) error {
 		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
 		cfg.verifiers[iss.IssuerURL] = verifier
 	}
+
+	cache, err := lru.New2Q(100 /* size */)
+	if err != nil {
+		return err
+	}
+	cfg.lru = cache
 
 	config = cfg
 	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
