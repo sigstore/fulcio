@@ -40,11 +40,19 @@ const (
 	KubernetesValue
 )
 
+type WorkflowResult struct {
+	// Additional information associated with a Github Workflow
+	Trigger string
+	Sha     string
+}
+
 type ChallengeResult struct {
 	Issuer    string
 	TypeVal   ChallengeType
 	PublicKey crypto.PublicKey
 	Value     string
+	// Extra information, non-empty for a Github workflow
+	WorkflowInfo WorkflowResult
 }
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
@@ -165,6 +173,11 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 	if err != nil {
 		return nil, err
 	}
+	// Additional info
+	workflowInfo, err := workflowInfoFromIDToken(principal)
+	if err != nil {
+		return nil, err
+	}
 
 	// Check the proof
 	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
@@ -184,10 +197,11 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   GithubWorkflowValue,
-		Value:     workflowRef,
+		Issuer:       issuer,
+		PublicKey:    pubKey,
+		TypeVal:      GithubWorkflowValue,
+		Value:        workflowRef,
+		WorkflowInfo: workflowInfo,
 	}, nil
 }
 
@@ -240,6 +254,25 @@ func workflowFromIDToken(token *oidc.IDToken) (string, error) {
 	return "https://github.com/" + claims.JobWorkflowRef, nil
 }
 
+func workflowInfoFromIDToken(token *oidc.IDToken) (WorkflowResult, error) {
+	// Extract custom claims
+	var claims struct {
+		Sha     string `json:"sha"`
+		Trigger string `json:"event_name"`
+		// The other fields that are present here seem to depend on the type
+		// of workflow trigger that initiated the action.
+	}
+	if err := token.Claims(&claims); err != nil {
+		return WorkflowResult{}, err
+	}
+
+	// We use this in URIs, so it has to be a URI.
+	return WorkflowResult{
+		Trigger: claims.Trigger,
+		Sha:     claims.Sha,
+	}, nil
+}
+
 func isSpiffeIDAllowed(host, spiffeID string) bool {
 	// Strip spiffe://
 	name := strings.TrimPrefix(spiffeID, "spiffe://")
@@ -251,5 +284,4 @@ func isSpiffeIDAllowed(host, spiffeID string) bool {
 		return true
 	}
 	return strings.Contains(spiffeDomain, "."+host)
-
 }

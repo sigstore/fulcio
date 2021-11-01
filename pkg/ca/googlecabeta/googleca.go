@@ -146,6 +146,28 @@ func githubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConf
 	}
 }
 
+func GithubWorkflowExtension(info challenges.WorkflowResult) []*privatecapb.X509Extension {
+	res := []*privatecapb.X509Extension{}
+	if info.Sha != "" {
+		res = append(res, &privatecapb.X509Extension{
+			ObjectId: &privatecapb.ObjectId{
+				ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+			},
+			Value: []byte(info.Sha),
+		})
+	}
+
+	if info.Trigger != "" {
+		res = append(res, &privatecapb.X509Extension{
+			ObjectId: &privatecapb.ObjectId{
+				ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+			},
+			Value: []byte(info.Trigger),
+		})
+	}
+	return res
+}
+
 func KubernetesSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
 	return &privatecapb.CertificateConfig_SubjectConfig{
 		SubjectAltName: &privatecapb.SubjectAltNames{
@@ -184,7 +206,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 		return nil, ca.ValidationError(err)
 	}
 
-	extensions := IssuerExtension(subj.Issuer)
+	extensions := append(IssuerExtension(subj.Issuer), GithubWorkflowExtension(subj.WorkflowInfo)...)
 
 	req, err := Req(c.parent, privca, pubKeyBytes, extensions)
 	if err != nil {
