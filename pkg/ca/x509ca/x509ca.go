@@ -17,6 +17,7 @@ package x509ca
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -29,7 +30,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
@@ -39,7 +39,7 @@ import (
 
 type X509CA struct {
 	RootCA  *x509.Certificate
-	PrivKey crypto11.Signer
+	PrivKey crypto.Signer
 }
 
 func NewX509CA() (*X509CA, error) {

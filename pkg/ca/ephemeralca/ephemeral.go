@@ -32,7 +32,6 @@ import (
 
 type EphemeralCA struct {
 	x509ca.X509CA
-	signer signature.Signer
 }
 
 func (e *EphemeralCA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
@@ -48,7 +47,7 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 		return nil, err
 	}
 
-	e.signer = signer
+	e.PrivKey = signer
 
 	// TODO: We could make it so this could be passed in by the user
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
