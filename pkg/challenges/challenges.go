@@ -153,9 +153,10 @@ func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Publ
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: KubernetesValue,
-		Value:   k8sURI,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   KubernetesValue,
+		Value:     k8sURI,
 	}, nil
 }
 
