@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
@@ -42,9 +41,10 @@ const (
 )
 
 type ChallengeResult struct {
-	Issuer  string
-	TypeVal ChallengeType
-	Value   string
+	Issuer    string
+	TypeVal   ChallengeType
+	PublicKey crypto.PublicKey
+	Value     string
 }
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
@@ -56,7 +56,7 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(email))
 }
 
-func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func Email(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
@@ -64,13 +64,8 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 		return nil, err
 	}
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
-
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := CheckSignature(pubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
@@ -87,20 +82,17 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: EmailValue,
-		Value:   emailAddress,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   EmailValue,
+		Value:     emailAddress,
 	}, nil
 }
 
-func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 
 	spiffeID := principal.Subject
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
 	globalCfg := config.Config()
 	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
@@ -119,7 +111,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := CheckSignature(pubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
@@ -130,25 +122,21 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: SpiffeValue,
-		Value:   spiffeID,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   SpiffeValue,
+		Value:     spiffeID,
 	}, nil
 }
 
-func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 	k8sURI, err := kubernetesToken(principal)
 	if err != nil {
 		return nil, err
 	}
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
-
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, principal.Subject); err != nil {
+	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
 		return nil, err
 	}
 
@@ -165,25 +153,21 @@ func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey, challenge 
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: KubernetesValue,
-		Value:   k8sURI,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   KubernetesValue,
+		Value:     k8sURI,
 	}, nil
 }
 
-func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 	workflowRef, err := workflowFromIDToken(principal)
 	if err != nil {
 		return nil, err
 	}
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
-
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, principal.Subject); err != nil {
+	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
 		return nil, err
 	}
 
@@ -200,9 +184,10 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: GithubWorkflowValue,
-		Value:   workflowRef,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   GithubWorkflowValue,
+		Value:     workflowRef,
 	}, nil
 }
 

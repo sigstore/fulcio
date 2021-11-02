@@ -30,8 +30,10 @@ import (
 
 const (
 	invalidSignature       = "The signature supplied in the request could not be verified"
+	invalidPublicKey       = "The public key supplied in the request could not be parsed"
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
+	failedToMarshalCert    = "Error marshaling code signing certificate"
 	invalidCredentials     = "There was an error processing the credentials for this request"
 	genericCAError         = "error communicating with CA backend"
 )
