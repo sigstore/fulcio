@@ -22,7 +22,7 @@ jobs:
     name: k8s manifest check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.5
+      - uses: actions/checkout@v2.4.0
       - uses: actions/setup-go@v2
         with:
           go-version: 1.16.x
@@ -56,7 +56,7 @@ jobs:
       KO_DOCKER_REPO: registry.local:5000/fulcio
 
     steps:
-      - uses: actions/checkout@v2.3.5
+      - uses: actions/checkout@v2.4.0
       - uses: actions/setup-go@v2
         with:
           go-version: 1.16.x
