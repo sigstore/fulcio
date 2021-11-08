@@ -192,6 +192,11 @@ func load(configPath string) error {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
 		config = DefaultConfig
+		cache, err := lru.New2Q(100 /* size */)
+		if err != nil {
+			return err
+		}
+		config.lru = cache
 		return nil
 	}
 	b, err := ioutil.ReadFile(configPath)
