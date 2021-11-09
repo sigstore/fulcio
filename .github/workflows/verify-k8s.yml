@@ -137,7 +137,7 @@ jobs:
         run: |
           # Reduce the resource requests of Fulcio
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
-          sed -i -e 's,cpu: ".5",memory: "50m",g' ${{ github.workspace }}/config/deployment.yaml
+          sed -i -e 's,cpu: ".5",cpu: "50m",g' ${{ github.workspace }}/config/deployment.yaml
           # Switch to the ephemeralca for testing.
           sed -i -e 's,--ca=googleca,--ca=ephemeralca,g' ${{ github.workspace }}/config/deployment.yaml
           # Drop the ct-log flag's value to elide CT-log uploads.
