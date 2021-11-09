@@ -40,19 +40,21 @@ const (
 	KubernetesValue
 )
 
-type WorkflowResult struct {
-	// Additional information associated with a Github Workflow
-	Trigger string
-	Sha     string
-}
+type AdditionalInfo int
+
+// Additional information that can be added as a cert extension.
+const (
+	GithubWorkflowTrigger AdditionalInfo = iota
+	GithubWorkflowSha
+)
 
 type ChallengeResult struct {
 	Issuer    string
 	TypeVal   ChallengeType
 	PublicKey crypto.PublicKey
 	Value     string
-	// Extra information, non-empty for a Github workflow
-	WorkflowInfo WorkflowResult
+	// Extra information from the token that can be added to extensions.
+	AdditionalInfo map[AdditionalInfo]string
 }
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
@@ -173,8 +175,7 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 	if err != nil {
 		return nil, err
 	}
-	// Additional info
-	workflowInfo, err := workflowInfoFromIDToken(principal)
+	additionalInfo, err := workflowInfoFromIDToken(principal)
 	if err != nil {
 		return nil, err
 	}
@@ -197,11 +198,11 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:       issuer,
-		PublicKey:    pubKey,
-		TypeVal:      GithubWorkflowValue,
-		Value:        workflowRef,
-		WorkflowInfo: workflowInfo,
+		Issuer:         issuer,
+		PublicKey:      pubKey,
+		TypeVal:        GithubWorkflowValue,
+		Value:          workflowRef,
+		AdditionalInfo: additionalInfo,
 	}, nil
 }
 
@@ -254,7 +255,7 @@ func workflowFromIDToken(token *oidc.IDToken) (string, error) {
 	return "https://github.com/" + claims.JobWorkflowRef, nil
 }
 
-func workflowInfoFromIDToken(token *oidc.IDToken) (WorkflowResult, error) {
+func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, error) {
 	// Extract custom claims
 	var claims struct {
 		Sha     string `json:"sha"`
@@ -263,14 +264,13 @@ func workflowInfoFromIDToken(token *oidc.IDToken) (WorkflowResult, error) {
 		// of workflow trigger that initiated the action.
 	}
 	if err := token.Claims(&claims); err != nil {
-		return WorkflowResult{}, err
+		return nil, err
 	}
 
 	// We use this in URIs, so it has to be a URI.
-	return WorkflowResult{
-		Trigger: claims.Trigger,
-		Sha:     claims.Sha,
-	}, nil
+	return map[AdditionalInfo]string{
+		GithubWorkflowSha:     claims.Sha,
+		GithubWorkflowTrigger: claims.Trigger}, nil
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {

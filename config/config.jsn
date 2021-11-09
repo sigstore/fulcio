@@ -20,6 +20,11 @@
       "IssuerURL": "https://oidc.dlorenc.dev",
       "ClientID": "sigstore",
       "Type": "spiffe"
-    }
+    },
+    "https://token.actions.githubusercontent.com": {
+              "IssuerURL": "https://token.actions.githubusercontent.com",
+              "ClientID": "sigstore",
+              "Type": "github-workflow"
+            }
   }
 }

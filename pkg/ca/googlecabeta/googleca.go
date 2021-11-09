@@ -146,24 +146,26 @@ func githubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConf
 	}
 }
 
-func GithubWorkflowExtension(info challenges.WorkflowResult) []*privatecapb.X509Extension {
+func AdditionalExtensions(subject *challenges.ChallengeResult) []*privatecapb.X509Extension {
 	res := []*privatecapb.X509Extension{}
-	if info.Sha != "" {
-		res = append(res, &privatecapb.X509Extension{
-			ObjectId: &privatecapb.ObjectId{
-				ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 2},
-			},
-			Value: []byte(info.Sha),
-		})
-	}
+	if subject.TypeVal == challenges.GithubWorkflowValue {
+		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
+			res = append(res, &privatecapb.X509Extension{
+				ObjectId: &privatecapb.ObjectId{
+					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+				},
+				Value: []byte(trigger),
+			})
+		}
 
-	if info.Trigger != "" {
-		res = append(res, &privatecapb.X509Extension{
-			ObjectId: &privatecapb.ObjectId{
-				ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 3},
-			},
-			Value: []byte(info.Trigger),
-		})
+		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
+			res = append(res, &privatecapb.X509Extension{
+				ObjectId: &privatecapb.ObjectId{
+					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+				},
+				Value: []byte(sha),
+			})
+		}
 	}
 	return res
 }
@@ -206,7 +208,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 		return nil, ca.ValidationError(err)
 	}
 
-	extensions := append(IssuerExtension(subj.Issuer), GithubWorkflowExtension(subj.WorkflowInfo)...)
+	extensions := append(IssuerExtension(subj.Issuer), AdditionalExtensions(subj)...)
 
 	req, err := Req(c.parent, privca, pubKeyBytes, extensions)
 	if err != nil {

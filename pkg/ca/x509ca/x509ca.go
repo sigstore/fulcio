@@ -124,7 +124,7 @@ func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.C
 		}
 		cert.URIs = []*url.URL{k8sURI}
 	}
-	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), GithubWorkflowExtension(subject.WorkflowInfo)...)
+	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certauth.RootCA, subject.PublicKey, certauth.PrivKey)
 	if err != nil {
@@ -134,20 +134,22 @@ func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.C
 	return ca.CreateCSCFromDER(subject, finalCertBytes, nil)
 }
 
-func GithubWorkflowExtension(info challenges.WorkflowResult) []pkix.Extension {
+func AdditionalExtensions(subject *challenges.ChallengeResult) []pkix.Extension {
 	res := []pkix.Extension{}
-	if info.Sha != "" {
-		res = append(res, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
-			Value: []byte(info.Sha),
-		})
-	}
+	if subject.TypeVal == challenges.GithubWorkflowValue {
+		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+				Value: []byte(trigger),
+			})
+		}
 
-	if info.Trigger != "" {
-		res = append(res, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
-			Value: []byte(info.Trigger),
-		})
+		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+				Value: []byte(sha),
+			})
+		}
 	}
 	return res
 }
