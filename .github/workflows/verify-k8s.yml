@@ -132,8 +132,6 @@ jobs:
           sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
       - name: Deploy fulcio-dev
-        env:
-          CGO_ENABLED: 1
         run: |
           # Reduce the resource requests of Fulcio
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
@@ -176,8 +174,6 @@ jobs:
           kubectl get po -n fulcio-dev
 
       - name: Run signing job
-        env:
-          CGO_ENABLED: 1
         run: |
           DIGEST=$(ko publish .)
 
