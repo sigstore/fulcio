@@ -1,1 +1,5 @@
 defaultBaseImage: gcr.io/distroless/base-debian10
+builds:
+- main: .
+  env:
+  - CGO_ENABLED=1
