@@ -1,3 +1,6 @@
+//go:build !purego
+// +build !purego
+
 // Copyright 2021 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -148,7 +151,7 @@ certificate authority for an instance of sigstore fulcio`,
 
 func init() {
 	rootCmd.AddCommand(createcaCmd)
-	createcaCmd.PersistentFlags().String("org", "Fuclio Root CA", "Organization name for root CA")
+	createcaCmd.PersistentFlags().String("org", "Fulcio Root CA", "Organization name for root CA")
 	createcaCmd.PersistentFlags().String("country", "", "Country name for root CA")
 	createcaCmd.PersistentFlags().String("province", "", "Province name for root CA")
 	createcaCmd.PersistentFlags().String("locality", "", "Locality name for root CA")

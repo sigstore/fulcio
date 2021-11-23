@@ -3,3 +3,9 @@ builds:
 - main: .
   env:
   - CGO_ENABLED=1
+# If you are deploying from M1, you can use this (uncomment this, and
+# comment above), though it does remove the support for the "createca" command.
+# But at least you can deploy it from M1 using this.
+#- main: .
+#  flags:
+#  - -tags=purego

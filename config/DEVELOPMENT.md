@@ -1,7 +1,10 @@
 # Developing Fulcio
 
 Fulcio uses Go and can be run with no other dependencies, other than a trust root PKIX / CA capable system.  Currently
-fulcio supports Google certificate authority service (GCP SA)  or a PKCS11 capable HSM (such as SoftHSM).
+fulcio supports Google certificate authority service (GCP SA) or a PKCS11 capable HSM (such as SoftHSM). PKCS11 support requires C libraries which can cause some issues in
+some cases (like building on Mac M1), and if you do not require it, you can
+disable support for it using golang tags `-tags=purego` when building. **NOTE**
+This removes the support for `createca` command from the resulting binary.
 
 ## GCP SA configuration
 
