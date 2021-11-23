@@ -152,8 +152,8 @@ func init() {
 	createcaCmd.PersistentFlags().String("country", "", "Country name for root CA")
 	createcaCmd.PersistentFlags().String("province", "", "Province name for root CA")
 	createcaCmd.PersistentFlags().String("locality", "", "Locality name for root CA")
-	createcaCmd.PersistentFlags().String("street-address", "", "Locality name for root CA")
-	createcaCmd.PersistentFlags().String("postal-code", "", "Locality name for root CA")
+	createcaCmd.PersistentFlags().String("street-address", "", "Street address for root CA")
+	createcaCmd.PersistentFlags().String("postal-code", "", "Postal code for root CA")
 	createcaCmd.PersistentFlags().String("out", "", "output root CA to file")
 	createcaCmd.PersistentFlags().String("hsm", "softhsm", "The HSM provider to use. Valid values: softhsm (default), aws")
 	if err := viper.BindPFlags(createcaCmd.PersistentFlags()); err != nil {
