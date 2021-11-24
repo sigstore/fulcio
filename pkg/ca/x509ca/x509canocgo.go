@@ -1,5 +1,5 @@
-//go:build !purego
-// +build !purego
+//go:build !cgo
+// +build !cgo
 
 // Copyright 2021 The Sigstore Authors.
 //
@@ -16,17 +16,14 @@
 // limitations under the License.
 //
 
-package pkcs11
+package x509ca
 
 import (
-	"github.com/ThalesIgnite/crypto11"
-	"github.com/spf13/viper"
+	"errors"
 )
 
-func InitHSMCtx() (*crypto11.Context, error) {
-	p11Ctx, err := crypto11.ConfigureFromFile(viper.GetString("pkcs11-config-path"))
-	if err != nil {
-		return nil, err
-	}
-	return p11Ctx, nil
+// NewX509CA is a placeholder for erroring with a meaningful message if the
+// binary has been built with purego tags.
+func NewX509CA() (*X509CA, error) {
+	return nil, errors.New("binary has been built with no cgo support, PKCS11 not supported")
 }
