@@ -1,5 +1,5 @@
-//go:build purego
-// +build purego
+//go:build !cgo
+// +build !cgo
 
 // Copyright 2021 The Sigstore Authors.
 //
@@ -25,5 +25,5 @@ import (
 // NewX509CA is a placeholder for erroring with a meaningful message if the
 // binary has been built with purego tags.
 func NewX509CA() (*X509CA, error) {
-	return nil, errors.New("binary has been built with purego tags, PKCS11 not supported")
+	return nil, errors.New("binary has been built with no cgo support, PKCS11 not supported")
 }

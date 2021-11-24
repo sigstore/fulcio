@@ -1,5 +1,5 @@
-//go:build !purego
-// +build !purego
+//go:build cgo
+// +build cgo
 
 // Copyright 2021 The Sigstore Authors.
 //
