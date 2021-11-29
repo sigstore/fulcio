@@ -1,3 +1,6 @@
+//go:build cgo
+// +build cgo
+
 // Copyright 2021 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,77 +16,57 @@
 // limitations under the License.
 //
 
-package api
+package x509ca
 
 import (
-	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 
-	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/pkcs11"
 	"github.com/spf13/viper"
 )
 
-func Pkcs11CASigningCertHandler(ctx context.Context, subj *challenges.ChallengeResult, publicKey []byte) (string, []string, error) {
-	logger := log.ContextLogger(ctx)
-
+func NewX509CA() (*X509CA, error) {
+	ca := &X509CA{}
 	p11Ctx, err := pkcs11.InitHSMCtx()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer p11Ctx.Close()
 
 	rootID := []byte(viper.GetString("hsm-caroot-id"))
 
 	// get the existing root CA from the HSM or from disk
-	var rootCA *x509.Certificate
 	if !viper.IsSet("aws-hsm-root-ca-path") {
-		rootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
+		ca.RootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	} else {
 		rootCaPath := filepath.Clean(viper.GetString("aws-hsm-root-ca-path"))
 		pubPEMData, err := os.ReadFile(rootCaPath)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 		block, _ := pem.Decode(pubPEMData)
 		if block == nil || block.Type != "CERTIFICATE" {
-			logger.Fatal("failed to decode PEM block containing certificate")
+			return nil, errors.New("failed to decode PEM block containing certificate")
 		}
-		rootCA, err = x509.ParseCertificate(block.Bytes)
+		ca.RootCA, err = x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	}
 
 	// get the private key object from HSM
-	privKey, err := p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
+	ca.PrivKey, err = p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(publicKey)
-	if err != nil {
-		return "", nil, err
-	}
+	return ca, nil
 
-	clientCert, _, err := pkcs11ca.CreateClientCertificate(rootCA, subj, pkixPubKey, privKey)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Format in PEM
-	rootPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: rootCA.Raw,
-	})
-
-	return clientCert, []string{string(rootPEM)}, nil
 }

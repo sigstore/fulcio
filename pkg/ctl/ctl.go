@@ -19,10 +19,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/sigstore/fulcio/pkg/ca"
 )
 
 const addChainPath = "ct/v1/add-chain"
@@ -65,17 +66,13 @@ func (err *ErrorResponse) Error() string {
 	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
 
-func (c *Client) AddChain(leaf string, chain []string) (*CertChainResponse, error) {
-	// Build the PEM Chain {root, client}
-	leafblock, _ := pem.Decode([]byte(leaf))
-
+func (c *Client) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 	chainjson := &certChain{Chain: []string{
-		base64.StdEncoding.EncodeToString(leafblock.Bytes),
+		base64.StdEncoding.EncodeToString(csc.FinalCertificate.Raw),
 	}}
 
-	for _, c := range chain {
-		pb, _ := pem.Decode([]byte(c))
-		chainjson.Chain = append(chainjson.Chain, base64.StdEncoding.EncodeToString(pb.Bytes))
+	for _, c := range csc.FinalChain {
+		chainjson.Chain = append(chainjson.Chain, base64.StdEncoding.EncodeToString(c.Raw))
 	}
 	jsonStr, err := json.Marshal(chainjson)
 	if err != nil {

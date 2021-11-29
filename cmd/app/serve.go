@@ -37,16 +37,21 @@ var serveCmd = &cobra.Command{
 	Long:  `Starts a http server and serves the configured api`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if viper.GetString("ca") != "pkcs11ca" && viper.GetString("ca") != "googleca" {
+		switch viper.GetString("ca") {
+		case "pkcs11ca":
+			if !viper.IsSet("hsm-caroot-id") {
+				log.Logger.Fatal("hsm-caroot-id must be set when using pkcs11ca")
+			}
+
+		case "googleca":
+			if !viper.IsSet("gcp_private_ca_parent") {
+				log.Logger.Fatal("gcp_private_ca_parent must be set when using googleca")
+			}
+
+		case "ephemeralca":
+			// this is a no-op since this is a self-signed in-memory CA for testing
+		default:
 			log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
-		}
-
-		if viper.GetString("ca") == "googleca" && !viper.IsSet("gcp_private_ca_parent") {
-			panic("gcp_private_ca_parent must be set when using googleca")
-		}
-
-		if viper.GetString("ca") == "pkcs11ca" && !viper.IsSet("hsm-caroot-id") {
-			panic("hsm-caroot-id must be set when using pkcs11ca")
 		}
 
 		// Setup the logger to dev/prod
@@ -63,10 +68,9 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
-		// Crash if we can't parse the config correctly
-		if err := config.Load(viper.GetString("config-path")); err != nil {
-			log.Logger.Panic(err)
-		}
+		// This will panic if we can't parse the config correctly
+		config.Config()
+
 		server.EnabledListeners = []string{"http"}
 
 		server.ConfigureAPI()

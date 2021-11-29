@@ -13,24 +13,34 @@
 // limitations under the License.
 //
 
-package pkcs11ca
+package x509ca
 
 import (
+	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/pem"
 	"math/big"
 	"net/url"
 	"time"
 
-	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 )
 
-func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.ChallengeResult, publicKeyPEM interface{}, privKey crypto11.Signer) (string, []string, error) {
+type X509CA struct {
+	RootCA  *x509.Certificate
+	PrivKey crypto.Signer
+}
+
+func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	return x.CreateCertificateWithCA(x, subject)
+}
+
+func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
@@ -50,28 +60,50 @@ func CreateClientCertificate(rootCA *x509.Certificate, subject *challenges.Chall
 	case challenges.SpiffeValue:
 		challengeURL, err := url.Parse(subject.Value)
 		if err != nil {
-			return "", nil, err
+			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{challengeURL}
 	case challenges.GithubWorkflowValue:
 		jobWorkflowURI, err := url.Parse(subject.Value)
 		if err != nil {
-			return "", nil, err
+			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{jobWorkflowURI}
+	case challenges.KubernetesValue:
+		k8sURI, err := url.Parse(subject.Value)
+		if err != nil {
+			return nil, ca.ValidationError(err)
+		}
+		cert.URIs = []*url.URL{k8sURI}
 	}
-	cert.ExtraExtensions = IssuerExtension(subject.Issuer)
+	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, publicKeyPEM, privKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certauth.RootCA, subject.PublicKey, certauth.PrivKey)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
 
-	return string(certPEM), nil, nil
+	return ca.CreateCSCFromDER(subject, finalCertBytes, nil)
+}
+
+func AdditionalExtensions(subject *challenges.ChallengeResult) []pkix.Extension {
+	res := []pkix.Extension{}
+	if subject.TypeVal == challenges.GithubWorkflowValue {
+		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+				Value: []byte(trigger),
+			})
+		}
+
+		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+				Value: []byte(sha),
+			})
+		}
+	}
+	return res
 }
 
 func IssuerExtension(issuer string) []pkix.Extension {

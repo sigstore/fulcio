@@ -22,6 +22,11 @@ data:
               "ClientID": "sigstore",
               "Type": "email"
             },
+            "https://allow.pub": {
+              "IssuerURL": "https://allow.pub",
+              "ClientID": "sigstore",
+              "Type": "spiffe"
+            },
             "https://oauth2.sigstore.dev/auth": {
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
               "ClientID": "sigstore",
@@ -37,6 +42,16 @@ data:
               "IssuerURL": "https://token.actions.githubusercontent.com",
               "ClientID": "sigstore",
               "Type": "github-workflow"
+            }
+          },
+          "MetaIssuers": {
+            "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
+              "ClientID": "sigstore",
+              "Type": "kubernetes"
+            },
+            "https://oidc.eks.*.amazonaws.com/id/*": {
+              "ClientID": "sigstore",
+              "Type": "kubernetes"
             }
           }
         }

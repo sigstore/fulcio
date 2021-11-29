@@ -16,12 +16,9 @@
 package challenges
 
 import (
+	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
@@ -31,6 +28,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type ChallengeType int
@@ -39,32 +37,36 @@ const (
 	EmailValue ChallengeType = iota
 	SpiffeValue
 	GithubWorkflowValue
+	KubernetesValue
+)
+
+type AdditionalInfo int
+
+// Additional information that can be added as a cert extension.
+const (
+	GithubWorkflowTrigger AdditionalInfo = iota
+	GithubWorkflowSha
 )
 
 type ChallengeResult struct {
-	Issuer  string
-	TypeVal ChallengeType
-	Value   string
+	Issuer    string
+	TypeVal   ChallengeType
+	PublicKey crypto.PublicKey
+	Value     string
+	// Extra information from the token that can be added to extensions.
+	AdditionalInfo map[AdditionalInfo]string
 }
 
 func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
-	h := sha256.Sum256([]byte(email))
-
-	switch k := pub.(type) {
-	case *ecdsa.PublicKey:
-		if ok := ecdsa.VerifyASN1(k, h[:], proof); !ok {
-			return errors.New("signature could not be verified")
-		}
-	case *rsa.PublicKey:
-		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], proof); err != nil {
-			return fmt.Errorf("signature could not be verified: %v", err)
-		}
+	verifier, err := signature.LoadVerifier(pub, crypto.SHA256)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(email))
 }
 
-func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func Email(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
@@ -72,18 +74,13 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 		return nil, err
 	}
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
-
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, emailAddress); err != nil {
+	if err := CheckSignature(pubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -95,22 +92,19 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byt
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: EmailValue,
-		Value:   emailAddress,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   EmailValue,
+		Value:     emailAddress,
 	}, nil
 }
 
-func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
+func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 
 	spiffeID := principal.Subject
 
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, err
-	}
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -127,7 +121,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 	}
 
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, spiffeID); err != nil {
+	if err := CheckSignature(pubKey, challenge, spiffeID); err != nil {
 		return nil, err
 	}
 
@@ -138,30 +132,26 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []by
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: SpiffeValue,
-		Value:   spiffeID,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   SpiffeValue,
+		Value:     spiffeID,
 	}, nil
 }
 
-func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challenge []byte) (*ChallengeResult, error) {
-	workflowRef, err := workflowFromIDToken(principal)
-	if err != nil {
-		return nil, err
-	}
-
-	pkixPubKey, err := x509.ParsePKIXPublicKey(pubKey)
+func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+	k8sURI, err := kubernetesToken(principal)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check the proof
-	if err := CheckSignature(pkixPubKey, challenge, principal.Subject); err != nil {
+	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
 		return nil, err
 	}
 
 	globalCfg := config.Config()
-	cfg, ok := globalCfg.OIDCIssuers[principal.Issuer]
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -173,10 +163,81 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey, challe
 
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: GithubWorkflowValue,
-		Value:   workflowRef,
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   KubernetesValue,
+		Value:     k8sURI,
 	}, nil
+}
+
+func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+	workflowRef, err := workflowFromIDToken(principal)
+	if err != nil {
+		return nil, err
+	}
+	additionalInfo, err := workflowInfoFromIDToken(principal)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the proof
+	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
+		return nil, err
+	}
+
+	globalCfg := config.Config()
+	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now issue cert!
+	return &ChallengeResult{
+		Issuer:         issuer,
+		PublicKey:      pubKey,
+		TypeVal:        GithubWorkflowValue,
+		Value:          workflowRef,
+		AdditionalInfo: additionalInfo,
+	}, nil
+}
+
+func kubernetesToken(token *oidc.IDToken) (string, error) {
+	// Extract custom claims
+	var claims struct {
+		// "kubernetes.io": {
+		//   "namespace": "default",
+		//   "pod": {
+		// 	    "name": "oidc-test",
+		// 	    "uid": "49ad3572-b3dd-43a6-8d77-5858d3660275"
+		//   },
+		//   "serviceaccount": {
+		// 	    "name": "default",
+		//      "uid": "f5720c1d-e152-4356-a897-11b07aff165d"
+		//   }
+		// }
+		Kubernetes struct {
+			Namespace string `json:"namespace"`
+			Pod       struct {
+				Name string `json:"name"`
+				UID  string `json:"uid"`
+			} `json:"pod"`
+			ServiceAccount struct {
+				Name string `json:"name"`
+				UID  string `json:"uid"`
+			} `json:"serviceaccount"`
+		} `json:"kubernetes.io"`
+	}
+	if err := token.Claims(&claims); err != nil {
+		return "", err
+	}
+
+	// We use this in URIs, so it has to be a URI.
+	return "https://kubernetes.io/namespaces/" + claims.Kubernetes.Namespace + "/serviceaccounts/" + claims.Kubernetes.ServiceAccount.Name, nil
 }
 
 func workflowFromIDToken(token *oidc.IDToken) (string, error) {
@@ -194,6 +255,24 @@ func workflowFromIDToken(token *oidc.IDToken) (string, error) {
 	return "https://github.com/" + claims.JobWorkflowRef, nil
 }
 
+func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, error) {
+	// Extract custom claims
+	var claims struct {
+		Sha     string `json:"sha"`
+		Trigger string `json:"event_name"`
+		// The other fields that are present here seem to depend on the type
+		// of workflow trigger that initiated the action.
+	}
+	if err := token.Claims(&claims); err != nil {
+		return nil, err
+	}
+
+	// We use this in URIs, so it has to be a URI.
+	return map[AdditionalInfo]string{
+		GithubWorkflowSha:     claims.Sha,
+		GithubWorkflowTrigger: claims.Trigger}, nil
+}
+
 func isSpiffeIDAllowed(host, spiffeID string) bool {
 	// Strip spiffe://
 	name := strings.TrimPrefix(spiffeID, "spiffe://")
@@ -205,5 +284,4 @@ func isSpiffeIDAllowed(host, spiffeID string) bool {
 		return true
 	}
 	return strings.Contains(spiffeDomain, "."+host)
-
 }

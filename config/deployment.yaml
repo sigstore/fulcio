@@ -55,6 +55,8 @@ spec:
         volumeMounts:
         - name: fulcio-config
           mountPath: /etc/fulcio-config
+        - name: oidc-info
+          mountPath: /var/run/fulcio
         resources:
           requests:
             memory: "1G"
@@ -63,7 +65,15 @@ spec:
       - name: fulcio-config
         configMap:
           name: fulcio-config
-
+      - name: oidc-info
+        projected:
+          sources:
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                - key: ca.crt
+                  path: ca.crt
+                  mode: 0666
 ---
 apiVersion: v1
 kind: Service

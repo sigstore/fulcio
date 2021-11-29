@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package googleca
+package v1beta1
 
 import (
 	"crypto"

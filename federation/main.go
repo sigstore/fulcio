@@ -57,8 +57,20 @@ func main() {
 		}
 		matches = append(matches, globs...)
 	}
-	fulcioConfig := config.FulcioConfig{
+	fulcioConfig := &config.FulcioConfig{
 		OIDCIssuers: map[string]config.OIDCIssuer{},
+		MetaIssuers: map[string]config.OIDCIssuer{
+			// EKS Cluster OIDC issuers
+			"https://oidc.eks.*.amazonaws.com/id/*": {
+				ClientID: "sigstore",
+				Type:     "kubernetes",
+			},
+			// GKE Cluster OIDC issuers
+			"https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
+				ClientID: "sigstore",
+				Type:     "kubernetes",
+			},
+		},
 	}
 	for _, m := range matches {
 		b, err := ioutil.ReadFile(m)

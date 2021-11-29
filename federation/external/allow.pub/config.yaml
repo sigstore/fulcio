@@ -1,11 +1,10 @@
-#
-# Copyright 2021 The Sigstore Authors.
+# Copyright 2021 The Sigstore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.17.3 AS builder
-
-WORKDIR /root/
-
-RUN go install github.com/google/trillian/cmd/createtree@v1.3.10
-ADD ./config/logid.sh /root/
-ADD ./config/ctfe /root/ctfe
-RUN chmod +x /root/logid.sh
-
-CMD /root/logid.sh
+url: https://allow.pub
+contact: evan@phx.io
+description: "Server side signing support for the OCI registry vcr.pub"
+type: "spiffe"

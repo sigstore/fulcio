@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package googleca
+package v1beta1
 
 import (
 	"context"
@@ -25,6 +25,11 @@ import (
 	"sync"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
+	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/spf13/viper"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -32,42 +37,59 @@ import (
 var (
 	once sync.Once
 	c    *privateca.CertificateAuthorityClient
+	cErr error
 )
 
-func Client() *privateca.CertificateAuthorityClient {
-	// Use a once block to avoid creating a new client every time.
-	once.Do(func() {
-		var err error
-		c, err = privateca.NewCertificateAuthorityClient(context.Background())
-		if err != nil {
-			panic(err)
-		}
-	})
-
-	return c
+type CertAuthorityService struct {
+	parent string
+	client *privateca.CertificateAuthorityClient
 }
 
-// Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
+func NewCertAuthorityService() (*CertAuthorityService, error) {
+	cas := &CertAuthorityService{
+		parent: viper.GetString("gcp_private_ca_parent"),
+	}
+	var err error
+	cas.client, err = casClient()
+	if err != nil {
+		return nil, err
+	}
+	return cas, nil
+}
+
+func casClient() (*privateca.CertificateAuthorityClient, error) {
+	// Use a once block to avoid creating a new client every time.
+	once.Do(func() {
+		c, cErr = privateca.NewCertificateAuthorityClient(context.Background())
+	})
+
+	return c, cErr
+}
+
+// getPubKeyType Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
 // https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1#PublicKey_KeyType
-func getPubKeyType(pemBytes []byte) interface{} {
+func getPubKeyType(pemBytes []byte) (interface{}, error) {
 	block, _ := pem.Decode(pemBytes)
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		panic("failed to parse public key: " + err.Error())
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
 	}
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:
-		return privatecapb.PublicKey_KeyType(1)
+		return privatecapb.PublicKey_KeyType(1), nil
 	case *ecdsa.PublicKey:
-		return privatecapb.PublicKey_KeyType(2)
+		return privatecapb.PublicKey_KeyType(2), nil
 	default:
-		panic(fmt.Errorf("unknown public key type: %v", pub))
+		return nil, fmt.Errorf("unknown public key type: %v", pub)
 	}
 }
 
-func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte, extensions []*privatecapb.X509Extension) *privatecapb.CreateCertificateRequest {
+func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte, extensions []*privatecapb.X509Extension) (*privatecapb.CreateCertificateRequest, error) {
 	// TODO, use the right fields :)
-	pubkeyType := getPubKeyType(pemBytes)
+	pubkeyType, err := getPubKeyType(pemBytes)
+	if err != nil {
+		return nil, err
+	}
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -97,10 +119,10 @@ func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pe
 				},
 			},
 		},
-	}
+	}, nil
 }
 
-func EmailSubject(email string) *privatecapb.CertificateConfig_SubjectConfig {
+func emailSubject(email string) *privatecapb.CertificateConfig_SubjectConfig {
 	return &privatecapb.CertificateConfig_SubjectConfig{
 		SubjectAltName: &privatecapb.SubjectAltNames{
 			EmailAddresses: []string{email},
@@ -108,7 +130,7 @@ func EmailSubject(email string) *privatecapb.CertificateConfig_SubjectConfig {
 }
 
 // SPIFFE IDs go as "Uris" according to the spec: https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md
-func SpiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+func spiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
 	return &privatecapb.CertificateConfig_SubjectConfig{
 		SubjectAltName: &privatecapb.SubjectAltNames{
 			Uris: []string{id},
@@ -116,7 +138,39 @@ func SpiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
 	}
 }
 
-func GithubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+func githubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
+	return &privatecapb.CertificateConfig_SubjectConfig{
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			Uris: []string{id},
+		},
+	}
+}
+
+func AdditionalExtensions(subject *challenges.ChallengeResult) []*privatecapb.X509Extension {
+	res := []*privatecapb.X509Extension{}
+	if subject.TypeVal == challenges.GithubWorkflowValue {
+		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
+			res = append(res, &privatecapb.X509Extension{
+				ObjectId: &privatecapb.ObjectId{
+					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+				},
+				Value: []byte(trigger),
+			})
+		}
+
+		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
+			res = append(res, &privatecapb.X509Extension{
+				ObjectId: &privatecapb.ObjectId{
+					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+				},
+				Value: []byte(sha),
+			})
+		}
+	}
+	return res
+}
+
+func KubernetesSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
 	return &privatecapb.CertificateConfig_SubjectConfig{
 		SubjectAltName: &privatecapb.SubjectAltNames{
 			Uris: []string{id},
@@ -135,4 +189,37 @@ func IssuerExtension(issuer string) []*privatecapb.X509Extension {
 		},
 		Value: []byte(issuer),
 	}}
+}
+
+func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	logger := log.ContextLogger(ctx)
+	var privca *privatecapb.CertificateConfig_SubjectConfig
+	switch subj.TypeVal {
+	case challenges.EmailValue:
+		privca = emailSubject(subj.Value)
+	case challenges.SpiffeValue:
+		privca = spiffeSubject(subj.Value)
+	case challenges.GithubWorkflowValue:
+		privca = githubWorkflowSubject(subj.Value)
+	}
+
+	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(subj.PublicKey)
+	if err != nil {
+		return nil, ca.ValidationError(err)
+	}
+
+	extensions := append(IssuerExtension(subj.Issuer), AdditionalExtensions(subj)...)
+
+	req, err := Req(c.parent, privca, pubKeyBytes, extensions)
+	if err != nil {
+		return nil, ca.ValidationError(err)
+	}
+	logger.Infof("requesting cert from %s for %v", c.parent, subj.Value)
+
+	resp, err := c.client.CreateCertificate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return ca.CreateCSCFromPEM(subj, resp.PemCertificate, resp.PemCertificateChain)
 }
