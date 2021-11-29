@@ -34,8 +34,9 @@ const (
 	failedToEnterCertInCTL = "Error entering certificate in CTL @ '%v'"
 	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
 	failedToMarshalCert    = "Error marshaling code signing certificate"
-	invalidCredentials     = "There was an error processing the credentials for this request"
-	genericCAError         = "error communicating with CA backend"
+	//nolint
+	invalidCredentials = "There was an error processing the credentials for this request"
+	genericCAError     = "error communicating with CA backend"
 )
 
 func errorMsg(message string, code int) *models.Error {

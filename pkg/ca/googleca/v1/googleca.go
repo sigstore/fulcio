@@ -24,14 +24,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/spf13/viper"
 	privateca "cloud.google.com/go/security/privateca/apiv1"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/spf13/viper"
+	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var (
