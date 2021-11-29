@@ -42,7 +42,9 @@ spec:
         - containerPort: 2112 # metrics
         args: [
           "serve",
-          "--host=0.0.0.0", "--port=5555", "--ca=googleca", "--gcp_private_ca_parent=$(CA_PARENT)", "--ct-log-url=http://ct-log/test", "--log_type=prod",
+          "--host=0.0.0.0", "--port=5555",
+          "--ca=googleca", "--gcp_private_ca_parent=$(CA_PARENT)", "--gcp_private_ca_version=v1beta1",
+          "--ct-log-url=http://ct-log/test", "--log_type=prod",
         ]
         env:
         - name: CA_PARENT

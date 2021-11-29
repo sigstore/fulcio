@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package googlecabeta
+package v1
 
 import (
 	"crypto"

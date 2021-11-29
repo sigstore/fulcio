@@ -26,19 +26,19 @@ import (
 	"strings"
 	"sync"
 
-	certauth "github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	"github.com/sigstore/fulcio/pkg/ca/googlecabeta"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
-
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
+	certauth "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
+	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/viper"
 )
 
@@ -53,7 +53,15 @@ func CA() certauth.CertificateAuthority {
 		var err error
 		switch viper.GetString("ca") {
 		case "googleca":
-			ca, err = googlecabeta.NewCertAuthorityService()
+			version := viper.GetString("gcp_private_ca_version")
+			switch version {
+			case "v1":
+				ca, err = googlecav1beta1.NewCertAuthorityService()
+			case "v1beta1":
+				ca, err = googlecav1.NewCertAuthorityService()
+			default:
+				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
+			}
 		case "pkcs11ca":
 			ca, err = x509ca.NewX509CA()
 		case "ephemeralca":
