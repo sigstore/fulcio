@@ -16,6 +16,7 @@
 package config
 
 import (
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -101,7 +102,7 @@ func TestLoad(t *testing.T) {
 	}
 	viper.GetViper().Set("config-path", cfgPath)
 
-	cfg := Config()
+	cfg, _ := Load()
 	got, ok := cfg.GetIssuer("https://accounts.google.com")
 	if !ok {
 		t.Error("expected true, got false")
@@ -137,13 +138,23 @@ func TestLoadDefaults(t *testing.T) {
 
 	// Don't put anything here!
 	cfgPath := filepath.Join(td, "config.json")
-	if err := load(cfgPath); err != nil {
+	cfg, err := load(cfgPath)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := Config()
-
 	if diff := cmp.Diff(DefaultConfig, cfg, cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
 		t.Errorf("DefaultConfig(): -want +got: %s", diff)
+	}
+
+	ctx := context.Background()
+
+	if got := FromContext(ctx); nil != got {
+		t.Errorf("FromContext(): %#v, wanted nil", got)
+	}
+
+	ctx = With(ctx, cfg)
+	if diff := cmp.Diff(cfg, FromContext(ctx), cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
+		t.Errorf("FromContext(): -want +got: %s", diff)
 	}
 }

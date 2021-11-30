@@ -15,8 +15,12 @@
 
 package main
 
-import "github.com/sigstore/fulcio/cmd/app"
+import (
+	"context"
+
+	"github.com/sigstore/fulcio/cmd/app"
+)
 
 func main() {
-	app.Execute()
+	app.Execute(context.Background())
 }
