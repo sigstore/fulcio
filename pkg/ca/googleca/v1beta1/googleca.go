@@ -201,6 +201,8 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 		privca = spiffeSubject(subj.Value)
 	case challenges.GithubWorkflowValue:
 		privca = githubWorkflowSubject(subj.Value)
+	case challenges.KubernetesValue:
+		privca = KubernetesSubject(subj.Value)
 	}
 
 	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(subj.PublicKey)
