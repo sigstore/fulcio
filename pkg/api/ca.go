@@ -56,9 +56,9 @@ func CA() certauth.CertificateAuthority {
 			version := viper.GetString("gcp_private_ca_version")
 			switch version {
 			case "v1":
-				ca, err = googlecav1beta1.NewCertAuthorityService()
-			case "v1beta1":
 				ca, err = googlecav1.NewCertAuthorityService()
+			case "v1beta1":
+				ca, err = googlecav1beta1.NewCertAuthorityService()
 			default:
 				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
 			}
