@@ -160,8 +160,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 }
 
 func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, challenge []byte) (*challenges.ChallengeResult, error) {
-	cfg := config.Config()
-	iss, ok := cfg.GetIssuer(tok.Issuer)
+	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
 	}

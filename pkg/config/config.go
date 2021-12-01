@@ -24,7 +24,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
@@ -172,40 +171,47 @@ var DefaultConfig = &FulcioConfig{
 	},
 }
 
-var (
-	once              sync.Once
-	config            *FulcioConfig
-	originalTransport = http.DefaultTransport
-)
+var originalTransport = http.DefaultTransport
 
-func Config() *FulcioConfig {
-	once.Do(func() {
-		if err := load(viper.GetString("config-path")); err != nil {
-			log.Logger.Panic(err)
-		}
-	})
-	return config
+type configKey struct{}
+
+func Load() (*FulcioConfig, error) {
+	return load(viper.GetString("config-path"))
+}
+
+func With(ctx context.Context, cfg *FulcioConfig) context.Context {
+	ctx = context.WithValue(ctx, configKey{}, cfg)
+	return ctx
+}
+
+func FromContext(ctx context.Context) *FulcioConfig {
+	untyped := ctx.Value(configKey{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(*FulcioConfig)
 }
 
 // Load a config from disk, or use defaults
-func load(configPath string) error {
+func load(configPath string) (*FulcioConfig, error) {
+	var config *FulcioConfig
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
 		config = DefaultConfig
 		cache, err := lru.New2Q(100 /* size */)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		config.lru = cache
-		return nil
+		return config, nil
 	}
 	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cfg, err := parseConfig(b)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, ok := cfg.GetIssuer("https://kubernetes.default.svc"); ok {
@@ -218,10 +224,10 @@ func load(configPath string) error {
 		const k8sCA = "/var/run/fulcio/ca.crt"
 		certs, err := ioutil.ReadFile(k8sCA)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return err
+			return nil, err
 		}
 
 		t := originalTransport.(*http.Transport).Clone()
@@ -239,7 +245,7 @@ func load(configPath string) error {
 	for _, iss := range cfg.OIDCIssuers {
 		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
 		cfg.verifiers[iss.IssuerURL] = verifier
@@ -247,11 +253,11 @@ func load(configPath string) error {
 
 	cache, err := lru.New2Q(100 /* size */)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cfg.lru = cache
 
 	config = cfg
 	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
-	return nil
+	return config, nil
 }
