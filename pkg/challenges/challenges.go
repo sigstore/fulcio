@@ -79,8 +79,7 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey
 		return nil, err
 	}
 
-	globalCfg := config.Config()
-	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -103,8 +102,7 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKe
 
 	spiffeID := principal.Subject
 
-	globalCfg := config.Config()
-	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -150,8 +148,7 @@ func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Publ
 		return nil, err
 	}
 
-	globalCfg := config.Config()
-	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -185,8 +182,7 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 		return nil, err
 	}
 
-	globalCfg := config.Config()
-	cfg, ok := globalCfg.GetIssuer(principal.Issuer)
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}

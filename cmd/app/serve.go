@@ -68,12 +68,27 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
-		// This will panic if we can't parse the config correctly
-		config.Config()
+		cfg, err := config.Load()
+		if err != nil {
+			log.Logger.Fatalf("error loading config: %v", err)
+		}
 
 		server.EnabledListeners = []string{"http"}
 
 		server.ConfigureAPI()
+
+		h := server.GetHandler()
+		server.SetHandler(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
+			// For each request, infuse context with our snapshot of the FulcioConfig.
+			// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
+			// from disk, so that we don't need to cycle pods to pick up config updates.
+			// Alternately we could take advantage of Knative's configmap watcher.
+			ctx = config.With(ctx, cfg)
+
+			h.ServeHTTP(rw, r.WithContext(ctx))
+		}))
 
 		http.Handle("/metrics", promhttp.Handler())
 		go func() {

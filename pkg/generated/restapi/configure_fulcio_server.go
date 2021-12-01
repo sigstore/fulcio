@@ -33,10 +33,10 @@ import (
 	// using embed to add the static html page duing build time
 	_ "embed"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/middleware"
 	goaerrors "github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/runtime/security"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/cors"
 
@@ -88,10 +88,7 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 	api.JSONConsumer = runtime.JSONConsumer()
 	api.ApplicationPemCertificateChainProducer = runtime.TextProducer()
 
-	// OIDC objects used for authentication
-	fulcioCfg := config.Config()
-
-	api.BearerAuth = func(token string) (*oidc.IDToken, error) {
+	authenticate := func(ctx context.Context, token string) (interface{}, error) {
 		token = strings.Replace(token, "Bearer ", "", 1)
 
 		issuer, err := extractIssuer(token)
@@ -99,16 +96,37 @@ func configureAPI(api *operations.FulcioServerAPI) http.Handler {
 			return nil, goaerrors.New(http.StatusBadRequest, err.Error())
 		}
 
-		verifier, ok := fulcioCfg.GetVerifier(issuer)
+		verifier, ok := config.FromContext(ctx).GetVerifier(issuer)
 		if !ok {
 			return nil, goaerrors.New(http.StatusBadRequest, fmt.Sprintf("unsupported issuer: %s", issuer))
 		}
 
-		idToken, err := verifier.Verify(context.Background(), token)
+		idToken, err := verifier.Verify(ctx, token)
 		if err != nil {
 			return nil, goaerrors.New(http.StatusUnauthorized, err.Error())
 		}
 		return idToken, nil
+	}
+
+	api.APIKeyAuthenticator = func(name, in string, _ security.TokenAuthentication) runtime.Authenticator {
+		return security.HttpAuthenticator(func(r *http.Request) (bool, interface{}, error) {
+			var token string
+			switch strings.ToLower(in) {
+			case "header":
+				token = r.Header.Get(name)
+			case "query":
+				token = r.URL.Query().Get(name)
+			default:
+				return false, nil, goaerrors.New(500, "api key auth: in value needs to be either \"query\" or \"header\".")
+			}
+
+			if token == "" {
+				return false, nil, nil
+			}
+
+			p, err := authenticate(r.Context(), token)
+			return true, p, err
+		})
 	}
 
 	// Select which CA / KMS system to use
@@ -204,10 +222,9 @@ func logAndServeError(w http.ResponseWriter, r *http.Request, err error) {
 	// errors should always be in JSON
 	w.Header()["Content-Type"] = []string{"application/json"}
 	if e, ok := err.(goaerrors.Error); ok && e.Code() == http.StatusUnauthorized {
-		fulcioCfg := config.Config()
 		// this is set directly so the header name is not canonicalized
 		issuers := []string{}
-		for iss := range fulcioCfg.OIDCIssuers {
+		for iss := range config.FromContext(r.Context()).OIDCIssuers {
 			issuers = append(issuers, "Bearer realm=\""+iss+"\",scope=\"openid email\"")
 		}
 		w.Header()["WWW-Authenticate"] = []string{strings.Join(issuers, ", ")}
