@@ -25,7 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sigstore/fulcio/pkg/pkcs11"
+	"github.com/ThalesIgnite/crypto11"
 )
 
 type Params struct {
@@ -36,7 +36,7 @@ type Params struct {
 
 func NewX509CA(params Params) (*X509CA, error) {
 	ca := &X509CA{}
-	p11Ctx, err := pkcs11.InitHSMCtx(params.ConfigPath)
+	p11Ctx, err := crypto11.ConfigureFromFile(params.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
