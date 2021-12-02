@@ -43,7 +43,7 @@ spec:
         args: [
           "serve",
           "--host=0.0.0.0", "--port=5555",
-          "--ca=googleca", "--gcp_private_ca_parent=$(CA_PARENT)", "--gcp_private_ca_version=v1beta1",
+          "--ca=googleca", "--gcp_private_ca_parent=$(CA_PARENT)", "--gcp_private_ca_version=v1",
           "--ct-log-url=http://ct-log/test", "--log_type=prod",
         ]
         env:
@@ -51,7 +51,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: private-ca
-              key: connection
+              key: connection_v1
         volumeMounts:
         - name: fulcio-config
           mountPath: /etc/fulcio-config
