@@ -28,7 +28,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/spf13/viper"
 )
 
 type FulcioConfig struct {
@@ -175,10 +174,6 @@ var originalTransport = http.DefaultTransport
 
 type configKey struct{}
 
-func Load() (*FulcioConfig, error) {
-	return load(viper.GetString("config-path"))
-}
-
 func With(ctx context.Context, cfg *FulcioConfig) context.Context {
 	ctx = context.WithValue(ctx, configKey{}, cfg)
 	return ctx
@@ -193,7 +188,7 @@ func FromContext(ctx context.Context) *FulcioConfig {
 }
 
 // Load a config from disk, or use defaults
-func load(configPath string) (*FulcioConfig, error) {
+func Load(configPath string) (*FulcioConfig, error) {
 	var config *FulcioConfig
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)

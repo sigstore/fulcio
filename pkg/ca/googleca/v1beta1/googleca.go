@@ -29,7 +29,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/spf13/viper"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -45,9 +44,9 @@ type CertAuthorityService struct {
 	client *privateca.CertificateAuthorityClient
 }
 
-func NewCertAuthorityService() (*CertAuthorityService, error) {
+func NewCertAuthorityService(parent string) (*CertAuthorityService, error) {
 	cas := &CertAuthorityService{
-		parent: viper.GetString("gcp_private_ca_parent"),
+		parent: parent,
 	}
 	var err error
 	cas.client, err = casClient()

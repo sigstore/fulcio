@@ -56,14 +56,22 @@ func CA() certauth.CertificateAuthority {
 			version := viper.GetString("gcp_private_ca_version")
 			switch version {
 			case "v1":
-				ca, err = googlecav1.NewCertAuthorityService()
+				ca, err = googlecav1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
 			case "v1beta1":
-				ca, err = googlecav1beta1.NewCertAuthorityService()
+				ca, err = googlecav1beta1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
 			default:
 				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
 			}
 		case "pkcs11ca":
-			ca, err = x509ca.NewX509CA()
+			params := x509ca.Params{
+				ConfigPath: viper.GetString("pkcs11-config-path"),
+				RootID:     viper.GetString("hsm-caroot-id"),
+			}
+			if viper.IsSet("aws-hsm-root-ca-path") {
+				path := viper.GetString("aws-hsm-root-ca-path")
+				params.CAPath = &path
+			}
+			ca, err = x509ca.NewX509CA(params)
 		case "ephemeralca":
 			ca, err = ephemeralca.NewEphemeralCA()
 		default:

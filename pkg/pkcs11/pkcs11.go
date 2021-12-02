@@ -20,11 +20,10 @@ package pkcs11
 
 import (
 	"github.com/ThalesIgnite/crypto11"
-	"github.com/spf13/viper"
 )
 
-func InitHSMCtx() (*crypto11.Context, error) {
-	p11Ctx, err := crypto11.ConfigureFromFile(viper.GetString("pkcs11-config-path"))
+func InitHSMCtx(configPath string) (*crypto11.Context, error) {
+	p11Ctx, err := crypto11.ConfigureFromFile(configPath)
 	if err != nil {
 		return nil, err
 	}

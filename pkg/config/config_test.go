@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/spf13/viper"
 )
 
 var validCfg = `
@@ -100,9 +99,8 @@ func TestLoad(t *testing.T) {
 	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
 		t.Fatal(err)
 	}
-	viper.GetViper().Set("config-path", cfgPath)
 
-	cfg, _ := Load()
+	cfg, _ := Load(cfgPath)
 	got, ok := cfg.GetIssuer("https://accounts.google.com")
 	if !ok {
 		t.Error("expected true, got false")
@@ -138,7 +136,7 @@ func TestLoadDefaults(t *testing.T) {
 
 	// Don't put anything here!
 	cfgPath := filepath.Join(td, "config.json")
-	cfg, err := load(cfgPath)
+	cfg, err := Load(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
