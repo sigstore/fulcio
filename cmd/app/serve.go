@@ -17,17 +17,23 @@ package app
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/go-openapi/loads"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
+	"github.com/sigstore/fulcio/pkg/api"
+	certauth "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
+	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/restapi"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // serveCmd represents the serve command
@@ -73,6 +79,37 @@ var serveCmd = &cobra.Command{
 			log.Logger.Fatalf("error loading config: %v", err)
 		}
 
+		var baseca certauth.CertificateAuthority
+		switch viper.GetString("ca") {
+		case "googleca":
+			version := viper.GetString("gcp_private_ca_version")
+			switch version {
+			case "v1":
+				baseca, err = googlecav1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
+			case "v1beta1":
+				baseca, err = googlecav1beta1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
+			default:
+				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
+			}
+		case "pkcs11ca":
+			params := x509ca.Params{
+				ConfigPath: viper.GetString("pkcs11-config-path"),
+				RootID:     viper.GetString("hsm-caroot-id"),
+			}
+			if viper.IsSet("aws-hsm-root-ca-path") {
+				path := viper.GetString("aws-hsm-root-ca-path")
+				params.CAPath = &path
+			}
+			baseca, err = x509ca.NewX509CA(params)
+		case "ephemeralca":
+			baseca, err = ephemeralca.NewEphemeralCA()
+		default:
+			err = fmt.Errorf("invalid value for configured CA: %v", baseca)
+		}
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+
 		server.EnabledListeners = []string{"http"}
 
 		server.ConfigureAPI()
@@ -86,6 +123,8 @@ var serveCmd = &cobra.Command{
 			// from disk, so that we don't need to cycle pods to pick up config updates.
 			// Alternately we could take advantage of Knative's configmap watcher.
 			ctx = config.With(ctx, cfg)
+			ctx = api.WithCA(ctx, baseca)
+			ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
 
 			h.ServeHTTP(rw, r.WithContext(ctx))
 		}))

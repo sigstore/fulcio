@@ -24,65 +24,17 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-openapi/runtime/middleware"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
-	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/spf13/viper"
 )
-
-var (
-	once sync.Once
-	ca   certauth.CertificateAuthority
-)
-
-func CA() certauth.CertificateAuthority {
-	// Use a once block to avoid reading config every time.
-	once.Do(func() {
-		var err error
-		switch viper.GetString("ca") {
-		case "googleca":
-			version := viper.GetString("gcp_private_ca_version")
-			switch version {
-			case "v1":
-				ca, err = googlecav1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
-			case "v1beta1":
-				ca, err = googlecav1beta1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
-			default:
-				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
-			}
-		case "pkcs11ca":
-			params := x509ca.Params{
-				ConfigPath: viper.GetString("pkcs11-config-path"),
-				RootID:     viper.GetString("hsm-caroot-id"),
-			}
-			if viper.IsSet("aws-hsm-root-ca-path") {
-				path := viper.GetString("aws-hsm-root-ca-path")
-				params.CAPath = &path
-			}
-			ca, err = x509ca.NewX509CA(params)
-		case "ephemeralca":
-			ca, err = ephemeralca.NewEphemeralCA()
-		default:
-			err = fmt.Errorf("invalid value for configured CA: %v", ca)
-		}
-		if err != nil {
-			log.Logger.Fatal(err)
-		}
-	})
-	return ca
-}
 
 func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
 	ctx := params.HTTPRequest.Context()
@@ -110,7 +62,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
 	}
 
-	ca := CA()
+	ca := GetCA(ctx)
 
 	var csc *certauth.CodeSigningCertificate
 	var sctBytes []byte
@@ -130,7 +82,7 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		// TODO: initialize CTL client once
 		// Submit to CTL
 		logger.Info("Submitting CTL inclusion for OIDC grant: ", subject.Value)
-		ctURL := viper.GetString("ct-log-url")
+		ctURL := GetCTLogURL(ctx)
 		if ctURL != "" {
 			c := ctl.New(ctURL)
 			sct, err := c.AddChain(csc)
@@ -184,4 +136,38 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
+}
+
+type caKey struct{}
+
+// WithCA associates the provided certificate authority with the provided context.
+func WithCA(ctx context.Context, ca certauth.CertificateAuthority) context.Context {
+	return context.WithValue(ctx, caKey{}, ca)
+}
+
+// GetCA accesses the certificate authority associated with the provided context.
+func GetCA(ctx context.Context) certauth.CertificateAuthority {
+	untyped := ctx.Value(caKey{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(certauth.CertificateAuthority)
+}
+
+type ctKey struct{}
+
+// WithCTLogURL associates the provided certificate transparency log URL with
+// the provided context.
+func WithCTLogURL(ctx context.Context, ct string) context.Context {
+	return context.WithValue(ctx, ctKey{}, ct)
+}
+
+// GetCTLogURL accesses the certificate transparency log URL associated with
+// the provided context.
+func GetCTLogURL(ctx context.Context) string {
+	untyped := ctx.Value(ctKey{})
+	if untyped == nil {
+		return ""
+	}
+	return untyped.(string)
 }
