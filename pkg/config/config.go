@@ -132,6 +132,24 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 	return verifier, true
 }
 
+func (fc *FulcioConfig) prepare() error {
+	fc.verifiers = make(map[string]*oidc.IDTokenVerifier, len(fc.OIDCIssuers))
+	for _, iss := range fc.OIDCIssuers {
+		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
+		if err != nil {
+			return err
+		}
+		fc.verifiers[iss.IssuerURL] = provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+	}
+
+	cache, err := lru.New2Q(100 /* size */)
+	if err != nil {
+		return err
+	}
+	fc.lru = cache
+	return nil
+}
+
 type IssuerType string
 
 const (
@@ -189,27 +207,29 @@ func FromContext(ctx context.Context) *FulcioConfig {
 
 // Load a config from disk, or use defaults
 func Load(configPath string) (*FulcioConfig, error) {
-	var config *FulcioConfig
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
-		config = DefaultConfig
-		cache, err := lru.New2Q(100 /* size */)
-		if err != nil {
+		config := DefaultConfig
+		if err := config.prepare(); err != nil {
 			return nil, err
 		}
-		config.lru = cache
 		return config, nil
 	}
 	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := parseConfig(b)
+	return Read(b)
+}
+
+// Read parses the bytes of a config
+func Read(b []byte) (*FulcioConfig, error) {
+	config, err := parseConfig(b)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := cfg.GetIssuer("https://kubernetes.default.svc"); ok {
+	if _, ok := config.GetIssuer("https://kubernetes.default.svc"); ok {
 		// Add the Kubernetes cluster's CA to the system CA pool, and to
 		// the default transport.
 		rootCAs, _ := x509.SystemCertPool()
@@ -235,24 +255,8 @@ func Load(configPath string) (*FulcioConfig, error) {
 		http.DefaultTransport = originalTransport
 	}
 
-	// Eagerly populate the verifiers for the OIDCIssuers.
-	cfg.verifiers = make(map[string]*oidc.IDTokenVerifier, len(cfg.OIDCIssuers))
-	for _, iss := range cfg.OIDCIssuers {
-		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
-		if err != nil {
-			return nil, err
-		}
-		verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
-		cfg.verifiers[iss.IssuerURL] = verifier
-	}
-
-	cache, err := lru.New2Q(100 /* size */)
-	if err != nil {
+	if err := config.prepare(); err != nil {
 		return nil, err
 	}
-	cfg.lru = cache
-
-	config = cfg
-	log.Logger.Infof("Loaded config %v from %s", cfg, configPath)
 	return config, nil
 }

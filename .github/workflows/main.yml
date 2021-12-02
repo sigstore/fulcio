@@ -33,9 +33,6 @@ jobs:
         with:
           go-version: ${{ env.GOVERSION }}
 
-      - name: Validate OpenAPI with Swagger
-        run: make validate-openapi
-
       - name: Build
         run: make -C $GITHUB_WORKSPACE all
       - name: Test

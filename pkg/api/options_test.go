@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package api
 
 import (
 	"net/http"
@@ -26,15 +26,15 @@ func TestMakeOptions(t *testing.T) {
 	tests := []struct {
 		desc string
 
-		opts []Option
-		want *options
+		opts []ClientOption
+		want *clientOptions
 	}{{
 		desc: "no opts",
-		want: &options{},
+		want: &clientOptions{},
 	}, {
 		desc: "WithUserAgent",
-		opts: []Option{WithUserAgent("test user agent")},
-		want: &options{UserAgent: "test user agent"},
+		opts: []ClientOption{WithUserAgent("test user agent")},
+		want: &clientOptions{UserAgent: "test user agent"},
 	}}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -61,7 +61,7 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 
 func TestCreateRoundTripper(t *testing.T) {
 	t.Run("always returns non-nil", func(t *testing.T) {
-		got := createRoundTripper(nil, &options{})
+		got := createRoundTripper(nil, &clientOptions{})
 		if got == nil {
 			t.Errorf("createRoundTripper() should never return a nil `http.RoundTripper`")
 		}
@@ -81,7 +81,7 @@ func TestCreateRoundTripper(t *testing.T) {
 	expectedUserAgent := "test UserAgent"
 
 	m := &mockRoundTripper{}
-	rt := createRoundTripper(m, &options{
+	rt := createRoundTripper(m, &clientOptions{
 		UserAgent: expectedUserAgent,
 	})
 	m.resp = testResp
@@ -110,7 +110,7 @@ func TestSanity(t *testing.T) {
 		t.Fatalf("url.Parse(SigstorePublicServerURL) returned error: %v", err)
 	}
 
-	got := New(testURL, WithUserAgent("sanity test"))
+	got := NewClient(testURL, WithUserAgent("sanity test"))
 	if got == nil {
 		t.Fatalf(`New(testURL, WithUserAgent("sanity test")) returned nil`)
 	}

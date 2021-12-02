@@ -19,33 +19,111 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-openapi/runtime/middleware"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
-	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
-func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDToken) middleware.Responder {
-	ctx := params.HTTPRequest.Context()
-	logger := log.ContextLogger(ctx)
+type Key struct {
+	// +required
+	Content   []byte `json:"content"`
+	Algorithm string `json:"algorithm,omitempty"`
+}
 
-	// none of the following cases should happen if the authentication path is working correctly; checking to be defensive
-	if principal == nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, errors.New("no principal supplied to request"), invalidCredentials)
+type CertificateRequest struct {
+	// +required
+	PublicKey Key `json:"publicKey"`
+
+	// +required
+	SignedEmailAddress []byte `json:"signedEmailAddress"`
+}
+
+const signingCertPath = "/api/v1/signingCert"
+
+// NewHandler creates a new http.Handler for serving the Fulcio API.
+func NewHandler() http.Handler {
+	handler := http.NewServeMux()
+	handler.HandleFunc(signingCertPath, signingCert)
+	return handler
+}
+
+func extractIssuer(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("oidc: malformed jwt payload: %w", err)
+	}
+	var payload struct {
+		Issuer string `json:"iss"`
 	}
 
-	publicKeyBytes := *params.CertificateRequest.PublicKey.Content
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return "", fmt.Errorf("oidc: failed to unmarshal claims: %w", err)
+	}
+	return payload.Issuer, nil
+}
+
+// We do this to bypass needing actual OIDC tokens for unit testing.
+var authorize = actualAuthorize
+
+func actualAuthorize(req *http.Request) (*oidc.IDToken, error) {
+	// Strip off the "Bearer" prefix.
+	token := strings.Replace(req.Header.Get("Authorization"), "Bearer ", "", 1)
+
+	issuer, err := extractIssuer(token)
+	if err != nil {
+		return nil, err
+	}
+
+	verifier, ok := config.FromContext(req.Context()).GetVerifier(issuer)
+	if !ok {
+		return nil, fmt.Errorf("unsupported issuer: %s", issuer)
+	}
+	return verifier.Verify(req.Context(), token)
+}
+
+func signingCert(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		err := fmt.Errorf("signing cert handler must receive POSTs, got %s", req.Method)
+		handleFulcioAPIError(w, req, http.StatusMethodNotAllowed, err, err.Error())
+		return
+	}
+	if gotContentType, wantContentType := req.Header.Get("Content-Type"), "application/json"; gotContentType != wantContentType {
+		err := fmt.Errorf("signing cert handler must receive %q, got %q", wantContentType, gotContentType)
+		handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
+		return
+	}
+
+	ctx := req.Context()
+	logger := log.ContextLogger(ctx)
+
+	principal, err := authorize(req)
+	if err != nil {
+		handleFulcioAPIError(w, req, http.StatusUnauthorized, err, invalidCredentials)
+		return
+	}
+
+	// Parse the request body.
+	cr := CertificateRequest{}
+	if err := json.NewDecoder(req.Body).Decode(&cr); err != nil {
+		handleFulcioAPIError(w, req, http.StatusBadRequest, err, invalidCertificateRequest)
+		return
+	}
+
+	publicKeyBytes := cr.PublicKey.Content
 	// try to unmarshal as DER
 	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBytes)
 	if err != nil {
@@ -53,13 +131,15 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		logger.Debugf("error parsing public key as DER, trying pem: %v", err.Error())
 		publicKey, err = cryptoutils.UnmarshalPEMToPublicKey(publicKeyBytes)
 		if err != nil {
-			return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidPublicKey)
+			handleFulcioAPIError(w, req, http.StatusBadRequest, err, invalidPublicKey)
+			return
 		}
 	}
 
-	subject, err := ExtractSubject(ctx, principal, publicKey, *params.CertificateRequest.SignedEmailAddress)
+	subject, err := ExtractSubject(ctx, principal, publicKey, cr.SignedEmailAddress)
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusBadRequest, err, invalidSignature)
+		handleFulcioAPIError(w, req, http.StatusBadRequest, err, invalidSignature)
+		return
 	}
 
 	ca := GetCA(ctx)
@@ -73,10 +153,12 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
-				return handleFulcioAPIError(params, http.StatusBadRequest, err, err.Error())
+				handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
+				return
 			}
 			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
-			return handleFulcioAPIError(params, http.StatusInternalServerError, err, genericCAError)
+			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
+			return
 		}
 
 		// TODO: initialize CTL client once
@@ -87,11 +169,13 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 			c := ctl.New(ctURL)
 			sct, err := c.AddChain(csc)
 			if err != nil {
-				return handleFulcioAPIError(params, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
+				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
+				return
 			}
 			sctBytes, err = json.Marshal(sct)
 			if err != nil {
-				return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToMarshalSCT)
+				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalSCT)
+				return
 			}
 			logger.Info("CTL Submission Signature Received: ", sct.Signature)
 			logger.Info("CTL Submission ID Received: ", sct.ID)
@@ -105,18 +189,27 @@ func SigningCertHandler(params operations.SigningCertParams, principal *oidc.IDT
 	var ret strings.Builder
 	finalPEM, err := csc.CertPEM()
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToMarshalCert)
+		handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalCert)
+		return
 	}
 	fmt.Fprintf(&ret, "%s\n", finalPEM)
 	finalChainPEM, err := csc.ChainPEM()
 	if err != nil {
-		return handleFulcioAPIError(params, http.StatusInternalServerError, err, failedToMarshalCert)
+		handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalCert)
+		return
 	}
 	if len(finalChainPEM) > 0 {
 		fmt.Fprintf(&ret, "%s\n", finalChainPEM)
 	}
 
-	return operations.NewSigningCertCreated().WithPayload(strings.TrimSpace(ret.String())).WithSCT(sctBytes)
+	// Set the SCT and Content-Type headers, and then respond with a 201 Created.
+	w.Header().Add("SCT", string(sctBytes))
+	w.Header().Add("Content-Type", "application/pem-certificate-chain")
+	w.WriteHeader(http.StatusCreated)
+	// Write the PEM encoded certificate chain to the response body.
+	if _, err := w.Write([]byte(strings.TrimSpace(ret.String()))); err != nil {
+		logger.Error("Error writing response: ", err)
+	}
 }
 
 func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, challenge []byte) (*challenges.ChallengeResult, error) {
