@@ -26,27 +26,32 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/pkcs11"
-	"github.com/spf13/viper"
 )
 
-func NewX509CA() (*X509CA, error) {
+type Params struct {
+	ConfigPath string
+	RootID     string
+	CAPath     *string
+}
+
+func NewX509CA(params Params) (*X509CA, error) {
 	ca := &X509CA{}
-	p11Ctx, err := pkcs11.InitHSMCtx()
+	p11Ctx, err := pkcs11.InitHSMCtx(params.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
 	defer p11Ctx.Close()
 
-	rootID := []byte(viper.GetString("hsm-caroot-id"))
+	rootID := []byte(params.RootID)
 
 	// get the existing root CA from the HSM or from disk
-	if !viper.IsSet("aws-hsm-root-ca-path") {
+	if params.CAPath == nil {
 		ca.RootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		rootCaPath := filepath.Clean(viper.GetString("aws-hsm-root-ca-path"))
+		rootCaPath := filepath.Clean(*params.CAPath)
 		pubPEMData, err := os.ReadFile(rootCaPath)
 		if err != nil {
 			return nil, err

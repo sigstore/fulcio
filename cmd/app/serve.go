@@ -68,7 +68,7 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
-		cfg, err := config.Load()
+		cfg, err := config.Load(viper.GetString("config-path"))
 		if err != nil {
 			log.Logger.Fatalf("error loading config: %v", err)
 		}
