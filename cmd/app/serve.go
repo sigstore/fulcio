@@ -85,9 +85,9 @@ var serveCmd = &cobra.Command{
 			version := viper.GetString("gcp_private_ca_version")
 			switch version {
 			case "v1":
-				baseca, err = googlecav1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
+				baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 			case "v1beta1":
-				baseca, err = googlecav1beta1.NewCertAuthorityService(viper.GetString("gcp_private_ca_parent"))
+				baseca, err = googlecav1beta1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 			default:
 				err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
 			}

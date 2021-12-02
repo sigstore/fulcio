@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"sync"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1beta1"
 	"github.com/sigstore/fulcio/pkg/ca"
@@ -33,36 +32,20 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-var (
-	once sync.Once
-	c    *privateca.CertificateAuthorityClient
-	cErr error
-)
-
 type CertAuthorityService struct {
 	parent string
 	client *privateca.CertificateAuthorityClient
 }
 
-func NewCertAuthorityService(parent string) (*CertAuthorityService, error) {
-	cas := &CertAuthorityService{
-		parent: parent,
-	}
-	var err error
-	cas.client, err = casClient()
+func NewCertAuthorityService(ctx context.Context, parent string) (*CertAuthorityService, error) {
+	client, err := privateca.NewCertificateAuthorityClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return cas, nil
-}
-
-func casClient() (*privateca.CertificateAuthorityClient, error) {
-	// Use a once block to avoid creating a new client every time.
-	once.Do(func() {
-		c, cErr = privateca.NewCertificateAuthorityClient(context.Background())
-	})
-
-	return c, cErr
+	return &CertAuthorityService{
+		parent: parent,
+		client: client,
+	}, nil
 }
 
 // getPubKeyType Returns the PublicKey type required by gcp privateca (to handle both PEM_RSA_KEY / PEM_EC_KEY)
