@@ -180,6 +180,9 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 	case challenges.KubernetesValue:
 		privca = KubernetesSubject(subj.Value)
 	}
+	privca.Subject = &privatecapb.Subject{
+		Organization: "sigstore",
+	}
 
 	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(subj.PublicKey)
 	if err != nil {
@@ -192,6 +195,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}
+
 	logger.Infof("requesting cert from %s for %v", c.parent, subj.Value)
 
 	resp, err := c.client.CreateCertificate(ctx, req)
