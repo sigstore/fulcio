@@ -16,7 +16,6 @@
 package ephemeralca
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -24,18 +23,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type EphemeralCA struct {
 	x509ca.X509CA
-}
-
-func (e *EphemeralCA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	return e.CreateCertificateWithCA(&e.X509CA, subject)
 }
 
 func NewEphemeralCA() (*EphemeralCA, error) {

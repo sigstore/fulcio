@@ -20,11 +20,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -64,16 +67,48 @@ func getPubKeyFormat(pemBytes []byte) (privatecapb.PublicKey_KeyFormat, error) {
 	}
 }
 
-func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pemBytes []byte, extensions []*privatecapb.X509Extension) (*privatecapb.CreateCertificateRequest, error) {
+func convertID(id asn1.ObjectIdentifier) []int32 {
+	nid := make([]int32, 0, len(id))
+	for _, digit := range id {
+		nid = append(nid, int32(digit))
+	}
+	return nid
+}
+
+func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.CreateCertificateRequest, error) {
 	// TODO, use the right fields :)
 	pubkeyFormat, err := getPubKeyFormat(pemBytes)
 	if err != nil {
 		return nil, err
 	}
+
+	// Translate the x509 certificate's subject to Google proto.
+	subject := &privatecapb.CertificateConfig_SubjectConfig{
+		Subject: &privatecapb.Subject{
+			Organization: "sigstore",
+		},
+		SubjectAltName: &privatecapb.SubjectAltNames{
+			EmailAddresses: cert.EmailAddresses,
+		},
+	}
+	for _, uri := range cert.URIs {
+		subject.SubjectAltName.Uris = append(subject.SubjectAltName.Uris, uri.String())
+	}
+
+	extensions := make([]*privatecapb.X509Extension, 0, len(cert.ExtraExtensions))
+	for _, ext := range cert.ExtraExtensions {
+		extensions = append(extensions, &privatecapb.X509Extension{
+			ObjectId: &privatecapb.ObjectId{
+				ObjectIdPath: convertID(ext.Id),
+			},
+			Value: ext.Value,
+		})
+	}
+
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
-			Lifetime: &durationpb.Duration{Seconds: 20 * 60},
+			Lifetime: durationpb.New(time.Until(cert.NotAfter)),
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
 					PublicKey: &privatecapb.PublicKey{
@@ -98,90 +133,12 @@ func Req(parent string, subject *privatecapb.CertificateConfig_SubjectConfig, pe
 	}, nil
 }
 
-func emailSubject(email string) *privatecapb.CertificateConfig_SubjectConfig {
-	return &privatecapb.CertificateConfig_SubjectConfig{
-		SubjectAltName: &privatecapb.SubjectAltNames{
-			EmailAddresses: []string{email},
-		}}
-}
-
-// SPIFFE IDs go as "Uris" according to the spec: https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md
-func spiffeSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
-	return &privatecapb.CertificateConfig_SubjectConfig{
-		SubjectAltName: &privatecapb.SubjectAltNames{
-			Uris: []string{id},
-		},
-	}
-}
-
-func githubWorkflowSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
-	return &privatecapb.CertificateConfig_SubjectConfig{
-		SubjectAltName: &privatecapb.SubjectAltNames{
-			Uris: []string{id},
-		},
-	}
-}
-
-func AdditionalExtensions(subject *challenges.ChallengeResult) []*privatecapb.X509Extension {
-	res := []*privatecapb.X509Extension{}
-	if subject.TypeVal == challenges.GithubWorkflowValue {
-		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
-			res = append(res, &privatecapb.X509Extension{
-				ObjectId: &privatecapb.ObjectId{
-					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 3},
-				},
-				Value: []byte(trigger),
-			})
-		}
-
-		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
-			res = append(res, &privatecapb.X509Extension{
-				ObjectId: &privatecapb.ObjectId{
-					ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 2},
-				},
-				Value: []byte(sha),
-			})
-		}
-	}
-	return res
-}
-
-func KubernetesSubject(id string) *privatecapb.CertificateConfig_SubjectConfig {
-	return &privatecapb.CertificateConfig_SubjectConfig{
-		SubjectAltName: &privatecapb.SubjectAltNames{
-			Uris: []string{id},
-		},
-	}
-}
-
-func IssuerExtension(issuer string) []*privatecapb.X509Extension {
-	if issuer == "" {
-		return nil
-	}
-
-	return []*privatecapb.X509Extension{{
-		ObjectId: &privatecapb.ObjectId{
-			ObjectIdPath: []int32{1, 3, 6, 1, 4, 1, 57264, 1, 1},
-		},
-		Value: []byte(issuer),
-	}}
-}
-
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
 	logger := log.ContextLogger(ctx)
-	var privca *privatecapb.CertificateConfig_SubjectConfig
-	switch subj.TypeVal {
-	case challenges.EmailValue:
-		privca = emailSubject(subj.Value)
-	case challenges.SpiffeValue:
-		privca = spiffeSubject(subj.Value)
-	case challenges.GithubWorkflowValue:
-		privca = githubWorkflowSubject(subj.Value)
-	case challenges.KubernetesValue:
-		privca = KubernetesSubject(subj.Value)
-	}
-	privca.Subject = &privatecapb.Subject{
-		Organization: "sigstore",
+
+	cert, err := x509ca.MakeX509(subj)
+	if err != nil {
+		return nil, ca.ValidationError(err)
 	}
 
 	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(subj.PublicKey)
@@ -189,9 +146,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 		return nil, ca.ValidationError(err)
 	}
 
-	extensions := append(IssuerExtension(subj.Issuer), AdditionalExtensions(subj)...)
-
-	req, err := Req(c.parent, privca, pubKeyBytes, extensions)
+	req, err := Req(c.parent, pubKeyBytes, cert)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}

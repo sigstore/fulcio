@@ -36,11 +36,7 @@ type X509CA struct {
 	PrivKey crypto.Signer
 }
 
-func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	return x.CreateCertificateWithCA(x, subject)
-}
-
-func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
 	uuid := uuid.New()
 	var serialNumber big.Int
@@ -54,6 +50,7 @@ func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.C
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		KeyUsage:     x509.KeyUsageCertSign,
 	}
+
 	switch subject.TypeVal {
 	case challenges.EmailValue:
 		cert.EmailAddresses = []string{subject.Value}
@@ -77,8 +74,16 @@ func (x *X509CA) CreateCertificateWithCA(certauth *X509CA, subject *challenges.C
 		cert.URIs = []*url.URL{k8sURI}
 	}
 	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
+	return cert, nil
+}
 
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certauth.RootCA, subject.PublicKey, certauth.PrivKey)
+func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	cert, err := MakeX509(subject)
+	if err != nil {
+		return nil, err
+	}
+
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, x.RootCA, subject.PublicKey, x.PrivKey)
 	if err != nil {
 		return nil, err
 	}
