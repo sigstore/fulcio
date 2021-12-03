@@ -67,14 +67,14 @@ func TestCreateRoundTripper(t *testing.T) {
 		}
 	})
 
-	testReq, err := http.NewRequest("GET", "http://www.example.com/test", nil)
+	testReq, err := http.NewRequest(http.MethodGet, "http://www.example.com/test", nil)
 	if err != nil {
 		t.Fatalf("http.NewRequest() failed: %v", err)
 	}
 
 	testResp := &http.Response{
 		Status:     "OK",
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Request:    testReq,
 	}
 
