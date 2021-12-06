@@ -55,6 +55,8 @@ func init() {
 	rootCmd.PersistentFlags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	rootCmd.PersistentFlags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 	rootCmd.PersistentFlags().String("pkcs11-config-path", "config/crypto11.conf", "path to fulcio pkcs11 config file")
+	rootCmd.PersistentFlags().String("host", "0.0.0.0", "The host on which to serve requests")
+	rootCmd.PersistentFlags().String("port", "8080", "The port on which to serve requests")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Logger.Fatal(err)

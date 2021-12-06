@@ -124,6 +124,7 @@ var serveCmd = &cobra.Command{
 		}()
 
 		host, port := viper.GetString("host"), viper.GetString("port")
+		log.Logger.Infof("%s:%s", host, port)
 		api := http.Server{
 			Addr:    host + ":" + port,
 			Handler: decorateHandler(api.NewHandler()),
@@ -136,8 +137,5 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	serveCmd.PersistentFlags().String("host", "0.0.0.0", "The host on which to serve requests")
-	serveCmd.PersistentFlags().String("port", "8080", "The port on which to serve requests")
-
 	rootCmd.AddCommand(serveCmd)
 }
