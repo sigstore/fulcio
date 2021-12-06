@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sigstore/fulcio/pkg/api"
@@ -124,13 +123,9 @@ var serveCmd = &cobra.Command{
 			_ = prom.ListenAndServe()
 		}()
 
-		port := os.Getenv("PORT")
-		if port == "" {
-			port = "8080"
-		}
-
+		host, port := viper.GetString("host"), viper.GetString("port")
 		api := http.Server{
-			Addr:    ":" + port,
+			Addr:    host + ":" + port,
 			Handler: decorateHandler(api.NewHandler()),
 		}
 
@@ -141,5 +136,8 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
+	serveCmd.PersistentFlags().String("host", "0.0.0.0", "The host on which to serve requests")
+	serveCmd.PersistentFlags().String("port", "8080", "The port on which to serve requests")
+
 	rootCmd.AddCommand(serveCmd)
 }
