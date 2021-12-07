@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-openapi/loads"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sigstore/fulcio/pkg/api"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
@@ -29,8 +28,6 @@ import (
 	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/generated/restapi"
-	"github.com/sigstore/fulcio/pkg/generated/restapi/operations"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -65,14 +62,6 @@ var serveCmd = &cobra.Command{
 
 		// from https://github.com/golang/glog/commit/fca8c8854093a154ff1eb580aae10276ad6b1b5f
 		_ = flag.CommandLine.Parse([]string{})
-
-		doc, _ := loads.Embedded(restapi.SwaggerJSON, restapi.FlatSwaggerJSON)
-		server := restapi.NewServer(operations.NewFulcioServerAPI(doc))
-		defer func() {
-			if err := server.Shutdown(); err != nil {
-				log.Logger.Error(err)
-			}
-		}()
 
 		cfg, err := config.Load(viper.GetString("config-path"))
 		if err != nil {
@@ -110,31 +99,38 @@ var serveCmd = &cobra.Command{
 			log.Logger.Fatal(err)
 		}
 
-		server.EnabledListeners = []string{"http"}
+		decorateHandler := func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
 
-		server.ConfigureAPI()
+				// For each request, infuse context with our snapshot of the FulcioConfig.
+				// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
+				// from disk, so that we don't need to cycle pods to pick up config updates.
+				// Alternately we could take advantage of Knative's configmap watcher.
+				ctx = config.With(ctx, cfg)
+				ctx = api.WithCA(ctx, baseca)
+				ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
 
-		h := server.GetHandler()
-		server.SetHandler(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+				h.ServeHTTP(rw, r.WithContext(ctx))
+			})
+		}
 
-			// For each request, infuse context with our snapshot of the FulcioConfig.
-			// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-			// from disk, so that we don't need to cycle pods to pick up config updates.
-			// Alternately we could take advantage of Knative's configmap watcher.
-			ctx = config.With(ctx, cfg)
-			ctx = api.WithCA(ctx, baseca)
-			ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
-
-			h.ServeHTTP(rw, r.WithContext(ctx))
-		}))
-
-		http.Handle("/metrics", promhttp.Handler())
+		prom := http.Server{
+			Addr:    ":2112",
+			Handler: promhttp.Handler(),
+		}
 		go func() {
-			_ = http.ListenAndServe(":2112", nil)
+			_ = prom.ListenAndServe()
 		}()
 
-		if err := server.Serve(); err != nil {
+		host, port := viper.GetString("host"), viper.GetString("port")
+		log.Logger.Infof("%s:%s", host, port)
+		api := http.Server{
+			Addr:    host + ":" + port,
+			Handler: decorateHandler(api.NewHandler()),
+		}
+
+		if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Logger.Fatal(err)
 		}
 	},

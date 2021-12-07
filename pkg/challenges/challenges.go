@@ -270,14 +270,15 @@ func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, er
 }
 
 func isSpiffeIDAllowed(host, spiffeID string) bool {
-	// Strip spiffe://
-	name := strings.TrimPrefix(spiffeID, "spiffe://")
-
-	// get the host part
-	spiffeDomain := strings.Split(name, "/")[0]
-
-	if spiffeDomain == host {
+	u, err := url.Parse(spiffeID)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "spiffe" {
+		return false
+	}
+	if u.Hostname() == host {
 		return true
 	}
-	return strings.Contains(spiffeDomain, "."+host)
+	return strings.Contains(u.Hostname(), "."+host)
 }
