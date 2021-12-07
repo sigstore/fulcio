@@ -103,7 +103,7 @@ func signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 	if gotContentType, wantContentType := req.Header.Get("Content-Type"), "application/json"; gotContentType != wantContentType {
 		err := fmt.Errorf("signing cert handler must receive %q, got %q", wantContentType, gotContentType)
-		handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
+		handleFulcioAPIError(w, req, http.StatusUnsupportedMediaType, err, err.Error())
 		return
 	}
 

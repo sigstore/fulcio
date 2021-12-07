@@ -130,7 +130,7 @@ var serveCmd = &cobra.Command{
 			Handler: decorateHandler(api.NewHandler()),
 		}
 
-		if err := api.ListenAndServe(); err != nil {
+		if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Logger.Fatal(err)
 		}
 	},
