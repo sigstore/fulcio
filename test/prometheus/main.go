@@ -50,12 +50,6 @@ func main() {
 		log.Fatalf("Failed to fetch/parse metrics: %v", err)
 	}
 
-	// Do not submit, just debugging what's going on...
-	for k, v := range mf {
-		log.Printf("k: %s", k)
-		log.Printf("VALUE: %+v", v)
-	}
-
 	// Just grab the api_latency metric, make sure it's a histogram
 	// and just make sure there is at least one 200, and no errors there.
 	latency, ok := mf[latencyMetric]

@@ -140,6 +140,9 @@ jobs:
           sed -i -e 's,--ca=googleca,--ca=ephemeralca,g' ${{ github.workspace }}/config/deployment.yaml
           # Drop the ct-log flag's value to elide CT-log uploads.
           sed -i -E 's,"--ct-log-url=[^"]+","--ct-log-url=",g' ${{ github.workspace }}/config/deployment.yaml
+          # Switch to one replica to make it easier to test the scraping of
+          # metrics since we know all the requests then go to the same server.
+          sed -i -E 's,replicas: 3,replicas: 1,g' ${{ github.workspace }}/config/deployment.yaml
 
           # From: https://banzaicloud.com/blog/kubernetes-oidc/
           # To be able to fetch the public keys and validate the JWT tokens against
