@@ -100,19 +100,23 @@ var serveCmd = &cobra.Command{
 		}
 
 		decorateHandler := func(h http.Handler) http.Handler {
-			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
+			// Wrap the inner func with instrumentation to get latencies
+			// that get partitioned by 'code' and 'method'.
+			return promhttp.InstrumentHandlerDuration(
+				api.MetricLatency,
+				http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+					ctx := r.Context()
 
-				// For each request, infuse context with our snapshot of the FulcioConfig.
-				// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-				// from disk, so that we don't need to cycle pods to pick up config updates.
-				// Alternately we could take advantage of Knative's configmap watcher.
-				ctx = config.With(ctx, cfg)
-				ctx = api.WithCA(ctx, baseca)
-				ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
+					// For each request, infuse context with our snapshot of the FulcioConfig.
+					// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
+					// from disk, so that we don't need to cycle pods to pick up config updates.
+					// Alternately we could take advantage of Knative's configmap watcher.
+					ctx = config.With(ctx, cfg)
+					ctx = api.WithCA(ctx, baseca)
+					ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
 
-				h.ServeHTTP(rw, r.WithContext(ctx))
-			})
+					h.ServeHTTP(rw, r.WithContext(ctx))
+				}))
 		}
 
 		prom := http.Server{

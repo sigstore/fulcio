@@ -225,6 +225,25 @@ jobs:
 
           kubectl wait --for=condition=Complete --timeout=90s job/check-oidc
 
+      - name: Validate prometheus metrics exported and look correct
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: check-prometheus-metrics
+          spec:
+            template:
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                containers:
+                - name: check-metrics
+                  image: ko://github.com/sigstore/fulcio/test/prometheus/
+          EOF
+
+          kubectl wait --for=condition=Complete --timeout=90s job/check-prometheus-metrics
+
       - name: Collect logs
         if: ${{ always() }}
         run: |

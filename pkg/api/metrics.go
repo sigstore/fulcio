@@ -29,5 +29,5 @@ var (
 	MetricLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fulcio_api_latency",
 		Help: "API Latency on calls",
-	}, []string{"path", "code"})
+	}, []string{"code", "method"})
 )

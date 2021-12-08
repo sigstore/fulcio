@@ -38,7 +38,7 @@ const SigstorePublicServerURL = "https://fulcio.sigstore.dev"
 
 // Client is the interface for accessing the Fulcio API.
 type Client interface {
-	// SigningCert sends the provided CertificateRequest to the /api/v1/singingCert
+	// SigningCert sends the provided CertificateRequest to the /api/v1/signingCert
 	// endpoint of a Fulcio API, authenticated with the provided bearer token.
 	SigningCert(cr CertificateRequest, token string) (*CertificateResponse, error)
 }
