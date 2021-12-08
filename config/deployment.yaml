@@ -89,7 +89,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 5555
-    - name: prometheus
-      protocol: TCP
-      port: 2112
-      targetPort: 2112
