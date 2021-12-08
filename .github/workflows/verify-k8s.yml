@@ -227,7 +227,7 @@ jobs:
 
       - name: Validate prometheus metrics exported and look correct
         run: |
-          cat <<EOF | kubectl apply -f -
+          cat <<EOF | ko apply -f -
           apiVersion: batch/v1
           kind: Job
           metadata:
