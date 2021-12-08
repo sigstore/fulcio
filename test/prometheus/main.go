@@ -32,7 +32,7 @@ func fatal(err error) {
 }
 
 func parseMF(url string) (map[string]*dto.MetricFamily, error) {
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) // nolint
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,12 @@ func main() {
 
 	mf, err := parseMF(*f)
 	fatal(err)
+
+	// Do not submit, just debugging what's going on...
+	for k, v := range mf {
+		log.Printf("k: %s", k)
+		log.Printf("VALUE: %+v", v)
+	}
 
 	// Just grab the api_latency metric, make sure it's a histogram
 	// and just make sure there is at least one 200, and no errors there.
