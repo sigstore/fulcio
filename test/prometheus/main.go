@@ -25,11 +25,10 @@ import (
 	"github.com/prometheus/common/expfmt"
 )
 
-func fatal(err error) {
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
+const (
+	latencyMetric = "fulcio_api_latency"
+	certMetric    = "fulcio_new_certs"
+)
 
 func parseMF(url string) (map[string]*dto.MetricFamily, error) {
 	resp, err := http.Get(url) // nolint
@@ -47,7 +46,9 @@ func main() {
 	flag.Parse()
 
 	mf, err := parseMF(*f)
-	fatal(err)
+	if err != nil {
+		log.Fatalf("Failed to fetch/parse metrics: %v", err)
+	}
 
 	// Do not submit, just debugging what's going on...
 	for k, v := range mf {
@@ -57,7 +58,7 @@ func main() {
 
 	// Just grab the api_latency metric, make sure it's a histogram
 	// and just make sure there is at least one 200, and no errors there.
-	latency, ok := mf["fulcio_api_latency"]
+	latency, ok := mf[latencyMetric]
 	if !ok || latency == nil {
 		log.Fatal("Did not get fulcio_api_latency metric")
 	}
@@ -66,7 +67,7 @@ func main() {
 	}
 
 	// Then make sure the cert counter went up.
-	certCount, ok := mf["fulcio_new_certs"]
+	certCount, ok := mf[certMetric]
 	if !ok || certCount == nil {
 		log.Fatal("Did not get fulcio_new_certs metric")
 	}
@@ -75,7 +76,7 @@ func main() {
 	}
 }
 
-// Make sure latency is a Histogram, and it has a POST with a 200.
+// Make sure latency is a Histogram, and it has a POST with a 201.
 func checkLatency(latency *dto.MetricFamily) error {
 	if *latency.Type != *dto.MetricType_HISTOGRAM.Enum() {
 		return fmt.Errorf("Wrong type, wanted %+v, got: %+v", dto.MetricType_HISTOGRAM.Enum(), latency.Type)
@@ -83,7 +84,7 @@ func checkLatency(latency *dto.MetricFamily) error {
 	if len(latency.Metric) != 1 {
 		return fmt.Errorf("Got multiple entries, or none for metric, wanted one, got: %+v", latency.Metric)
 	}
-	// Make sure there's a 'post' and it's a 200.
+	// Make sure there's a 'post' and it's a 201.
 	var code string
 	var method string
 	for _, value := range latency.Metric[0].Label {
@@ -94,8 +95,8 @@ func checkLatency(latency *dto.MetricFamily) error {
 			method = *value.Value
 		}
 	}
-	if code != "200" {
-		return fmt.Errorf("unexpected code, wanted 200, got %s", code)
+	if code != "201" {
+		return fmt.Errorf("unexpected code, wanted 201, got %s", code)
 	}
 	if method != "post" {
 		return fmt.Errorf("unexpected method, wanted post, got %s", method)
