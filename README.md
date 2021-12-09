@@ -41,7 +41,7 @@ There are other targets available in the [`Makefile`](Makefile), check it out.
 
 ## API
 
-The API is defined via OpenAPI, defined [here](openapi.yaml).
+The API is defined [here](./pkg/api/client.go).
 
 ## Transparency
 
