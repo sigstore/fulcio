@@ -189,36 +189,27 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  # This is a version of the cosign image published from CI with https://github.com/sigstore/cosign/pull/955
-                  # TODO(mattmoor): Switch this to a release build after 1.3
-                  image: gcr.io/projectsigstore/cosign/ci/cosign:46e274094551d5b29bd89eaa6499c0f39e60db2f
-                  command: [/busybox/sh, -c]
-                  args:
-                  - |
-                    /ko-app/cosign sign \
-                      `# Target our cluster's Fulcio` \
-                      --fulcio-url http://fulcio-server.fulcio-dev.svc \
-                      `# Pass in the KinD OIDC token` \
-                      --identity-token \$(cat /var/run/kind-oidc/token) \
-                      `# Skip verification of the SCT since we've disabled that above.` \
-                      --insecure-skip-verify=true \
-                      `# Skip upload because we can't avoid Rekor on that path.` \
-                      --upload=false \
-                      ${DIGEST}
+                  image: gcr.io/projectsigstore/cosign:v1.4.0
+                  args: [
+                    "sign",
+                    "--fulcio-url=http://fulcio-server.fulcio-dev.svc",
+                    "--insecure-skip-verify=true",
+                    "--upload=false",
+                    "${DIGEST}",
+                  ]
 
                   env:
                   - name: COSIGN_EXPERIMENTAL
                     value: "true"
                   volumeMounts:
                   - name: oidc-info
-                    mountPath: /var/run/kind-oidc
-
+                    mountPath: /var/run/sigstore/cosign
                 volumes:
                   - name: oidc-info
                     projected:
                       sources:
                         - serviceAccountToken:
-                            path: token
+                            path: oidc-token
                             expirationSeconds: 600 # Use as short-lived as possible.
                             audience: sigstore
           EOF
