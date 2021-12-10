@@ -21,12 +21,30 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 )
+
+var (
+	// DebugLog is used to log information that is useful for debugging.
+	// Enable with: api.DebugLog.SetOutput(os.Stderr)
+	DebugLog = log.New(ioutil.Discard, "", log.LstdFlags)
+)
+
+// Enabled checks to see if the logger's writer is set to something other
+// than ioutil.Discard. This allows callers to avoid expensive operations
+// that would end up in /dev/null.
+func Enabled(l *log.Logger) bool {
+	return l.Writer() != ioutil.Discard
+}
 
 type CertificateResponse struct {
 	CertPEM  []byte
@@ -159,7 +177,65 @@ type roundTripper struct {
 // RoundTrip implements `http.RoundTripper`
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", rt.UserAgent)
-	return rt.RoundTripper.RoundTrip(req)
+
+	// If no logging is needed, return early.
+	if !Enabled(DebugLog) {
+		return rt.RoundTripper.RoundTrip(req)
+	}
+
+	// From https://github.com/google/go-containerregistry/blob/main/pkg/v1/remote/transport/logger.go
+
+	// Sanitize request URL, which is recommended by codeql.
+	reqURL := strings.ReplaceAll(strings.ReplaceAll(req.URL.String(), "\n", ""), "\r", "")
+
+	DebugLog.Printf("--> %s %s", req.Method, reqURL)
+	// Save authorization header so that we can redact it.
+	authToken := ""
+	if req.Header != nil {
+		authToken = req.Header.Get("authorization")
+		if authToken != "" {
+			req.Header.Set("authorization", "<redacted>")
+		}
+	}
+
+	b, err := httputil.DumpRequestOut(req, false)
+	if err == nil {
+		DebugLog.Println(string(b))
+	} else {
+		DebugLog.Printf("Failed to dump request %s %s: %v", req.Method, reqURL, err)
+	}
+
+	// Restore the non-redacted authorization header.
+	if req.Header != nil && authToken != "" {
+		req.Header.Set("authorization", authToken)
+	}
+
+	start := time.Now()
+
+	// Make request
+	out, err := rt.RoundTripper.RoundTrip(req)
+
+	duration := time.Since(start)
+	if err != nil {
+		DebugLog.Printf("<-- %v %s %s (%s)", err, req.Method, reqURL, duration)
+	}
+	if out != nil {
+		msg := fmt.Sprintf("<-- %d", out.StatusCode)
+		if out.Request != nil {
+			msg = fmt.Sprintf("%s %s", msg, reqURL)
+		}
+		msg = fmt.Sprintf("%s (%s)", msg, duration)
+
+		DebugLog.Print(msg)
+		b, err := httputil.DumpResponse(out, false)
+		if err == nil {
+			DebugLog.Println(string(b))
+		} else {
+			DebugLog.Printf("Failed to dump response %s %s: %v", req.Method, reqURL, err)
+		}
+	}
+
+	return out, err
 }
 
 func createRoundTripper(inner http.RoundTripper, o *clientOptions) http.RoundTripper {
