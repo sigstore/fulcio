@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -35,6 +36,10 @@ func TestMakeOptions(t *testing.T) {
 		desc: "WithUserAgent",
 		opts: []ClientOption{WithUserAgent("test user agent")},
 		want: &clientOptions{UserAgent: "test user agent"},
+	}, {
+		desc: "WithTimeout",
+		opts: []ClientOption{WithTimeout(7 * time.Second)},
+		want: &clientOptions{Timeout: 7 * time.Second},
 	}}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -110,7 +115,7 @@ func TestSanity(t *testing.T) {
 		t.Fatalf("url.Parse(SigstorePublicServerURL) returned error: %v", err)
 	}
 
-	got := NewClient(testURL, WithUserAgent("sanity test"))
+	got := NewClient(testURL, WithUserAgent("sanity test"), WithTimeout(11*time.Second))
 	if got == nil {
 		t.Fatalf(`New(testURL, WithUserAgent("sanity test")) returned nil`)
 	}

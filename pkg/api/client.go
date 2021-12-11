@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 )
 
 type CertificateResponse struct {
@@ -54,6 +55,7 @@ func NewClient(url *url.URL, opts ...ClientOption) Client {
 		baseURL: url,
 		client: &http.Client{
 			Transport: createRoundTripper(http.DefaultTransport, o),
+			Timeout:   o.Timeout,
 		},
 	}
 }
@@ -120,6 +122,7 @@ func (c *client) SigningCert(cr CertificateRequest, token string) (*CertificateR
 
 type clientOptions struct {
 	UserAgent string
+	Timeout   time.Duration
 }
 
 func makeOptions(opts ...ClientOption) *clientOptions {
@@ -132,6 +135,13 @@ func makeOptions(opts ...ClientOption) *clientOptions {
 	}
 
 	return o
+}
+
+// WithTimeout sets the request timeout for the client
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(o *clientOptions) {
+		o.Timeout = timeout
+	}
 }
 
 // WithUserAgent sets the media type of the signature.
