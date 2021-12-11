@@ -33,3 +33,5 @@ hack/tools/bin
 /server
 /fulcio
 
+# Vim
+*.swp
