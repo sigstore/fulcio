@@ -48,19 +48,18 @@ type versionOptions struct {
 
 var versionOpts = &versionOptions{}
 
-// verifyCmd represents the verify command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "fulcio-server version",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runVersion(versionOpts)
-	},
-}
+func newVersionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "print build version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVersion(versionOpts)
+		},
+	}
 
-func init() {
-	versionCmd.PersistentFlags().BoolVarP(&versionOpts.json, "json", "j", false,
-		"print JSON instead of text")
-	rootCmd.AddCommand(versionCmd)
+	cmd.Flags().BoolVarP(&versionOpts.json, "json", "j", false, "print JSON instead of text")
+
+	return cmd
 }
 
 func runVersion(opts *versionOptions) error {
