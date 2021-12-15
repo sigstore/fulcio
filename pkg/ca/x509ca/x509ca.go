@@ -40,7 +40,6 @@ func NewX509CA(params Params) (*X509CA, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer p11Ctx.Close()
 
 	rootID := []byte(params.RootID)
 
