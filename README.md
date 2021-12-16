@@ -55,20 +55,19 @@ This can then be used to detect bad behavior or possible compromise.
 
 ## CA / KMS support
 
-### Google Cloud Platform Private CA
+### Google Cloud Platform CA Service
 
-The public fulcio root CA is currently running on GCP Private CA with the EC_P384_SHA384 algorithm.
+The public Fulcio root CA is currently running on [GCP CA Service](https://cloud.google.com/certificate-authority-service/docs) with the EC_P384_SHA384 algorithm.
 
-You can also run with your own GCP Private CA, by passing in a parent and google as the CA
+You can also run Fulcio with your own CA on CA Service by passing in a parent and specifying Google as the CA:
 
 ```
-go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/certificateAuthorities/myproject
+go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/caPools/mypool --gcp_private_ca_version=v1
 ```
 
 ### PKCS11CA
 
-
-fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`
+Fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`
 
 To configure a SoftHSM:
 
