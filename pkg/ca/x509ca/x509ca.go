@@ -70,6 +70,9 @@ func NewX509CA(params Params) (*X509CA, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ca.PrivKey == nil {
+		return nil, errors.New("cannot find private key")
+	}
 
 	return ca, nil
 
