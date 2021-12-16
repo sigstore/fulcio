@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/procfs v0.7.0 // indirect
 	github.com/sigstore/sigstore v1.0.1
 	github.com/spf13/cobra v1.3.0
-	github.com/spf13/viper v1.10.0
+	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.19.1
