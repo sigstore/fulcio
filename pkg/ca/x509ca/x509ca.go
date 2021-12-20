@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/sigstore/fulcio/pkg/ca"
 )
 
 type Params struct {
@@ -34,7 +35,7 @@ type Params struct {
 	CAPath     *string
 }
 
-func NewX509CA(params Params) (*X509CA, error) {
+func NewX509CA(params Params) (ca.CertificateAuthority, error) {
 	ca := &X509CA{}
 	p11Ctx, err := crypto11.ConfigureFromFile(params.ConfigPath)
 	if err != nil {

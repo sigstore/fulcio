@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/pem"
 	"math/big"
 	"net/url"
 	"time"
@@ -75,6 +76,13 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 	}
 	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
 	return cert, nil
+}
+
+func (x *X509CA) Root(ctx context.Context) ([]byte, error) {
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: x.RootCA.Raw,
+	}), nil
 }
 
 func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
