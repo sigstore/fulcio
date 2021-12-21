@@ -22,8 +22,11 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,9 +36,13 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
+
+// base64 encoded placeholder for SCT
+const testSCT = "ZXhhbXBsZXNjdAo="
 
 func TestAPI(t *testing.T) {
 	signer, issuer := newOIDCIssuer(t)
@@ -74,6 +81,11 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("ephemeralca.NewEphemeralCA() = %v", err)
 	}
 
+	ctlogServer := fakeCTLogServer(t)
+	if ctlogServer == nil {
+		t.Fatalf("Failed to create the fake ctlog server")
+	}
+	ctlogURL := ctlogServer.URL
 	// Create a test HTTP server to host our API.
 	h := NewHandler()
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
@@ -83,6 +95,7 @@ func TestAPI(t *testing.T) {
 
 		// Decorate the context with our CA for testing.
 		ctx = WithCA(ctx, eca)
+		ctx = WithCTLogURL(ctx, ctlogURL)
 
 		h.ServeHTTP(rw, r.WithContext(ctx))
 	}))
@@ -122,12 +135,38 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("SigningCert() = %v", err)
 	}
 
-	// We shouldn't have an SCT because we didn't decorate context
-	// with a ct-log-url
-	if string(resp.SCT) != "" {
-		t.Errorf("Unexpected SCT: %s", resp.SCT)
+	if string(resp.SCT) == "" {
+		t.Error("Did not get SCT")
 	}
 
+	// Check that we get the CA root back as well.
+	root, err := client.RootCert()
+	if err != nil {
+		t.Fatal("Failed to get Root", err)
+	}
+	if root == nil {
+		t.Fatal("Got nil root back")
+	}
+	if len(root.ChainPEM) == 0 {
+		t.Fatal("Got back empty chain")
+	}
+	block, rest := pem.Decode(root.ChainPEM)
+	if block == nil {
+		t.Fatal("Did not find PEM data")
+	}
+	if len(rest) != 0 {
+		t.Fatal("Got more than bargained for, should only have one cert")
+	}
+	if block.Type != "CERTIFICATE" {
+		t.Fatalf("Unexpected root type, expected CERTIFICATE, got %s", block.Type)
+	}
+	rootCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to parse the received root cert: %v", err)
+	}
+	if !rootCert.Equal(eca.RootCA) {
+		t.Errorf("Root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
+	}
 	// TODO(mattmoor): What interesting checks can we perform on
 	// the other return values?
 }
@@ -187,4 +226,45 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 	testIssuer = &oidcServer.URL
 
 	return signer, *testIssuer
+}
+
+// This is private in pkg/ctl, so making a copy here.
+type certChain struct {
+	Chain []string `json:"chain"`
+}
+
+func fakeCTLogServer(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("No body")
+		}
+		var chain certChain
+		json.Unmarshal(body, &chain)
+		if len(chain.Chain) != 1 {
+			t.Fatalf("Did not get expected chain for input, wanted 1 entry, got %d", len(chain.Chain))
+		}
+		// Just make sure we can decode it.
+		for _, chainEntry := range chain.Chain {
+			_, err := base64.StdEncoding.DecodeString(chainEntry)
+			if err != nil {
+				t.Fatalf("Failed to decode incoming chain entry: %v", err)
+			}
+		}
+
+		// Create a fake response.
+		resp := &ctl.CertChainResponse{
+			SctVersion: 1,
+			ID:         "testid",
+			Timestamp:  time.Now().Unix(),
+		}
+		responseBytes, err := json.Marshal(&resp)
+		if err != nil {
+			t.Fatalf("Failed to marshal response: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("SCT", testSCT)
+		fmt.Fprint(w, string(responseBytes))
+	}))
 }
