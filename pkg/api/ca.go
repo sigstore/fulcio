@@ -207,7 +207,7 @@ func signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Set the SCT and Content-Type headers, and then respond with a 201 Created.
-	w.Header().Add("SCT", string(sctBytes))
+	w.Header().Add("SCT", base64.StdEncoding.EncodeToString(sctBytes))
 	w.Header().Add("Content-Type", "application/pem-certificate-chain")
 	w.WriteHeader(http.StatusCreated)
 	// Write the PEM encoded certificate chain to the response body.

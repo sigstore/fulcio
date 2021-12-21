@@ -34,6 +34,10 @@ type CertificateResponse struct {
 	SCT      []byte
 }
 
+type RootResponse struct {
+	ChainPEM []byte
+}
+
 // SigstorePublicServerURL is the URL of Sigstore's public Fulcio service.
 const SigstorePublicServerURL = "https://fulcio.sigstore.dev"
 
@@ -42,6 +46,8 @@ type Client interface {
 	// SigningCert sends the provided CertificateRequest to the /api/v1/signingCert
 	// endpoint of a Fulcio API, authenticated with the provided bearer token.
 	SigningCert(cr CertificateRequest, token string) (*CertificateResponse, error)
+	// RootCert sends a request to get the current CA used by Fulcio.
+	RootCert() (*RootResponse, error)
 }
 
 // ClientOption is a functional option for customizing static signatures.
@@ -112,12 +118,37 @@ func (c *client) SigningCert(cr CertificateRequest, token string) (*CertificateR
 
 	// Split the cert and the chain
 	certBlock, chainPem := pem.Decode(body)
+	if certBlock == nil {
+		return nil, errors.New("did not find a cert from Fulcio")
+	}
 	certPem := pem.EncodeToMemory(certBlock)
 	return &CertificateResponse{
 		CertPEM:  certPem,
 		ChainPEM: chainPem,
 		SCT:      sct,
 	}, nil
+}
+
+func (c *client) RootCert() (*RootResponse, error) {
+	// Construct the API endpoint for this handler
+	endpoint := *c.baseURL
+	endpoint.Path = path.Join(endpoint.Path, rootCertPath)
+
+	resp, err := http.Get(endpoint.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(string(body))
+	}
+	return &RootResponse{ChainPEM: body}, nil
 }
 
 type clientOptions struct {
