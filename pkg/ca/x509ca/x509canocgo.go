@@ -22,8 +22,14 @@ import (
 	"errors"
 )
 
+type Params struct {
+	ConfigPath string
+	RootID     string
+	CAPath     *string
+}
+
 // NewX509CA is a placeholder for erroring with a meaningful message if the
-// binary has been built with purego tags.
-func NewX509CA() (*X509CA, error) {
+// binary has been built with GCO_ENABLED=0 tags.
+func NewX509CA(params Params) (*X509CA, error) {
 	return nil, errors.New("binary has been built with no cgo support, PKCS11 not supported")
 }
