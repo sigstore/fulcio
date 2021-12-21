@@ -110,6 +110,7 @@ func (c *CodeSigningCertificate) ChainPEM() ([]byte, error) {
 // CertificateAuthority only returns the SCT in detached format
 type CertificateAuthority interface {
 	CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*CodeSigningCertificate, error)
+	Root(ctx context.Context) ([]byte, error)
 }
 
 type EmbeddedSCTCA interface {

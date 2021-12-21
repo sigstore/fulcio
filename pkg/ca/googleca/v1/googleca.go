@@ -23,6 +23,8 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
@@ -31,6 +33,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"google.golang.org/api/iterator"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -38,9 +41,13 @@ import (
 type CertAuthorityService struct {
 	parent string
 	client *privateca.CertificateAuthorityClient
+
+	// protected by once
+	cachedRoots     []byte
+	cachedRootsOnce sync.Once
 }
 
-func NewCertAuthorityService(ctx context.Context, parent string) (*CertAuthorityService, error) {
+func NewCertAuthorityService(ctx context.Context, parent string) (ca.CertificateAuthority, error) {
 	client, err := privateca.NewCertificateAuthorityClient(ctx)
 	if err != nil {
 		return nil, err
@@ -131,6 +138,24 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 			},
 		},
 	}, nil
+}
+
+func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
+	c.cachedRootsOnce.Do(func() {
+		var pems string
+		cas := c.client.ListCertificateAuthorities(ctx, &privatecapb.ListCertificateAuthoritiesRequest{
+			Parent: c.parent,
+		})
+		for {
+			c, done := cas.Next()
+			if done == iterator.Done {
+				break
+			}
+			pems += strings.Join(c.PemCaCertificates, "")
+		}
+		c.cachedRoots = []byte(pems)
+	})
+	return c.cachedRoots, nil
 }
 
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {

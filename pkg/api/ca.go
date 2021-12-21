@@ -48,12 +48,16 @@ type CertificateRequest struct {
 	SignedEmailAddress []byte `json:"signedEmailAddress"`
 }
 
-const signingCertPath = "/api/v1/signingCert"
+const (
+	signingCertPath = "/api/v1/signingCert"
+	rootCertPath    = "/api/v1/rootCert"
+)
 
 // NewHandler creates a new http.Handler for serving the Fulcio API.
 func NewHandler() http.Handler {
 	handler := http.NewServeMux()
 	handler.HandleFunc(signingCertPath, signingCert)
+	handler.HandleFunc(rootCertPath, rootCert)
 	return handler
 }
 
@@ -208,6 +212,21 @@ func signingCert(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	// Write the PEM encoded certificate chain to the response body.
 	if _, err := w.Write([]byte(strings.TrimSpace(ret.String()))); err != nil {
+		logger.Error("Error writing response: ", err)
+	}
+}
+
+func rootCert(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	logger := log.ContextLogger(ctx)
+
+	ca := GetCA(ctx)
+	root, err := ca.Root(ctx)
+	if err != nil {
+		logger.Error("Error retrieving root cert: ", err)
+	}
+	w.Header().Add("Content-Type", "application/pem-certificate-chain")
+	if _, err := w.Write(root); err != nil {
 		logger.Error("Error writing response: ", err)
 	}
 }
