@@ -1,1 +1,8 @@
 @sigstore/fulcio-codeowners
+
+# The CODEOWNERS are managed via a GitHub team, but the current list is (in alphabetical order):
+
+# bobcallaway
+# dlorenc
+# lukehinds
+# mattmoor
