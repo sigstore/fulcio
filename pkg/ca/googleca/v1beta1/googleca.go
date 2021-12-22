@@ -157,10 +157,16 @@ func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
 			if done == iterator.Done {
 				break
 			}
+			if done != nil {
+				break
+			}
 			pems += strings.Join(c.PemCaCertificates, "")
 		}
 		c.cachedRoots = []byte(pems)
 	})
+	if len(c.cachedRoots) == 0 {
+		return c.cachedRoots, fmt.Errorf("error fetching root certificates")
+	}
 	return c.cachedRoots, nil
 }
 
