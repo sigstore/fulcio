@@ -77,7 +77,7 @@ services:
       - ctfeConfig:/etc/config/:ro
     command: [
         "--log_config" ,"/etc/config/ct_server.cfg",
-        "--log_rpc_server", "trillian-log-server:8091",
+        "--log_rpc_server", "trillian-log-server:8096",
         "--http_endpoint", "0.0.0.0:6962",
         "--alsologtostderr",
     ]
@@ -107,14 +107,14 @@ services:
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
-      "--rpc_endpoint=0.0.0.0:8091",
-      "--http_endpoint=0.0.0.0:8090",
+      "--rpc_endpoint=0.0.0.0:8096",
+      "--http_endpoint=0.0.0.0:8095",
       "--alsologtostderr",
     ]
     restart: always # retry while mysql is starting up
     ports:
-      - "8090:8090"
-      - "8091:8091"
+      - "8095:8090"
+      - "8096:8091"
     depends_on:
       - mysql
   trillian-log-signer:
@@ -122,14 +122,14 @@ services:
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
-      "--rpc_endpoint=0.0.0.0:8090",
-      "--http_endpoint=0.0.0.0:8091",
+      "--rpc_endpoint=0.0.0.0:8095",
+      "--http_endpoint=0.0.0.0:8096",
       "--force_master",
       "--alsologtostderr",
     ]
     restart: always # retry while mysql is starting up
     ports:
-      - "8092:8091"
+      - "8097:8096"
     depends_on:
       - mysql
 volumes:
