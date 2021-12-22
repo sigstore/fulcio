@@ -1,10 +1,43 @@
 # Developing Fulcio
 
 Fulcio uses Go and can be run with no other dependencies, other than a trust root PKIX / CA capable system.  Currently
-fulcio supports Google certificate authority service (GCP SA) or a PKCS11 capable HSM (such as SoftHSM). PKCS11 support requires C libraries which can cause some issues in
+fulcio supports Google certificate authority service (GCP SA) or a PKCS11 capable HSM (such as SoftHSM), or ephemeralca (in memory certs) for TESTING only. PKCS11 support requires C libraries which can cause some issues in
 some cases (like building on Mac M1), and if you do not require it, you can
 disable support for it by specifying `CGO_ENABLED=0` when building. **NOTE**
 This removes the support for `createca` command from the resulting binary.
+
+## Ephemeral CA configuration. **For testing only**
+
+> :warning: For testing purposes, an in memory ephemeral root certificate can
+> be used. You can run locally:
+
+```
+go run main.go serve --port 5555 --ca ephemeralca
+```
+
+To see what the root certificate is, you can access it at (in the above case)
+`http://localhost:5555/api/v1/rootCert` or you can also use a
+[client](../pkg/api/client.go) `RootCert` function. For example with curl:
+
+```
+curl http://localhost:5555/api/v1/rootCert
+-----BEGIN CERTIFICATE-----
+MIICCzCCAbGgAwIBAgIIR4gtgtBMoNgwCgYIKoZIzj0EAwIwaDEMMAoGA1UEBhMD
+VVNBMQswCQYDVQQIEwJXQTERMA8GA1UEBxMIS2lya2xhbmQxFTATBgNVBAkTDDc2
+NyA2dGggU3QgUzEOMAwGA1UEERMFOTgwMzMxETAPBgNVBAoTCHNpZ3N0b3JlMB4X
+DTIxMTIyMjA2MjAzOVoXDTMxMTIyMjA2MjAzOVowaDEMMAoGA1UEBhMDVVNBMQsw
+CQYDVQQIEwJXQTERMA8GA1UEBxMIS2lya2xhbmQxFTATBgNVBAkTDDc2NyA2dGgg
+U3QgUzEOMAwGA1UEERMFOTgwMzMxETAPBgNVBAoTCHNpZ3N0b3JlMFkwEwYHKoZI
+zj0CAQYIKoZIzj0DAQcDQgAEW+Ctdhm6GD0AiTUESqzI+GPrRdrQC4z+68sh5QHj
+H1pavb3nLYrgpQYSUgAJrPo5ZBLnlsQbb4GncPyPHTKxd6NFMEMwDgYDVR0PAQH/
+BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFKgo/90WHDfyj7Zq
+4hKHmayHVTnqMAoGCCqGSM49BAMCA0gAMEUCIFgYqJsZ5L92QDEoqvI8IIjKjIbF
+MHpdYYsFLBrsowqPAiEAunJRYCuidMVz7vQSQGeHVvEUFMcqMIjx8O+lfGmU1Lc=
+-----END CERTIFICATE-----
+```
+
+If you integrate with CT Log below, the above can then be copied in to
+the `roots_pem_file`.
 
 ## GCP SA configuration
 
@@ -87,21 +120,7 @@ will also store the generated Root CA into the HSM by the delegated id passed to
 fulcio createca --org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
 ```
 
-`fulcio createca` will return a root certificate if used with the `-o` flag. If you plan to run fulcio with a CTFE,
-then you will need to configure the root certificate as the trust chain. This can be done as follows::
-
-Copy your root certification from the above step `myrootCA.pem` and then set this within your `ct.cfg` as follows:
-
-
-```json
-config {
-	log_id: $log_id
-	prefix: "test"
-	roots_pem_file: "/etc/config/myrootCA.pem"
-....
-}
-```
-
+`fulcio createca` will return a root certificate if used with the `-o` flag.
 
 ### Run PKCS11CA
 
@@ -117,6 +136,27 @@ fulcio serve --ca pkcs11ca --hsm-caroot-id 99
 
 fulcioCA has only been validated against a SoftHSM. In theory this should also work with all PKCS11 compliant
 HSM's, but to date we have only tested against a SoftHSM.
+
+---
+
+## Integrating with CTFE
+
+In order for the CTFE to accept entries from your fulcio instance, you will need
+to configure the root certificate as the trust chain on CTFE.
+This can be done as follows:
+
+Copy your root certificate from one of the above steps into `myrootCA.pem` and
+then set this within your `ct.cfg` as follows:
+
+
+```json
+config {
+	log_id: $log_id
+	prefix: "test"
+	roots_pem_file: "/etc/config/myrootCA.pem"
+....
+}
+```
 
 ---
 
