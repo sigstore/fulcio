@@ -24,6 +24,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/api"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
@@ -42,7 +43,7 @@ func newServeCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
-	cmd.Flags().String("ca", "", "googleca | pkcs11ca | ephemeralca (for testing)")
+	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	cmd.Flags().String("gcp_private_ca_version", "v1", "private ca version: [v1|v1beta1] (only used with --ca googleca)")
@@ -50,6 +51,10 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	cmd.Flags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 	cmd.Flags().String("pkcs11-config-path", "config/crypto11.conf", "path to fulcio pkcs11 config file")
+	cmd.Flags().String("fileca-cert", "", "Path to CA certificate")
+	cmd.Flags().String("fileca-key", "", "Path to CA encrypted private key")
+	cmd.Flags().String("fileca-key-passwd", "", "Password to decrypt CA private key")
+	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests")
 
@@ -75,6 +80,17 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	case "googleca":
 		if !viper.IsSet("gcp_private_ca_parent") {
 			log.Logger.Fatal("gcp_private_ca_parent must be set when using googleca")
+		}
+
+	case "fileca":
+		if !viper.IsSet("fileca-cert") {
+			log.Logger.Fatal("fileca-cert must be set to certificate path when using fileca")
+		}
+		if !viper.IsSet("fileca-key") {
+			log.Logger.Fatal("fileca-key must be set to private key path when using fileca")
+		}
+		if !viper.IsSet("fileca-key-passwd") {
+			log.Logger.Fatal("fileca-key-passwd must be set to encryption password for private key file when using fileca")
 		}
 
 	case "ephemeralca":
@@ -116,6 +132,12 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			params.CAPath = &path
 		}
 		baseca, err = x509ca.NewX509CA(params)
+	case "fileca":
+		certFile := viper.GetString("fileca-cert")
+		keyFile := viper.GetString("fileca-key")
+		keyPass := viper.GetString("fileca-key-passwd")
+		watch := viper.GetBool("fileca-watch")
+		baseca, err = fileca.NewFileCA(certFile, keyFile, keyPass, watch)
 	case "ephemeralca":
 		baseca, err = ephemeralca.NewEphemeralCA()
 	default:
