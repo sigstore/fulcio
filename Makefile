@@ -19,7 +19,6 @@ all: fulcio
 # Ensure Make is run with bash shell as some syntax below is bash-specific
 SHELL:=/usr/bin/env bash
 
-OPENAPIDEPS = openapi.yaml
 SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go")
 TOOLS_DIR := hack/tools
 TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/bin)
