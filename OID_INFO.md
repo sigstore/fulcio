@@ -15,4 +15,9 @@ Note that all values begin from the root OID 1.3.6.1.4.1.57264 [registered by Da
     - This contains the `event_name` claim from the GitHub OIDC Identity token that contains the name of the event that triggered the workflow run. [(docs)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token)
 - *1.3.6.1.4.1.57264.1.3*: (GithubWorkflowSha)
     - This contains the `sha` claim from the GitHub OIDC Identity token that contains the commit SHA that the workflow run was based upon. [(docs)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token)
-
+- *1.3.6.1.4.1.57264.1.4*: (GithubWorkflowName)
+    - This contains the `workflow` claim from the GitHub OIDC Identity token that contains the name of the executed workflow. [(docs)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token)
+- *1.3.6.1.4.1.57264.1.5*: (GithubWorkflowRepository)
+    - This contains the `repository` claim from the GitHub OIDC Identity token that contains the repository that the workflow run was based upon. [(docs)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token)
+- *1.3.6.1.4.1.57264.1.6*: (GithubWorkflowRef)
+    - This contains the `ref` claim from the GitHub OIDC Identity token that contains the git ref that the workflow run was based upon. [(docs)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token)
