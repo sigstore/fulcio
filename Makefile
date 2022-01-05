@@ -19,10 +19,7 @@ all: fulcio
 # Ensure Make is run with bash shell as some syntax below is bash-specific
 SHELL:=/usr/bin/env bash
 
-OPENAPIDEPS = openapi.yaml
 SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go")
-TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/bin)
 BIN_DIR := $(abspath $(ROOT_DIR)/bin)
 
 # Set version variables for LDFLAGS
@@ -59,7 +56,6 @@ test:
 
 clean:
 	rm -rf dist
-	rm -rf hack/tools/bin
 	rm -rf fulcio
 
 up:
@@ -78,7 +74,6 @@ debug:
 .PHONY: modules
 modules: ## Runs go mod to ensure modules are up to date.
 	go mod tidy
-	cd $(TOOLS_DIR); go mod tidy
 
 # --------------------------------------
 ## Release
