@@ -19,7 +19,11 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sigstore/fulcio/pkg/api"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
@@ -34,6 +38,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const serveCmdEnvPrefix = "FULCIO_SERVE"
+
+var serveCmdConfigFilePath string
+
 func newServeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -42,6 +50,7 @@ func newServeCmd() *cobra.Command {
 		Run:   runServeCmd,
 	}
 
+	cmd.Flags().StringVarP(&serveCmdConfigFilePath, "config", "c", "", "config file containing all settings")
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
 	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
@@ -58,20 +67,27 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests")
 
-	err := cmd.MarkFlagRequired("ca")
-	if err != nil {
-		log.Logger.Fatal(`Failed to mark flag as required`)
-	}
-
 	return cmd
 }
 
 func runServeCmd(cmd *cobra.Command, args []string) {
+	// If a config file is provided, modify the viper config to locate and read it
+	if err := checkServeCmdConfigFile(); err != nil {
+		log.Logger.Fatal(err)
+	}
+
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
 		log.Logger.Fatal(err)
 	}
 
+	// Allow recognition of environment variables such as FULCIO_SERVE_CA etc.
+	viper.SetEnvPrefix(serveCmdEnvPrefix)
+	viper.AutomaticEnv()
+
 	switch viper.GetString("ca") {
+	case "":
+		log.Logger.Fatal("required flag \"ca\" not set")
+
 	case "pkcs11ca":
 		if !viper.IsSet("hsm-caroot-id") {
 			log.Logger.Fatal("hsm-caroot-id must be set when using pkcs11ca")
@@ -185,4 +201,35 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Logger.Fatal(err)
 	}
+}
+
+func checkServeCmdConfigFile() error {
+	if serveCmdConfigFilePath != "" {
+		if _, err := os.Stat(serveCmdConfigFilePath); err != nil {
+			return errors.Wrap(err, "unable to stat config file provided")
+		}
+		abspath, err := filepath.Abs(serveCmdConfigFilePath)
+		if err != nil {
+			return errors.Wrap(err, "unable to determine absolute path of config file provided")
+		}
+		extWithDot := filepath.Ext(abspath)
+		ext := strings.TrimPrefix(extWithDot, ".")
+		var extIsValid bool
+		for _, validExt := range viper.SupportedExts {
+			if ext == validExt {
+				extIsValid = true
+				break
+			}
+		}
+		if !extIsValid {
+			return fmt.Errorf("config file must have one of the following extensions: %s", strings.Join(viper.SupportedExts, ", "))
+		}
+		viper.SetConfigName(strings.TrimSuffix(filepath.Base(abspath), extWithDot))
+		viper.SetConfigType(ext)
+		viper.AddConfigPath(filepath.Dir(serveCmdConfigFilePath))
+		if err := viper.ReadInConfig(); err != nil {
+			return errors.Wrap(err, "unable to parse config file provided")
+		}
+	}
+	return nil
 }

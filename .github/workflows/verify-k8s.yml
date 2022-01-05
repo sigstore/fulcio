@@ -148,12 +148,6 @@ jobs:
           # Reduce the resource requests of Fulcio
           sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
           sed -i -e 's,cpu: ".5",cpu: "50m",g' ${{ github.workspace }}/config/deployment.yaml
-          # Switch to fileca for testing.
-          sed -i -e \
-            's,--ca=googleca,--ca=fileca --fileca-key=/etc/fulcio-secret/key.pem --fileca-cert=/etc/fulcio-secret/cert.pem --fileca-passwd=${{ github.run_id }},g' \
-            ${{ github.workspace }}/config/deployment.yaml
-          # Drop the ct-log flag's value to elide CT-log uploads.
-          sed -i -E 's,"--ct-log-url=[^"]+","--ct-log-url=",g' ${{ github.workspace }}/config/deployment.yaml
           # Switch to one replica to make it easier to test the scraping of
           # metrics since we know all the requests then go to the same server.
           sed -i -E 's,replicas: 3,replicas: 1,g' ${{ github.workspace }}/config/deployment.yaml
@@ -185,9 +179,18 @@ jobs:
             namespace: fulcio-dev
           data:
             config.json: |-
-                {
-                  ${{ matrix.issuer-config }}
-                }
+              {
+                ${{ matrix.issuer-config }}
+              }
+            server.yaml: |-
+              host: 0.0.0.0
+              port: 5555
+              ca: fileca
+              fileca-cert: /etc/fulcio-secret/cert.pem
+              fileca-key: /etc/fulcio-secret/key.pem
+              fileca-key-passwd: "${{ github.run_id }}"
+              ct-log-url: ""
+              log_type: prod
           EOF
 
           # Create secret needed to use fileca
@@ -195,15 +198,12 @@ jobs:
           apiVersion: v1
           kind: Secret
           metadata:
-            name: fulcio-config
+            name: fulcio-secret
             namespace: fulcio-dev
           data:
-            key.pem: $(cat "${{ github.run_id }}-key.pem" | base64)
-            cert.pem: $(cat "${{ github.run_id }}-cert.pem" | base64)
+            cert.pem: $(cat ${{ github.run_id }}-cert.pem | base64 -w 0)
+            key.pem: $(cat ${{ github.run_id }}-key.pem | base64 -w 0)
           EOF
-
-          #temp cat
-          cat config/fulcio-secret.yaml
 
           kubectl create ns fulcio-dev
 
