@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.16
 
 require (
-	cloud.google.com/go/security v1.1.0
+	cloud.google.com/go/security v1.1.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/coreos/go-oidc/v3 v3.1.0
