@@ -55,6 +55,13 @@ data:
             }
           }
         }
+    server.yaml: |-
+        host: 0.0.0.0
+        port: 5555
+        ca: googleca
+        gcp_private_ca_version: v1
+        ct-log-url: http://ct-log/test
+        log_type: prod
 kind: ConfigMap
 metadata:
     name: fulcio-config
