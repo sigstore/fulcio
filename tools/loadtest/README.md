@@ -8,6 +8,12 @@
 1. Fetch an identity token for a service account with `gcloud auth print-identity-token --audiences sigstore --impersonate-service-account <name>@<project-id>.iam.gserviceaccount.com --include-email`.
 1. Start `locust`, configuring number of users, spawn rate, host, maximum QPS per user, and identity token.
 
+## Prerequisites
+
+You will need Python 3 to install the Python requirements.
+
+You will also need to set up a GCP project with a single service account. The service account will be used to generate an identity token for calls to Fulcio.
+
 ## Running Locust
 
 ### Installation
