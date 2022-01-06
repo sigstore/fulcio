@@ -115,6 +115,27 @@ func AdditionalExtensions(subject *challenges.ChallengeResult) []pkix.Extension 
 				Value: []byte(sha),
 			})
 		}
+
+		if name, ok := subject.AdditionalInfo[challenges.GithubWorkflowName]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4},
+				Value: []byte(name),
+			})
+		}
+
+		if repo, ok := subject.AdditionalInfo[challenges.GithubWorkflowRepository]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5},
+				Value: []byte(repo),
+			})
+		}
+
+		if ref, ok := subject.AdditionalInfo[challenges.GithubWorkflowRef]; ok {
+			res = append(res, pkix.Extension{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6},
+				Value: []byte(ref),
+			})
+		}
 	}
 	return res
 }
