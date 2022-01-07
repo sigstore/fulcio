@@ -52,6 +52,9 @@ spec:
         volumeMounts:
         - name: fulcio-config
           mountPath: /etc/fulcio-config
+        - name: fulcio-secret
+          mountPath: /etc/fulcio-secret
+          readOnly: true
         - name: oidc-info
           mountPath: /var/run/fulcio
         resources:
@@ -62,6 +65,10 @@ spec:
       - name: fulcio-config
         configMap:
           name: fulcio-config
+      - name: fulcio-secret
+        secret:
+          secretName: fulcio-secret
+          optional: true
       - name: oidc-info
         projected:
           sources:

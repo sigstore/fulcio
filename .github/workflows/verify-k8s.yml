@@ -131,6 +131,18 @@ jobs:
           # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
           sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
+      - name: Generate temporary CA files
+        run: |
+          openssl req -x509 \
+              -newkey ed25519 \
+              -sha256 \
+              -keyout "${{ github.run_id }}-key.pem" \
+              -out "${{ github.run_id }}-cert.pem" \
+              -subj "/CN=ed25519" \
+              -days 36500 \
+              -addext basicConstraints=critical,CA:TRUE,pathlen:1 \
+              -passout pass:"${{ github.run_id }}"
+
       - name: Deploy fulcio-dev
         run: |
           # Reduce the resource requests of Fulcio
@@ -173,10 +185,24 @@ jobs:
             server.yaml: |-
               host: 0.0.0.0
               port: 5555
-              ca: ephemeralca
-              gcp_private_ca_version: v1
+              ca: fileca
+              fileca-cert: /etc/fulcio-secret/cert.pem
+              fileca-key: /etc/fulcio-secret/key.pem
+              fileca-key-passwd: "${{ github.run_id }}"
               ct-log-url: ""
               log_type: prod
+          EOF
+
+          # Create secret needed to use fileca
+          cat <<EOF > config/fulcio-secret.yaml
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: fulcio-secret
+            namespace: fulcio-dev
+          data:
+            cert.pem: $(cat ${{ github.run_id }}-cert.pem | base64 -w 0)
+            key.pem: $(cat ${{ github.run_id }}-key.pem | base64 -w 0)
           EOF
 
           kubectl create ns fulcio-dev
