@@ -22,10 +22,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callback func(*x509.Certificate, crypto.Signer)) {
+func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callback func([]*x509.Certificate, crypto.Signer)) {
 	for event := range watcher.Events {
 		if event.Op&fsnotify.Write == fsnotify.Write {
-			cert, key, err := loadKeyPair(certPath, keyPath, keyPass)
+			certs, key, err := loadKeyPair(certPath, keyPath, keyPass)
 			if err != nil {
 				// Don't sweat it if this errors out. One file might
 				// have updated and the other isn't causing a key-pair
@@ -33,7 +33,7 @@ func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callb
 				continue
 			}
 
-			callback(cert, key)
+			callback(certs, key)
 		}
 	}
 }

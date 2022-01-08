@@ -57,14 +57,14 @@ func TestIOWatch(t *testing.T) {
 
 	// Set up callback trap
 	var received []struct {
-		cert *x509.Certificate
-		key  crypto.Signer
+		certs []*x509.Certificate
+		key   crypto.Signer
 	}
-	callback := func(cert *x509.Certificate, key crypto.Signer) {
+	callback := func(certs []*x509.Certificate, key crypto.Signer) {
 		received = append(received, struct {
-			cert *x509.Certificate
-			key  crypto.Signer
-		}{cert, key})
+			certs []*x509.Certificate
+			key   crypto.Signer
+		}{certs, key})
 	}
 
 	// Set up watcher

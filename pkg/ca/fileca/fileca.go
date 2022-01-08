@@ -20,20 +20,20 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 type fileCA struct {
 	sync.RWMutex
 
-	cert *x509.Certificate
-	key  crypto.Signer
+	certs []*x509.Certificate
+	key   crypto.Signer
 }
 
 // NewFileCA returns a file backed certificate authority. Expects paths to a
@@ -43,7 +43,7 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	var fca fileCA
 
 	var err error
-	fca.cert, fca.key, err = loadKeyPair(certPath, keyPath, keyPass)
+	fca.certs, fca.key, err = loadKeyPair(certPath, keyPath, keyPass)
 	if err != nil {
 		return nil, err
 	}
@@ -68,21 +68,21 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	return &fca, err
 }
 
-func (fca *fileCA) updateX509KeyPair(cert *x509.Certificate, key crypto.Signer) {
+func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, key crypto.Signer) {
 	fca.Lock()
 	defer fca.Unlock()
 
 	// NB: We use the RWLock to unsure a reading thread can't get a mismatching
 	// cert / key pair by reading the attributes halfway through the update
 	// below.
-	fca.cert = cert
+	fca.certs = certs
 	fca.key = key
 }
 
 func (fca *fileCA) getX509KeyPair() (*x509.Certificate, crypto.Signer) {
 	fca.RLock()
 	defer fca.RUnlock()
-	return fca.cert, fca.key
+	return fca.certs[0], fca.key
 }
 
 // CreateCertificate issues code signing certificates
@@ -103,8 +103,8 @@ func (fca *fileCA) CreateCertificate(_ context.Context, subject *challenges.Chal
 }
 
 func (fca *fileCA) Root(ctx context.Context) ([]byte, error) {
-	return pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: fca.cert.Raw,
-	}), nil
+	fca.RLock()
+	defer fca.RUnlock()
+
+	return cryptoutils.MarshalCertificatesToPEM(fca.certs)
 }
