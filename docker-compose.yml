@@ -47,6 +47,7 @@ services:
       - ct_server
   dex-idp:
     image: dexidp/dex:v2.30.0
+    user: root
     command: [
       "dex",
       "serve",
