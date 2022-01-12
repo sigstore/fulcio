@@ -22,12 +22,14 @@ jobs:
     name: k8s manifest check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.4.0
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
+      - name: Extract version of Go to use
+        run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
+      - uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 #v2.1.5
         with:
-          go-version: 1.16.x
+          go-version: ${{ env.GOVERSION }}
       - name: Install kubeval
-        run: go get github.com/instrumenta/kubeval
+        run: go get github.com/instrumenta/kubeval@v0.16.1
       - run: kubeval config/*.yaml
 
   verify-k8s-deployment:
@@ -56,12 +58,14 @@ jobs:
       KO_DOCKER_REPO: registry.local:5000/fulcio
 
     steps:
-      - uses: actions/checkout@v2.4.0
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
+      - name: Extract version of Go to use
+        run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
+      - uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 #v2.1.5
         with:
-          go-version: 1.16.x
+          go-version: ${{ env.GOVERSION }}
 
-      - uses: imjasonh/setup-ko@v0.4
+      - uses: imjasonh/setup-ko@2c3450ca27f6e6f2b02e72a40f2163c281a1f675 #v0.4
 
       - name: Install KinD
         run: |
@@ -283,7 +287,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 #v2.3.1
         with:
           name: logs
           path: /tmp/logs
