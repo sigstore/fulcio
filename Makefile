@@ -79,6 +79,14 @@ ko-local:
 		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --local \
 		github.com/sigstore/fulcio
 
+.PHONY: ko-apply
+ko-apply:
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply -Bf config/
+
+.PHONY: ko-publish
+ko-publish:
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish .
+
 ## --------------------------------------
 ## Modules
 ## --------------------------------------
