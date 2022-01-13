@@ -1,0 +1,134 @@
+project_name: fulcio
+
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=1
+  - DOCKER_CLI_EXPERIMENTAL=enabled
+  - COSIGN_EXPERIMENTAL=true
+
+# Prevents parallel builds from stepping on eachothers toes downloading modules
+before:
+  hooks:
+    - go mod tidy
+
+gomod:
+  proxy: true
+
+sboms:
+- artifacts: binary
+
+builds:
+- id: fulcio-linux-amd64
+  binary: fulcio-linux-amd64
+  no_unique_dist_dir: true
+  main: .
+  goos:
+  - linux
+  goarch:
+  - amd64
+  flags:
+  - -trimpath
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  env:
+  - PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
+
+- id: fulcio-linux-arm64
+  binary: fulcio-linux-arm64
+  no_unique_dist_dir: true
+  main: .
+  goos:
+  - linux
+  goarch:
+  - arm64
+  flags:
+  - -trimpath
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  env:
+    - CC=aarch64-linux-gnu-gcc
+
+- id: fulcio-linux-arm
+  binary: fulcio-linux-arm
+  no_unique_dist_dir: true
+  main: .
+  goos:
+  - linux
+  goarch:
+  - arm
+  goarm:
+  - 7
+  flags:
+  - -trimpath
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  env:
+  - CC=arm-linux-gnueabihf-gcc
+
+- id: fulcio-linux-s390x
+  binary: fulcio-linux-s390x
+  no_unique_dist_dir: true
+  main: .
+  goos:
+  - linux
+  goarch:
+  - s390x
+  flags:
+  - -trimpath
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  env:
+  - CC=s390x-linux-gnu-gcc
+
+- id: fulcio-linux-ppc64le
+  binary: fulcio-linux-ppc64le
+  no_unique_dist_dir: true
+  main: .
+  goos:
+  - linux
+  goarch:
+  - ppc64le
+  flags:
+  - -trimpath
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  env:
+  - CC=powerpc64le-linux-gnu-gcc
+
+signs:
+  - signature: "${artifact}.sig"
+    cmd: cosign
+    args: ["sign-blob", "--output-signature", "${artifact}.sig", "--key", "gcpkms://projects/{{ .Env.PROJECT_ID }}/locations/{{ .Env.KEY_LOCATION }}/keyRings/{{ .Env.KEY_RING }}/cryptoKeys/{{ .Env.KEY_NAME }}/versions/{{ .Env.KEY_VERSION }}", "${artifact}"]
+    artifacts: binary
+  # Keyless
+  - id: fulcio-keyless
+    signature: "${artifact}-keyless.sig"
+    certificate: "${artifact}-keyless.pem"
+    cmd: cosign
+    args: ["sign-blob", "--output-signature", "${artifact}-keyless.sig", "--output-certificate", "${artifact}-keyless.pem", "${artifact}"]
+    artifacts: binary
+
+archives:
+  - format: binary
+    name_template: "{{ .Binary }}"
+    allow_different_binary_count: true
+
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+
+snapshot:
+  name_template: SNAPSHOT-{{ .ShortCommit }}
+
+release:
+  prerelease: allow # remove this when we start publishing non-prerelease or set to auto
+  draft: true # allow for manual edits
+  github:
+    owner: sigstore
+    name: fulcio
+  footer: |
+    ### Thanks for all contributors!

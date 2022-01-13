@@ -53,7 +53,9 @@ jobs:
       # thus allowing us to test without bypassing tag-to-digest resolution.
       REGISTRY_NAME: registry.local
       REGISTRY_PORT: 5000
-      KO_DOCKER_REPO: registry.local:5000/fulcio
+      KO_PREFIX: registry.local:5000/fulcio
+      GIT_HASH: ${{ github.sha }}
+      GIT_VERSION: test
 
     steps:
       - uses: actions/checkout@v2.4.0
@@ -146,7 +148,7 @@ jobs:
       - name: Deploy fulcio-dev
         run: |
           # Reduce the resource requests of Fulcio
-          sed -i -e 's,memory: "1G",memory: "100m",g' ${{ github.workspace }}/config/deployment.yaml
+          sed -i -e 's,memory: "1G",memory: "100Mi",g' ${{ github.workspace }}/config/deployment.yaml
           sed -i -e 's,cpu: ".5",cpu: "50m",g' ${{ github.workspace }}/config/deployment.yaml
           # Switch to one replica to make it easier to test the scraping of
           # metrics since we know all the requests then go to the same server.
@@ -207,7 +209,7 @@ jobs:
 
           kubectl create ns fulcio-dev
 
-          ko apply -Bf config/
+          make ko-apply
 
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
 
@@ -215,7 +217,7 @@ jobs:
 
       - name: Run signing job
         run: |
-          DIGEST=$(ko publish .)
+          DIGEST=$(make ko-publish | sed '1d')
 
           cat <<EOF | kubectl apply -f -
           apiVersion: batch/v1
@@ -229,7 +231,7 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  image: gcr.io/projectsigstore/cosign:v1.4.0
+                  image: gcr.io/projectsigstore/cosign:v1.4.1
                   args: [
                     "sign",
                     "--fulcio-url=http://fulcio-server.fulcio-dev.svc",
@@ -274,6 +276,8 @@ jobs:
           EOF
 
           kubectl wait --for=condition=Complete --timeout=90s job/check-prometheus-metrics
+        env:
+          KO_DOCKER_REPO: registry.local:5000/fulcio
 
       - name: Collect logs
         if: ${{ always() }}

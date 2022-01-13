@@ -7,3 +7,12 @@ builds:
 # comment out above), though it does remove the support for the "createca" command.
 # But at least you can deploy it from M1 using this.
 #  - CGO_ENABLED=0
+  flags:
+  - -trimpath
+  - -tags
+  - "{{ .Env.GIT_HASH }}"
+  - -tags
+  - "{{ .Env.GIT_VERSION }}"
+  ldflags:
+  - -extldflags "-static"
+  - "{{ .Env.LDFLAGS }}"

@@ -38,34 +38,54 @@ ifeq ($(DIFF), 1)
     GIT_TREESTATE = "dirty"
 endif
 
-SERVER_PKG=github.com/sigstore/fulcio/cmd/app
-SERVER_LDFLAGS="-X $(SERVER_PKG).gitVersion=$(GIT_VERSION) -X $(SERVER_PKG).gitCommit=$(GIT_HASH) -X $(SERVER_PKG).gitTreeState=$(GIT_TREESTATE) -X $(SERVER_PKG).buildDate=$(BUILD_DATE)"
-	
+FULCIO_PKG=github.com/sigstore/fulcio/cmd/app
+LDFLAGS=-X $(FULCIO_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_PKG).gitCommit=$(GIT_HASH) -X $(FULCIO_PKG).gitTreeState=$(GIT_TREESTATE) -X $(FULCIO_PKG).buildDate=$(BUILD_DATE)
 
-lint:
+KO_PREFIX ?= gcr.io/projectsigstore
+export KO_DOCKER_REPO=$(KO_PREFIX)
+
+lint: ## Runs golangci-lint
 	$(GOBIN)/golangci-lint run -v ./...
 
-gosec:
+gosec: ## Runs gosec
 	$(GOBIN)/gosec ./...
 
-fulcio: $(SRCS)
-	go build -trimpath -ldflags $(SERVER_LDFLAGS)
+fulcio: $(SRCS) ## Build Fulcio for local tests
+	go build -trimpath -ldflags "$(LDFLAGS)"
 
-test:
+test: ## Runs go test
 	go test ./...
 
-clean:
+clean: ## Clean the workspace
 	rm -rf dist
 	rm -rf fulcio
 
-up:
+up: ## Start docker compose
 	docker-compose -f docker-compose.yml build
 	docker-compose -f docker-compose.yml up
 
-debug:
+debug: ## Start docker compose in debug mode
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml build fulcio-server-debug
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml up fulcio-server-debug
 
+## --------------------------------------
+## Images with ko
+## --------------------------------------
+
+.PHONY: ko-local
+ko-local:
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
+	ko publish --base-import-paths --bare \
+		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --local \
+		github.com/sigstore/fulcio
+
+.PHONY: ko-apply
+ko-apply:
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply -Bf config/
+
+.PHONY: ko-publish
+ko-publish:
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish .
 
 ## --------------------------------------
 ## Modules
@@ -75,12 +95,14 @@ debug:
 modules: ## Runs go mod to ensure modules are up to date.
 	go mod tidy
 
-# --------------------------------------
-## Release
-## --------------------------------------
+##################
+# help
+##################
 
-.PHONY: dist
-dist:
-	mkdir -p dist
-	docker run -it -v $(PWD):/go/src/sigstore/fulcio -w /go/src/sigstore/fulcio golang:1.16.6 /bin/bash -c "GOOS=linux GOARCH=amd64 go build -trimpath -o dist/fulcio-server-linux-amd64"
+help: ## Display help
+	@awk -F ':|##' \
+		'/^[^\t].+?:.*?##/ {\
+			printf "\033[36m%-30s\033[0m %s\n", $$1, $$NF \
+		}' $(MAKEFILE_LIST) | sort
 
+include release/release.mk
