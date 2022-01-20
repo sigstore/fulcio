@@ -9,7 +9,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.7
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/pkg/errors v0.9.1
