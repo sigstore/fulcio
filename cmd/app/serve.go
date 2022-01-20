@@ -163,26 +163,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		log.Logger.Fatal(err)
 	}
 
-	decorateHandler := func(h http.Handler) http.Handler {
-		// Wrap the inner func with instrumentation to get latencies
-		// that get partitioned by 'code' and 'method'.
-		return promhttp.InstrumentHandlerDuration(
-			api.MetricLatency,
-			http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-
-				// For each request, infuse context with our snapshot of the FulcioConfig.
-				// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-				// from disk, so that we don't need to cycle pods to pick up config updates.
-				// Alternately we could take advantage of Knative's configmap watcher.
-				ctx = config.With(ctx, cfg)
-				ctx = api.WithCA(ctx, baseca)
-				ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
-
-				h.ServeHTTP(rw, r.WithContext(ctx))
-			}))
-	}
-
 	prom := http.Server{
 		Addr:    ":2112",
 		Handler: promhttp.Handler(),
@@ -193,9 +173,39 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	host, port := viper.GetString("host"), viper.GetString("port")
 	log.Logger.Infof("%s:%s", host, port)
+
+	var handler http.Handler
+	{
+		handler = api.NewHandler()
+
+		// Inject dependencies
+		withDependencies := func(inner http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+
+				// For each request, infuse context with our snapshot of the FulcioConfig.
+				// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
+				// from disk, so that we don't need to cycle pods to pick up config updates.
+				// Alternately we could take advantage of Knative's configmap watcher.
+				ctx = config.With(ctx, cfg)
+				ctx = api.WithCA(ctx, baseca)
+				ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
+
+				inner.ServeHTTP(rw, r.WithContext(ctx))
+			})
+		}
+		handler = withDependencies(handler)
+
+		// Instrument Prometheus metrics
+		handler = promhttp.InstrumentHandlerDuration(api.MetricLatency, handler)
+
+		// Limit request size
+		handler = api.WithMaxBytes(handler, 1<<22) // 4MiB
+	}
+
 	api := http.Server{
 		Addr:    host + ":" + port,
-		Handler: decorateHandler(api.NewHandler()),
+		Handler: handler,
 	}
 
 	if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
