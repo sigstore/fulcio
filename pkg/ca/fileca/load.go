@@ -27,19 +27,62 @@ import (
 	"go.step.sm/crypto/pemutil"
 )
 
-func loadKeyPair(certPath, keyPath, keyPass string) (*x509.Certificate, crypto.Signer, error) {
+func loadKeyPair(certPath, keyPath, keyPass string) ([]*x509.Certificate, crypto.Signer, error) {
 
 	var (
-		cert *x509.Certificate
-		err  error
-		key  crypto.Signer
+		certs []*x509.Certificate
+		err   error
+		key   crypto.Signer
 	)
 
-	// TODO: Load chain of certs (intermediates and root) instead of just one
-	// certificate.
-	cert, err = pemutil.ReadCertificate(certPath)
+	// NB: certs are ordered from leaf at certs[0] to root at
+	// certs[len(certs)-1]
+	certs, err = pemutil.ReadCertificateBundle(certPath)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	// Verify certificate chain
+	{
+		roots := x509.NewCertPool()
+		roots.AddCert(certs[len(certs)-1])
+
+		intermediates := x509.NewCertPool()
+		if len(certs) > 2 {
+			for _, intermediate := range certs[1 : len(certs)-1] {
+				intermediates.AddCert(intermediate)
+			}
+		}
+
+		opts := x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
+			KeyUsages: []x509.ExtKeyUsage{
+				x509.ExtKeyUsageCodeSigning,
+			},
+		}
+		if _, err := certs[0].Verify(opts); err != nil {
+			return nil, nil, err
+		}
+
+		if !certs[0].IsCA {
+			return nil, nil, errors.New(`fileca: certificate is not a CA`)
+		}
+
+		// If using an intermediate, verify that code signing extended key
+		// usage is set to satify extended key usage chainging
+		if len(certs) > 1 {
+			var hasExtKeyUsageCodeSigning bool
+			for _, extKeyUsage := range certs[0].ExtKeyUsage {
+				if extKeyUsage == x509.ExtKeyUsageCodeSigning {
+					hasExtKeyUsageCodeSigning = true
+					break
+				}
+			}
+			if !hasExtKeyUsageCodeSigning {
+				return nil, nil, errors.New(`fileca: certificate must have extended key usage code signing set to sign code signing certificates`)
+			}
+		}
 	}
 
 	{
@@ -55,15 +98,11 @@ func loadKeyPair(certPath, keyPath, keyPass string) (*x509.Certificate, crypto.S
 		}
 	}
 
-	if !valid(cert, key) {
+	if !valid(certs[0], key) {
 		return nil, nil, errors.New(`fileca: certificate public key and private key don't match`)
 	}
 
-	if !cert.IsCA {
-		return nil, nil, errors.New(`fileca: certificate is not a CA`)
-	}
-
-	return cert, key, nil
+	return certs, key, nil
 }
 
 func valid(cert *x509.Certificate, key crypto.Signer) bool {
