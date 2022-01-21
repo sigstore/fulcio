@@ -63,7 +63,7 @@ func CreateCSCFromPEM(subject *challenges.ChallengeResult, cert string, chain []
 	return c, nil
 }
 
-func CreateCSCFromDER(subject *challenges.ChallengeResult, cert, chain []byte) (c *CodeSigningCertificate, err error) {
+func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []*x509.Certificate) (c *CodeSigningCertificate, err error) {
 	c = &CodeSigningCertificate{
 		Subject: subject,
 	}
@@ -76,14 +76,14 @@ func CreateCSCFromDER(subject *challenges.ChallengeResult, cert, chain []byte) (
 	}
 
 	// convert to X509 and store both formats
-	c.FinalChain, err = x509.ParseCertificates(chain)
+	c.FinalChain = chain
 	if err != nil {
 		return nil, err
 	}
 	buf := bytes.Buffer{}
-	for i, chainCert := range c.FinalChain {
+	for _, chainCert := range c.FinalChain {
 		buf.Write(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))
-		if i != len(c.FinalChain) {
+		if chainCert.Raw[len(chainCert.Raw)-1] != '\n' {
 			buf.WriteRune('\n')
 		}
 	}
