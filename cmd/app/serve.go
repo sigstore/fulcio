@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -206,6 +207,12 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	api := http.Server{
 		Addr:    host + ":" + port,
 		Handler: handler,
+
+		// Timeouts
+		ReadTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
