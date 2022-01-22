@@ -96,7 +96,7 @@ func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.Challe
 		return nil, err
 	}
 
-	return ca.CreateCSCFromDER(subject, finalCertBytes, nil)
+	return ca.CreateCSCFromDER(subject, finalCertBytes, []*x509.Certificate{x.RootCA})
 }
 
 func AdditionalExtensions(subject *challenges.ChallengeResult) []pkix.Extension {

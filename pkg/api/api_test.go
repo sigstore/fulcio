@@ -242,8 +242,8 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 		}
 		var chain certChain
 		json.Unmarshal(body, &chain)
-		if len(chain.Chain) != 1 {
-			t.Fatalf("Did not get expected chain for input, wanted 1 entry, got %d", len(chain.Chain))
+		if len(chain.Chain) != 2 {
+			t.Fatalf("Did not get expected chain for input, wanted 2 entries, got %d", len(chain.Chain))
 		}
 		// Just make sure we can decode it.
 		for _, chainEntry := range chain.Chain {

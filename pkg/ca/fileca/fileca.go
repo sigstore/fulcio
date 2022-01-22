@@ -99,7 +99,7 @@ func (fca *fileCA) CreateCertificate(_ context.Context, subject *challenges.Chal
 		return nil, err
 	}
 
-	return ca.CreateCSCFromDER(subject, finalCertBytes, nil)
+	return ca.CreateCSCFromDER(subject, finalCertBytes, fca.certs)
 }
 
 func (fca *fileCA) Root(ctx context.Context) ([]byte, error) {
