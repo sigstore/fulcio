@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 type X509CA struct {
@@ -43,11 +44,16 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 	var serialNumber big.Int
 	serialNumber.SetBytes(uuid[:])
 
+	skid, err := cryptoutils.SKID(subject.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
 	cert := &x509.Certificate{
 		SerialNumber: &serialNumber,
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(time.Minute * 10),
-		SubjectKeyId: []byte{1, 2, 3, 4, 6},
+		SubjectKeyId: skid,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		KeyUsage:     x509.KeyUsageCertSign,
 	}
