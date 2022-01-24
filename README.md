@@ -232,7 +232,7 @@ Auditors can monitor Rekor's log to ensure these are added, shifting the complex
 ## Security
 
 Should you discover any security issues, please refer to sigstores [security
-process](https://github.com/sigstore/community/blob/main/SECURITY.md)
+process](https://github.com/sigstore/.github/blob/main/SECURITY.md)
 
 ## Info
 
