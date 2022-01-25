@@ -62,7 +62,7 @@ The public Fulcio root CA is currently running on [GCP CA Service](https://cloud
 You can also run Fulcio with your own CA on CA Service by passing in a parent and specifying Google as the CA:
 
 ```
-go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/caPools/mypool --gcp_private_ca_version=v1
+go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/caPools/mypool
 ```
 
 ### PKCS11CA

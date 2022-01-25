@@ -56,7 +56,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
-	cmd.Flags().String("gcp_private_ca_version", "v1", "private ca version: [v1|v1beta1] (only used with --ca googleca)")
+	cmd.Flags().String("gcp_private_ca_version", "v1", "private ca version (only used with --ca googleca); DEPRECATED")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	cmd.Flags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
@@ -98,6 +98,10 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if !viper.IsSet("gcp_private_ca_parent") {
 			log.Logger.Fatal("gcp_private_ca_parent must be set when using googleca")
 		}
+		if viper.IsSet("gcp_private_ca_version") {
+			// There's a MarkDeprecated function in cobra/pflags, but it doesn't use log.Logger
+			log.Logger.Warn("gcp_private_ca_version is deprecated and will soon be removed; please remove it")
+		}
 
 	case "fileca":
 		if !viper.IsSet("fileca-cert") {
@@ -135,6 +139,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		case "v1":
 			baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 		case "v1beta1":
+			log.Logger.Warn("gcp_private_ca_version v1beta1 will soon be removed (remove flag gcp_private_ca_parent)")
 			baseca, err = googlecav1beta1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 		default:
 			err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
