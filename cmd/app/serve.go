@@ -31,7 +31,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
-	googlecav1beta1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1beta1"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -56,7 +55,6 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
-	cmd.Flags().String("gcp_private_ca_version", "v1", "private ca version (only used with --ca googleca); DEPRECATED")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	cmd.Flags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
@@ -134,16 +132,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	var baseca certauth.CertificateAuthority
 	switch viper.GetString("ca") {
 	case "googleca":
-		version := viper.GetString("gcp_private_ca_version")
-		switch version {
-		case "v1":
-			baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
-		case "v1beta1":
-			log.Logger.Warn("gcp_private_ca_version v1beta1 will soon be removed (remove flag gcp_private_ca_parent)")
-			baseca, err = googlecav1beta1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
-		default:
-			err = fmt.Errorf("invalid value for gcp_private_ca_version: %v", version)
-		}
+		baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 	case "pkcs11ca":
 		params := x509ca.Params{
 			ConfigPath: viper.GetString("pkcs11-config-path"),
