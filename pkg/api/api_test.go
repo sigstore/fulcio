@@ -85,9 +85,9 @@ func TestAPI(t *testing.T) {
 	if ctlogServer == nil {
 		t.Fatalf("Failed to create the fake ctlog server")
 	}
-	ctlogURL := ctlogServer.URL
+
 	// Create a test HTTP server to host our API.
-	h := NewHandler()
+	h := New(ctl.New(ctlogServer.URL))
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		// For each request, infuse context with our snapshot of the FulcioConfig.
@@ -95,7 +95,6 @@ func TestAPI(t *testing.T) {
 
 		// Decorate the context with our CA for testing.
 		ctx = WithCA(ctx, eca)
-		ctx = WithCTLogURL(ctx, ctlogURL)
 
 		h.ServeHTTP(rw, r.WithContext(ctx))
 	}))
