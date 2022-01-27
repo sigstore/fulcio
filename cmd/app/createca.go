@@ -168,8 +168,7 @@ func runCreateCACmd(cmd *cobra.Command, args []string) {
 		}
 		if err := pem.Encode(certOut, &pem.Block{ //nolint
 			Type:  "CERTIFICATE",
-			Bytes: caBytes,
-		},
+			Bytes: caBytes},
 		); err != nil {
 			certOut.Close()
 			log.Logger.Fatal(err)
