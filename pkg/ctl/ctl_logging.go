@@ -20,12 +20,12 @@ import (
 	"go.uber.org/zap"
 )
 
-type loggingClient struct {
+type ctlLoggingClient struct {
 	next   Client
 	logger *zap.SugaredLogger
 }
 
-func (lc *loggingClient) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+func (lc *ctlLoggingClient) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 	lc.logger.Info("Submitting CTL inclusion for subject", csc.Subject.Value)
 	resp, err := lc.next.AddChain(csc)
 	if err != nil {
@@ -37,7 +37,8 @@ func (lc *loggingClient) AddChain(csc *ca.CodeSigningCertificate) (*CertChainRes
 	return resp, nil
 }
 
-// WithLogging adds logging to a certificate transparenct log client
+// WithLogging adds logging (in the writing helpful information to console
+// sense) to a certificate transparenct log client
 func WithLogging(next Client, logger *zap.SugaredLogger) Client {
-	return &loggingClient{next, logger}
+	return &ctlLoggingClient{next, logger}
 }

@@ -174,6 +174,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	var ctClient ctl.Client
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
 		ctClient = ctl.New(logURL)
+		ctClient = ctl.WithLogging(ctClient, log.Logger)
 	}
 
 	var handler http.Handler
