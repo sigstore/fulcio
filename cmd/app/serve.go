@@ -116,7 +116,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	case "ephemeralca":
 		// this is a no-op since this is a self-signed in-memory CA for testing
 	default:
-		log.Logger.Fatal("unknown CA: ", viper.GetString("ca"))
+		log.Logger.Fatalf("--ca=%s is not a valid selection. Try: pkcs11ca, googleca, fileca, or ephemeralca", viper.GetString("ca"))
 	}
 
 	// Setup the logger to dev/prod
