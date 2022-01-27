@@ -94,10 +94,14 @@ func runCreateCACmd(cmd *cobra.Command, args []string) {
 
 	// Find the existing Key Pair
 	// TODO: We could make the TAG customizable
-	log.Logger.Info("finding slot for private key: ", LABEL)
+	log.Logger.Infof("finding slot for private key label %q", LABEL)
 	privKey, err := p11Ctx.FindKeyPair(nil, []byte(LABEL))
 	if err != nil {
 		log.Logger.Fatal(err)
+	}
+
+	if privKey == nil {
+		log.Logger.Fatalf("no key pair was found matching label %q", LABEL)
 	}
 
 	pubKey := privKey.Public()
@@ -164,7 +168,8 @@ func runCreateCACmd(cmd *cobra.Command, args []string) {
 		}
 		if err := pem.Encode(certOut, &pem.Block{ //nolint
 			Type:  "CERTIFICATE",
-			Bytes: caBytes},
+			Bytes: caBytes,
+		},
 		); err != nil {
 			certOut.Close()
 			log.Logger.Fatal(err)
