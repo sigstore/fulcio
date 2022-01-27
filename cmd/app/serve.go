@@ -33,6 +33,7 @@ import (
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -169,9 +170,14 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	host, port := viper.GetString("host"), viper.GetString("port")
 	log.Logger.Infof("%s:%s", host, port)
 
+	var ctClient *ctl.Client
+	if logURL := viper.GetString("ct-log-url"); logURL != "" {
+		ctClient = ctl.New(logURL)
+	}
+
 	var handler http.Handler
 	{
-		handler = api.NewHandler()
+		handler = api.New(ctClient)
 
 		// Inject dependencies
 		withDependencies := func(inner http.Handler) http.Handler {
@@ -184,7 +190,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 				// Alternately we could take advantage of Knative's configmap watcher.
 				ctx = config.With(ctx, cfg)
 				ctx = api.WithCA(ctx, baseca)
-				ctx = api.WithCTLogURL(ctx, viper.GetString("ct-log-url"))
 
 				inner.ServeHTTP(rw, r.WithContext(ctx))
 			})

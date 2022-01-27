@@ -53,12 +53,19 @@ const (
 	rootCertPath    = "/api/v1/rootCert"
 )
 
-// NewHandler creates a new http.Handler for serving the Fulcio API.
-func NewHandler() http.Handler {
-	handler := http.NewServeMux()
-	handler.HandleFunc(signingCertPath, signingCert)
-	handler.HandleFunc(rootCertPath, rootCert)
-	return handler
+type api struct {
+	ct *ctl.Client
+	*http.ServeMux
+}
+
+// New creates a new http.Handler for serving the Fulcio API.
+func New(c *ctl.Client) http.Handler {
+	var a api
+	a.ServeMux = http.NewServeMux()
+	a.HandleFunc(signingCertPath, a.signingCert)
+	a.HandleFunc(rootCertPath, a.rootCert)
+	a.ct = c
+	return &a
 }
 
 func extractIssuer(token string) (string, error) {
@@ -99,7 +106,7 @@ func actualAuthorize(req *http.Request) (*oidc.IDToken, error) {
 	return verifier.Verify(req.Context(), token)
 }
 
-func signingCert(w http.ResponseWriter, req *http.Request) {
+func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		err := fmt.Errorf("signing cert handler must receive POSTs, got %s", req.Method)
 		handleFulcioAPIError(w, req, http.StatusMethodNotAllowed, err, err.Error())
@@ -165,15 +172,12 @@ func signingCert(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		// TODO: initialize CTL client once
 		// Submit to CTL
 		logger.Info("Submitting CTL inclusion for OIDC grant: ", subject.Value)
-		ctURL := GetCTLogURL(ctx)
-		if ctURL != "" {
-			c := ctl.New(ctURL)
-			sct, err := c.AddChain(csc)
+		if a.ct != nil {
+			sct, err := a.ct.AddChain(csc)
 			if err != nil {
-				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, fmt.Sprintf(failedToEnterCertInCTL, ctURL))
+				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
 				return
 			}
 			sctBytes, err = json.Marshal(sct)
@@ -223,7 +227,7 @@ func signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func rootCert(w http.ResponseWriter, req *http.Request) {
+func (a *api) rootCert(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	logger := log.ContextLogger(ctx)
 
@@ -271,22 +275,4 @@ func GetCA(ctx context.Context) certauth.CertificateAuthority {
 		return nil
 	}
 	return untyped.(certauth.CertificateAuthority)
-}
-
-type ctKey struct{}
-
-// WithCTLogURL associates the provided certificate transparency log URL with
-// the provided context.
-func WithCTLogURL(ctx context.Context, ct string) context.Context {
-	return context.WithValue(ctx, ctKey{}, ct)
-}
-
-// GetCTLogURL accesses the certificate transparency log URL associated with
-// the provided context.
-func GetCTLogURL(ctx context.Context) string {
-	untyped := ctx.Value(ctKey{})
-	if untyped == nil {
-		return ""
-	}
-	return untyped.(string)
 }

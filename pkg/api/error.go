@@ -26,7 +26,7 @@ const (
 	invalidSignature          = "The signature supplied in the request could not be verified"
 	invalidCertificateRequest = "The CertificateRequest was invalid"
 	invalidPublicKey          = "The public key supplied in the request could not be parsed"
-	failedToEnterCertInCTL    = "Error entering certificate in CTL @ '%v'"
+	failedToEnterCertInCTL    = "Error entering certificate in CTL"
 	failedToMarshalSCT        = "Error marshaling signed certificate timestamp"
 	failedToMarshalCert       = "Error marshaling code signing certificate"
 	//nolint
