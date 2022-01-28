@@ -9,9 +9,23 @@ fulcio only signs short-lived certificates that are valid for under 20 minutes.
 Fulcio is a *work in progress*.
 There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
 
-The fulcio root cert running on our public instance (https://fulcio.sigstore.dev) is currently:
-
+The fulcio root certificate running on our public instance (https://fulcio.sigstore.dev) can be obtained and verified against Sigstore's root (at the [sigstore/root-signing](https://github.com/sigstore/root-signing) repository). To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
 ```
+$ go get github.com/theupdateframework/go-tuf/cmd/tuf
+$ go get github.com/theupdateframework/go-tuf/cmd/tuf-client
+```
+
+Then, obtain trusted root keys for Sigstore. This can be done from a cosign checkout or directly from Sigstore's root signing repository at a trusted commit.
+```
+$ git clone https://github.com/sigstore/cosign
+$ cd cosign
+$ tuf -d pkg/cosign/tuf/ root-keys > sigstore-root.json
+```
+
+Initialize the TUF client with the previously obtained root keys and get the current Fulcio root certificate `fulcio_v1.crt.pem`.
+```
+$ tuf-client init https://raw.githubusercontent.com/sigstore/root-signing/main/repository/repository/ sigstore-root.json
+$ tuf-client get https://raw.githubusercontent.com/sigstore/root-signing/main/repository/repository/ fulcio_v1.crt.pem 
 -----BEGIN CERTIFICATE-----
 MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
