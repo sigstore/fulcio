@@ -15,11 +15,11 @@ $ go get github.com/theupdateframework/go-tuf/cmd/tuf
 $ go get github.com/theupdateframework/go-tuf/cmd/tuf-client
 ```
 
-Then, obtain trusted root keys for Sigstore. This can be done from a cosign checkout or directly from Sigstore's root signing repository at a trusted commit.
+Then, obtain trusted root keys for Sigstore. This can be done from a checkout of the Sigstore's root signing repository at a trusted commit (e.g. after the livestreamed root signing ceremony)
 ```
-$ git clone https://github.com/sigstore/cosign
-$ cd cosign
-$ tuf -d pkg/cosign/tuf/ root-keys > sigstore-root.json
+$ git clone https://github.com/sigstore/root-signing
+$ cd root-signing && git checkout 193343461a4d365ac517b5d668e01fbaddd4eba5
+$ tuf -d ceremony/2021-06-18/ root-keys > sigstore-root.json
 ```
 
 Initialize the TUF client with the previously obtained root keys and get the current Fulcio root certificate `fulcio_v1.crt.pem`.
