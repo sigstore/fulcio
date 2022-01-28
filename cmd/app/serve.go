@@ -171,7 +171,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	host, port := viper.GetString("host"), viper.GetString("port")
 	log.Logger.Infof("%s:%s", host, port)
 
-	var ctClient *ctl.Client
+	var ctClient ctl.Client
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
 		ctClient = ctl.New(logURL)
 	}

@@ -54,14 +54,14 @@ const (
 )
 
 type api struct {
-	ct *ctl.Client
+	ct ctl.Client
 	ca certauth.CertificateAuthority
 
 	*http.ServeMux
 }
 
 // New creates a new http.Handler for serving the Fulcio API.
-func New(ct *ctl.Client, ca certauth.CertificateAuthority) http.Handler {
+func New(ct ctl.Client, ca certauth.CertificateAuthority) http.Handler {
 	var a api
 	a.ServeMux = http.NewServeMux()
 	a.HandleFunc(signingCertPath, a.signingCert)

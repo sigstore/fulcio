@@ -28,14 +28,14 @@ import (
 
 const addChainPath = "ct/v1/add-chain"
 
-type Client struct {
+type client struct {
 	c   *http.Client
 	url string
 }
 
-func New(url string) *Client {
+func New(url string) Client {
 	c := &http.Client{Timeout: 30 * time.Second}
-	return &Client{
+	return &client{
 		c:   c,
 		url: url,
 	}
@@ -53,20 +53,7 @@ type CertChainResponse struct {
 	Signature  string `json:"signature"`
 }
 
-type ErrorResponse struct {
-	StatusCode int    `json:"statusCode"`
-	ErrorCode  string `json:"errorCode"`
-	Message    string `json:"message"`
-}
-
-func (err *ErrorResponse) Error() string {
-	if err.ErrorCode == "" {
-		return fmt.Sprintf("%d CT API error: %s", err.StatusCode, err.Message)
-	}
-	return fmt.Sprintf("%d (%s) CT API error: %s", err.StatusCode, err.ErrorCode, err.Message)
-}
-
-func (c *Client) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+func (c *client) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 	chainjson := &certChain{Chain: []string{
 		base64.StdEncoding.EncodeToString(csc.FinalCertificate.Raw),
 	}}
