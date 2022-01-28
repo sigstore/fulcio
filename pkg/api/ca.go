@@ -55,16 +55,19 @@ const (
 
 type api struct {
 	ct *ctl.Client
+	ca certauth.CertificateAuthority
+
 	*http.ServeMux
 }
 
 // New creates a new http.Handler for serving the Fulcio API.
-func New(c *ctl.Client) http.Handler {
+func New(ct *ctl.Client, ca certauth.CertificateAuthority) http.Handler {
 	var a api
 	a.ServeMux = http.NewServeMux()
 	a.HandleFunc(signingCertPath, a.signingCert)
 	a.HandleFunc(rootCertPath, a.rootCert)
-	a.ct = c
+	a.ct = ct
+	a.ca = ca
 	return &a
 }
 
@@ -153,14 +156,12 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ca := GetCA(ctx)
-
 	var csc *certauth.CodeSigningCertificate
 	var sctBytes []byte
 	// TODO: prefer embedding SCT if possible
-	if _, ok := ca.(certauth.EmbeddedSCTCA); !ok {
+	if _, ok := a.ca.(certauth.EmbeddedSCTCA); !ok {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
-		csc, err = ca.CreateCertificate(ctx, subject)
+		csc, err = a.ca.CreateCertificate(ctx, subject)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
@@ -231,8 +232,7 @@ func (a *api) rootCert(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	logger := log.ContextLogger(ctx)
 
-	ca := GetCA(ctx)
-	root, err := ca.Root(ctx)
+	root, err := a.ca.Root(ctx)
 	if err != nil {
 		logger.Error("Error retrieving root cert: ", err)
 	}
@@ -259,20 +259,4 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
-}
-
-type caKey struct{}
-
-// WithCA associates the provided certificate authority with the provided context.
-func WithCA(ctx context.Context, ca certauth.CertificateAuthority) context.Context {
-	return context.WithValue(ctx, caKey{}, ca)
-}
-
-// GetCA accesses the certificate authority associated with the provided context.
-func GetCA(ctx context.Context) certauth.CertificateAuthority {
-	untyped := ctx.Value(caKey{})
-	if untyped == nil {
-		return nil
-	}
-	return untyped.(certauth.CertificateAuthority)
 }

@@ -178,7 +178,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	var handler http.Handler
 	{
-		handler = api.New(ctClient)
+		handler = api.New(ctClient, baseca)
 
 		// Inject dependencies
 		withDependencies := func(inner http.Handler) http.Handler {
@@ -190,7 +190,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 				// from disk, so that we don't need to cycle pods to pick up config updates.
 				// Alternately we could take advantage of Knative's configmap watcher.
 				ctx = config.With(ctx, cfg)
-				ctx = api.WithCA(ctx, baseca)
 
 				inner.ServeHTTP(rw, r.WithContext(ctx))
 			})

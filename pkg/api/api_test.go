@@ -87,14 +87,11 @@ func TestAPI(t *testing.T) {
 	}
 
 	// Create a test HTTP server to host our API.
-	h := New(ctl.New(ctlogServer.URL))
+	h := New(ctl.New(ctlogServer.URL), eca)
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		ctx = config.With(ctx, cfg)
-
-		// Decorate the context with our CA for testing.
-		ctx = WithCA(ctx, eca)
 
 		h.ServeHTTP(rw, r.WithContext(ctx))
 	}))
