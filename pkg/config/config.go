@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -137,14 +138,14 @@ func (fc *FulcioConfig) prepare() error {
 	for _, iss := range fc.OIDCIssuers {
 		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
 		if err != nil {
-			return err
+			return fmt.Errorf("provider %s: %w", iss.IssuerURL, err)
 		}
 		fc.verifiers[iss.IssuerURL] = provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
 	}
 
 	cache, err := lru.New2Q(100 /* size */)
 	if err != nil {
-		return err
+		return fmt.Errorf("lru: %w", err)
 	}
 	fc.lru = cache
 	return nil
@@ -162,7 +163,7 @@ const (
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
 	cfg = &FulcioConfig{}
 	if err := json.Unmarshal(b, cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 	return cfg, nil
 }
@@ -217,7 +218,7 @@ func Load(configPath string) (*FulcioConfig, error) {
 	}
 	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read file: %w", err)
 	}
 	return Read(b)
 }
@@ -226,7 +227,7 @@ func Load(configPath string) (*FulcioConfig, error) {
 func Read(b []byte) (*FulcioConfig, error) {
 	config, err := parseConfig(b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse: %w", err)
 	}
 
 	if _, ok := config.GetIssuer("https://kubernetes.default.svc"); ok {
@@ -239,10 +240,10 @@ func Read(b []byte) (*FulcioConfig, error) {
 		const k8sCA = "/var/run/fulcio/ca.crt"
 		certs, err := ioutil.ReadFile(k8sCA)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read file: %w", err)
 		}
 		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return nil, err
+			return nil, fmt.Errorf("unable to append certs")
 		}
 
 		t := originalTransport.(*http.Transport).Clone()

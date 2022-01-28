@@ -125,9 +125,10 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	// from https://github.com/golang/glog/commit/fca8c8854093a154ff1eb580aae10276ad6b1b5f
 	_ = flag.CommandLine.Parse([]string{})
 
-	cfg, err := config.Load(viper.GetString("config-path"))
+	cp := viper.GetString("config-path")
+	cfg, err := config.Load(cp)
 	if err != nil {
-		log.Logger.Fatalf("error loading config: %v", err)
+		log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
 	}
 
 	var baseca certauth.CertificateAuthority
