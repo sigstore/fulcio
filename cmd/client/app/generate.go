@@ -58,6 +58,7 @@ func generateCert(ctx context.Context) error {
 	parent := viper.GetString("gcp-private-ca-parent")
 	timestamping := viper.GetBool("timestamping")
 	req := cert(parent, uri, pemBytes, timestamping)
+	fmt.Println(req.String())
 	client, err := privateca.NewCertificateAuthorityClient(ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ca client")
@@ -66,6 +67,9 @@ func generateCert(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "creating cert")
 	}
+	fmt.Println(resp.GetConfig().String())
+	fmt.Println(resp.CertificateDescription.String())
+
 	// print cert and cert chain to STDOUT
 	fmt.Println(resp.GetPemCertificate())
 	fmt.Println("")
@@ -73,44 +77,22 @@ func generateCert(ctx context.Context) error {
 	return nil
 }
 
-func cert(parent, uri string, pemBytes []byte, timestamping bool) *privatecapb.CreateCertificateRequest {
-	baseKeyUsage := privatecapb.KeyUsage_KeyUsageOptions{}
-	var reuseableConfig *privatecapb.X509Parameters
-	isCa := true
-	if timestamping {
-		baseKeyUsage.ContentCommitment = true
-		timestampExt, err := asn1.Marshal([]asn1.ObjectIdentifier{{1, 3, 6, 1, 5, 5, 7, 3, 8}})
-		if err != nil {
-			return nil
-		}
-		additionalExtensions := []*privatecapb.X509Extension{{
-			ObjectId: &privatecapb.ObjectId{ObjectIdPath: []int32{2, 5, 29, 37}},
-			Critical: true,
-			Value:    timestampExt,
-		}}
-		reuseableConfig = &privatecapb.X509Parameters{
-			KeyUsage: &privatecapb.KeyUsage{
-				BaseKeyUsage: &baseKeyUsage,
-			},
-			CaOptions: &privatecapb.X509Parameters_CaOptions{
-				IsCa: &isCa,
-			},
-			AdditionalExtensions: additionalExtensions,
-		}
-	} else {
-		extendedKeyUsage := privatecapb.KeyUsage_ExtendedKeyUsageOptions{}
-		baseKeyUsage.DigitalSignature = true
-		extendedKeyUsage.CodeSigning = true
-		reuseableConfig = &privatecapb.X509Parameters{
-			KeyUsage: &privatecapb.KeyUsage{
-				BaseKeyUsage:     &baseKeyUsage,
-				ExtendedKeyUsage: &extendedKeyUsage,
-			},
-		}
-
+func cert(parent, uri string, pemBytes []byte, _ bool) *privatecapb.CreateCertificateRequest {
+	timestampExt, err := asn1.Marshal([]asn1.ObjectIdentifier{{1, 3, 6, 1, 5, 5, 7, 3, 8}})
+	if err != nil {
+		return nil
 	}
+	additionalExtensions := []*privatecapb.X509Extension{{
+		ObjectId: &privatecapb.ObjectId{ObjectIdPath: []int32{2, 5, 29, 37}},
+		Critical: true,
+		Value:    timestampExt,
+	}}
+
+	// AdditionalExtensions: additionalExtensions,
 
 	// TODO, use the right fields :)
+	isCa := true
+	maxPathLen := int32(0)
 	return &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
@@ -122,7 +104,24 @@ func cert(parent, uri string, pemBytes []byte, timestamping bool) *privatecapb.C
 						Format: privatecapb.PublicKey_PEM,
 						Key:    pemBytes,
 					},
-					X509Config: reuseableConfig,
+					X509Config: &privatecapb.X509Parameters{
+						KeyUsage: &privatecapb.KeyUsage{
+							BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
+								ContentCommitment: true,
+								CertSign:          true,
+							},
+							/*
+								ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
+									TimeStamping: true,
+								},
+							*/
+						},
+						CaOptions: &privatecapb.X509Parameters_CaOptions{
+							IsCa:                &isCa,
+							MaxIssuerPathLength: &maxPathLen,
+						},
+						AdditionalExtensions: additionalExtensions,
+					},
 					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
 						Subject: &privatecapb.Subject{
 							Organization: uri,
