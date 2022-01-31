@@ -9,6 +9,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/go-openapi/runtime v0.22.0
+	github.com/go-openapi/strfmt v0.21.1
 	github.com/google/go-cmp v0.5.7
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
@@ -16,6 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
+	github.com/sigstore/rekor v0.4.0
 	github.com/sigstore/sigstore v1.1.1-0.20220124143820-3cebf5c58675
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
