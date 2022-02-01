@@ -213,7 +213,7 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 	if len(finalChainPEM) > 0 {
 		fmt.Fprintf(&ret, "%s", finalChainPEM)
-		if finalPEM[len(finalChainPEM)-1] != '\n' {
+		if finalChainPEM[len(finalChainPEM)-1] != '\n' {
 			fmt.Fprintf(&ret, "\n")
 		}
 	}
