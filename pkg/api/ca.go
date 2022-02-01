@@ -16,6 +16,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
@@ -202,7 +203,7 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	fmt.Fprintf(&ret, "%s", finalPEM)
-	if finalPEM[len(finalPEM)-1] != '\n' {
+	if !bytes.HasSuffix(finalPEM, []byte("\n")) {
 		fmt.Fprintf(&ret, "\n")
 	}
 
@@ -213,7 +214,7 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 	if len(finalChainPEM) > 0 {
 		fmt.Fprintf(&ret, "%s", finalChainPEM)
-		if finalChainPEM[len(finalChainPEM)-1] != '\n' {
+		if !bytes.HasSuffix(finalChainPEM, []byte("\n")) {
 			fmt.Fprintf(&ret, "\n")
 		}
 	}
