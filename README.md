@@ -2,7 +2,9 @@
   <img style="max-width: 100%;width: 300px;margin-top: 20px;" src="./docs/img/logo.svg" alt="Fulcio logo"/>
 </p>
 
-# fulcio - A New Kind of Root CA For Code Signing
+# Fulcio
+
+_A New Kind of Root CA For Code Signing_
 
 fulcio is a free Root-CA for code signing certs - issuing certificates based on an OIDC email address.
 
