@@ -70,6 +70,11 @@ func main() {
 				ClientID: "sigstore",
 				Type:     "kubernetes",
 			},
+			// AKS Cluster OIDC issuers
+			"https://oidc.prod-aks.azure.com/*": {
+				ClientID: "sigstore",
+				Type:     "kubernetes",
+			},
 		},
 	}
 	for _, m := range matches {
