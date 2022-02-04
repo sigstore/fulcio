@@ -55,14 +55,14 @@ const (
 )
 
 type api struct {
-	ct *ctl.Client
+	ct ctl.Client
 	ca certauth.CertificateAuthority
 
 	*http.ServeMux
 }
 
 // New creates a new http.Handler for serving the Fulcio API.
-func New(ct *ctl.Client, ca certauth.CertificateAuthority) http.Handler {
+func New(ct ctl.Client, ca certauth.CertificateAuthority) http.Handler {
 	var a api
 	a.ServeMux = http.NewServeMux()
 	a.HandleFunc(signingCertPath, a.signingCert)
@@ -175,7 +175,6 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// Submit to CTL
-		logger.Info("Submitting CTL inclusion for OIDC grant: ", subject.Value)
 		if a.ct != nil {
 			sct, err := a.ct.AddChain(csc)
 			if err != nil {
@@ -187,8 +186,6 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalSCT)
 				return
 			}
-			logger.Info("CTL Submission Signature Received: ", sct.Signature)
-			logger.Info("CTL Submission ID Received: ", sct.ID)
 		} else {
 			logger.Info("Skipping CT log upload.")
 		}

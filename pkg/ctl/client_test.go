@@ -47,7 +47,7 @@ func Test_AddChain(t *testing.T) {
 	}))
 	defer server.Close()
 
-	api := Client{server.Client(), server.URL}
+	api := New(server.URL)
 	csc, _ := ca.CreateCSCFromPEM(nil, rootCert, clientCert)
 	body, err := api.AddChain(csc)
 	assert.NoError(t, err)
