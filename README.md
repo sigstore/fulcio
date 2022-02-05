@@ -12,8 +12,10 @@ fulcio only signs short-lived certificates that are valid for under 20 minutes.
 
 ## Status
 
-Fulcio is a *work in progress*.
-There's working code and a running instance and a plan, but you should not attempt to try to actually use it for anything.
+Fulcio is a *work in progress*!
+
+We're currently working hard on cutting a 1.0 release and productionizing the public instance.
+We don't have a date yet, but follow along on the [GitHub project](https://github.com/orgs/sigstore/projects/5).
 
 The fulcio root certificate running on our public instance (https://fulcio.sigstore.dev) can be obtained and verified against Sigstore's root (at the [sigstore/root-signing](https://github.com/sigstore/root-signing) repository). To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
 ```
