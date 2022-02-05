@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -110,14 +111,26 @@ func actualAuthorize(req *http.Request) (*oidc.IDToken, error) {
 	return verifier.Verify(req.Context(), token)
 }
 
+func verifyContentType(contentType string) error {
+	gotContentType, _, perr := mime.ParseMediaType(contentType)
+	if perr != nil {
+		return fmt.Errorf("could not parse Content-Type %q", contentType)
+	}
+	wantContentType := "application/json"
+	if gotContentType != wantContentType {
+		return fmt.Errorf("signing cert handler must receive %q, got %q", wantContentType, gotContentType)
+	}
+	return nil
+}
+
 func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		err := fmt.Errorf("signing cert handler must receive POSTs, got %s", req.Method)
 		handleFulcioAPIError(w, req, http.StatusMethodNotAllowed, err, err.Error())
 		return
 	}
-	if gotContentType, wantContentType := req.Header.Get("Content-Type"), "application/json"; gotContentType != wantContentType {
-		err := fmt.Errorf("signing cert handler must receive %q, got %q", wantContentType, gotContentType)
+
+	if err := verifyContentType(req.Header.Get("Content-Type")); err != nil {
 		handleFulcioAPIError(w, req, http.StatusUnsupportedMediaType, err, err.Error())
 		return
 	}
