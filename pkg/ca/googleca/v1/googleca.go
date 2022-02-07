@@ -83,7 +83,6 @@ func convertID(id asn1.ObjectIdentifier) []int32 {
 }
 
 func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.CreateCertificateRequest, error) {
-	// TODO, use the right fields :)
 	pubkeyFormat, err := getPubKeyFormat(pemBytes)
 	if err != nil {
 		return nil, err
@@ -91,9 +90,7 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 
 	// Translate the x509 certificate's subject to Google proto.
 	subject := &privatecapb.CertificateConfig_SubjectConfig{
-		Subject: &privatecapb.Subject{
-			Organization: "sigstore",
-		},
+		Subject: &privatecapb.Subject{},
 		SubjectAltName: &privatecapb.SubjectAltNames{
 			EmailAddresses: cert.EmailAddresses,
 		},
