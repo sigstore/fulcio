@@ -30,4 +30,9 @@ var (
 		Name: "fulcio_api_latency",
 		Help: "API Latency on calls",
 	}, []string{"code", "method"})
+
+	RequestsCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Count all HTTP requests",
+	}, []string{"code", "method"})
 )
