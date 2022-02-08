@@ -199,7 +199,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 		// Instrument Prometheus metrics
 		handler = promhttp.InstrumentHandlerDuration(api.MetricLatency, handler)
-
+		handler = promhttp.InstrumentHandlerCounter(api.RequestsCount, handler)
 		// Limit request size
 		handler = api.WithMaxBytes(handler, 1<<22) // 4MiB
 	}
