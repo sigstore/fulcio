@@ -1,0 +1,54 @@
+name: Cut Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+        description: 'Release tag'
+      key_ring:
+        required: true
+        type: string
+        description: 'Key ring for cosign key'
+      key_name:
+        required: true
+        type: string
+        description: 'Key name for cosign key'
+
+concurrency: cut-release
+
+jobs:
+  cut-release:
+    name: Cut release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      GIT_TAG: ${{ github.event.inputs.release_tag }}
+      PROJECT_ID: 'projectsigstore'
+    steps:
+      - name: Check actor access
+        if: ${{ !contains(fromJson('["bobcallaway","cpanato","dlorenc","lukehinds"]'), github.actor) }}
+        run: exit 1
+
+      - name: Checkout out repo
+        uses: actions/checkout@v2
+        with:
+          path: ./src/github.com/sigstore/fulcio
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-fulcio'
+          service_account: 'github-actions-fulcio@projectsigstore.iam.gserviceaccount.com'
+
+      - name: Setup gcloud
+        uses: 'google-github-actions/setup-gcloud@v0'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Start cloudbuild job
+        working-directory: ./src/github.com/sigstore/fulcio
+        run: gcloud builds submit --config release/cloudbuild.yaml --substitutions _GIT_TAG=${{ env.GIT_TAG }},_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=${{ github.event.inputs.key_ring }},_KEY_NAME=${{ github.event.inputs.key_name }} --project=${{ env.PROJECT_ID }}
