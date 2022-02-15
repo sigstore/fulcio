@@ -51,16 +51,6 @@ TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
 
 We **WILL** change this and add intermediaries in the future.
 
-## Build for development
-
-After cloning the repository:
-
-```
-$ make
-```
-
-There are other targets available in the [`Makefile`](Makefile), check it out.
-
 ## API
 
 The API is defined [here](./pkg/api/client.go).
