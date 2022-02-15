@@ -11,7 +11,7 @@ meaning.
 ## Directory
 
 Note that all values begin from the root OID 1.3.6.1.4.1.57264 [registered by
-Dan Lorenc][oid-link]:
+Dan Lorenc][oid-link].
 
 ## 1.3.6.1.4.1.57264.1 | Fulcio
 
@@ -44,7 +44,7 @@ contains the name of the executed workflow. [(docs)][github-oidc-doc]
 
 This contains the `repository` claim from the GitHub OIDC Identity token that
 contains the repository that the workflow run was based upon.
-[(docs)][github-oidc-link]
+[(docs)][github-oidc-doc]
 
 ### 1.3.6.1.4.1.57264.1.6 | Github Workflow Ref
 
@@ -54,4 +54,4 @@ the git ref that the workflow run was based upon.
 
 <!-- References -->
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
-[oid-ink]: http://oid-info.com/get/1.3.6.1.4.1.57264
+[oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264
