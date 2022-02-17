@@ -26,6 +26,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,8 +36,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	v1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"gopkg.in/square/go-jose.v2"
@@ -49,14 +51,8 @@ const (
 	expectedNoRootMessage = "{\"code\":500,\"message\":\"error communicating with CA backend\"}\n"
 )
 
-// TestMissingRootFails creates a bad Google CA and tests that the client
-// gets an error returned to it.
 func TestMissingRootFails(t *testing.T) {
-	caClient, err := v1.NewCertAuthorityService(context.Background(), "non-existent")
-	if err != nil {
-		t.Fatalf("Failed to create Google CA: %v", err)
-	}
-	h := New(nil, caClient)
+	h := New(nil, &FailingCertificateAuthority{})
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(rw, r)
 	}))
@@ -296,4 +292,14 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 		w.Header().Set("SCT", testSCT)
 		fmt.Fprint(w, string(responseBytes))
 	}))
+}
+
+type FailingCertificateAuthority struct {
+}
+
+func (fca *FailingCertificateAuthority) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	return nil, errors.New("CreateCertificate always fails for testing")
+}
+func (fca *FailingCertificateAuthority) Root(ctx context.Context) ([]byte, error) {
+	return nil, errors.New("Root always fails for testing")
 }
