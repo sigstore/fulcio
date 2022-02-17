@@ -61,6 +61,12 @@ spec:
           requests:
             memory: "1G"
             cpu: ".5"
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
       volumes:
       - name: fulcio-config
         configMap:
