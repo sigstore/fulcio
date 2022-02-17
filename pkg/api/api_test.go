@@ -16,6 +16,7 @@
 package api
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -35,6 +36,7 @@ import (
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	v1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"gopkg.in/square/go-jose.v2"
@@ -42,7 +44,38 @@ import (
 )
 
 // base64 encoded placeholder for SCT
-const testSCT = "ZXhhbXBsZXNjdAo="
+const (
+	testSCT               = "ZXhhbXBsZXNjdAo="
+	expectedNoRootMessage = "{\"code\":500,\"message\":\"error communicating with CA backend\"}\n"
+)
+
+// TestMissingRootFails creates a bad Google CA and tests that the client
+// gets an error returned to it.
+func TestMissingRootFails(t *testing.T) {
+	caClient, err := v1.NewCertAuthorityService(context.Background(), "non-existent")
+	if err != nil {
+		t.Fatalf("Failed to create Google CA: %v", err)
+	}
+	h := New(nil, caClient)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(rw, r)
+	}))
+	t.Cleanup(server.Close)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	// Check that we get the CA root back as well.
+	_, err = NewClient(u).RootCert()
+	if err == nil {
+		t.Fatal("RootCert did not fail", err)
+	}
+	if err.Error() != expectedNoRootMessage {
+		t.Errorf("Got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
+	}
+}
 
 func TestAPI(t *testing.T) {
 	signer, issuer := newOIDCIssuer(t)

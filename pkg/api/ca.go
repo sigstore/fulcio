@@ -246,6 +246,8 @@ func (a *api) rootCert(w http.ResponseWriter, req *http.Request) {
 	root, err := a.ca.Root(ctx)
 	if err != nil {
 		logger.Error("Error retrieving root cert: ", err)
+		handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
+		return
 	}
 	w.Header().Add("Content-Type", "application/pem-certificate-chain")
 	if _, err := w.Write(root); err != nil {
