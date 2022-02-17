@@ -16,6 +16,7 @@
 package api
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -25,6 +26,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,7 +36,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	"gopkg.in/square/go-jose.v2"
@@ -42,7 +46,32 @@ import (
 )
 
 // base64 encoded placeholder for SCT
-const testSCT = "ZXhhbXBsZXNjdAo="
+const (
+	testSCT               = "ZXhhbXBsZXNjdAo="
+	expectedNoRootMessage = "{\"code\":500,\"message\":\"error communicating with CA backend\"}\n"
+)
+
+func TestMissingRootFails(t *testing.T) {
+	h := New(nil, &FailingCertificateAuthority{})
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(rw, r)
+	}))
+	t.Cleanup(server.Close)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	// Check that we get the CA root back as well.
+	_, err = NewClient(u).RootCert()
+	if err == nil {
+		t.Fatal("RootCert did not fail", err)
+	}
+	if err.Error() != expectedNoRootMessage {
+		t.Errorf("Got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
+	}
+}
 
 func TestAPI(t *testing.T) {
 	signer, issuer := newOIDCIssuer(t)
@@ -263,4 +292,14 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 		w.Header().Set("SCT", testSCT)
 		fmt.Fprint(w, string(responseBytes))
 	}))
+}
+
+type FailingCertificateAuthority struct {
+}
+
+func (fca *FailingCertificateAuthority) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+	return nil, errors.New("CreateCertificate always fails for testing")
+}
+func (fca *FailingCertificateAuthority) Root(ctx context.Context) ([]byte, error) {
+	return nil, errors.New("Root always fails for testing")
 }
