@@ -14,23 +14,23 @@ Let's run this in the `fulcio` namspace.
 Create a new workloadidentity SA and worklaod binding:
 
 ```shell
-$ gcloud iam service-accounts create fulcio-dev
+$ gcloud iam service-accounts create fulcio
 
-$ gcloud iam service-accounts add-iam-policy-binding   --role roles/iam.workloadIdentityUser   --member "serviceAccount:project-rekor.svc.id.goog[fulcio-dev/default]"   fulcio-dev@project-rekor.iam.gserviceaccount.com
+$ gcloud iam service-accounts add-iam-policy-binding   --role roles/iam.workloadIdentityUser   --member "serviceAccount:project-rekor.svc.id.goog[fulcio/default]"   fulcio@project-rekor.iam.gserviceaccount.com
 ```
 
 Create namespace:
 
 ```shell
-$ kubectl create ns fulcio-dev
+$ kubectl create ns fulcio-system
 ```
 
 Annotate:
 
 ```
 $ kubectl annotate serviceaccount \
-  --namespace fulcio-dev \
-  default iam.gke.io/gcp-service-account=fulcio-dev@project-rekor.iam.gserviceaccount.com
+  --namespace fulcio-system \
+  default iam.gke.io/gcp-service-account=fulcio@project-rekor.iam.gserviceaccount.com
 ```
 
 Test:
@@ -38,26 +38,26 @@ Test:
 ```
 $ kubectl run -it --image google/cloud-sdk:slim \
   --serviceaccount default \
-  --namespace fulcio-dev \
+  --namespace fulcio-system \
   workload-identity-test
 
 # gcloud auth list
 Credentialed Accounts
 ACTIVE  ACCOUNT
-*       fulcio-dev@project-rekor.iam.gserviceaccount.com
+*       fulcio@project-rekor.iam.gserviceaccount.com
 ```
 
 (Cleanup)
 
 Give that service account cert rights.
-CA : -> Add Member -> fulcio-dev@project-rekor.iam.gserviceaccount.com -> Role -> CA Service -> Requestor
+CA : -> Add Member -> fulcio@project-rekor.iam.gserviceaccount.com -> Role -> CA Service -> Requestor
 
 (TODO: create an intermediary, take this one offline)
 
 # Debug
 
 ```shell
-$ kubectl port-forward deployment/fulcio-server -n fulcio-dev 5555:5555
+$ kubectl port-forward deployment/fulcio-server -n fulcio-system 5555:5555
 
-$ kubectl logs -f deployment/fulcio-server -n fulcio-dev
+$ kubectl logs -f deployment/fulcio-server -n fulcio
 ```

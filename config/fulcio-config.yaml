@@ -68,4 +68,4 @@ data:
 kind: ConfigMap
 metadata:
     name: fulcio-config
-    namespace: fulcio-dev
+    namespace: fulcio-system
