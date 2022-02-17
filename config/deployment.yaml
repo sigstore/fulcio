@@ -16,7 +16,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: fulcio-dev
+  namespace: fulcio-system
   name: fulcio-server
   labels:
     app: fulcio-server
@@ -82,7 +82,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: fulcio-dev
+  namespace: fulcio-system
   name: fulcio-server
 spec:
   selector:

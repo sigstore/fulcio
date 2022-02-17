@@ -149,7 +149,7 @@ jobs:
               -addext basicConstraints=critical,CA:TRUE,pathlen:1 \
               -passout pass:"${{ github.run_id }}"
 
-      - name: Deploy fulcio-dev
+      - name: Deploy fulcio-system
         run: |
           # Reduce the resource requests of Fulcio
           sed -i -e 's,memory: "1G",memory: "100Mi",g' ${{ github.workspace }}/config/deployment.yaml
@@ -182,7 +182,7 @@ jobs:
           kind: ConfigMap
           metadata:
             name: fulcio-config
-            namespace: fulcio-dev
+            namespace: fulcio-system
           data:
             config.json: |-
               {
@@ -205,19 +205,19 @@ jobs:
           kind: Secret
           metadata:
             name: fulcio-secret
-            namespace: fulcio-dev
+            namespace: fulcio-system
           data:
             cert.pem: $(cat ${{ github.run_id }}-cert.pem | base64 -w 0)
             key.pem: $(cat ${{ github.run_id }}-key.pem | base64 -w 0)
           EOF
 
-          kubectl create ns fulcio-dev
+          kubectl create ns fulcio-system
 
           make ko-apply
 
-          kubectl wait --for=condition=Available --timeout=5m -n fulcio-dev deployment/fulcio-server
+          kubectl wait --for=condition=Available --timeout=5m -n fulcio-system deployment/fulcio-server
 
-          kubectl get po -n fulcio-dev
+          kubectl get po -n fulcio-system
 
       - name: Run signing job
         run: |
@@ -238,7 +238,7 @@ jobs:
                   image: gcr.io/projectsigstore/cosign:v1.4.1
                   args: [
                     "sign",
-                    "--fulcio-url=http://fulcio-server.fulcio-dev.svc",
+                    "--fulcio-url=http://fulcio-server.fulcio-system.svc",
                     "--insecure-skip-verify=true",
                     "--upload=false",
                     "${DIGEST}",

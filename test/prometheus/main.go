@@ -42,7 +42,7 @@ func parseMF(url string) (map[string]*dto.MetricFamily, error) {
 }
 
 func main() {
-	f := flag.String("url", "http://fulcio-server.fulcio-dev.svc:2112/metrics", "set url to fetch metrics from")
+	f := flag.String("url", "http://fulcio-server.fulcio-system.svc:2112/metrics", "set url to fetch metrics from")
 	flag.Parse()
 
 	mf, err := parseMF(*f)
