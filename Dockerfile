@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.17.7@sha256:2c92978b23e11e099acc9d184c520436af9b30f51d6c06e0b99c0c4f4e95a45b AS builder
+FROM golang:1.17.7@sha256:e06c83493ef6d69c95018da90f2887bf337470db074d3c648b8b648d8e3c441e AS builder
 ENV APP_ROOT=/opt/app-root
 ENV GOPATH=$APP_ROOT
 
@@ -28,7 +28,7 @@ RUN go build -o server main.go
 RUN CGO_ENABLED=1 go build -gcflags "all=-N -l" -o server_debug main.go
 
 # Multi-Stage production build
-FROM golang:1.17.7@sha256:2c92978b23e11e099acc9d184c520436af9b30f51d6c06e0b99c0c4f4e95a45b as deploy
+FROM golang:1.17.7@sha256:e06c83493ef6d69c95018da90f2887bf337470db074d3c648b8b648d8e3c441e as deploy
 
 # Retrieve the binary from the previous stage
 COPY --from=builder /opt/app-root/src/server /usr/local/bin/fulcio-server
