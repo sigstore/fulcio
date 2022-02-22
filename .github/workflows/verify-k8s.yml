@@ -69,73 +69,11 @@ jobs:
 
       - uses: imjasonh/setup-ko@2c3450ca27f6e6f2b02e72a40f2163c281a1f675 #v0.4
 
-      - name: Install KinD
-        run: |
-          # Disable swap otherwise memory enforcement doesn't work
-          # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600009955324200
-          sudo swapoff -a
-          sudo rm -f /swapfile
-          # Use in-memory storage to avoid etcd server timeouts.
-          # https://kubernetes.slack.com/archives/CEKK1KTN2/p1615134111016300
-          # https://github.com/kubernetes-sigs/kind/issues/845
-          sudo mkdir -p /tmp/etcd
-          sudo mount -t tmpfs tmpfs /tmp/etcd
-          curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-$(uname)-amd64
-          chmod +x ./kind
-          sudo mv kind /usr/local/bin
-
-      - name: Configure KinD Cluster
-        run: |
-          set -x
-          # KinD configuration.
-          cat > kind.yaml <<EOF
-          apiVersion: kind.x-k8s.io/v1alpha4
-          kind: Cluster
-          # Configure registry for KinD.
-          containerdConfigPatches:
-          - |-
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
-              endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
-          # This is needed in order to support projected volumes with service account tokens.
-          # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
-          kubeadmConfigPatches:
-            - |
-              apiVersion: kubeadm.k8s.io/v1beta2
-              kind: ClusterConfiguration
-              metadata:
-                name: config
-              apiServer:
-                extraArgs:
-                  "service-account-issuer": "https://kubernetes.default.svc"
-                  "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
-                  "service-account-jwks-uri": "https://kubernetes.default.svc/openid/v1/jwks"
-                  "service-account-key-file": "/etc/kubernetes/pki/sa.pub"
-              networking:
-                dnsDomain: "cluster.local"
-          nodes:
-          - role: control-plane
-            image: kindest/node:v1.22.0@sha256:f97edf7f7ed53c57762b24f90a34fad101386c5bd4d93baeb45449557148c717
-            extraMounts:
-            - containerPath: /var/lib/etcd
-              hostPath: /tmp/etcd
-          - role: worker
-            image: kindest/node:v1.22.0@sha256:f97edf7f7ed53c57762b24f90a34fad101386c5bd4d93baeb45449557148c717
-          EOF
-
-      - name: Create KinD Cluster
-        run: |
-          kind create cluster --config kind.yaml
-
-      - name: Setup local registry
-        run: |
-          # Run a registry.
-          docker run -d --restart=always \
-            -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-          # Connect the registry to the KinD network.
-          docker network connect "kind" $REGISTRY_NAME
-          # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-          # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-          sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+      - name: Setup Cluster
+        uses: chainguard-dev/actions/setup-kind@84c993eaf02da1c325854fb272a4df9184bd80fc # main
+        with:
+          k8s-version: v1.22.x
+          registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
 
       - name: Generate temporary CA files
         run: |
@@ -165,16 +103,6 @@ jobs:
                 port: 2112
                 targetPort: 2112
           EOF
-
-          # From: https://banzaicloud.com/blog/kubernetes-oidc/
-          # To be able to fetch the public keys and validate the JWT tokens against
-          # the Kubernetes cluster’s issuer we have to allow external unauthenticated
-          # requests. To do this, we bind this special role with a ClusterRoleBinding
-          # to unauthenticated users (make sure that this is safe in your environment,
-          # but only public keys are visible on this URL)
-          kubectl create clusterrolebinding oidc-reviewer \
-            --clusterrole=system:service-account-issuer-discovery \
-            --group=system:unauthenticated
 
           # Overwrite the configuration to be what we need for KinD.
           cat <<EOF > config/fulcio-config.yaml
@@ -281,15 +209,6 @@ jobs:
         env:
           KO_DOCKER_REPO: registry.local:5000/fulcio
 
-      - name: Collect logs
-        if: ${{ always() }}
-        run: |
-          mkdir -p /tmp/logs
-          kind export logs /tmp/logs
-
-      - name: Upload artifacts
-        if: ${{ always() }}
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 #v2.3.1
-        with:
-          name: logs
-          path: /tmp/logs
+    - name: Collect diagnostics and upload
+      if: ${{ failure() }}
+      uses: chainguard-dev/actions/kind-diag@84c993eaf02da1c325854fb272a4df9184bd80fc # main
