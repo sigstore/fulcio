@@ -17,6 +17,9 @@ name: Verify-K8s
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   verify-k8s-manifests:
     name: k8s manifest check
