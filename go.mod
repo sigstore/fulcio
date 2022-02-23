@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.16
 
 require (
-	cloud.google.com/go/security v1.2.0
+	cloud.google.com/go/security v1.2.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/coreos/go-oidc/v3 v3.1.0
@@ -26,7 +26,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0
 	google.golang.org/api v0.70.0
-	google.golang.org/genproto v0.0.0-20220218161850-94dd64e39d7c
+	google.golang.org/genproto v0.0.0-20220222154240-daf995802d7b
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
