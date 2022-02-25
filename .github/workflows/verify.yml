@@ -40,7 +40,7 @@ jobs:
           git diff --exit-code
 
   golangci:
-    name: lint
+    name: golangci-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
@@ -59,7 +59,7 @@ jobs:
           version: v1.41
 
   oidc-config:
-    name: lint
+    name: oidc-config
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
