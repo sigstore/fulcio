@@ -25,10 +25,10 @@ jobs:
     name: license boilerplate check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
       - name: Extract version of Go to use
         run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
-      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 #v2.1.5
+      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2.1.5
         with:
           go-version: ${{ env.GOVERSION }}
       - name: Install addlicense
@@ -43,16 +43,16 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
       - name: deps
         run: sudo apt-get update && sudo apt-get install -yq libpcsclite-dev
       - name: Extract version of Go to use
         run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
-      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 #v2.1.5
+      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2.1.5
         with:
           go-version: ${{ env.GOVERSION }}
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@b517f99ae23d86ecc4c0dec08dcf48d2336abc29 #v3
+        uses: golangci/golangci-lint-action@b517f99ae23d86ecc4c0dec08dcf48d2336abc29 # v3.1.0
         timeout-minutes: 5
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
@@ -62,10 +62,10 @@ jobs:
     name: oidc-config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 #v2.4.0
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
       - name: Extract version of Go to use
         run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
-      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 #v2.1.5
+      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2.1.5
         with:
           go-version: ${{ env.GOVERSION }}
       - name: check-config
