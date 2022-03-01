@@ -83,3 +83,10 @@ sign-container-release: release-images
 .PHONY: sign-keyless-release
 sign-keyless-release:
 	cosign sign --force -a GIT_HASH=$(GIT_HASH) -a GIT_VERSION=$(GIT_VERSION) ${KO_PREFIX}/fulcio:$(GIT_VERSION)
+
+####################
+# copy image to GHCR
+####################
+
+.PHONY: copy-signed-release-to-ghcr
+	cosign copy ${KO_PREFIX}/fulcio:$(GIT_VERSION) ${GHCR_PREFIX}/fulcio:$(GIT_VERSION)

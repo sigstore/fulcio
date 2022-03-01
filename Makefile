@@ -44,6 +44,8 @@ LDFLAGS=-X $(FULCIO_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_PKG).gitCommit=$(
 KO_PREFIX ?= gcr.io/projectsigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
 
+GHCR_PREFIX ?= ghcr.io/sigstore
+
 lint: ## Runs golangci-lint
 	$(GOBIN)/golangci-lint run -v ./...
 
