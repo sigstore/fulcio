@@ -51,4 +51,4 @@ jobs:
 
       - name: Start cloudbuild job
         working-directory: ./src/github.com/sigstore/fulcio
-        run: gcloud builds submit --config release/cloudbuild.yaml --substitutions _GIT_TAG=${{ env.GIT_TAG }},_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=${{ github.event.inputs.key_ring }},_KEY_NAME=${{ github.event.inputs.key_name }} --project=${{ env.PROJECT_ID }}
+        run: gcloud builds submit --config release/cloudbuild.yaml --substitutions _GIT_TAG=${{ env.GIT_TAG }},_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=${{ github.event.inputs.key_ring }},_KEY_NAME=${{ github.event.inputs.key_name }},_GITHUB_USER=${{ github.actor }} --project=${{ env.PROJECT_ID }}
