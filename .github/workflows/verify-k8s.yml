@@ -142,7 +142,7 @@ jobs:
             key.pem: $(cat ${{ github.run_id }}-key.pem | base64 -w 0)
           EOF
 
-          make ko-apply
+          make ko-apply-ci
 
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-system deployment/fulcio-server
 
