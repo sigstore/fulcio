@@ -89,4 +89,5 @@ sign-keyless-release:
 ####################
 
 .PHONY: copy-signed-release-to-ghcr
+copy-signed-release-to-ghcr:
 	cosign copy ${KO_PREFIX}/fulcio:$(GIT_VERSION) ${GHCR_PREFIX}/fulcio:$(GIT_VERSION)
