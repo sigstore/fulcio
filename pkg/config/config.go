@@ -50,10 +50,17 @@ type FulcioConfig struct {
 }
 
 type OIDCIssuer struct {
-	IssuerURL   string     `json:"IssuerURL,omitempty"`
-	ClientID    string     `json:"ClientID"`
-	Type        IssuerType `json:"Type"`
-	IssuerClaim string     `json:"IssuerClaim,omitempty"`
+	// The expected issuer of an OIDC token
+	IssuerURL string `json:"IssuerURL,omitempty"`
+	// The expected client ID of the OIDC token
+	ClientID string `json:"ClientID"`
+	// Used to determine the subject of the certificate and if additional
+	// certificate values are needed
+	Type IssuerType `json:"Type"`
+	// Optional, if the issuer is in a different claim in the OIDC token
+	IssuerClaim string `json:"IssuerClaim,omitempty"`
+	// The domain that must be present in the subject for 'uri' issuer types
+	SubjectDomain string `json:"SubjectDomain,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -89,10 +96,11 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 			// If it matches, then return a concrete OIDCIssuer
 			// configuration for this issuer URL.
 			return OIDCIssuer{
-				IssuerURL:   issuerURL,
-				ClientID:    iss.ClientID,
-				Type:        iss.Type,
-				IssuerClaim: iss.IssuerClaim,
+				IssuerURL:     issuerURL,
+				ClientID:      iss.ClientID,
+				Type:          iss.Type,
+				IssuerClaim:   iss.IssuerClaim,
+				SubjectDomain: iss.SubjectDomain,
 			}, true
 		}
 	}
@@ -158,6 +166,7 @@ const (
 	IssuerTypeGithubWorkflow = "github-workflow"
 	IssuerTypeKubernetes     = "kubernetes"
 	IssuerTypeSpiffe         = "spiffe"
+	IssuerTypeURI            = "uri"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {

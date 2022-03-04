@@ -269,6 +269,8 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 		return challenges.GithubWorkflow(ctx, tok, publicKey, challenge)
 	case config.IssuerTypeKubernetes:
 		return challenges.Kubernetes(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeURI:
+		return challenges.URI(ctx, tok, publicKey, challenge)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}

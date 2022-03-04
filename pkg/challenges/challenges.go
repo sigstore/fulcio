@@ -38,6 +38,7 @@ const (
 	SpiffeValue
 	GithubWorkflowValue
 	KubernetesValue
+	URIValue
 )
 
 type AdditionalInfo int
@@ -205,6 +206,69 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 	}, nil
 }
 
+func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+	uriWithSubject := principal.Subject
+
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	uSubject, err := url.Parse(uriWithSubject)
+	if err != nil {
+		return nil, err
+	}
+
+	// The subject prefix URI must match the domain (excluding the subdomain) of the issuer
+	// In order to declare this configuration, a test must have been done to prove ownership
+	// over both the issuer and domain configuration values.
+	// Valid examples:
+	// * uriWithSubject = https://domain.com/users/user1, issuer = https://accounts.domain.com
+	// * uriWithSubject = https://accounts.domain.com/users/user1, issuer = https://accounts.domain.com
+	// * uriWithSubject = https://users.domain.com/users/user1, issuer = https://accounts.domain.com
+	uIssuer, err := url.Parse(cfg.IssuerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that:
+	// * The URI schemes match
+	// * Either the hostnames exactly match or the top level and second level domains match
+	if err := isURISubjectAllowed(uSubject, uIssuer); err != nil {
+		return nil, err
+	}
+
+	// The subject hostname must exactly match the subject domain from the configuration
+	uDomain, err := url.Parse(cfg.SubjectDomain)
+	if err != nil {
+		return nil, err
+	}
+	if uSubject.Scheme != uDomain.Scheme {
+		return nil, fmt.Errorf("Subject URI scheme (%s) must match expected domain URI scheme (%s)", uSubject.Scheme, uDomain.Scheme)
+	}
+	if uSubject.Hostname() != uDomain.Hostname() {
+		return nil, fmt.Errorf("Subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
+	}
+
+	// Check the proof - A signature over the OIDC token subject
+	if err := CheckSignature(pubKey, challenge, uriWithSubject); err != nil {
+		return nil, err
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now issue cert!
+	return &ChallengeResult{
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   URIValue,
+		Value:     uriWithSubject,
+	}, nil
+}
+
 func kubernetesToken(token *oidc.IDToken) (string, error) {
 	// Extract custom claims
 	var claims struct {
@@ -290,4 +354,35 @@ func isSpiffeIDAllowed(host, spiffeID string) bool {
 		return true
 	}
 	return strings.Contains(u.Hostname(), "."+host)
+}
+
+// isURISubjectAllowed compares the subject and issuer URIs,
+// returning an error if the scheme or the hostnames do not match
+func isURISubjectAllowed(subject, issuer *url.URL) error {
+	subjectHostname := subject.Hostname()
+	issuerHostname := issuer.Hostname()
+
+	if subject.Scheme != issuer.Scheme {
+		return fmt.Errorf("Subject (%s) and Issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
+	}
+
+	// If the hostnames exactly match, return early
+	if subjectHostname == issuerHostname {
+		return nil
+	}
+
+	// Compare the top level and second level domains
+	sHostname := strings.Split(subjectHostname, ".")
+	iHostname := strings.Split(issuerHostname, ".")
+	if len(sHostname) < 2 {
+		return fmt.Errorf("Subject URI hostname too short: %s", subjectHostname)
+	}
+	if len(iHostname) < 2 {
+		return fmt.Errorf("Issuer URI hostname too short: %s", issuerHostname)
+	}
+	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
+		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
+		return nil
+	}
+	return fmt.Errorf("Subject and issuer hostnames do not match: %s, %s", subjectHostname, issuerHostname)
 }
