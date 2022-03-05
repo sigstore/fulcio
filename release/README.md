@@ -9,15 +9,15 @@ This directory contain the files and scripts to run a cosign release.
 
   You can get a list of pull requests since the last release by substituting in the date of the last release and running:
 
-	```
-	git log --pretty="* %s" --after="YYYY-MM-DD"
-	```
-	
-	and a list of authors by running:
-	
-	```
-	git log --pretty="* %an" --after="YYYY-MM-DD" | sort -u
-	```
+```
+git log --pretty="* %s" --after="YYYY-MM-DD"
+```
+
+and a list of authors by running:
+
+```
+git log --pretty="* %an" --after="YYYY-MM-DD" | sort -u
+```
 
 2. Run "Cut Release" workflow
 	- Open the "Actions" screen
@@ -35,7 +35,7 @@ This directory contain the files and scripts to run a cosign release.
 	 	- Click on "Releases" toggle.
 	- Click on the edit icon for the draft release
 	- Update release notes
-	- Click "Publish release"  
+	- Click "Publish release"
 
 ## OIDC for Github Actions
 
@@ -47,13 +47,13 @@ One time setup in ./hack/github-oidc-setup.sh. This is to provide GitHub actions
   - Check merged pull requests since the last release and make sure enhancements, bug fixes, and authors are reflected in the notes.
 
 	You can get a list of pull requests since the last release by substituting in the date of the last release and running:
-	
+
 	```
 	git log --pretty="* %s" --after="YYYY-MM-DD"
 	```
-	
+
 	and a list of authors by running:
-	
+
 	```
 	git log --pretty="* %an" --after="YYYY-MM-DD" | sort -u
 	```
@@ -73,9 +73,9 @@ One time setup in ./hack/github-oidc-setup.sh. This is to provide GitHub actions
 	   --substitutions _GIT_TAG=<_GIT_TAG>,_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=<KEY_RING>,_KEY_NAME=<KEY_NAME>,_GITHUB_USER=<GITHUB_USER> \
 	   --project <GCP_PROJECT>
 	```
-	
+
 	Where:
-	
+
 	- `PATH_TO_CLOUDBUILD` is the path where the cloudbuild.yaml can be found.
 	- `GCP_PROJECT` is the GCP project where we will run the job.
 	- `_GIT_TAG` is the release version we are publishing, this will also create the GitHub Tag.
