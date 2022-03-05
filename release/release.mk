@@ -23,35 +23,35 @@ ALL_ARCH = amd64 arm arm64 ppc64le s390x
 ko-release:
 # amd64
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	ko publish --base-import-paths --bare \
+	ko resolve --base-import-paths \
 		--platform=linux/amd64 --tags $(GIT_VERSION)-amd64 --tags $(GIT_HASH)-amd64 \
-		github.com/sigstore/fulcio
+		--filename config/ > $(FULCIO_YAML)
 
 # arm64
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
 	CC=aarch64-linux-gnu-gcc \
-	ko publish --base-import-paths --bare \
+	ko publish --base-import-paths \
 		--platform=linux/arm64 --tags $(GIT_VERSION)-arm64 --tags $(GIT_HASH)-arm64 \
 		github.com/sigstore/fulcio
 
 # arm
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
 	CC=arm-linux-gnueabihf-gcc \
-	ko publish --base-import-paths --bare \
+	ko publish --base-import-paths \
 		--platform=linux/arm --tags $(GIT_VERSION)-arm --tags $(GIT_HASH)-arm \
 		github.com/sigstore/fulcio
 
 # ppc64le
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
 	CC=powerpc64le-linux-gnu-gcc \
-	ko publish --base-import-paths --bare \
+	ko publish --base-import-paths \
 		--platform=linux/ppc64le --tags $(GIT_VERSION)-ppc64le --tags $(GIT_HASH)-ppc64le \
 		github.com/sigstore/fulcio
 
 # s390x
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
 	CC=s390x-linux-gnu-gcc \
-	ko publish --base-import-paths --bare \
+	ko publish --base-import-paths \
 		--platform=linux/s390x --tags $(GIT_VERSION)-s390x --tags $(GIT_HASH)-s390x \
 		github.com/sigstore/fulcio
 
@@ -65,8 +65,12 @@ push-manifest:
 	@for arch in $(ALL_ARCH); do docker manifest annotate --arch $${arch} ${KO_PREFIX}/fulcio:${GIT_HASH} ${KO_PREFIX}/fulcio:${GIT_HASH}-$${arch}; done
 	docker manifest push --purge ${KO_PREFIX}/fulcio:${GIT_HASH}
 
+.PHONY: update-yaml
+update-yaml:
+	sed -i -e 's;$(KO_PREFIX)/fulcio:.*;$(KO_PREFIX)/fulcio:$(GIT_HASH)/g' $(FULCIO_YAML)
+
 .PHONY: release-images
-release-images: ko-release push-manifest
+release-images: ko-release push-manifest update-yaml
 
 ###########################
 # sign with GCP KMS section

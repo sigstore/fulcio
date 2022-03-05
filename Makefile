@@ -25,6 +25,7 @@ BIN_DIR := $(abspath $(ROOT_DIR)/bin)
 # Set version variables for LDFLAGS
 GIT_VERSION ?= $(shell git describe --tags --always --dirty)
 GIT_HASH ?= $(shell git rev-parse HEAD)
+GIT_TAG ?= dirty-tag
 DATE_FMT = +'%Y-%m-%dT%H:%M:%SZ'
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
 ifdef SOURCE_DATE_EPOCH
@@ -45,6 +46,8 @@ KO_PREFIX ?= gcr.io/projectsigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
 
 GHCR_PREFIX ?= ghcr.io/sigstore
+
+FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
 lint: ## Runs golangci-lint
 	$(GOBIN)/golangci-lint run -v ./...
@@ -77,7 +80,7 @@ debug: ## Start docker compose in debug mode
 .PHONY: ko-local
 ko-local:
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	ko publish --base-import-paths --bare \
+	ko publish --base-import-paths \
 		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --local \
 		github.com/sigstore/fulcio
 

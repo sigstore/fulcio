@@ -121,6 +121,7 @@ artifacts:
     paths:
     - "go/src/sigstore/fulcio/dist/fulcio*"
     - "go/src/sigstore/fulcio/release/release-cosign.pub"
+    - "go/src/sigstore/fulcio/fulcio*.yaml"
 
 options:
   machineType: E2_HIGHCPU_8
