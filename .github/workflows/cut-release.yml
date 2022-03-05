@@ -39,15 +39,16 @@ jobs:
           path: ./src/github.com/sigstore/fulcio
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@8d125895b958610ec414ca4dae010257eaa814d3 # v0.6.0
         with:
           workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-fulcio'
           service_account: 'github-actions-fulcio@projectsigstore.iam.gserviceaccount.com'
 
       - name: Setup gcloud
-        uses: 'google-github-actions/setup-gcloud@v0'
+        uses: google-github-actions/setup-gcloud@04141d8a7edfc8c679682f23e7bbbe05cbe32bb3 # v0.5.1
         with:
           project_id: ${{ env.PROJECT_ID }}
+          export_default_credentials: true
 
       - name: Start cloudbuild job
         working-directory: ./src/github.com/sigstore/fulcio
