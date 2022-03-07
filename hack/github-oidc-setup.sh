@@ -68,3 +68,18 @@ gcloud iam service-accounts add-iam-policy-binding "${SERVICE_ACCOUNT}" \
   --project="${PROJECT_ID}" \
   --role="roles/iam.workloadIdentityUser" \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/${LOCATION}/workloadIdentityPools/${POOL_NAME}/attribute.repository/${REPO}"
+
+# Adding binding is idempotent.
+# Used for kicking off cloud build.
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --project="${PROJECT_ID}" \
+  --role="roles/cloudbuild.builds.editor" \
+  --member="serviceAccount:${SERVICE_ACCOUNT}"
+
+# Adding binding is idempotent.
+# Permission needed to run `gcloud builds`
+# https://cloud.google.com/build/docs/securing-builds/configure-access-to-resources#granting_permissions_to_run_gcloud_commands
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --project="${PROJECT_ID}" \
+  --role="roles/serviceusage.serviceUsageConsumer" \
+  --member="serviceAccount:${SERVICE_ACCOUNT}"
