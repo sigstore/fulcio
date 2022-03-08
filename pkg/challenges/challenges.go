@@ -41,6 +41,10 @@ const (
 	URIValue
 )
 
+// All hostnames for subject and issuer OIDC claims must have at least a
+// top-level and second-level domain
+const minimumHostnameLength = 2
+
 type AdditionalInfo int
 
 // Additional information that can be added as a cert extension.
@@ -223,9 +227,9 @@ func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, 
 	// In order to declare this configuration, a test must have been done to prove ownership
 	// over both the issuer and domain configuration values.
 	// Valid examples:
-	// * uriWithSubject = https://domain.com/users/user1, issuer = https://accounts.domain.com
-	// * uriWithSubject = https://accounts.domain.com/users/user1, issuer = https://accounts.domain.com
-	// * uriWithSubject = https://users.domain.com/users/user1, issuer = https://accounts.domain.com
+	// * uriWithSubject = https://example.com/users/user1, issuer = https://accounts.example.com
+	// * uriWithSubject = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
+	// * uriWithSubject = https://users.example.com/users/user1, issuer = https://accounts.example.com
 	uIssuer, err := url.Parse(cfg.IssuerURL)
 	if err != nil {
 		return nil, err
@@ -244,10 +248,10 @@ func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, 
 		return nil, err
 	}
 	if uSubject.Scheme != uDomain.Scheme {
-		return nil, fmt.Errorf("Subject URI scheme (%s) must match expected domain URI scheme (%s)", uSubject.Scheme, uDomain.Scheme)
+		return nil, fmt.Errorf("subject URI scheme (%s) must match expected domain URI scheme (%s)", uSubject.Scheme, uDomain.Scheme)
 	}
 	if uSubject.Hostname() != uDomain.Hostname() {
-		return nil, fmt.Errorf("Subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
+		return nil, fmt.Errorf("subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
 	}
 
 	// Check the proof - A signature over the OIDC token subject
@@ -363,7 +367,7 @@ func isURISubjectAllowed(subject, issuer *url.URL) error {
 	issuerHostname := issuer.Hostname()
 
 	if subject.Scheme != issuer.Scheme {
-		return fmt.Errorf("Subject (%s) and Issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
+		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
 	}
 
 	// If the hostnames exactly match, return early
@@ -374,15 +378,15 @@ func isURISubjectAllowed(subject, issuer *url.URL) error {
 	// Compare the top level and second level domains
 	sHostname := strings.Split(subjectHostname, ".")
 	iHostname := strings.Split(issuerHostname, ".")
-	if len(sHostname) < 2 {
-		return fmt.Errorf("Subject URI hostname too short: %s", subjectHostname)
+	if len(sHostname) < minimumHostnameLength {
+		return fmt.Errorf("subject URI hostname too short: %s", subjectHostname)
 	}
-	if len(iHostname) < 2 {
-		return fmt.Errorf("Issuer URI hostname too short: %s", issuerHostname)
+	if len(iHostname) < minimumHostnameLength {
+		return fmt.Errorf("issuer URI hostname too short: %s", issuerHostname)
 	}
 	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
 		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
 		return nil
 	}
-	return fmt.Errorf("Subject and issuer hostnames do not match: %s, %s", subjectHostname, issuerHostname)
+	return fmt.Errorf("subject and issuer hostnames do not match: %s, %s", subjectHostname, issuerHostname)
 }

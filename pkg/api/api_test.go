@@ -222,7 +222,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 			t.Fatalf("Failed to parse the received leaf cert: %v", err)
 		}
 		if len(leafCert.URIs) != 1 {
-			t.Fatalf("Unexpected length of leaf certifiacte URIs, expected 1, got %d", len(leafCert.URIs))
+			t.Fatalf("Unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 		}
 		uSubject, err := url.Parse(c.Subject)
 		if err != nil {
