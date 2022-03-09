@@ -85,6 +85,8 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 			return nil, ca.ValidationError(err)
 		}
 		cert.URIs = []*url.URL{subjectURI}
+	case challenges.UsernameValue:
+		cert.EmailAddresses = []string{subject.Value}
 	}
 	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
 	return cert, nil

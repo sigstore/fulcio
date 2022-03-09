@@ -39,6 +39,7 @@ const (
 	GithubWorkflowValue
 	KubernetesValue
 	URIValue
+	UsernameValue
 )
 
 // All hostnames for subject and issuer OIDC claims must have at least a
@@ -273,6 +274,50 @@ func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, 
 	}, nil
 }
 
+func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+	username := principal.Subject
+
+	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	// The domain in the configuration must match the domain (excluding the subdomain) of the issuer
+	// In order to declare this configuration, a test must have been done to prove ownership
+	// over both the issuer and domain configuration values.
+	// Valid examples:
+	// * domain = https://example.com/users/user1, issuer = https://accounts.example.com
+	// * domain = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
+	// * domain = https://users.example.com/users/user1, issuer = https://accounts.example.com
+	uIssuer, err := url.Parse(cfg.IssuerURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := isDomainAllowed(cfg.SubjectDomain, uIssuer.Hostname()); err != nil {
+		return nil, err
+	}
+
+	// Check the proof - A signature over the OIDC token subject
+	if err := CheckSignature(pubKey, challenge, username); err != nil {
+		return nil, err
+	}
+
+	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
+	if err != nil {
+		return nil, err
+	}
+
+	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
+
+	// Now issue cert!
+	return &ChallengeResult{
+		Issuer:    issuer,
+		PublicKey: pubKey,
+		TypeVal:   UsernameValue,
+		Value:     emailSubject,
+	}, nil
+}
+
 func kubernetesToken(token *oidc.IDToken) (string, error) {
 	// Extract custom claims
 	var claims struct {
@@ -363,13 +408,16 @@ func isSpiffeIDAllowed(host, spiffeID string) bool {
 // isURISubjectAllowed compares the subject and issuer URIs,
 // returning an error if the scheme or the hostnames do not match
 func isURISubjectAllowed(subject, issuer *url.URL) error {
-	subjectHostname := subject.Hostname()
-	issuerHostname := issuer.Hostname()
-
 	if subject.Scheme != issuer.Scheme {
 		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
 	}
 
+	return isDomainAllowed(subject.Hostname(), issuer.Hostname())
+}
+
+// isDomainAllowed compares two hostnames, returning an error if the
+// top-level and second-level domains do not match
+func isDomainAllowed(subjectHostname, issuerHostname string) error {
 	// If the hostnames exactly match, return early
 	if subjectHostname == issuerHostname {
 		return nil

@@ -75,9 +75,172 @@ func TestMissingRootFails(t *testing.T) {
 
 // oidcTestContainer holds values needed for each API test invocation
 type oidcTestContainer struct {
-	Signer  jose.Signer
-	Issuer  string
-	Subject string
+	Signer          jose.Signer
+	Issuer          string
+	Subject         string
+	ExpectedSubject string
+}
+
+// customClaims holds additional JWT claims for email-based OIDC tokens
+type customClaims struct {
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+}
+
+// Tests API for email and username subject types
+func TestAPIWithEmail(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+	usernameSigner, usernameIssuer := newOIDCIssuer(t)
+
+	issuerDomain, err := url.Parse(usernameIssuer)
+	if err != nil {
+		t.Fatal("Issuer URL could not be parsed", err)
+	}
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"SubjectDomain": %q,
+				"Type": "username"
+			}
+		}
+	}`, emailIssuer, emailIssuer, usernameIssuer, usernameIssuer, issuerDomain.Hostname())))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+	usernameSubject := "foo"
+	expectedUsernamedSubject := fmt.Sprintf("%s@%s", usernameSubject, issuerDomain.Hostname())
+
+	for _, c := range []oidcTestContainer{
+		{
+			Signer: emailSigner, Issuer: emailIssuer, Subject: emailSubject, ExpectedSubject: emailSubject,
+		},
+		{
+			Signer: usernameSigner, Issuer: usernameIssuer, Subject: usernameSubject, ExpectedSubject: expectedUsernamedSubject,
+		}} {
+		// Create an OIDC token using this issuer's signer.
+		tok, err := jwt.Signed(c.Signer).Claims(jwt.Claims{
+			Issuer:   c.Issuer,
+			IssuedAt: jwt.NewNumericDate(time.Now()),
+			Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+			Subject:  c.Subject,
+			Audience: jwt.Audience{"sigstore"},
+		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).CompactSerialize()
+		if err != nil {
+			t.Fatalf("CompactSerialize() = %v", err)
+		}
+
+		// Stand up an ephemeral CA we can use for signing certificate requests.
+		eca, err := ephemeralca.NewEphemeralCA()
+		if err != nil {
+			t.Fatalf("ephemeralca.NewEphemeralCA() = %v", err)
+		}
+
+		ctlogServer := fakeCTLogServer(t)
+		if ctlogServer == nil {
+			t.Fatalf("Failed to create the fake ctlog server")
+		}
+
+		// Create a test HTTP server to host our API.
+		h := New(ctl.New(ctlogServer.URL), eca)
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			// For each request, infuse context with our snapshot of the FulcioConfig.
+			ctx = config.With(ctx, cfg)
+
+			h.ServeHTTP(rw, r.WithContext(ctx))
+		}))
+		t.Cleanup(server.Close)
+
+		// Create an API client that speaks to the API endpoint we created above.
+		u, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatalf("url.Parse() = %v", err)
+		}
+		client := NewClient(u)
+
+		// Sign the subject with our keypair, and provide the public key
+		// for verification.
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatalf("GenerateKey() = %v", err)
+		}
+		pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+		if err != nil {
+			t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
+		}
+		hash := sha256.Sum256([]byte(c.Subject))
+		proof, err := ecdsa.SignASN1(rand.Reader, priv, hash[:])
+		if err != nil {
+			t.Fatalf("SignASN1() = %v", err)
+		}
+
+		// Hit the API to have it sign our certificate.
+		resp, err := client.SigningCert(CertificateRequest{
+			PublicKey: Key{
+				Content: pubBytes,
+			},
+			SignedEmailAddress: proof,
+		}, tok)
+		if err != nil {
+			t.Fatalf("SigningCert() = %v", err)
+		}
+
+		if string(resp.SCT) == "" {
+			t.Error("Did not get SCT")
+		}
+
+		// Check that we get the CA root back as well.
+		root, err := client.RootCert()
+		if err != nil {
+			t.Fatal("Failed to get Root", err)
+		}
+		if root == nil {
+			t.Fatal("Got nil root back")
+		}
+		if len(root.ChainPEM) == 0 {
+			t.Fatal("Got back empty chain")
+		}
+		block, rest := pem.Decode(root.ChainPEM)
+		if block == nil {
+			t.Fatal("Did not find PEM data")
+		}
+		if len(rest) != 0 {
+			t.Fatal("Got more than bargained for, should only have one cert")
+		}
+		if block.Type != "CERTIFICATE" {
+			t.Fatalf("Unexpected root type, expected CERTIFICATE, got %s", block.Type)
+		}
+		rootCert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatalf("Failed to parse the received root cert: %v", err)
+		}
+		if !rootCert.Equal(eca.RootCA) {
+			t.Errorf("Root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
+		}
+		// Compare leaf certificate values
+		block, _ = pem.Decode(resp.CertPEM)
+		leafCert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatalf("Failed to parse the received leaf cert: %v", err)
+		}
+		if len(leafCert.EmailAddresses) != 1 {
+			t.Fatalf("Unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+		}
+		if leafCert.EmailAddresses[0] != c.ExpectedSubject {
+			t.Fatalf("Subjects do not match: Expected %v, got %v", c.ExpectedSubject, leafCert.EmailAddresses[0])
+		}
+	}
 }
 
 // Tests API for SPIFFE and URI subject types
