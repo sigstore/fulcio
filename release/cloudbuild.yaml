@@ -55,38 +55,16 @@ steps:
   - GIT_TAG=${_GIT_TAG}
   - GOOGLE_SERVICE_ACCOUNT_NAME=keyless@${PROJECT_ID}.iam.gserviceaccount.com
   - COSIGN_EXPERIMENTAL=true
-  secretEnv:
-  - GITHUB_TOKEN
-  args:
-    - '-c'
-    - |
-      make release
-
-- name: ghcr.io/gythialy/golang-cross:v1.17.8-0@sha256:b5b14c6a61099af5a69864f242766a0dca978d2aea97e311d051ee4f4b7d19ba
-  entrypoint: 'bash'
-  dir: "go/src/sigstore/fulcio"
-  env:
-  - "GOPATH=/workspace/go"
-  - "GOBIN=/workspace/bin"
-  - PROJECT_ID=${PROJECT_ID}
-  - KEY_LOCATION=${_KEY_LOCATION}
-  - KEY_RING=${_KEY_RING}
-  - KEY_NAME=${_KEY_NAME}
-  - KEY_VERSION=${_KEY_VERSION}
-  - GIT_TAG=${_GIT_TAG}
   - KO_PREFIX=gcr.io/${PROJECT_ID}
-  - COSIGN_EXPERIMENTAL=true
-  - GOOGLE_SERVICE_ACCOUNT_NAME=keyless@${PROJECT_ID}.iam.gserviceaccount.com
   secretEnv:
   - GITHUB_TOKEN
   args:
     - '-c'
     - |
       gcloud auth configure-docker \
-      && make sign-container-release \
-      && make sign-keyless-release
+      && make release
 
-- name: gcr.io/cloud-builders/docker
+- name: ghcr.io/gythialy/golang-cross:v1.17.8-0@sha256:b5b14c6a61099af5a69864f242766a0dca978d2aea97e311d051ee4f4b7d19ba
   entrypoint: 'bash'
   dir: "go/src/sigstore/fulcio"
   env:
