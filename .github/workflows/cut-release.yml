@@ -21,35 +21,14 @@ concurrency: cut-release
 jobs:
   cut-release:
     name: Cut release
-    runs-on: ubuntu-latest
+    uses: sigstore/sigstore/.github/workflows/reusable-release.yml@main
     permissions:
       id-token: write
       contents: read
-    env:
-      GIT_TAG: ${{ github.event.inputs.release_tag }}
-      PROJECT_ID: 'projectsigstore'
-    steps:
-      - name: Check actor access
-        if: ${{ !contains(fromJson('["bobcallaway","cpanato","dlorenc","lukehinds"]'), github.actor) }}
-        run: exit 1
-
-      - name: Checkout out repo
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846 # v3
-        with:
-          path: ./src/github.com/sigstore/fulcio
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@8d125895b958610ec414ca4dae010257eaa814d3 # v0.6.0
-        with:
-          workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-fulcio'
-          service_account: 'github-actions-fulcio@projectsigstore.iam.gserviceaccount.com'
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@877d4953d2c70a0ba7ef3290ae968eb24af233bb # v0.6.0
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          export_default_credentials: true
-
-      - name: Start cloudbuild job
-        working-directory: ./src/github.com/sigstore/fulcio
-        run: gcloud builds submit --no-source --config release/cloudbuild.yaml --substitutions _GIT_TAG=${{ env.GIT_TAG }},_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=${{ github.event.inputs.key_ring }},_KEY_NAME=${{ github.event.inputs.key_name }},_GITHUB_USER=sigstore-bot --project=${{ env.PROJECT_ID }}
+    with:
+      release_tag: ${{ github.event.inputs.release_tag }}
+      key_ring: ${{ github.event.inputs.key_ring }}
+      key_name: ${{ github.event.inputs.key_name }}
+      workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-fulcio'
+      service_account: 'github-actions-fulcio@projectsigstore.iam.gserviceaccount.com'
+      repo: 'fulcio'
