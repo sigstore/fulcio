@@ -67,7 +67,7 @@ push-manifest:
 
 .PHONY: update-yaml
 update-yaml:
-	sed -i -e 's/$(KO_PREFIX)\/fulcio@.*/$(KO_PREFIX)\/fulcio:$(GIT_VERSION)/g' $(FULCIO_YAML)
+	sed -i -e 's/$(subst /,\/,$(KO_PREFIX))\/fulcio@.*/$(subst /,\/,$(KO_PREFIX))\/fulcio:$(GIT_VERSION)/g' $(FULCIO_YAML)
 
 .PHONY: release-images
 release-images: ko-release push-manifest update-yaml
