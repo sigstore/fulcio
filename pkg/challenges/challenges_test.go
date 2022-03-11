@@ -16,13 +16,19 @@
 package challenges
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"fmt"
+	"net/url"
 	"testing"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/sigstore/fulcio/pkg/config"
 )
 
 func Test_isSpiffeIDAllowed(t *testing.T) {
@@ -61,6 +67,111 @@ func Test_isSpiffeIDAllowed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isSpiffeIDAllowed(tt.host, tt.spiffeID); got != tt.want {
 				t.Errorf("isSpiffeIDAllowed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestURI(t *testing.T) {
+	cfg := &config.FulcioConfig{
+		OIDCIssuers: map[string]config.OIDCIssuer{
+			"https://accounts.example.com": {
+				IssuerURL:     "https://accounts.example.com",
+				ClientID:      "sigstore",
+				SubjectDomain: "https://example.com",
+				Type:          config.IssuerTypeURI,
+			},
+		},
+	}
+	ctx := config.With(context.Background(), cfg)
+	subject := "https://example.com/users/1"
+	issuer := "https://accounts.example.com"
+	token := &oidc.IDToken{Subject: subject, Issuer: issuer}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	failErr(t, err)
+	h := sha256.Sum256([]byte(subject))
+	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
+	failErr(t, err)
+
+	result, err := URI(ctx, token, priv.Public(), signature)
+	if err != nil {
+		t.Errorf("Expected test success, got %v", err)
+	}
+	if result.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, result.Issuer)
+	}
+	if result.Value != subject {
+		t.Errorf("Expected subject %s, got %s", subject, result.Value)
+	}
+	if result.TypeVal != URIValue {
+		t.Errorf("Expected type %v, got %v", URIValue, result.TypeVal)
+	}
+}
+
+func Test_isURISubjectAllowed(t *testing.T) {
+	tests := []struct {
+		name    string
+		subject string // Parsed to url.URL
+		issuer  string // Parsed to url.URL
+		want    error
+	}{{
+		name:    "match",
+		subject: "https://accounts.example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "issuer subdomain",
+		subject: "https://example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject subdomain",
+		subject: "https://profiles.example.com",
+		issuer:  "https://example.com",
+		want:    nil,
+	}, {
+		name:    "subdomain mismatch",
+		subject: "https://profiles.example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "scheme mismatch",
+		subject: "http://example.com",
+		issuer:  "https://example.com",
+		want:    fmt.Errorf("subject (http) and issuer (https) URI schemes do not match"),
+	}, {
+		name:    "subject domain too short",
+		subject: "https://example",
+		issuer:  "https://example.com",
+		want:    fmt.Errorf("subject URI hostname too short: example"),
+	}, {
+		name:    "issuer domain too short",
+		subject: "https://example.com",
+		issuer:  "https://issuer",
+		want:    fmt.Errorf("issuer URI hostname too short: issuer"),
+	}, {
+		name:    "domain mismatch",
+		subject: "https://example.com",
+		issuer:  "https://otherexample.com",
+		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, otherexample.com"),
+	}, {
+		name:    "top level domain mismatch",
+		subject: "https://example.com",
+		issuer:  "https://example.org",
+		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, example.org"),
+	}}
+	for _, tt := range tests {
+		subject, _ := url.Parse(tt.subject)
+		issuer, _ := url.Parse(tt.issuer)
+		t.Run(tt.name, func(t *testing.T) {
+			got := isURISubjectAllowed(subject, issuer)
+			if got == nil && tt.want != nil ||
+				got != nil && tt.want == nil {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+			}
+			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
 			}
 		})
 	}
