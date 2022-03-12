@@ -16,7 +16,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -55,6 +54,7 @@ func alterJSONResponse(ctx context.Context, rw http.ResponseWriter, msg protoref
 			rw.Header().Set("SCT", base64.StdEncoding.EncodeToString(m.SignedCertificateTimestamp))
 		}
 		rw.WriteHeader(http.StatusCreated)
+		rw.Write([]byte(m.Certificate))
 	}
 	return nil
 }
@@ -65,16 +65,13 @@ type PEMMarshaller struct {
 
 // Marshal marshals "v" into byte sequence.
 func (p *PEMMarshaller) Marshal(v interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	switch msg := v.(type) {
+	switch v.(type) {
 	case *gw.CertificateResponse:
-		buf.WriteString(msg.Certificate)
+		return []byte{}, nil
 	case *gw.RootCertificateResponse:
-		buf.WriteString(msg.Certificate)
-	default:
-		return p.defaultMarshaller.Marshal(v)
+		return []byte{}, nil
 	}
-	return buf.Bytes(), nil
+	return p.defaultMarshaller.Marshal(v)
 }
 
 // Unmarshal unmarshals "data" into "v". "v" must be a pointer value.
