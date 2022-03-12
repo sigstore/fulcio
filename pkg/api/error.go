@@ -16,10 +16,13 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/sigstore/fulcio/pkg/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -42,4 +45,9 @@ func handleFulcioAPIError(w http.ResponseWriter, req *http.Request, code int, er
 
 	log.RequestIDLogger(req).Errorw("exiting with error", append([]interface{}{"handler", req.URL.Path, "statusCode", code, "clientMessage", message, "error", err}, fields...)...)
 	http.Error(w, fmt.Sprintf(`{"code":%d,"message":%q}`, code, message), code)
+}
+
+func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {
+	log.ContextLogger(ctx).Errorw("exiting with error", append([]interface{}{"statusCode", code, "clientMessage", message, "error", err}, fields...)...)
+	return status.Error(code, message)
 }

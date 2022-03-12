@@ -95,20 +95,17 @@ func extractIssuer(token string) (string, error) {
 // We do this to bypass needing actual OIDC tokens for unit testing.
 var authorize = actualAuthorize
 
-func actualAuthorize(req *http.Request) (*oidc.IDToken, error) {
-	// Strip off the "Bearer" prefix.
-	token := strings.Replace(req.Header.Get("Authorization"), "Bearer ", "", 1)
-
+func actualAuthorize(ctx context.Context, token string) (*oidc.IDToken, error) {
 	issuer, err := extractIssuer(token)
 	if err != nil {
 		return nil, err
 	}
 
-	verifier, ok := config.FromContext(req.Context()).GetVerifier(issuer)
+	verifier, ok := config.FromContext(ctx).GetVerifier(issuer)
 	if !ok {
 		return nil, fmt.Errorf("unsupported issuer: %s", issuer)
 	}
-	return verifier.Verify(req.Context(), token)
+	return verifier.Verify(ctx, token)
 }
 
 func verifyContentType(contentType string) error {
@@ -138,7 +135,8 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	logger := log.ContextLogger(ctx)
 
-	principal, err := authorize(req)
+	token := strings.Replace(req.Header.Get("Authorization"), "Bearer ", "", 1)
+	principal, err := authorize(ctx, token)
 	if err != nil {
 		handleFulcioAPIError(w, req, http.StatusUnauthorized, err, invalidCredentials)
 		return

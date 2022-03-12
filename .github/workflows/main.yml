@@ -35,6 +35,8 @@ jobs:
       - uses: actions/setup-go@f6164bd8c8acb4a71fb2791a8b6c4024ff038dab # v3.0.0
         with:
           go-version: ${{ env.GOVERSION }}
+      - name: Install protobuf
+        run: brew install protobuf@3.12.4
 
       - name: Build
         run: make -C $GITHUB_WORKSPACE all

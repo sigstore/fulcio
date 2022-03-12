@@ -19,8 +19,15 @@ all: fulcio
 # Ensure Make is run with bash shell as some syntax below is bash-specific
 SHELL:=/usr/bin/env bash
 
-SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go")
+SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go"|grep -v pkg/generated) $(GENSRC)
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/bin)
 BIN_DIR := $(abspath $(ROOT_DIR)/bin)
+
+GO_MODULE=$(shell head -1 go.mod | cut -f2 -d ' ')
+
+GENSRC = pkg/generated/protobuf/%.go
+PROTOBUF_DEPS = $(shell find . -iname "*.proto" | grep -v "third_party")
 
 # Set version variables for LDFLAGS
 GIT_VERSION ?= $(shell git describe --tags --always --dirty)
@@ -39,7 +46,7 @@ ifeq ($(DIFF), 1)
     GIT_TREESTATE = "dirty"
 endif
 
-FULCIO_PKG=github.com/sigstore/fulcio/cmd/app
+FULCIO_PKG=github.com/sigstore/fulcio/pkg/api
 LDFLAGS=-X $(FULCIO_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_PKG).gitCommit=$(GIT_HASH) -X $(FULCIO_PKG).gitTreeState=$(GIT_TREESTATE) -X $(FULCIO_PKG).buildDate=$(BUILD_DATE)
 
 KO_PREFIX ?= gcr.io/projectsigstore
@@ -49,11 +56,28 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
+# Binaries
+PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
+PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
+PROTOC-GEN-GRPC-GATEWAY := $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway
+
+$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOBUF_DEPS)
+	mkdir -p pkg/generated/protobuf
+	protoc --plugin=protoc-gen-go=$(TOOLS_BIN_DIR)/protoc-gen-go \
+	       --go_opt=module=$(GO_MODULE) --go_out=. \
+	       --plugin=protoc-gen-go-grpc=$(TOOLS_BIN_DIR)/protoc-gen-go-grpc \
+	       --go-grpc_opt=module=$(GO_MODULE) --go-grpc_out=. \
+	       --plugin=protoc-gen-grpc-gateway=$(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway \
+	       --grpc-gateway_opt=module=$(GO_MODULE) --grpc-gateway_opt=logtostderr=true --grpc-gateway_out=. \
+		   -I third_party/googleapis/ -I . $(PROTOBUF_DEPS)
+
 lint: ## Runs golangci-lint
 	$(GOBIN)/golangci-lint run -v ./...
 
 gosec: ## Runs gosec
 	$(GOBIN)/gosec ./...
+
+gen: $(GENSRC)
 
 fulcio: $(SRCS) ## Build Fulcio for local tests
 	go build -trimpath -ldflags "$(LDFLAGS)"
@@ -65,6 +89,9 @@ clean: ## Clean the workspace
 	rm -rf dist
 	rm -rf fulcio
 
+clean-gen: clean
+	rm -rf $(shell find pkg/generated -iname "*.go")
+
 up: ## Start docker compose
 	docker-compose -f docker-compose.yml build
 	docker-compose -f docker-compose.yml up
@@ -72,6 +99,19 @@ up: ## Start docker compose
 debug: ## Start docker compose in debug mode
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml build fulcio-server-debug
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml up fulcio-server-debug
+
+## --------------------------------------
+## Tooling Binaries
+## --------------------------------------
+
+$(PROTOC-GEN-GO): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(PROTOC-GEN-GO-GRPC): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+$(PROTOC-GEN-GRPC-GATEWAY): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
 
 ## --------------------------------------
 ## Images with ko

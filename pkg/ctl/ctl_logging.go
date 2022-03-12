@@ -26,10 +26,10 @@ type ctlLoggingClient struct {
 }
 
 func (lc *ctlLoggingClient) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
-	lc.logger.Info("Submitting CTL inclusion for subject", csc.Subject.Value)
+	lc.logger.Info("Submitting CTL inclusion for subject: ", csc.Subject.Value)
 	resp, err := lc.next.AddChain(csc)
 	if err != nil {
-		lc.logger.Error("Failed to submit certificate to CTL with error", err)
+		lc.logger.Error("Failed to submit certificate to CTL with error: ", err)
 		return nil, err
 	}
 	lc.logger.Info("CTL Submission Signature Received: ", resp.Signature)
