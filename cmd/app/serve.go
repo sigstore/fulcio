@@ -65,21 +65,23 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("fileca-key", "", "Path to CA encrypted private key")
 	cmd.Flags().String("fileca-key-passwd", "", "Password to decrypt CA private key")
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
-	cmd.Flags().String("http-host", "0.0.0.0", "The host on which to serve requests for HTTP")
-	cmd.Flags().String("http-port", "8080", "The port on which to serve requests for HTTP")
+	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
+	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 
-	// convert old "host" flag to "http-host" and "port" flag to be "http-port"
+	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
 		switch name {
-		case "port":
-			name = "http-port"
-		case "host":
-			name = "http-host"
+		case "http-port":
+			name = "port"
+		case "http-host":
+			name = "host"
 		}
 		return pflag.NormalizedName(name)
 	})
+	viper.RegisterAlias("http-host", "host")
+	viper.RegisterAlias("http-port", "port")
 
 	return cmd
 }
