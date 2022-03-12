@@ -146,9 +146,6 @@ func (g *grpcCAServer) GetSigningCert(ctx context.Context, request *fulciogrpc.C
 	}
 	if len(finalChainPEM) > 0 {
 		fmt.Fprintf(&ret, "%s", finalChainPEM)
-		if !bytes.HasSuffix(finalChainPEM, []byte("\n")) {
-			fmt.Fprintf(&ret, "\n")
-		}
 	}
 
 	result := &fulciogrpc.CertificateResponse{

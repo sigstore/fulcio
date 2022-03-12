@@ -74,9 +74,6 @@ func (p *PEMMarshaller) Marshal(v interface{}) ([]byte, error) {
 	default:
 		return p.defaultMarshaller.Marshal(v)
 	}
-	fmt.Println("starting output")
-	fmt.Println(buf.String())
-	fmt.Println("ending output")
 	return buf.Bytes(), nil
 }
 
