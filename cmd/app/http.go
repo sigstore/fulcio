@@ -54,7 +54,6 @@ func alterJSONResponse(ctx context.Context, rw http.ResponseWriter, msg protoref
 			rw.Header().Set("SCT", base64.StdEncoding.EncodeToString(m.SignedCertificateTimestamp))
 		}
 		rw.WriteHeader(http.StatusCreated)
-		rw.Write([]byte(m.Certificate))
 	}
 	return nil
 }
@@ -65,11 +64,11 @@ type PEMMarshaller struct {
 
 // Marshal marshals "v" into byte sequence.
 func (p *PEMMarshaller) Marshal(v interface{}) ([]byte, error) {
-	switch v.(type) {
+	switch msg := v.(type) {
 	case *gw.CertificateResponse:
-		return []byte{}, nil
+		return []byte(msg.Certificate), nil
 	case *gw.RootCertificateResponse:
-		return []byte{}, nil
+		return []byte(msg.Certificate), nil
 	}
 	return p.defaultMarshaller.Marshal(v)
 }
