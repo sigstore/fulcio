@@ -16,7 +16,10 @@
 package ctl
 
 import (
+	"context"
+
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/log"
 	"go.uber.org/zap"
 )
 
@@ -25,15 +28,16 @@ type ctlLoggingClient struct {
 	logger *zap.SugaredLogger
 }
 
-func (lc *ctlLoggingClient) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
-	lc.logger.Info("Submitting CTL inclusion for subject: ", csc.Subject.Value)
-	resp, err := lc.next.AddChain(csc)
+func (lc *ctlLoggingClient) AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+	logger := log.ContextLogger(ctx)
+	logger.Info("Submitting CTL inclusion for subject: ", csc.Subject.Value)
+	resp, err := lc.next.AddChain(ctx, csc)
 	if err != nil {
-		lc.logger.Error("Failed to submit certificate to CTL with error: ", err)
+		logger.Error("Failed to submit certificate to CTL with error: ", err)
 		return nil, err
 	}
-	lc.logger.Info("CTL Submission Signature Received: ", resp.Signature)
-	lc.logger.Info("CTL Submission ID Received: ", resp.ID)
+	logger.Info("CTL Submission Signature Received: ", resp.Signature)
+	logger.Info("CTL Submission ID Received: ", resp.ID)
 	return resp, nil
 }
 

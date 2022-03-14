@@ -17,6 +17,7 @@ package ctl
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -53,7 +54,7 @@ type CertChainResponse struct {
 	Signature  string `json:"signature"`
 }
 
-func (c *client) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+func (c *client) AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 	chainjson := &certChain{Chain: []string{
 		base64.StdEncoding.EncodeToString(csc.FinalCertificate.Raw),
 	}}
@@ -68,7 +69,7 @@ func (c *client) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, e
 
 	// Send to add-chain on CT log
 	url := fmt.Sprintf("%s/%s", c.url, addChainPath)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
 	}

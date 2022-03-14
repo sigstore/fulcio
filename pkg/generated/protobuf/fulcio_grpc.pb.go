@@ -4,10 +4,10 @@ package protobuf
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,10 +24,10 @@ type CAClient interface {
 	GetSigningCert(ctx context.Context, in *CertificateRequest, opts ...grpc.CallOption) (*CertificateResponse, error)
 	//*
 	// Returns the public key that can be used to validate the signed tree head
-	GetRootCertificate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RootCertificateResponse, error)
+	GetRootCertificate(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RootCertificateResponse, error)
 	//*
 	// Returns the current version information for this Fulcio instance
-	Version(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*VersionResponse, error)
+	Version(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error)
 }
 
 type cAClient struct {
@@ -47,7 +47,7 @@ func (c *cAClient) GetSigningCert(ctx context.Context, in *CertificateRequest, o
 	return out, nil
 }
 
-func (c *cAClient) GetRootCertificate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RootCertificateResponse, error) {
+func (c *cAClient) GetRootCertificate(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RootCertificateResponse, error) {
 	out := new(RootCertificateResponse)
 	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v1.CA/GetRootCertificate", in, out, opts...)
 	if err != nil {
@@ -56,7 +56,7 @@ func (c *cAClient) GetRootCertificate(ctx context.Context, in *emptypb.Empty, op
 	return out, nil
 }
 
-func (c *cAClient) Version(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*VersionResponse, error) {
+func (c *cAClient) Version(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error) {
 	out := new(VersionResponse)
 	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v1.CA/Version", in, out, opts...)
 	if err != nil {
@@ -74,10 +74,10 @@ type CAServer interface {
 	GetSigningCert(context.Context, *CertificateRequest) (*CertificateResponse, error)
 	//*
 	// Returns the public key that can be used to validate the signed tree head
-	GetRootCertificate(context.Context, *emptypb.Empty) (*RootCertificateResponse, error)
+	GetRootCertificate(context.Context, *empty.Empty) (*RootCertificateResponse, error)
 	//*
 	// Returns the current version information for this Fulcio instance
-	Version(context.Context, *emptypb.Empty) (*VersionResponse, error)
+	Version(context.Context, *empty.Empty) (*VersionResponse, error)
 	mustEmbedUnimplementedCAServer()
 }
 
@@ -88,10 +88,10 @@ type UnimplementedCAServer struct {
 func (UnimplementedCAServer) GetSigningCert(context.Context, *CertificateRequest) (*CertificateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSigningCert not implemented")
 }
-func (UnimplementedCAServer) GetRootCertificate(context.Context, *emptypb.Empty) (*RootCertificateResponse, error) {
+func (UnimplementedCAServer) GetRootCertificate(context.Context, *empty.Empty) (*RootCertificateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRootCertificate not implemented")
 }
-func (UnimplementedCAServer) Version(context.Context, *emptypb.Empty) (*VersionResponse, error) {
+func (UnimplementedCAServer) Version(context.Context, *empty.Empty) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
 }
 func (UnimplementedCAServer) mustEmbedUnimplementedCAServer() {}
@@ -126,7 +126,7 @@ func _CA_GetSigningCert_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _CA_GetRootCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -138,13 +138,13 @@ func _CA_GetRootCertificate_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/dev.sigstore.fulcio.v1.CA/GetRootCertificate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CAServer).GetRootCertificate(ctx, req.(*emptypb.Empty))
+		return srv.(CAServer).GetRootCertificate(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _CA_Version_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func _CA_Version_Handler(srv interface{}, ctx context.Context, dec func(interfac
 		FullMethod: "/dev.sigstore.fulcio.v1.CA/Version",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CAServer).Version(ctx, req.(*emptypb.Empty))
+		return srv.(CAServer).Version(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

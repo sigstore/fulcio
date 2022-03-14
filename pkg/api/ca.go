@@ -192,7 +192,7 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 
 		// Submit to CTL
 		if a.ct != nil {
-			sct, err := a.ct.AddChain(csc)
+			sct, err := a.ct.AddChain(ctx, csc)
 			if err != nil {
 				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
 				return

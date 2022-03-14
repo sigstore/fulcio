@@ -15,8 +15,12 @@
 
 package ctl
 
-import "github.com/sigstore/fulcio/pkg/ca"
+import (
+	"context"
+
+	"github.com/sigstore/fulcio/pkg/ca"
+)
 
 type Client interface {
-	AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error)
+	AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error)
 }

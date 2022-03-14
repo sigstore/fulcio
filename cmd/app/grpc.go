@@ -20,6 +20,10 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/goadesign/goa/grpc/middleware"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/api"
@@ -47,16 +51,23 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		// Calls the prometheus handler
-		return grpc_prometheus.UnaryServerInterceptor(ctx, req, info, handler)
+		// Calls the inner handler
+		return handler(ctx, req)
 	}
 }
 
 func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.CertificateAuthority) grpcServer {
-	myServer := grpc.NewServer(
-		grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)),
-		grpc.MaxRecvMsgSize(int(maxMsgSize)),
-	)
+	logger, opts := log.SetupGRPCLogging()
+
+	myServer := grpc.NewServer(grpc.UnaryInterceptor(
+		grpcmw.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(), // recovers from per-transaction panics elegantly, so put it first
+			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+			grpc_zap.UnaryServerInterceptor(logger, opts...),
+			passFulcioConfigThruContext(cfg),
+			grpc_prometheus.UnaryServerInterceptor,
+		)),
+		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
 	grpcCAServer := api.NewGRPCCAServer(ctClient, baseca)
 	// Register your gRPC service implementations.

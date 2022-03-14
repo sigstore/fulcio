@@ -115,7 +115,7 @@ func (g *grpcCAServer) GetSigningCert(ctx context.Context, request *fulciogrpc.C
 
 		// Submit to CTL
 		if g.ct != nil {
-			sct, err := g.ct.AddChain(csc)
+			sct, err := g.ct.AddChain(ctx, csc)
 			if err != nil {
 				return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToEnterCertInCTL)
 			}

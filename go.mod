@@ -8,10 +8,11 @@ require (
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/fsnotify/fsnotify v1.5.1
-	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.7
 	github.com/google/uuid v1.3.0
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.8.0
 	github.com/hashicorp/golang-lru v0.5.4
@@ -29,6 +30,7 @@ require (
 	go.step.sm/crypto v0.16.0
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0
+	goa.design/goa v2.2.5+incompatible // indirect
 	google.golang.org/api v0.73.0
 	google.golang.org/genproto v0.0.0-20220310185008-1973136f34c6
 	google.golang.org/grpc v1.45.0

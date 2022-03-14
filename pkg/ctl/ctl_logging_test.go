@@ -15,20 +15,22 @@
 package ctl
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"testing"
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
 
-type clientFunc func(csc *ca.CodeSigningCertificate) (*CertChainResponse, error)
+type clientFunc func(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error)
 
-func (f clientFunc) AddChain(csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
-	return f(csc)
+func (f clientFunc) AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+	return f(ctx, csc)
 }
 
 func TestWithLogging(t *testing.T) {
@@ -37,13 +39,13 @@ func TestWithLogging(t *testing.T) {
 		ExpectedOutput *regexp.Regexp
 	}{
 		"Error in client should be logged": {
-			clientFunc(func(*ca.CodeSigningCertificate) (*CertChainResponse, error) {
+			clientFunc(func(context.Context, *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 				return nil, errors.New(`ctl: testing error`)
 			}),
 			regexp.MustCompile(`ctl: testing error`),
 		},
 		"Success in client should log information": {
-			clientFunc(func(*ca.CodeSigningCertificate) (*CertChainResponse, error) {
+			clientFunc(func(context.Context, *ca.CodeSigningCertificate) (*CertChainResponse, error) {
 				return &CertChainResponse{}, nil
 			}),
 			regexp.MustCompile(`CTL Submission ID Received:`),
@@ -55,14 +57,15 @@ func TestWithLogging(t *testing.T) {
 			// Given
 			observedZapCore, observedLogs := observer.New(zap.InfoLevel)
 			observedLogger := zap.New(observedZapCore)
-			client := WithLogging(data.Client, observedLogger.Sugar())
+			log.Logger = observedLogger.Sugar()
+			client := WithLogging(data.Client, log.Logger)
 
 			csc := ca.CodeSigningCertificate{
 				Subject: &challenges.ChallengeResult{},
 			}
 
 			// When
-			_, _ = client.AddChain(&csc)
+			_, _ = client.AddChain(context.Background(), &csc)
 
 			// Then
 			for _, entry := range observedLogs.All() {
@@ -72,7 +75,7 @@ func TestWithLogging(t *testing.T) {
 				}
 			}
 			// If we got here we didn't match the expected output so test fails
-			t.Error("Didn't find expected output in logs")
+			t.Error("Didn't find expected output in logs: ", observedLogs.All())
 		})
 	}
 }

@@ -47,13 +47,16 @@ func extractOIDCTokenFromAuthHeader(ctx context.Context, req *http.Request) meta
 }
 
 func alterJSONResponse(ctx context.Context, rw http.ResponseWriter, msg protoreflect.ProtoMessage) error {
-	rw.Header().Set("Content-Type", "application/pem-certificate-chain")
-	rw.Header().Del("Grpc-Metadata-Content-Type")
 	if m, ok := msg.(*gw.CertificateResponse); ok {
+		rw.Header().Set("Content-Type", "application/pem-certificate-chain")
+		rw.Header().Del("Grpc-Metadata-Content-Type")
 		if len(m.SignedCertificateTimestamp) > 0 {
 			rw.Header().Set("SCT", base64.StdEncoding.EncodeToString(m.SignedCertificateTimestamp))
 		}
 		rw.WriteHeader(http.StatusCreated)
+	} else if _, ok := msg.(*gw.RootCertificateResponse); ok {
+		rw.Header().Set("Content-Type", "application/pem-certificate-chain")
+		rw.Header().Del("Grpc-Metadata-Content-Type")
 	}
 	return nil
 }
@@ -90,7 +93,11 @@ func (p PEMMarshaller) NewEncoder(w io.Writer) runtime.Encoder {
 
 // ContentType returns the Content-Type which this marshaler is responsible for.
 func (p PEMMarshaller) ContentType(v interface{}) string {
-	return "application/pem-certificate-chain"
+	switch v.(type) {
+	case *gw.CertificateResponse, *gw.RootCertificateResponse:
+		return "application/pem-certificate-chain"
+	}
+	return "application/json"
 }
 
 func createHTTPServer(ctx context.Context, grpcServer *grpcServer) httpServer {

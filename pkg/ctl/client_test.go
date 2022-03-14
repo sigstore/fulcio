@@ -16,6 +16,7 @@
 package ctl
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func Test_AddChain(t *testing.T) {
 
 	api := New(server.URL)
 	csc, _ := ca.CreateCSCFromPEM(nil, rootCert, clientCert)
-	body, err := api.AddChain(csc)
+	body, err := api.AddChain(context.Background(), csc)
 	assert.NoError(t, err)
 	assert.Equal(t, body.SctVersion, 0)
 	assert.Equal(t, body.ID, "abc")

@@ -43,11 +43,11 @@ func handleFulcioAPIError(w http.ResponseWriter, req *http.Request, code int, er
 		message = http.StatusText(code)
 	}
 
-	log.RequestIDLogger(req).Errorw("exiting with error", append([]interface{}{"handler", req.URL.Path, "statusCode", code, "clientMessage", message, "error", err}, fields...)...)
+	// log.RequestIDLogger(req).Errorw("exiting with error", append([]interface{}{"handler", req.URL.Path, "statusCode", code, "clientMessage", message, "error", err}, fields...)...)
 	http.Error(w, fmt.Sprintf(`{"code":%d,"message":%q}`, code, message), code)
 }
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {
-	log.ContextLogger(ctx).Errorw("exiting with error", append([]interface{}{"statusCode", code, "clientMessage", message, "error", err}, fields...)...)
+	log.ContextLogger(ctx).Errorw("exiting with error", append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)
 	return status.Error(code, message)
 }
