@@ -21,7 +21,7 @@ require (
 	github.com/sigstore/sigstore v1.1.1-0.20220124143820-3cebf5c58675
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	go.step.sm/crypto v0.15.3
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0
