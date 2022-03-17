@@ -23,6 +23,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -32,6 +34,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -69,7 +72,43 @@ func TestMissingRootFails(t *testing.T) {
 		t.Fatal("RootCert did not fail", err)
 	}
 	if err.Error() != expectedNoRootMessage {
-		t.Errorf("Got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
+		t.Errorf("got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
+	}
+}
+
+func TestRootCertSuccess(t *testing.T) {
+	eca, serverURL := createCA(&config.FulcioConfig{}, t)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	client := NewClient(u)
+
+	root, err := client.RootCert()
+	if err != nil {
+		t.Fatal("RootCert did not fail", err)
+	}
+	if len(root.ChainPEM) == 0 {
+		t.Fatal("got back empty chain")
+	}
+	block, rest := pem.Decode(root.ChainPEM)
+	if block == nil {
+		t.Fatal("did not find PEM data")
+	}
+	if len(rest) != 0 {
+		t.Fatal("got more than bargained for, should only have one cert")
+	}
+	if block.Type != "CERTIFICATE" {
+		t.Fatalf("unexpected root type, expected CERTIFICATE, got %s", block.Type)
+	}
+	rootCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse the received root cert: %v", err)
+	}
+	if !rootCert.Equal(eca.RootCA) {
+		t.Errorf("root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
 	}
 }
 
@@ -94,7 +133,7 @@ func TestAPIWithEmail(t *testing.T) {
 
 	issuerDomain, err := url.Parse(usernameIssuer)
 	if err != nil {
-		t.Fatal("Issuer URL could not be parsed", err)
+		t.Fatal("issuer URL could not be parsed", err)
 	}
 
 	// Create a FulcioConfig that supports these issuers.
@@ -140,50 +179,16 @@ func TestAPIWithEmail(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		// Stand up an ephemeral CA we can use for signing certificate requests.
-		eca, err := ephemeralca.NewEphemeralCA()
-		if err != nil {
-			t.Fatalf("ephemeralca.NewEphemeralCA() = %v", err)
-		}
-
-		ctlogServer := fakeCTLogServer(t)
-		if ctlogServer == nil {
-			t.Fatalf("Failed to create the fake ctlog server")
-		}
-
-		// Create a test HTTP server to host our API.
-		h := New(ctl.New(ctlogServer.URL), eca)
-		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			// For each request, infuse context with our snapshot of the FulcioConfig.
-			ctx = config.With(ctx, cfg)
-
-			h.ServeHTTP(rw, r.WithContext(ctx))
-		}))
-		t.Cleanup(server.Close)
+		eca, serverURL := createCA(cfg, t)
 
 		// Create an API client that speaks to the API endpoint we created above.
-		u, err := url.Parse(server.URL)
+		u, err := url.Parse(serverURL)
 		if err != nil {
 			t.Fatalf("url.Parse() = %v", err)
 		}
 		client := NewClient(u)
 
-		// Sign the subject with our keypair, and provide the public key
-		// for verification.
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			t.Fatalf("GenerateKey() = %v", err)
-		}
-		pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-		if err != nil {
-			t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
-		}
-		hash := sha256.Sum256([]byte(c.Subject))
-		proof, err := ecdsa.SignASN1(rand.Reader, priv, hash[:])
-		if err != nil {
-			t.Fatalf("SignASN1() = %v", err)
-		}
+		pubBytes, proof := generateKeyAndProof(c.Subject, t)
 
 		// Hit the API to have it sign our certificate.
 		resp, err := client.SigningCert(CertificateRequest{
@@ -196,49 +201,14 @@ func TestAPIWithEmail(t *testing.T) {
 			t.Fatalf("SigningCert() = %v", err)
 		}
 
-		if string(resp.SCT) == "" {
-			t.Error("Did not get SCT")
-		}
+		leafCert := verifyResponse(resp, eca, c.Issuer, t)
 
-		// Check that we get the CA root back as well.
-		root, err := client.RootCert()
-		if err != nil {
-			t.Fatal("Failed to get Root", err)
-		}
-		if root == nil {
-			t.Fatal("Got nil root back")
-		}
-		if len(root.ChainPEM) == 0 {
-			t.Fatal("Got back empty chain")
-		}
-		block, rest := pem.Decode(root.ChainPEM)
-		if block == nil {
-			t.Fatal("Did not find PEM data")
-		}
-		if len(rest) != 0 {
-			t.Fatal("Got more than bargained for, should only have one cert")
-		}
-		if block.Type != "CERTIFICATE" {
-			t.Fatalf("Unexpected root type, expected CERTIFICATE, got %s", block.Type)
-		}
-		rootCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			t.Fatalf("Failed to parse the received root cert: %v", err)
-		}
-		if !rootCert.Equal(eca.RootCA) {
-			t.Errorf("Root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
-		}
-		// Compare leaf certificate values
-		block, _ = pem.Decode(resp.CertPEM)
-		leafCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			t.Fatalf("Failed to parse the received leaf cert: %v", err)
-		}
+		// Expect email subject
 		if len(leafCert.EmailAddresses) != 1 {
-			t.Fatalf("Unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+			t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 		}
 		if leafCert.EmailAddresses[0] != c.ExpectedSubject {
-			t.Fatalf("Subjects do not match: Expected %v, got %v", c.ExpectedSubject, leafCert.EmailAddresses[0])
+			t.Fatalf("subjects do not match: Expected %v, got %v", c.ExpectedSubject, leafCert.EmailAddresses[0])
 		}
 	}
 }
@@ -290,50 +260,16 @@ func TestAPIWithUriSubject(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		// Stand up an ephemeral CA we can use for signing certificate requests.
-		eca, err := ephemeralca.NewEphemeralCA()
-		if err != nil {
-			t.Fatalf("ephemeralca.NewEphemeralCA() = %v", err)
-		}
-
-		ctlogServer := fakeCTLogServer(t)
-		if ctlogServer == nil {
-			t.Fatalf("Failed to create the fake ctlog server")
-		}
-
-		// Create a test HTTP server to host our API.
-		h := New(ctl.New(ctlogServer.URL), eca)
-		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			// For each request, infuse context with our snapshot of the FulcioConfig.
-			ctx = config.With(ctx, cfg)
-
-			h.ServeHTTP(rw, r.WithContext(ctx))
-		}))
-		t.Cleanup(server.Close)
+		eca, serverURL := createCA(cfg, t)
 
 		// Create an API client that speaks to the API endpoint we created above.
-		u, err := url.Parse(server.URL)
+		u, err := url.Parse(serverURL)
 		if err != nil {
 			t.Fatalf("url.Parse() = %v", err)
 		}
 		client := NewClient(u)
 
-		// Sign the subject with our keypair, and provide the public key
-		// for verification.
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			t.Fatalf("GenerateKey() = %v", err)
-		}
-		pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-		if err != nil {
-			t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
-		}
-		hash := sha256.Sum256([]byte(c.Subject))
-		proof, err := ecdsa.SignASN1(rand.Reader, priv, hash[:])
-		if err != nil {
-			t.Fatalf("SignASN1() = %v", err)
-		}
+		pubBytes, proof := generateKeyAndProof(c.Subject, t)
 
 		// Hit the API to have it sign our certificate.
 		resp, err := client.SigningCert(CertificateRequest{
@@ -346,54 +282,225 @@ func TestAPIWithUriSubject(t *testing.T) {
 			t.Fatalf("SigningCert() = %v", err)
 		}
 
-		if string(resp.SCT) == "" {
-			t.Error("Did not get SCT")
-		}
+		leafCert := verifyResponse(resp, eca, c.Issuer, t)
 
-		// Check that we get the CA root back as well.
-		root, err := client.RootCert()
-		if err != nil {
-			t.Fatal("Failed to get Root", err)
-		}
-		if root == nil {
-			t.Fatal("Got nil root back")
-		}
-		if len(root.ChainPEM) == 0 {
-			t.Fatal("Got back empty chain")
-		}
-		block, rest := pem.Decode(root.ChainPEM)
-		if block == nil {
-			t.Fatal("Did not find PEM data")
-		}
-		if len(rest) != 0 {
-			t.Fatal("Got more than bargained for, should only have one cert")
-		}
-		if block.Type != "CERTIFICATE" {
-			t.Fatalf("Unexpected root type, expected CERTIFICATE, got %s", block.Type)
-		}
-		rootCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			t.Fatalf("Failed to parse the received root cert: %v", err)
-		}
-		if !rootCert.Equal(eca.RootCA) {
-			t.Errorf("Root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
-		}
-		// Compare leaf certificate values
-		block, _ = pem.Decode(resp.CertPEM)
-		leafCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			t.Fatalf("Failed to parse the received leaf cert: %v", err)
-		}
+		// Expect URI values
 		if len(leafCert.URIs) != 1 {
-			t.Fatalf("Unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+			t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 		}
 		uSubject, err := url.Parse(c.Subject)
 		if err != nil {
 			t.Fatalf("Failed to parse subject URI")
 		}
 		if *leafCert.URIs[0] != *uSubject {
-			t.Fatalf("Subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
+			t.Fatalf("subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
 		}
+	}
+}
+
+// k8sClaims holds the additional Kubernetes claims for the JWT
+type k8sClaims struct {
+	Kubernetes struct {
+		Namespace      string `json:"namespace"`
+		ServiceAccount struct {
+			Name string `json:"name"`
+		}
+	} `json:"kubernetes.io"`
+}
+
+// Tests API for Kubernetes URI subject types
+func TestAPIWithKubernetes(t *testing.T) {
+	k8sSigner, k8sIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+        "MetaIssuers": {
+          %q: {
+            "ClientID": "sigstore",
+            "Type": "kubernetes"
+          }
+        }
+	}`, k8sIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	namespace := "namespace"
+	saName := "sa"
+	k8sSubject := fmt.Sprintf("https://kubernetes.io/namespaces/%s/serviceaccounts/%s", namespace, saName)
+
+	// Create an OIDC token using this issuer's signer.
+	claims := k8sClaims{}
+	claims.Kubernetes.Namespace = namespace
+	claims.Kubernetes.ServiceAccount.Name = saName
+	tok, err := jwt.Signed(k8sSigner).Claims(jwt.Claims{
+		Issuer:   k8sIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  k8sSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	eca, serverURL := createCA(cfg, t)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	client := NewClient(u)
+
+	pubBytes, proof := generateKeyAndProof(k8sSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.SigningCert(CertificateRequest{
+		PublicKey: Key{
+			Content: pubBytes,
+		},
+		SignedEmailAddress: proof,
+	}, tok)
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, k8sIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	uSubject, err := url.Parse(k8sSubject)
+	if err != nil {
+		t.Fatalf("failed to parse subject URI")
+	}
+	if *leafCert.URIs[0] != *uSubject {
+		t.Fatalf("subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
+	}
+}
+
+// gitClaims holds the additional JWT claims for GitHub OIDC tokens
+type gitClaims struct {
+	JobWorkflowRef string `json:"job_workflow_ref"`
+	Sha            string `json:"sha"`
+	Trigger        string `json:"event_name"`
+	Repository     string `json:"repository"`
+	Workflow       string `json:"workflow"`
+	Ref            string `json:"ref"`
+}
+
+// Tests API for GitHub subject types
+func TestAPIWithGitHub(t *testing.T) {
+	gitSigner, gitIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "github-workflow"
+			}
+        }
+	}`, gitIssuer, gitIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	claims := gitClaims{
+		JobWorkflowRef: "job/workflow/ref",
+		Sha:            "sha",
+		Trigger:        "trigger",
+		Repository:     "repo",
+		Workflow:       "workflow",
+		Ref:            "ref",
+	}
+	gitSubject := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(gitSigner).Claims(jwt.Claims{
+		Issuer:   gitIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  gitSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	eca, serverURL := createCA(cfg, t)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	client := NewClient(u)
+
+	pubBytes, proof := generateKeyAndProof(gitSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.SigningCert(CertificateRequest{
+		PublicKey: Key{
+			Content: pubBytes,
+		},
+		SignedEmailAddress: proof,
+	}, tok)
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, gitIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	uSubject, err := url.Parse(gitSubject)
+	if err != nil {
+		t.Fatalf("failed to parse subject URI")
+	}
+	if *leafCert.URIs[0] != *uSubject {
+		t.Fatalf("subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
+	}
+	// Verify custom OID values
+	triggerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2})
+	if !found {
+		t.Fatal("expected trigger in custom OID")
+	}
+	if string(triggerExt.Value) != claims.Trigger {
+		t.Fatalf("unexpected trigger, expected %s, got %s", claims.Trigger, string(triggerExt.Value))
+	}
+	shaExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3})
+	if !found {
+		t.Fatal("expected sha in custom OID")
+	}
+	if string(shaExt.Value) != claims.Sha {
+		t.Fatalf("unexpected sha, expected %s, got %s", claims.Sha, string(shaExt.Value))
+	}
+	workflowExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4})
+	if !found {
+		t.Fatal("expected workflow name in custom OID")
+	}
+	if string(workflowExt.Value) != claims.Workflow {
+		t.Fatalf("unexpected workflow name, expected %s, got %s", claims.Workflow, string(workflowExt.Value))
+	}
+	repoExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5})
+	if !found {
+		t.Fatal("expected repo in custom OID")
+	}
+	if string(repoExt.Value) != claims.Repository {
+		t.Fatalf("unexpected repo, expected %s, got %s", claims.Repository, string(repoExt.Value))
+	}
+	refExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6})
+	if !found {
+		t.Fatal("expected ref in custom OID")
+	}
+	if string(refExt.Value) != claims.Ref {
+		t.Fatalf("unexpected ref, expected %s, got %s", claims.Ref, string(refExt.Value))
 	}
 }
 
@@ -403,7 +510,7 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 
 	pk, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatalf("Cannot generate RSA key %v", err)
+		t.Fatalf("cannot generate RSA key %v", err)
 	}
 	jwk := jose.JSONWebKey{
 		Algorithm: string(jose.RS256),
@@ -469,13 +576,13 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 		var chain certChain
 		json.Unmarshal(body, &chain)
 		if len(chain.Chain) != 2 {
-			t.Fatalf("Did not get expected chain for input, wanted 2 entries, got %d", len(chain.Chain))
+			t.Fatalf("did not get expected chain for input, wanted 2 entries, got %d", len(chain.Chain))
 		}
 		// Just make sure we can decode it.
 		for _, chainEntry := range chain.Chain {
 			_, err := base64.StdEncoding.DecodeString(chainEntry)
 			if err != nil {
-				t.Fatalf("Failed to decode incoming chain entry: %v", err)
+				t.Fatalf("failed to decode incoming chain entry: %v", err)
 			}
 		}
 
@@ -487,7 +594,7 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 		}
 		responseBytes, err := json.Marshal(&resp)
 		if err != nil {
-			t.Fatalf("Failed to marshal response: %v", err)
+			t.Fatalf("failed to marshal response: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("SCT", testSCT)
@@ -495,6 +602,134 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 	}))
 }
 
+// createCA initializes an ephemeral CA server and CT log server
+func createCA(cfg *config.FulcioConfig, t *testing.T) (*ephemeralca.EphemeralCA, string) {
+	// Stand up an ephemeral CA we can use for signing certificate requests.
+	eca, err := ephemeralca.NewEphemeralCA()
+	if err != nil {
+		t.Fatalf("ephemeralca.NewEphemeralCA() = %v", err)
+	}
+
+	ctlogServer := fakeCTLogServer(t)
+	if ctlogServer == nil {
+		t.Fatalf("failed to create the fake ctlog server")
+	}
+
+	// Create a test HTTP server to host our API.
+	h := New(ctl.New(ctlogServer.URL), eca)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		// For each request, infuse context with our snapshot of the FulcioConfig.
+		ctx = config.With(ctx, cfg)
+
+		h.ServeHTTP(rw, r.WithContext(ctx))
+	}))
+	t.Cleanup(server.Close)
+
+	return eca, server.URL
+}
+
+// generateKeyAndProof creates a public key to be certified and creates a
+// signature for the OIDC token subject
+func generateKeyAndProof(subject string, t *testing.T) ([]byte, []byte) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
+	}
+	hash := sha256.Sum256([]byte(subject))
+	proof, err := ecdsa.SignASN1(rand.Reader, priv, hash[:])
+	if err != nil {
+		t.Fatalf("SignASN1() = %v", err)
+	}
+	return pubBytes, proof
+}
+
+// findCustomExtension searches a certificate's non-critical extensions by OID
+func findCustomExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (pkix.Extension, bool) {
+	for _, ext := range cert.Extensions {
+		if reflect.DeepEqual(ext.Id, oid) {
+			return ext, true
+		}
+	}
+	return pkix.Extension{}, false
+}
+
+// verifyResponse validates common response expectations for each response field
+func verifyResponse(resp *CertificateResponse, eca *ephemeralca.EphemeralCA, issuer string, t *testing.T) *x509.Certificate {
+	// Expect SCT
+	if string(resp.SCT) == "" {
+		t.Fatal("unexpected empty SCT in response")
+	}
+
+	// Expect root certficate in resp.ChainPEM
+	if len(resp.ChainPEM) == 0 {
+		t.Fatal("unexpected empty chain in response")
+	}
+
+	// Expect root cert matches the server's configured root
+	block, rest := pem.Decode(resp.ChainPEM)
+	if block == nil {
+		t.Fatal("missing PEM data")
+	}
+	// Note: This may change in the future if we use intermediate certificates.
+	if len(rest) != 0 {
+		t.Fatal("expected only one certificate in PEM block chain")
+	}
+	if block.Type != "CERTIFICATE" {
+		t.Fatalf("unexpected root type, expected CERTIFICATE, got %s", block.Type)
+	}
+	rootCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse the received root cert: %v", err)
+	}
+	if !rootCert.Equal(eca.RootCA) {
+		t.Errorf("root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
+	}
+
+	// Expect leaf certificate values
+	block, rest = pem.Decode(resp.CertPEM)
+	if len(rest) != 0 {
+		t.Fatal("expected only one leaf certificate in PEM block")
+	}
+	leafCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse the received leaf cert: %v", err)
+	}
+	if leafCert.SerialNumber == nil {
+		t.Fatalf("expected certificate serial number")
+	}
+	if leafCert.NotAfter.Sub(leafCert.NotBefore) != time.Duration(10*time.Minute) {
+		t.Fatalf("expected 10 minute lifetime, got %v", leafCert.NotAfter.Sub(leafCert.NotBefore))
+	}
+	if len(leafCert.SubjectKeyId) != 20 {
+		t.Fatalf("expected certificate subject key ID to be of length 20 bytes, got %d", len(leafCert.SubjectKeyId))
+	}
+	if leafCert.KeyUsage != x509.KeyUsageCertSign {
+		t.Fatalf("unexpected key usage, expected %v, got %v", x509.KeyUsageCertSign, leafCert.KeyUsage)
+	}
+	if len(leafCert.ExtKeyUsage) != 1 {
+		t.Fatalf("unexpected length of extended key usage, expected 1, got %d", len(leafCert.ExtKeyUsage))
+	}
+	if leafCert.ExtKeyUsage[0] != x509.ExtKeyUsageCodeSigning {
+		t.Fatalf("unexpected key usage, expected %v, got %v", x509.ExtKeyUsageCodeSigning, leafCert.ExtKeyUsage[0])
+	}
+	// Check issuer in custom OID
+	issuerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1})
+	if !found {
+		t.Fatal("expected issuer in custom OID")
+	}
+	if string(issuerExt.Value) != issuer {
+		t.Fatalf("unexpected issuer, expected %s, got %s", issuer, string(issuerExt.Value))
+	}
+
+	return leafCert
+}
+
+// Fake CA service that always fails.
 type FailingCertificateAuthority struct {
 }
 
