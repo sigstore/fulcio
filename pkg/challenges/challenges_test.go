@@ -147,6 +147,32 @@ func TestUsername(t *testing.T) {
 	}
 }
 
+func TestUsernameInvalidChar(t *testing.T) {
+	cfg := &config.FulcioConfig{
+		OIDCIssuers: map[string]config.OIDCIssuer{
+			"https://accounts.example.com": {
+				IssuerURL:     "https://accounts.example.com",
+				ClientID:      "sigstore",
+				SubjectDomain: "example.com",
+				Type:          config.IssuerTypeUsername,
+			},
+		},
+	}
+	ctx := config.With(context.Background(), cfg)
+	username := "foobar@example.com"
+	issuer := "https://accounts.example.com"
+	token := &oidc.IDToken{Subject: username, Issuer: issuer}
+
+	_, err := Username(ctx, token, nil, []byte{})
+	if err == nil {
+		t.Errorf("expected test failure, got no error")
+	}
+	msg := "username cannot contain @ character"
+	if err.Error() != msg {
+		t.Errorf("unexpected test failure message, got %s, expected %s", err.Error(), msg)
+	}
+}
+
 func Test_isURISubjectAllowed(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -182,22 +208,22 @@ func Test_isURISubjectAllowed(t *testing.T) {
 		name:    "subject domain too short",
 		subject: "https://example",
 		issuer:  "https://example.com",
-		want:    fmt.Errorf("subject URI hostname too short: example"),
+		want:    fmt.Errorf("URI hostname too short: example"),
 	}, {
 		name:    "issuer domain too short",
 		subject: "https://example.com",
 		issuer:  "https://issuer",
-		want:    fmt.Errorf("issuer URI hostname too short: issuer"),
+		want:    fmt.Errorf("URI hostname too short: issuer"),
 	}, {
 		name:    "domain mismatch",
 		subject: "https://example.com",
 		issuer:  "https://otherexample.com",
-		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, otherexample.com"),
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
 	}, {
 		name:    "top level domain mismatch",
 		subject: "https://example.com",
 		issuer:  "https://example.org",
-		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, example.org"),
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
 	}}
 	for _, tt := range tests {
 		subject, _ := url.Parse(tt.subject)
@@ -215,7 +241,7 @@ func Test_isURISubjectAllowed(t *testing.T) {
 	}
 }
 
-func Test_isDomainAllowed(t *testing.T) {
+func Test_validateAllowedDomain(t *testing.T) {
 	tests := []struct {
 		name    string
 		subject string // Parsed to url.URL
@@ -245,32 +271,32 @@ func Test_isDomainAllowed(t *testing.T) {
 		name:    "subject domain too short",
 		subject: "example",
 		issuer:  "example.com",
-		want:    fmt.Errorf("subject URI hostname too short: example"),
+		want:    fmt.Errorf("URI hostname too short: example"),
 	}, {
 		name:    "issuer domain too short",
 		subject: "example.com",
 		issuer:  "issuer",
-		want:    fmt.Errorf("issuer URI hostname too short: issuer"),
+		want:    fmt.Errorf("URI hostname too short: issuer"),
 	}, {
 		name:    "domain mismatch",
 		subject: "example.com",
 		issuer:  "otherexample.com",
-		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, otherexample.com"),
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
 	}, {
 		name:    "top level domain mismatch",
 		subject: "example.com",
 		issuer:  "example.org",
-		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, example.org"),
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isDomainAllowed(tt.subject, tt.issuer)
+			got := validateAllowedDomain(tt.subject, tt.issuer)
 			if got == nil && tt.want != nil ||
 				got != nil && tt.want == nil {
-				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
-				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -277,6 +277,10 @@ func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, 
 func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
 	username := principal.Subject
 
+	if strings.Contains(username, "@") {
+		return nil, errors.New("username cannot contain @ character")
+	}
+
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
@@ -293,7 +297,7 @@ func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Public
 	if err != nil {
 		return nil, err
 	}
-	if err := isDomainAllowed(cfg.SubjectDomain, uIssuer.Hostname()); err != nil {
+	if err := validateAllowedDomain(cfg.SubjectDomain, uIssuer.Hostname()); err != nil {
 		return nil, err
 	}
 
@@ -412,12 +416,12 @@ func isURISubjectAllowed(subject, issuer *url.URL) error {
 		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
 	}
 
-	return isDomainAllowed(subject.Hostname(), issuer.Hostname())
+	return validateAllowedDomain(subject.Hostname(), issuer.Hostname())
 }
 
-// isDomainAllowed compares two hostnames, returning an error if the
+// validateAllowedDomain compares two hostnames, returning an error if the
 // top-level and second-level domains do not match
-func isDomainAllowed(subjectHostname, issuerHostname string) error {
+func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	// If the hostnames exactly match, return early
 	if subjectHostname == issuerHostname {
 		return nil
@@ -427,14 +431,14 @@ func isDomainAllowed(subjectHostname, issuerHostname string) error {
 	sHostname := strings.Split(subjectHostname, ".")
 	iHostname := strings.Split(issuerHostname, ".")
 	if len(sHostname) < minimumHostnameLength {
-		return fmt.Errorf("subject URI hostname too short: %s", subjectHostname)
+		return fmt.Errorf("URI hostname too short: %s", subjectHostname)
 	}
 	if len(iHostname) < minimumHostnameLength {
-		return fmt.Errorf("issuer URI hostname too short: %s", issuerHostname)
+		return fmt.Errorf("URI hostname too short: %s", issuerHostname)
 	}
 	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
 		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
 		return nil
 	}
-	return fmt.Errorf("subject and issuer hostnames do not match: %s, %s", subjectHostname, issuerHostname)
+	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }

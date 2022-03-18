@@ -160,13 +160,15 @@ func TestAPIWithEmail(t *testing.T) {
 	usernameSubject := "foo"
 	expectedUsernamedSubject := fmt.Sprintf("%s@%s", usernameSubject, issuerDomain.Hostname())
 
-	for _, c := range []oidcTestContainer{
+	tests := []oidcTestContainer{
 		{
 			Signer: emailSigner, Issuer: emailIssuer, Subject: emailSubject, ExpectedSubject: emailSubject,
 		},
 		{
 			Signer: usernameSigner, Issuer: usernameIssuer, Subject: usernameSubject, ExpectedSubject: expectedUsernamedSubject,
-		}} {
+		},
+	}
+	for _, c := range tests {
 		// Create an OIDC token using this issuer's signer.
 		tok, err := jwt.Signed(c.Signer).Claims(jwt.Claims{
 			Issuer:   c.Issuer,
@@ -241,13 +243,15 @@ func TestAPIWithUriSubject(t *testing.T) {
 	spiffeSubject := strings.ReplaceAll(spiffeIssuer+"/foo/bar", "http", "spiffe")
 	uriSubject := uriIssuer + "/users/1"
 
-	for _, c := range []oidcTestContainer{
+	tests := []oidcTestContainer{
 		{
 			Signer: spiffeSigner, Issuer: spiffeIssuer, Subject: spiffeSubject,
 		},
 		{
 			Signer: uriSigner, Issuer: uriIssuer, Subject: uriSubject,
-		}} {
+		},
+	}
+	for _, c := range tests {
 		// Create an OIDC token using this issuer's signer.
 		tok, err := jwt.Signed(c.Signer).Claims(jwt.Claims{
 			Issuer:   c.Issuer,
