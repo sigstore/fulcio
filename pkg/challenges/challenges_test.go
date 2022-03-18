@@ -283,6 +283,11 @@ func Test_validateAllowedDomain(t *testing.T) {
 		issuer:  "otherexample.com",
 		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
 	}, {
+		name:    "domain mismatch, subdomain match",
+		subject: "test.example.com",
+		issuer:  "test.otherexample.com",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: test.example.com, test.otherexample.com"),
+	}, {
 		name:    "top level domain mismatch",
 		subject: "example.com",
 		issuer:  "example.org",
