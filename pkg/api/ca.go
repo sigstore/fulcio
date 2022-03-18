@@ -271,6 +271,8 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 		return challenges.Kubernetes(ctx, tok, publicKey, challenge)
 	case config.IssuerTypeURI:
 		return challenges.URI(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeUsername:
+		return challenges.Username(ctx, tok, publicKey, challenge)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}

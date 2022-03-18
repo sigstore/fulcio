@@ -60,6 +60,7 @@ type OIDCIssuer struct {
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
+	// Also used to create an email for 'username' issuer types
 	SubjectDomain string `json:"SubjectDomain,omitempty"`
 }
 
@@ -167,6 +168,7 @@ const (
 	IssuerTypeKubernetes     = "kubernetes"
 	IssuerTypeSpiffe         = "spiffe"
 	IssuerTypeURI            = "uri"
+	IssuerTypeUsername       = "username"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {

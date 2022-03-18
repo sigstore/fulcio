@@ -109,6 +109,44 @@ func TestURI(t *testing.T) {
 	}
 }
 
+func TestUsername(t *testing.T) {
+	cfg := &config.FulcioConfig{
+		OIDCIssuers: map[string]config.OIDCIssuer{
+			"https://accounts.example.com": {
+				IssuerURL:     "https://accounts.example.com",
+				ClientID:      "sigstore",
+				SubjectDomain: "example.com",
+				Type:          config.IssuerTypeUsername,
+			},
+		},
+	}
+	ctx := config.With(context.Background(), cfg)
+	username := "foobar"
+	usernameWithEmail := "foobar@example.com"
+	issuer := "https://accounts.example.com"
+	token := &oidc.IDToken{Subject: username, Issuer: issuer}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	failErr(t, err)
+	h := sha256.Sum256([]byte(username))
+	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
+	failErr(t, err)
+
+	result, err := Username(ctx, token, priv.Public(), signature)
+	if err != nil {
+		t.Errorf("Expected test success, got %v", err)
+	}
+	if result.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, result.Issuer)
+	}
+	if result.Value != usernameWithEmail {
+		t.Errorf("Expected subject %s, got %s", usernameWithEmail, result.Value)
+	}
+	if result.TypeVal != UsernameValue {
+		t.Errorf("Expected type %v, got %v", UsernameValue, result.TypeVal)
+	}
+}
+
 func Test_isURISubjectAllowed(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -166,6 +204,67 @@ func Test_isURISubjectAllowed(t *testing.T) {
 		issuer, _ := url.Parse(tt.issuer)
 		t.Run(tt.name, func(t *testing.T) {
 			got := isURISubjectAllowed(subject, issuer)
+			if got == nil && tt.want != nil ||
+				got != nil && tt.want == nil {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+			}
+			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_isDomainAllowed(t *testing.T) {
+	tests := []struct {
+		name    string
+		subject string // Parsed to url.URL
+		issuer  string // Parsed to url.URL
+		want    error
+	}{{
+		name:    "match",
+		subject: "accounts.example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "issuer subdomain",
+		subject: "example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject subdomain",
+		subject: "profiles.example.com",
+		issuer:  "example.com",
+		want:    nil,
+	}, {
+		name:    "subdomain mismatch",
+		subject: "profiles.example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject domain too short",
+		subject: "example",
+		issuer:  "example.com",
+		want:    fmt.Errorf("subject URI hostname too short: example"),
+	}, {
+		name:    "issuer domain too short",
+		subject: "example.com",
+		issuer:  "issuer",
+		want:    fmt.Errorf("issuer URI hostname too short: issuer"),
+	}, {
+		name:    "domain mismatch",
+		subject: "example.com",
+		issuer:  "otherexample.com",
+		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, otherexample.com"),
+	}, {
+		name:    "top level domain mismatch",
+		subject: "example.com",
+		issuer:  "example.org",
+		want:    fmt.Errorf("subject and issuer hostnames do not match: example.com, example.org"),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isDomainAllowed(tt.subject, tt.issuer)
 			if got == nil && tt.want != nil ||
 				got != nil && tt.want == nil {
 				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
