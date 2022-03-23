@@ -2,8 +2,8 @@
 
 This document walks through the process of issuing a code signing certificate
 from start to finish. This is a great entry point to understanding how Fulcio
-works if you're interesting in contributing to the project or just want to
-learn more about whats happening under the hood.
+works if you're interested in contributing to the project or just want to
+learn more about what's happening under the hood.
 
 ## 1 | Certificate Request Input
 
@@ -32,9 +32,9 @@ OIDC ID token.
 
 To authorize the token Fulcio must:
 
-- Use the issuer claim from the token to find the issuers OIDC discovery
+- Use the issuer claim from the token to find the issuer's OIDC discovery
   endpoint
-- Download the issuers signing keys from the discovery endpoint
+- Download the issuer's signing keys from the discovery endpoint
 - Verify the ID token signature
 
 ## 3 | Verifying the challenge
