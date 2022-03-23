@@ -30,13 +30,13 @@ with long deprecation periods, dual-signing and planned rotations.
 There are a couple problems with this approach:
 
 1. It assumes users can keep acess to private keys and keep them secret over
-   log periods of time
+   long periods of time
 2. Revocation is hard and doesn't work well
 
 ### Fulcio's Model
 
 Fulcio is designed to avoid revocation, by issuing *short-lived certificates*.
-What really matters for CodeSigning is to know that an artifact was signed
+What really matters for code signing is to know that an artifact was signed
 while the certificate was valid.
 
 This can be done a few ways:
