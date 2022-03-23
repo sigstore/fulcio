@@ -23,7 +23,7 @@ $ go get github.com/theupdateframework/go-tuf/cmd/tuf
 $ go get github.com/theupdateframework/go-tuf/cmd/tuf-client
 ```
 
-Then, obtain trusted root keys for Sigstore. This can be done from a checkout of the Sigstore's root signing repository at a trusted commit (e.g. after the livestreamed root signing ceremony)
+Then, obtain trusted root keys for Sigstore. This can be done from a checkout of the Sigstore's root signing repository at a trusted commit (e.g. after the livestreamed root signing ceremony).
 ```
 $ git clone https://github.com/sigstore/root-signing
 $ cd root-signing && git checkout 193343461a4d365ac517b5d668e01fbaddd4eba5
@@ -62,14 +62,14 @@ That log will be hosted by the sigstore project.
 
 We encourage auditors to monitor this log, and aim to help people access the data.
 
-A simple example would be a service that emails users (on a different address) when ceritficates have been issued on their behalf.
+A simple example would be a service that emails users (on a different address) when certficates have been issued on their behalf.
 This can then be used to detect bad behavior or possible compromise.
 
 
 ## Security
 
-Should you discover any security issues, please refer to sigstores [security
-process](https://github.com/sigstore/.github/blob/main/SECURITY.md)
+Should you discover any security issues, please refer to sigstore's [security
+process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
 
 ## Info
 
