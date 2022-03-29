@@ -31,6 +31,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
+	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
@@ -53,7 +54,7 @@ func newServeCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&serveCmdConfigFilePath, "config", "c", "", "config file containing all settings")
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
-	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
+	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | intermediateca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
@@ -101,7 +102,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			// There's a MarkDeprecated function in cobra/pflags, but it doesn't use log.Logger
 			log.Logger.Warn("gcp_private_ca_version is deprecated and will soon be removed; please remove it")
 		}
-
 	case "fileca":
 		if !viper.IsSet("fileca-cert") {
 			log.Logger.Fatal("fileca-cert must be set to certificate path when using fileca")
@@ -112,7 +112,10 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if !viper.IsSet("fileca-key-passwd") {
 			log.Logger.Fatal("fileca-key-passwd must be set to encryption password for private key file when using fileca")
 		}
-
+	case "intermediateca":
+		if !viper.IsSet("gcp_private_ca_parent") {
+			log.Logger.Fatal("gcp_private_ca_parent must be set when using intermediateca")
+		}
 	case "ephemeralca":
 		// this is a no-op since this is a self-signed in-memory CA for testing
 	default:
@@ -153,6 +156,8 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		baseca, err = fileca.NewFileCA(certFile, keyFile, keyPass, watch)
 	case "ephemeralca":
 		baseca, err = ephemeralca.NewEphemeralCA()
+	case "intermediateca":
+		baseca, err = intermediateca.NewIntermediateCA(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 	default:
 		err = fmt.Errorf("invalid value for configured CA: %v", baseca)
 	}
