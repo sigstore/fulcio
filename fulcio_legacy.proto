@@ -70,5 +70,5 @@ message PublicKey {
     /*
      * DER or PEM encoded public key
      */
-    bytes content    = 2 [deprecated=true];
+    bytes content    = 2 [ deprecated=true ];
 }
