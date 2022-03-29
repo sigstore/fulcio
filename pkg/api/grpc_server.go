@@ -16,12 +16,9 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
-	"fmt"
-	"strings"
 
 	empty "github.com/golang/protobuf/ptypes/empty"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
@@ -46,27 +43,18 @@ func NewGRPCCAServer(ct ctl.Client, ca certauth.CertificateAuthority) fulciogrpc
 	}
 }
 
-var versionInfo = VersionInfo()
-
-func (g *grpcCAServer) Version(_ context.Context, _ *empty.Empty) (*fulciogrpc.VersionResponse, error) {
-	return &fulciogrpc.VersionResponse{
-		Version:   versionInfo.GitVersion,
-		Commit:    versionInfo.GitCommit,
-		Treestate: versionInfo.GitTreeState,
-		Builddate: versionInfo.BuildDate,
-	}, nil
-}
-
 const (
 	MetadataOIDCTokenKey = "oidcidentitytoken"
 )
 
-//TODO: error handling
-func (g *grpcCAServer) GetSigningCert(ctx context.Context, request *fulciogrpc.CertificateRequest) (*fulciogrpc.CertificateResponse, error) {
+func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fulciogrpc.CreateSigningCertificateRequest) (*fulciogrpc.SigningCertificate, error) {
 	logger := log.ContextLogger(ctx)
 
 	// OIDC token either is passed in gRPC field or was extracted from HTTP headers
-	token := request.OIDCIdentityToken
+	token := ""
+	if request.Credentials != nil {
+		token = request.Credentials.GetOidcIdentityToken()
+	}
 	if token == "" {
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
 			vals := md.Get(MetadataOIDCTokenKey)
@@ -83,17 +71,17 @@ func (g *grpcCAServer) GetSigningCert(ctx context.Context, request *fulciogrpc.C
 
 	publicKeyBytes := request.PublicKey.Content
 	// try to unmarshal as DER
-	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBytes)
+	publicKey, err := x509.ParsePKIXPublicKey([]byte(publicKeyBytes))
 	if err != nil {
 		// try to unmarshal as PEM
 		logger.Debugf("error parsing public key as DER, trying pem: %v", err.Error())
-		publicKey, err = cryptoutils.UnmarshalPEMToPublicKey(publicKeyBytes)
+		publicKey, err = cryptoutils.UnmarshalPEMToPublicKey([]byte(publicKeyBytes))
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
 		}
 	}
 
-	subject, err := ExtractSubject(ctx, principal, publicKey, request.SignedEmailAddress)
+	subject, err := ExtractSubject(ctx, principal, publicKey, request.ProofOfPossession)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 	}
@@ -130,33 +118,25 @@ func (g *grpcCAServer) GetSigningCert(ctx context.Context, request *fulciogrpc.C
 
 	metricNewEntries.Inc()
 
-	var ret strings.Builder
 	finalPEM, err := csc.CertPEM()
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
-	}
-	fmt.Fprintf(&ret, "%s", finalPEM)
-	if !bytes.HasSuffix(finalPEM, []byte("\n")) {
-		fmt.Fprintf(&ret, "\n")
 	}
 
 	finalChainPEM, err := csc.ChainPEM()
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
 	}
-	if len(finalChainPEM) > 0 {
-		fmt.Fprintf(&ret, "%s", finalChainPEM)
-	}
 
-	result := &fulciogrpc.CertificateResponse{
+	result := &fulciogrpc.SigningCertificate{
 		SignedCertificateTimestamp: sctBytes,
-		Certificate:                ret.String(),
+		Certificates:               []string{string(finalPEM), string(finalChainPEM)},
 	}
 
 	return result, nil
 }
 
-func (g *grpcCAServer) GetRootCertificate(ctx context.Context, _ *empty.Empty) (*fulciogrpc.RootCertificateResponse, error) {
+func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *empty.Empty) (*fulciogrpc.TrustBundle, error) {
 	logger := log.ContextLogger(ctx)
 
 	root, err := g.ca.Root(ctx)
@@ -165,8 +145,11 @@ func (g *grpcCAServer) GetRootCertificate(ctx context.Context, _ *empty.Empty) (
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 	}
 
-	result := &fulciogrpc.RootCertificateResponse{
-		Certificate: string(root),
-	}
-	return result, nil
+	chains := []*fulciogrpc.CertificateChain{{
+		Certificates: []string{string(root)},
+	}}
+
+	return &fulciogrpc.TrustBundle{
+		Chains: chains,
+	}, nil
 }

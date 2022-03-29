@@ -60,9 +60,11 @@ FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
 PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
 PROTOC-GEN-GRPC-GATEWAY := $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway
+PROTOC-API-LINTER := $(TOOLS_BIN_DIR)/api-linter
 
-$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOBUF_DEPS)
+$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOC-API-LINTER) $(PROTOBUF_DEPS)
 	mkdir -p pkg/generated/protobuf
+	$(PROTOC-API-LINTER) -I third_party/googleapis/ -I . $(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
 	protoc --plugin=protoc-gen-go=$(TOOLS_BIN_DIR)/protoc-gen-go \
 	       --go_opt=module=$(GO_MODULE) --go_out=. \
 	       --plugin=protoc-gen-go-grpc=$(TOOLS_BIN_DIR)/protoc-gen-go-grpc \
@@ -112,6 +114,9 @@ $(PROTOC-GEN-GO-GRPC): $(TOOLS_DIR)/go.mod
 
 $(PROTOC-GEN-GRPC-GATEWAY): $(TOOLS_DIR)/go.mod
 	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+
+$(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/api-linter github.com/googleapis/api-linter/cmd/api-linter
 
 ## --------------------------------------
 ## Images with ko

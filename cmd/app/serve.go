@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/reflection"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -188,11 +189,24 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	reg := prometheus.NewRegistry()
 
-	grpcServer := createGRPCServer(cfg, ctClient, baseca)
+	grpcServer, err := createGRPCServer(cfg, ctClient, baseca)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+	//TODO: remove this reflection call for use with grpc_cli
+	reflection.Register(grpcServer.Server)
 	grpcServer.setupPrometheus(reg)
-	grpcServer.startListener()
+	grpcServer.startTCPListener()
 
-	httpServer := createHTTPServer(context.Background(), &grpcServer)
+	legacyGRPCServer, err := createLegacyGRPCServer(cfg, grpcServer.caService)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+	//TODO: remove this reflection call for use with grpc_cli
+	reflection.Register(legacyGRPCServer.Server)
+	legacyGRPCServer.startUnixListener()
+
+	httpServer := createHTTPServer(context.Background(), grpcServer, legacyGRPCServer)
 	httpServer.startListener()
 
 	prom := http.Server{

@@ -17,70 +17,104 @@ syntax = "proto3";
 package dev.sigstore.fulcio.v1;
 
 import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/sigstore/fulcio/pkg/generated/protobuf";
+option java_package = "dev.sigstore.fulcio.v1";
+option java_multiple_files = true;
+option java_outer_classname = "FulcioProto";
 
 service CA {
     /**
      * Returns information about the current state of the transparency log
      */
-    rpc GetSigningCert(CertificateRequest) returns (CertificateResponse){
+    rpc CreateSigningCertificate(CreateSigningCertificateRequest) returns (SigningCertificate){
         option (google.api.http) = {
-          post: "/api/v1/signingCert"
+          post: "/api/v2/signingCert"
           body: "*"
         };
     }
     /**
-     * Returns the public key that can be used to validate the signed tree head
+     * Returns the bundle of certificates that can be used to validate the signed certificate timestamp
      */
-    rpc GetRootCertificate(google.protobuf.Empty) returns (RootCertificateResponse){
+    rpc GetTrustBundle(google.protobuf.Empty) returns (TrustBundle){
         option (google.api.http) = {
-          get: "/api/v1/rootCert"
-        };
-    }
-    /**
-     * Returns the current version information for this Fulcio instance
-     */
-    rpc Version(google.protobuf.Empty) returns (VersionResponse){
-        option (google.api.http) = {
-          get: "/api/v1/version"
+          get: "/api/v2/trustBundle"
         };
     }
 }
 
-message CertificateRequest {
-    string OIDCIdentityToken = 1; // The OIDC token that identifies the caller
-    PublicKey publicKey      = 2; // The public key to be stored in the requested certificate
-    bytes signedEmailAddress = 3; // Proof that the client possesses the private key
+message CreateSigningCertificateRequest {
+    /*
+     * Identity information about who possesses the private / public key pair presented
+     */
+    Credentials credentials    = 1 [(google.api.field_behavior) = REQUIRED];
+    /*
+     * The public key to be stored in the requested certificate
+     */
+    PublicKey public_key       = 2 [(google.api.field_behavior) = REQUIRED];
+    /*
+     * Proof that the client possesses the private key; must be verifiable by provided public key
+     */
+    bytes proof_of_possession  = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message Credentials {
+    oneof credentials {
+        /*
+        * The OIDC token that identifies the caller
+        */
+        string oidc_identity_token = 1;
+    }
 }
 
 message PublicKey {
-    string algorithm = 1; // The cryptographic algorithm to use with the key material
-    bytes content    = 2; // DER or PEM encoded public key
+    /*
+     * The cryptographic algorithm to use with the key material
+     */
+    PublicKeyAlgorithm algorithm = 1;
+    /*
+     * PEM encoded public key
+     */
+    string content               = 2;
 }
 
-message CertificateResponse {
+// (-- api-linter: core::0142::time-field-type=disabled
+//     aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)
+message SigningCertificate {
     /*
      * The signed certificate timestamp is a promise for including the certificate in
      * a certificate transparency log. It can be "stapled" to verify the inclusion of
-     * a certificate in log in an offline fashion.
+     * a certificate in the log in an offline fashion.
      */
-    bytes signedCertificateTimestamp = 1;
+    bytes signed_certificate_timestamp = 1;
     /*
-     * The full certificate chain, serialized with the leaf certificate first followed
-     * by all subsequent certificates (finishing with the root certificate).
+     * The full certificate chain, serialized with the leaf certificate first, followed
+     * by all intermediate certificates (if present), finishing with the root certificate.
+     *
+     * All values are PEM-encoded certificates.
      */
-    string certificate = 2;
+    repeated string certificates = 2;
 }
 
-message RootCertificateResponse {
-    string certificate = 1; // The root certificate for this Fulcio instance
+message TrustBundle {
+    /*
+     * The PEM-encoded root certificate chain for this Fulcio instance
+     */
+    repeated CertificateChain chains = 1;
 }
 
-message VersionResponse {
-    string version   = 1; // The version string for the running instance of Fulcio
-    string commit    = 2; // The git commit from which the running instance of Fulcio was built
-    string treestate = 3; // The state of the git tree when this Fulcio instance was built
-    string builddate = 4; // The date which this Fulcio instance was compiled
+message CertificateChain {
+    /*
+     * The PEM-encoded root certificate chain for this Fulcio instance
+     */
+    repeated string certificates = 1;
+}
+
+enum PublicKeyAlgorithm {
+    PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+    RSA_PSS                          = 1;
+    ECDSA                            = 2;
+    ED25519                          = 3;
 }

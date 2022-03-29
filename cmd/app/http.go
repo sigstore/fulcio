@@ -17,9 +17,7 @@ package app
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -28,12 +26,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/api"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
+	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type httpServer struct {
@@ -46,71 +44,18 @@ func extractOIDCTokenFromAuthHeader(ctx context.Context, req *http.Request) meta
 	return metadata.Pairs(api.MetadataOIDCTokenKey, token)
 }
 
-func alterJSONResponse(ctx context.Context, rw http.ResponseWriter, msg protoreflect.ProtoMessage) error {
-	if m, ok := msg.(*gw.CertificateResponse); ok {
-		rw.Header().Set("Content-Type", "application/pem-certificate-chain")
-		rw.Header().Del("Grpc-Metadata-Content-Type")
-		if len(m.SignedCertificateTimestamp) > 0 {
-			rw.Header().Set("SCT", base64.StdEncoding.EncodeToString(m.SignedCertificateTimestamp))
-		}
-		rw.WriteHeader(http.StatusCreated)
-	} else if _, ok := msg.(*gw.RootCertificateResponse); ok {
-		rw.Header().Set("Content-Type", "application/pem-certificate-chain")
-		rw.Header().Del("Grpc-Metadata-Content-Type")
-	}
-	return nil
-}
-
-type PEMMarshaller struct {
-	defaultMarshaller runtime.Marshaler
-}
-
-// Marshal marshals "v" into byte sequence.
-func (p *PEMMarshaller) Marshal(v interface{}) ([]byte, error) {
-	switch msg := v.(type) {
-	case *gw.CertificateResponse:
-		return []byte(msg.Certificate), nil
-	case *gw.RootCertificateResponse:
-		return []byte(msg.Certificate), nil
-	}
-	return p.defaultMarshaller.Marshal(v)
-}
-
-// Unmarshal unmarshals "data" into "v". "v" must be a pointer value.
-func (p PEMMarshaller) Unmarshal(data []byte, v interface{}) error {
-	return p.defaultMarshaller.Unmarshal(data, v)
-}
-
-// NewDecoder returns a Decoder which reads byte sequence from "r".
-func (p PEMMarshaller) NewDecoder(r io.Reader) runtime.Decoder {
-	return p.defaultMarshaller.NewDecoder(r)
-}
-
-// NewEncoder returns an Encoder which writes bytes sequence into "w".
-func (p PEMMarshaller) NewEncoder(w io.Writer) runtime.Encoder {
-	return p.defaultMarshaller.NewEncoder(w)
-}
-
-// ContentType returns the Content-Type which this marshaler is responsible for.
-func (p PEMMarshaller) ContentType(v interface{}) string {
-	switch v.(type) {
-	case *gw.CertificateResponse, *gw.RootCertificateResponse:
-		return "application/pem-certificate-chain"
-	}
-	return "application/json"
-}
-
-func createHTTPServer(ctx context.Context, grpcServer *grpcServer) httpServer {
-	defaultMux := runtime.NewServeMux()
-	_, defaultOutboundMarshaller := runtime.MarshalerForRequest(defaultMux, &http.Request{})
-
-	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
-		runtime.WithForwardResponseOption(alterJSONResponse),
-		runtime.WithMarshalerOption(runtime.MIMEWildcard, &PEMMarshaller{defaultOutboundMarshaller}))
+func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcServer) httpServer {
+	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader))
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	if err := gw.RegisterCAHandlerFromEndpoint(ctx, mux, grpcServer.grpcServerEndpoint, opts); err != nil {
 		log.Logger.Fatal(err)
+	}
+
+	if legacyGRPCServer != nil {
+		if err := legacy_gw.RegisterCAHandlerFromEndpoint(ctx, mux, legacyGRPCServer.grpcServerEndpoint, opts); err != nil {
+			log.Logger.Fatal(err)
+		}
 	}
 
 	// Limit request size

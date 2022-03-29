@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 
 	"github.com/goadesign/goa/grpc/middleware"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -31,14 +32,20 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
+	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
 
+const (
+	LegacyUnixDomainSocket = "unix:///tmp/fulcio-legacy-grpc-socket"
+)
+
 type grpcServer struct {
 	*grpc.Server
 	grpcServerEndpoint string
+	caService          gw.CAServer
 }
 
 func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
@@ -56,12 +63,12 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.CertificateAuthority) grpcServer {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.CertificateAuthority) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
 		grpcmw.ChainUnaryServer(
-			grpc_recovery.UnaryServerInterceptor(), // recovers from per-transaction panics elegantly, so put it first
+			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
 			passFulcioConfigThruContext(cfg),
@@ -74,19 +81,17 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.C
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
 	grpcServerEndpoint := fmt.Sprintf("%s:%s", viper.GetString("grpc-host"), viper.GetString("grpc-port"))
-	return grpcServer{myServer, grpcServerEndpoint}
+	return &grpcServer{myServer, grpcServerEndpoint, grpcCAServer}, nil
 }
 
-func (g grpcServer) setupPrometheus(reg *prometheus.Registry) {
+func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
 	grpcMetrics := grpc_prometheus.NewServerMetrics()
 	reg.MustRegister(grpcMetrics, api.MetricLatency, api.RequestsCount)
 
 	grpc_prometheus.Register(g.Server)
 }
 
-func (g grpcServer) startListener() {
-	log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
-
+func (g *grpcServer) startTCPListener() {
 	go func() {
 		lis, err := net.Listen("tcp", g.grpcServerEndpoint)
 		if err != nil {
@@ -94,7 +99,58 @@ func (g grpcServer) startListener() {
 		}
 		defer lis.Close()
 
+		tcpAddr := lis.Addr().(*net.TCPAddr)
+		g.grpcServerEndpoint = fmt.Sprintf("%v:%d", tcpAddr.IP, tcpAddr.Port)
+		log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
+
 		log.Logger.Fatal(g.Server.Serve(lis))
 	}()
+}
 
+func (g *grpcServer) startUnixListener() {
+	go func() {
+		unixURL, err := url.Parse(g.grpcServerEndpoint)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		unixAddr, err := net.ResolveUnixAddr("unix", unixURL.Path)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		lis, err := net.ListenUnix("unix", unixAddr)
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		defer lis.Close()
+
+		log.Logger.Infof("listening on grpc at %s", unixAddr.String())
+
+		log.Logger.Fatal(g.Server.Serve(lis))
+	}()
+}
+
+func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*grpcServer, error) {
+	logger, opts := log.SetupGRPCLogging()
+
+	myServer := grpc.NewServer(grpc.UnaryInterceptor(
+		grpcmw.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
+			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+			grpc_zap.UnaryServerInterceptor(logger, opts...),
+			passFulcioConfigThruContext(cfg),
+			grpc_prometheus.UnaryServerInterceptor,
+		)),
+		grpc.MaxRecvMsgSize(int(maxMsgSize)))
+
+	legacyGRPCCAServer := api.NewLegacyGRPCCAServer(v2Server)
+
+	// Register your gRPC service implementations.
+	gw_legacy.RegisterCAServer(myServer, legacyGRPCCAServer)
+
+	return &grpcServer{myServer, LegacyUnixDomainSocket, v2Server}, nil
+}
+
+func panicRecoveryHandler(ctx context.Context, p interface{}) error {
+	log.ContextLogger(ctx).Error(p)
+	return fmt.Errorf("panic: %v", p)
 }

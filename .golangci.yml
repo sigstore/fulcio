@@ -31,6 +31,11 @@ issues:
     linters:
     - errcheck
     - gosec
+  # the following section is due to the legacy API being deprecated
+  - path: pkg/api/legacy_server.go
+    linters:
+    - staticcheck
+    text: SA1019
   max-issues-per-linter: 0
   max-same-issues: 0
 run:
