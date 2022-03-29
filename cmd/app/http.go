@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type httpServer struct {
@@ -45,7 +47,8 @@ func extractOIDCTokenFromAuthHeader(ctx context.Context, req *http.Request) meta
 }
 
 func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcServer) httpServer {
-	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader))
+	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
+		runtime.WithForwardResponseOption(setResponseCodeModifier))
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	if err := gw.RegisterCAHandlerFromEndpoint(ctx, mux, grpcServer.grpcServerEndpoint, opts); err != nil {
@@ -83,4 +86,32 @@ func (h httpServer) startListener() {
 			log.Logger.Fatal(err)
 		}
 	}()
+}
+
+func setResponseCodeModifier(ctx context.Context, w http.ResponseWriter, _ proto.Message) error {
+	md, ok := runtime.ServerMetadataFromContext(ctx)
+	if !ok {
+		return nil
+	}
+
+	// set SCT if present ahead of modifying response code
+	if vals := md.HeaderMD.Get("sct"); len(vals) > 0 {
+		delete(md.HeaderMD, "sct")
+		delete(w.Header(), "Grpc-Metadata-sct")
+		w.Header().Set("SCT", vals[0])
+	}
+
+	// set http status code
+	if vals := md.HeaderMD.Get("x-http-code"); len(vals) > 0 {
+		code, err := strconv.Atoi(vals[0])
+		if err != nil {
+			return err
+		}
+		// delete the headers to not expose any grpc-metadata in http response
+		delete(md.HeaderMD, "x-http-code")
+		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
+		w.WriteHeader(code)
+	}
+
+	return nil
 }

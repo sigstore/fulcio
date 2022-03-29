@@ -77,19 +77,23 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 
 	v2Response, err := l.v2Server.CreateSigningCertificate(ctx, &v2Request)
 	if err != nil {
-		return nil, errors.Wrap(err, "legacy handlers")
+		return nil, errors.Wrap(err, "legacy handler")
+	}
+
+	// we need to return a HTTP 201 Created response code to be backward compliant
+	if err = grpc.SetHeader(ctx, metadata.Pairs("x-http-code", "201")); err != nil {
+		return nil, errors.Wrap(err, "legacy handler")
+	}
+
+	// the SCT for the certificate needs to be returned in a HTTP response header
+	sctString := base64.StdEncoding.EncodeToString(v2Response.SignedCertificateTimestamp)
+	if err := grpc.SetHeader(ctx, metadata.Pairs("sct", sctString)); err != nil {
+		return nil, errors.Wrap(err, "legacy handler")
 	}
 
 	var concatCerts strings.Builder
 	for _, cert := range v2Response.Certificates {
 		concatCerts.WriteString(cert)
-	}
-
-	if err := grpc.SendHeader(ctx, metadata.New(
-		map[string]string{
-			"SCT": base64.StdEncoding.EncodeToString(v2Response.SignedCertificateTimestamp),
-		})); err != nil {
-		return nil, errors.Wrap(err, "legacy handler")
 	}
 
 	return &httpbody.HttpBody{
