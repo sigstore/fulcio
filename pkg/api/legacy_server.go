@@ -98,7 +98,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 
 	return &httpbody.HttpBody{
 		ContentType: PEMCertificateChain,
-		Data:        []byte(string(concatCerts.String())),
+		Data:        []byte(string(strings.TrimSpace(concatCerts.String()))),
 	}, nil
 }
 
