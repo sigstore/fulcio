@@ -508,6 +508,67 @@ func TestAPIWithGitHub(t *testing.T) {
 	}
 }
 
+// Tests API with insecure pub key
+func TestAPIWithInsecurePublicKey(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	_, serverURL := createCA(cfg, t)
+
+	// Create an API client that speaks to the API endpoint we created above.
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("url.Parse() = %v", err)
+	}
+	client := NewClient(u)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
+	}
+
+	_, err = client.SigningCert(CertificateRequest{
+		PublicKey: Key{
+			Content: pubBytes,
+		},
+		SignedEmailAddress: []byte{},
+	}, tok)
+	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request is insecure") {
+		t.Fatalf("expected insecure public key error, got %v", err)
+	}
+}
+
 // Stand up a very simple OIDC endpoint.
 func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 	t.Helper()

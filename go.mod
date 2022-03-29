@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.33.0
-	github.com/sigstore/sigstore v1.1.1-0.20220124143820-3cebf5c58675
+	github.com/sigstore/sigstore v1.2.1-0.20220328200116-ef48ee800626
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.1
