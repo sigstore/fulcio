@@ -47,6 +47,7 @@ services:
     depends_on:
       - dex-idp
       - ct_server
+    read_only: true
   dex-idp:
     image: dexidp/dex:v2.30.0
     user: root

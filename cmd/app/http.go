@@ -53,7 +53,8 @@ func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcSer
 	}
 
 	if legacyGRPCServer != nil {
-		if err := legacy_gw.RegisterCAHandlerFromEndpoint(ctx, mux, legacyGRPCServer.grpcServerEndpoint, opts); err != nil {
+		endpoint := fmt.Sprintf("unix:%v", legacyGRPCServer.grpcServerEndpoint)
+		if err := legacy_gw.RegisterCAHandlerFromEndpoint(ctx, mux, endpoint, opts); err != nil {
 			log.Logger.Fatal(err)
 		}
 	}

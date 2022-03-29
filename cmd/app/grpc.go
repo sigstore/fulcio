@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 
 	"github.com/goadesign/goa/grpc/middleware"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -39,7 +38,7 @@ import (
 )
 
 const (
-	LegacyUnixDomainSocket = "unix:///tmp/fulcio-legacy-grpc-socket"
+	LegacyUnixDomainSocket = "@fulcio-legacy-grpc-socket"
 )
 
 type grpcServer struct {
@@ -109,11 +108,7 @@ func (g *grpcServer) startTCPListener() {
 
 func (g *grpcServer) startUnixListener() {
 	go func() {
-		unixURL, err := url.Parse(g.grpcServerEndpoint)
-		if err != nil {
-			log.Logger.Fatal(err)
-		}
-		unixAddr, err := net.ResolveUnixAddr("unix", unixURL.Path)
+		unixAddr, err := net.ResolveUnixAddr("unix", LegacyUnixDomainSocket)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
