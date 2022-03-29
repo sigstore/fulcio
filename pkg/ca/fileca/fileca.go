@@ -99,6 +99,9 @@ func (fca *fileCA) CreateCertificate(_ context.Context, subject *challenges.Chal
 		return nil, err
 	}
 
+	fca.RLock()
+	defer fca.RUnlock()
+
 	return ca.CreateCSCFromDER(subject, finalCertBytes, fca.certs)
 }
 
