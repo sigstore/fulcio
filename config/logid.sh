@@ -50,3 +50,6 @@ else
 	configid=`cat /etc/config/ct_server.cfg|grep log_id|awk ' { print $2 } '`
 	echo "Existing configuration uses log ID $configid, exiting"
 fi
+curl -s --retry-connrefused --retry 10 http://fulcio-server:5555/api/v1/rootCert -o /etc/config/root.pem
+chmod 644 /etc/config/root.pem
+echo "Fetched valid root certificate from Fulcio to limit entries in CTFE instance"

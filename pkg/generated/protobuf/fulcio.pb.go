@@ -102,6 +102,8 @@ type CreateSigningCertificateRequest struct {
 	PublicKey *PublicKey `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	//
 	// Proof that the client possesses the private key; must be verifiable by provided public key
+	//
+	// This is a currently a signature over the `sub` claim from the OIDC identity token
 	ProofOfPossession []byte `protobuf:"bytes,3,opt,name=proof_of_possession,json=proofOfPossession,proto3" json:"proof_of_possession,omitempty"`
 }
 

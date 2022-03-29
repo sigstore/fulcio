@@ -36,7 +36,7 @@ service CA {
         };
     }
     /**
-     * Returns the bundle of certificates that can be used to validate the signed certificate timestamp
+     * Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
      */
     rpc GetTrustBundle(google.protobuf.Empty) returns (TrustBundle){
         option (google.api.http) = {
@@ -56,6 +56,8 @@ message CreateSigningCertificateRequest {
     PublicKey public_key       = 2 [(google.api.field_behavior) = REQUIRED];
     /*
      * Proof that the client possesses the private key; must be verifiable by provided public key
+     *
+     * This is a currently a signature over the `sub` claim from the OIDC identity token
      */
     bytes proof_of_possession  = 3 [(google.api.field_behavior) = REQUIRED];
 }

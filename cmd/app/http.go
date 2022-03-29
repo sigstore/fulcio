@@ -29,7 +29,6 @@ import (
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -46,7 +45,7 @@ func extractOIDCTokenFromAuthHeader(ctx context.Context, req *http.Request) meta
 	return metadata.Pairs(api.MetadataOIDCTokenKey, token)
 }
 
-func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcServer) httpServer {
+func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, legacyGRPCServer *grpcServer) httpServer {
 	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
 		runtime.WithForwardResponseOption(setResponseCodeModifier))
 
@@ -64,10 +63,9 @@ func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcSer
 
 	// Limit request size
 	handler := api.WithMaxBytes(mux, maxMsgSize)
-	httpServerEndpoint := fmt.Sprintf("%s:%s", viper.GetString("http-host"), viper.GetString("http-port"))
 
 	api := http.Server{
-		Addr:    httpServerEndpoint,
+		Addr:    serverEndpoint,
 		Handler: handler,
 
 		// Timeouts
@@ -76,7 +74,7 @@ func createHTTPServer(ctx context.Context, grpcServer, legacyGRPCServer *grpcSer
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return httpServer{&api, httpServerEndpoint}
+	return httpServer{&api, serverEndpoint}
 }
 
 func (h httpServer) startListener() {

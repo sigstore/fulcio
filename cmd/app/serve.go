@@ -187,6 +187,8 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		ctClient = ctl.WithLogging(ctClient, log.Logger)
 	}
 
+	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
+
 	reg := prometheus.NewRegistry()
 
 	grpcServer, err := createGRPCServer(cfg, ctClient, baseca)
@@ -206,7 +208,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	reflection.Register(legacyGRPCServer.Server)
 	legacyGRPCServer.startUnixListener()
 
-	httpServer := createHTTPServer(context.Background(), grpcServer, legacyGRPCServer)
+	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
 	httpServer.startListener()
 
 	prom := http.Server{

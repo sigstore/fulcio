@@ -23,7 +23,7 @@ type CAClient interface {
 	// Returns information about the current state of the transparency log
 	CreateSigningCertificate(ctx context.Context, in *CreateSigningCertificateRequest, opts ...grpc.CallOption) (*SigningCertificate, error)
 	//*
-	// Returns the bundle of certificates that can be used to validate the signed certificate timestamp
+	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
 	GetTrustBundle(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*TrustBundle, error)
 }
 
@@ -61,7 +61,7 @@ type CAServer interface {
 	// Returns information about the current state of the transparency log
 	CreateSigningCertificate(context.Context, *CreateSigningCertificateRequest) (*SigningCertificate, error)
 	//*
-	// Returns the bundle of certificates that can be used to validate the signed certificate timestamp
+	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
 	GetTrustBundle(context.Context, *empty.Empty) (*TrustBundle, error)
 	mustEmbedUnimplementedCAServer()
 }
