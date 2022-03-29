@@ -12,12 +12,11 @@ require (
 	github.com/google/go-cmp v0.5.7
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/magiconair/properties v1.8.6
-	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.33.0
-	github.com/sigstore/sigstore v1.2.1-0.20220328200116-ef48ee800626
+	github.com/sigstore/sigstore v1.2.1-0.20220401110139-0e610e39782f
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.1

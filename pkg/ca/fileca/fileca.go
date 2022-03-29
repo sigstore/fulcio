@@ -16,24 +16,16 @@
 package fileca
 
 import (
-	"context"
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
 )
 
 type fileCA struct {
-	sync.RWMutex
-
-	certs []*x509.Certificate
-	key   crypto.Signer
+	intermediateca.IntermediateCA
 }
 
 // NewFileCA returns a file backed certificate authority. Expects paths to a
@@ -43,7 +35,7 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	var fca fileCA
 
 	var err error
-	fca.certs, fca.key, err = loadKeyPair(certPath, keyPath, keyPass)
+	fca.Certs, fca.Signer, err = loadKeyPair(certPath, keyPath, keyPass)
 	if err != nil {
 		return nil, err
 	}
@@ -68,43 +60,13 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	return &fca, err
 }
 
-func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, key crypto.Signer) {
+func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, signer crypto.Signer) {
 	fca.Lock()
 	defer fca.Unlock()
 
 	// NB: We use the RWLock to unsure a reading thread can't get a mismatching
 	// cert / key pair by reading the attributes halfway through the update
 	// below.
-	fca.certs = certs
-	fca.key = key
-}
-
-func (fca *fileCA) getX509KeyPair() ([]*x509.Certificate, crypto.Signer) {
-	fca.RLock()
-	defer fca.RUnlock()
-	return fca.certs, fca.key
-}
-
-// CreateCertificate issues code signing certificates
-func (fca *fileCA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(subject)
-	if err != nil {
-		return nil, err
-	}
-
-	certChain, privateKey := fca.getX509KeyPair()
-
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], subject.PublicKey, privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return ca.CreateCSCFromDER(subject, finalCertBytes, certChain)
-}
-
-func (fca *fileCA) Root(ctx context.Context) ([]byte, error) {
-	fca.RLock()
-	defer fca.RUnlock()
-
-	return cryptoutils.MarshalCertificatesToPEM(fca.certs)
+	fca.Certs = certs
+	fca.Signer = signer
 }
