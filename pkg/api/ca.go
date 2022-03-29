@@ -163,6 +163,11 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	// Validate public key, checking for weak key parameters.
+	if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+		handleFulcioAPIError(w, req, http.StatusBadRequest, err, insecurePublicKey)
+		return
+	}
 
 	subject, err := ExtractSubject(ctx, principal, publicKey, cr.SignedEmailAddress)
 	if err != nil {
