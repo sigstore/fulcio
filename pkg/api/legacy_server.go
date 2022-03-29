@@ -119,6 +119,6 @@ func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Em
 	}
 	return &httpbody.HttpBody{
 		ContentType: PEMCertificateChain,
-		Data:        []byte(concatCerts.String()),
+		Data:        []byte(strings.TrimSpace(concatCerts.String())),
 	}, nil
 }
