@@ -79,10 +79,10 @@ func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, key crypto.Signe
 	fca.key = key
 }
 
-func (fca *fileCA) getX509KeyPair() (*x509.Certificate, crypto.Signer) {
+func (fca *fileCA) getX509KeyPair() ([]*x509.Certificate, crypto.Signer) {
 	fca.RLock()
 	defer fca.RUnlock()
-	return fca.certs[0], fca.key
+	return fca.certs, fca.key
 }
 
 // CreateCertificate issues code signing certificates
@@ -92,17 +92,14 @@ func (fca *fileCA) CreateCertificate(_ context.Context, subject *challenges.Chal
 		return nil, err
 	}
 
-	rootCA, privateKey := fca.getX509KeyPair()
+	certChain, privateKey := fca.getX509KeyPair()
 
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCA, subject.PublicKey, privateKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], subject.PublicKey, privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	fca.RLock()
-	defer fca.RUnlock()
-
-	return ca.CreateCSCFromDER(subject, finalCertBytes, fca.certs)
+	return ca.CreateCSCFromDER(subject, finalCertBytes, certChain)
 }
 
 func (fca *fileCA) Root(ctx context.Context) ([]byte, error) {
