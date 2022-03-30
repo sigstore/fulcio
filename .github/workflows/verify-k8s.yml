@@ -164,7 +164,7 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  image: ttl.sh/11fe4c92-b8a5-4870-8d16-b386801bf9ae/cosign@sha256:29104eddb8e8c773f92aa90f6089fbb34447002c288d3f81a1d79d391a17b108
+                  image: gcr.io/projectsigstore/cosign@v1.4.1
                   args: [
                     "sign",
                     "--fulcio-url=http://fulcio-server.fulcio-system.svc",

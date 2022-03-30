@@ -27,7 +27,7 @@ option java_outer_classname = "FulcioProto";
 
 service CA {
     /**
-     * Returns information about the current state of the transparency log
+     * Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
      */
     rpc CreateSigningCertificate(CreateSigningCertificateRequest) returns (SigningCertificate){
         option (google.api.http) = {
@@ -79,7 +79,7 @@ message PublicKey {
     /*
      * PEM encoded public key
      */
-    string content               = 2;
+    string content               = 2 [(google.api.field_behavior) = REQUIRED];
 }
 
 // (-- api-linter: core::0142::time-field-type=disabled
@@ -97,21 +97,21 @@ message SigningCertificate {
      *
      * All values are PEM-encoded certificates.
      */
-    repeated string certificates = 2;
+    CertificateChain chain = 2 [(google.api.field_behavior) = REQUIRED];
 }
 
 message TrustBundle {
     /*
      * The PEM-encoded root certificate chain for this Fulcio instance
      */
-    repeated CertificateChain chains = 1;
+    CertificateChain chain = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 message CertificateChain {
     /*
-     * The PEM-encoded root certificate chain for this Fulcio instance
+     * The PEM-encoded certificate chain
      */
-    repeated string certificates = 1;
+    repeated string certificates = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 enum PublicKeyAlgorithm {

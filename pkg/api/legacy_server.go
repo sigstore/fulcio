@@ -30,7 +30,9 @@ import (
 )
 
 const (
-	PEMCertificateChain = "application/pem-certificate-chain"
+	PEMCertificateChain         = "application/pem-certificate-chain"
+	SCTMetadataKey              = "x-sct"
+	HTTPResponseCodeMetadataKey = "x-http-code"
 )
 
 type legacyGRPCCAServer struct {
@@ -46,7 +48,7 @@ func NewLegacyGRPCCAServer(v2Server fulciogrpc.CAServer) legacy.CAServer {
 
 func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, request *legacy.CreateSigningCertificateRequest) (*httpbody.HttpBody, error) {
 	// OIDC token either is passed in gRPC field or was extracted from HTTP headers
-	var token string
+	token := ""
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		vals := md.Get(MetadataOIDCTokenKey)
 		if len(vals) == 1 {
@@ -81,18 +83,20 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 	}
 
 	// we need to return a HTTP 201 Created response code to be backward compliant
-	if err = grpc.SetHeader(ctx, metadata.Pairs("x-http-code", "201")); err != nil {
+	if err = grpc.SetHeader(ctx, metadata.Pairs(HTTPResponseCodeMetadataKey, "201")); err != nil {
 		return nil, errors.Wrap(err, "legacy handler")
 	}
 
 	// the SCT for the certificate needs to be returned in a HTTP response header
 	sctString := base64.StdEncoding.EncodeToString(v2Response.SignedCertificateTimestamp)
-	if err := grpc.SetHeader(ctx, metadata.Pairs("sct", sctString)); err != nil {
-		return nil, errors.Wrap(err, "legacy handler")
+	if sctString != "" {
+		if err := grpc.SetHeader(ctx, metadata.Pairs(SCTMetadataKey, sctString)); err != nil {
+			return nil, errors.Wrap(err, "legacy handler")
+		}
 	}
 
 	var concatCerts strings.Builder
-	for _, cert := range v2Response.Certificates {
+	for _, cert := range v2Response.Chain.Certificates {
 		concatCerts.WriteString(cert)
 	}
 
@@ -109,14 +113,11 @@ func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Em
 	}
 
 	var concatCerts strings.Builder
-	for i, chain := range v2Response.Chains {
-		for j, cert := range chain.Certificates {
-			concatCerts.WriteString(cert)
-			if i < (len(v2Response.Chains)-1) && j < (len(chain.Certificates)-1) {
-				concatCerts.WriteRune('\n')
-			}
-		}
+	for _, cert := range v2Response.Chain.Certificates {
+		concatCerts.WriteString(cert)
+		concatCerts.WriteRune('\n')
 	}
+
 	return &httpbody.HttpBody{
 		ContentType: PEMCertificateChain,
 		Data:        []byte(strings.TrimSpace(concatCerts.String())),

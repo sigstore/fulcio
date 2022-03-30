@@ -31,7 +31,7 @@ option java_outer_classname = "FulcioProto";
  */
 service CA {
     /*
-     * Returns information about the current state of the transparency log
+     * Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
      */
     rpc CreateSigningCertificate(CreateSigningCertificateRequest) returns (google.api.HttpBody){
         option deprecated = true;

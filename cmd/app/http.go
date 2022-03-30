@@ -25,6 +25,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sigstore/fulcio/pkg/api"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
@@ -63,6 +64,8 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 
 	// Limit request size
 	handler := api.WithMaxBytes(mux, maxMsgSize)
+	handler = promhttp.InstrumentHandlerDuration(api.MetricLatency, handler)
+	handler = promhttp.InstrumentHandlerCounter(api.RequestsCount, handler)
 
 	api := http.Server{
 		Addr:    serverEndpoint,
@@ -93,20 +96,20 @@ func setResponseCodeModifier(ctx context.Context, w http.ResponseWriter, _ proto
 	}
 
 	// set SCT if present ahead of modifying response code
-	if vals := md.HeaderMD.Get("sct"); len(vals) > 0 {
-		delete(md.HeaderMD, "sct")
+	if vals := md.HeaderMD.Get(api.SCTMetadataKey); len(vals) > 0 {
+		delete(md.HeaderMD, api.SCTMetadataKey)
 		delete(w.Header(), "Grpc-Metadata-sct")
 		w.Header().Set("SCT", vals[0])
 	}
 
 	// set http status code
-	if vals := md.HeaderMD.Get("x-http-code"); len(vals) > 0 {
+	if vals := md.HeaderMD.Get(api.HTTPResponseCodeMetadataKey); len(vals) > 0 {
 		code, err := strconv.Atoi(vals[0])
 		if err != nil {
 			return err
 		}
 		// delete the headers to not expose any grpc-metadata in http response
-		delete(md.HeaderMD, "x-http-code")
+		delete(md.HeaderMD, api.HTTPResponseCodeMetadataKey)
 		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
 		w.WriteHeader(code)
 	}

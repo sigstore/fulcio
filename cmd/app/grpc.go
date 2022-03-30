@@ -84,9 +84,9 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.C
 }
 
 func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
-	grpcMetrics := grpc_prometheus.NewServerMetrics()
+	grpcMetrics := grpc_prometheus.DefaultServerMetrics
+	grpcMetrics.EnableHandlingTimeHistogram()
 	reg.MustRegister(grpcMetrics, api.MetricLatency, api.RequestsCount)
-
 	grpc_prometheus.Register(g.Server)
 }
 

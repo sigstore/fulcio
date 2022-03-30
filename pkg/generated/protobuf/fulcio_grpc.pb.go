@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CAClient interface {
 	//*
-	// Returns information about the current state of the transparency log
+	// Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
 	CreateSigningCertificate(ctx context.Context, in *CreateSigningCertificateRequest, opts ...grpc.CallOption) (*SigningCertificate, error)
 	//*
 	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
@@ -58,7 +58,7 @@ func (c *cAClient) GetTrustBundle(ctx context.Context, in *empty.Empty, opts ...
 // for forward compatibility
 type CAServer interface {
 	//*
-	// Returns information about the current state of the transparency log
+	// Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
 	CreateSigningCertificate(context.Context, *CreateSigningCertificateRequest) (*SigningCertificate, error)
 	//*
 	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance

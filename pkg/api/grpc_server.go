@@ -129,8 +129,12 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	}
 
 	result := &fulciogrpc.SigningCertificate{
-		SignedCertificateTimestamp: sctBytes,
-		Certificates:               []string{string(finalPEM), string(finalChainPEM)},
+		Chain: &fulciogrpc.CertificateChain{
+			Certificates: []string{string(finalPEM), string(finalChainPEM)}},
+	}
+
+	if len(sctBytes) > 0 {
+		result.SignedCertificateTimestamp = sctBytes
 	}
 
 	return result, nil
@@ -145,11 +149,11 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *empty.Empty) (*ful
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 	}
 
-	chains := []*fulciogrpc.CertificateChain{{
+	chain := fulciogrpc.CertificateChain{
 		Certificates: []string{string(root)},
-	}}
+	}
 
 	return &fulciogrpc.TrustBundle{
-		Chains: chains,
+		Chain: &chain,
 	}, nil
 }

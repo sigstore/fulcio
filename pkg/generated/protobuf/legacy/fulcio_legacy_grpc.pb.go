@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 type CAClient interface {
 	// Deprecated: Do not use.
 	//
-	// Returns information about the current state of the transparency log
+	// Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
 	CreateSigningCertificate(ctx context.Context, in *CreateSigningCertificateRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
 	// Deprecated: Do not use.
 	//
@@ -64,7 +64,7 @@ func (c *cAClient) GetRootCertificate(ctx context.Context, in *empty.Empty, opts
 type CAServer interface {
 	// Deprecated: Do not use.
 	//
-	// Returns information about the current state of the transparency log
+	// Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
 	CreateSigningCertificate(context.Context, *CreateSigningCertificateRequest) (*httpbody.HttpBody, error)
 	// Deprecated: Do not use.
 	//
