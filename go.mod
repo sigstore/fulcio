@@ -10,7 +10,6 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/google/go-cmp v0.5.7
-	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/magiconair/properties v1.8.6
 	github.com/miekg/pkcs11 v1.1.1 // indirect

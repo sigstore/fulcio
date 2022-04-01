@@ -27,7 +27,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -39,10 +39,10 @@ type X509CA struct {
 }
 
 func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
-	// TODO: Track / increment serial nums instead, although unlikely we will create dupes, it could happen
-	uuid := uuid.New()
-	var serialNumber big.Int
-	serialNumber.SetBytes(uuid[:])
+	serialNumber, err := GenerateSerialNumber()
+	if err != nil {
+		return nil, err
+	}
 
 	skid, err := cryptoutils.SKID(subject.PublicKey)
 	if err != nil {
@@ -50,7 +50,7 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 	}
 
 	cert := &x509.Certificate{
-		SerialNumber: &serialNumber,
+		SerialNumber: serialNumber,
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(time.Minute * 10),
 		SubjectKeyId: skid,
@@ -163,4 +163,17 @@ func IssuerExtension(issuer string) []pkix.Extension {
 		Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
 		Value: []byte(issuer),
 	}}
+}
+
+// GenerateSerialNumber creates a compliant serial number as per RFC 5280 4.1.2.2.
+// Serial numbers must be positive, and can be no longer than 20 bytes.
+// The serial number is generated with 159 bits, so that the first bit will always
+// be 0, resulting in a positive serial number.
+func GenerateSerialNumber() (*big.Int, error) {
+	// Pick a random number from 0 to 2^159.
+	serial, err := rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
+	if err != nil {
+		return nil, errors.Wrap(err, "error generating serial number")
+	}
+	return serial, nil
 }

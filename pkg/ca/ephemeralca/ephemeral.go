@@ -19,8 +19,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"math"
-	"math/big"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
@@ -42,8 +40,7 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 
 	e.PrivKey = signer
 
-	// TODO: We could make it so this could be passed in by the user
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
+	serialNumber, err := x509ca.GenerateSerialNumber()
 	if err != nil {
 		return nil, err
 	}
