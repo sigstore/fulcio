@@ -135,7 +135,11 @@ func (c *client) RootCert() (*RootResponse, error) {
 	endpoint := *c.baseURL
 	endpoint.Path = path.Join(endpoint.Path, rootCertPath)
 
-	resp, err := http.Get(endpoint.String())
+	req, err := http.NewRequest(http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
