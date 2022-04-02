@@ -24,13 +24,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"math"
-	"math/big"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -106,8 +105,7 @@ func runCreateCACmd(cmd *cobra.Command, args []string) {
 
 	pubKey := privKey.Public()
 
-	// TODO: We could make it so this could be passed in by the user
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
+	serialNumber, err := x509ca.GenerateSerialNumber()
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
