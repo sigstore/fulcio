@@ -37,7 +37,7 @@ func NewCAClient(cc grpc.ClientConnInterface) CAClient {
 
 func (c *cAClient) CreateSigningCertificate(ctx context.Context, in *CreateSigningCertificateRequest, opts ...grpc.CallOption) (*SigningCertificate, error) {
 	out := new(SigningCertificate)
-	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v1.CA/CreateSigningCertificate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (c *cAClient) CreateSigningCertificate(ctx context.Context, in *CreateSigni
 
 func (c *cAClient) GetTrustBundle(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*TrustBundle, error) {
 	out := new(TrustBundle)
-	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v1.CA/GetTrustBundle", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func _CA_CreateSigningCertificate_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/dev.sigstore.fulcio.v1.CA/CreateSigningCertificate",
+		FullMethod: "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CAServer).CreateSigningCertificate(ctx, req.(*CreateSigningCertificateRequest))
@@ -117,7 +117,7 @@ func _CA_GetTrustBundle_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/dev.sigstore.fulcio.v1.CA/GetTrustBundle",
+		FullMethod: "/dev.sigstore.fulcio.v2.CA/GetTrustBundle",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CAServer).GetTrustBundle(ctx, req.(*empty.Empty))
@@ -129,7 +129,7 @@ func _CA_GetTrustBundle_Handler(srv interface{}, ctx context.Context, dec func(i
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var CA_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "dev.sigstore.fulcio.v1.CA",
+	ServiceName: "dev.sigstore.fulcio.v2.CA",
 	HandlerType: (*CAServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

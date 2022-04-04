@@ -46,6 +46,7 @@ spec:
         image: ko://github.com/sigstore/fulcio
         ports:
         - containerPort: 5555
+        - containerPort: 5554
         - containerPort: 2112 # metrics
         args: [
           "serve", "-c", "/etc/fulcio-config/server.yaml",
@@ -107,3 +108,7 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 5555
+    - name: grpc
+      protocol: TCP
+      port: 5554
+      targetPort: 5554

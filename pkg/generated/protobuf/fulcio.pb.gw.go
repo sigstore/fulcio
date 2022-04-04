@@ -96,7 +96,7 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -119,7 +119,7 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -181,7 +181,7 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -201,7 +201,7 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return

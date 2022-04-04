@@ -14,14 +14,14 @@
 // limitations under the License.
 
 syntax = "proto3";
-package dev.sigstore.fulcio.v1;
+package dev.sigstore.fulcio.v2;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/sigstore/fulcio/pkg/generated/protobuf";
-option java_package = "dev.sigstore.fulcio.v1";
+option java_package = "dev.sigstore.fulcio.v2";
 option java_multiple_files = true;
 option java_outer_classname = "FulcioProto";
 
@@ -92,26 +92,27 @@ message SigningCertificate {
      */
     bytes signed_certificate_timestamp = 1;
     /*
-     * The full certificate chain, serialized with the leaf certificate first, followed
+     * The certificate chain serialized with the leaf certificate first, followed
      * by all intermediate certificates (if present), finishing with the root certificate.
      *
      * All values are PEM-encoded certificates.
      */
-    CertificateChain chain = 2 [(google.api.field_behavior) = REQUIRED];
+    CertificateChain chain             = 2;
 }
 
 message TrustBundle {
     /*
-     * The PEM-encoded root certificate chain for this Fulcio instance
+     * The set of PEM-encoded certificate chains for this Fulcio instance; each chain will start with any
+     * intermediate certificates (if present), finishing with the root certificate.
      */
-    CertificateChain chain = 1 [(google.api.field_behavior) = REQUIRED];
+    repeated CertificateChain chains = 1;
 }
 
 message CertificateChain {
     /*
-     * The PEM-encoded certificate chain
+     * The PEM-encoded certificate chain, ordered from leaf to intermediate to root as applicable.
      */
-    repeated string certificates = 1 [(google.api.field_behavior) = REQUIRED];
+    repeated string certificates = 1;
 }
 
 enum PublicKeyAlgorithm {
