@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -44,6 +45,12 @@ import (
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -51,49 +58,97 @@ import (
 // base64 encoded placeholder for SCT
 const (
 	testSCT               = "ZXhhbXBsZXNjdAo="
-	expectedNoRootMessage = "{\"code\":500,\"message\":\"error communicating with CA backend\"}\n"
+	expectedNoRootMessage = "rpc error: code = Internal desc = error communicating with CA backend"
+	bufSize               = 1024 * 1024
 )
 
-func TestMissingRootFails(t *testing.T) {
-	h := New(nil, &FailingCertificateAuthority{})
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(rw, r)
-	}))
-	t.Cleanup(server.Close)
+var lis *bufconn.Listener
 
-	// Create an API client that speaks to the API endpoint we created above.
-	u, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatalf("url.Parse() = %v", err)
+func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		// For each request, infuse context with our snapshot of the FulcioConfig.
+		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
+		// from disk, so that we don't need to cycle pods to pick up config updates.
+		// Alternately we could take advantage of Knative's configmap watcher.
+		ctx = config.With(ctx, cfg)
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		// Calls the inner handler
+		return handler(ctx, req)
 	}
+}
+
+func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctx context.Context, ctl ctl.Client, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
+	t.Helper()
+	lis = bufconn.Listen(bufSize)
+	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca))
+	go func() {
+		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			t.Errorf("Server exited with error: %v", err)
+		}
+	}()
+
+	conn, err := grpc.DialContext(ctx, "bufnet",
+		grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal("could not create grpc connection", err)
+	}
+
+	return s, conn
+}
+
+func bufDialer(ctx context.Context, _ string) (net.Conn, error) {
+	return lis.DialContext(ctx)
+}
+
+func TestMissingGetTrustBundleFails(t *testing.T) {
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, nil, ctx, nil, &FailingCertificateAuthority{})
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
 	// Check that we get the CA root back as well.
-	_, err = NewClient(u).RootCert()
+	_, err := client.GetTrustBundle(ctx, &emptypb.Empty{})
 	if err == nil {
-		t.Fatal("RootCert did not fail", err)
+		t.Fatal("GetTrustBundle did not fail", err)
 	}
 	if err.Error() != expectedNoRootMessage {
 		t.Errorf("got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
 	}
 }
 
-func TestRootCertSuccess(t *testing.T) {
-	eca, serverURL := createCA(&config.FulcioConfig{}, t)
+func TestGetTrustBundleSuccess(t *testing.T) {
+	cfg := &config.FulcioConfig{}
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
 
-	// Create an API client that speaks to the API endpoint we created above.
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() = %v", err)
-	}
-	client := NewClient(u)
+	client := protobuf.NewCAClient(conn)
 
-	root, err := client.RootCert()
+	root, err := client.GetTrustBundle(ctx, &emptypb.Empty{})
 	if err != nil {
-		t.Fatal("RootCert did not fail", err)
+		t.Fatal("GetTrustBundle failed", err)
 	}
-	if len(root.ChainPEM) == 0 {
+	if len(root.Chains) == 0 {
 		t.Fatal("got back empty chain")
 	}
-	block, rest := pem.Decode(root.ChainPEM)
+	if len(root.Chains) != 1 {
+		t.Fatal("got back more than one chain")
+	}
+	if len(root.Chains[0].Certificates) != 1 {
+		t.Fatalf("expected 1 cert, found %d", len(root.Chains[0].Certificates))
+	}
+	block, rest := pem.Decode([]byte(root.Chains[0].Certificates[0]))
 	if block == nil {
 		t.Fatal("did not find PEM data")
 	}
@@ -181,24 +236,30 @@ func TestAPIWithEmail(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		eca, serverURL := createCA(cfg, t)
+		ctClient, eca := createCA(cfg, t)
+		ctx := context.Background()
+		server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+		defer func() {
+			server.Stop()
+			conn.Close()
+		}()
 
-		// Create an API client that speaks to the API endpoint we created above.
-		u, err := url.Parse(serverURL)
-		if err != nil {
-			t.Fatalf("url.Parse() = %v", err)
-		}
-		client := NewClient(u)
+		client := protobuf.NewCAClient(conn)
 
 		pubBytes, proof := generateKeyAndProof(c.Subject, t)
 
 		// Hit the API to have it sign our certificate.
-		resp, err := client.SigningCert(CertificateRequest{
-			PublicKey: Key{
+		resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+			Credentials: &protobuf.Credentials{
+				Credentials: &protobuf.Credentials_OidcIdentityToken{
+					OidcIdentityToken: tok,
+				},
+			},
+			PublicKey: &protobuf.PublicKey{
 				Content: pubBytes,
 			},
-			SignedEmailAddress: proof,
-		}, tok)
+			ProofOfPossession: proof,
+		})
 		if err != nil {
 			t.Fatalf("SigningCert() = %v", err)
 		}
@@ -264,24 +325,30 @@ func TestAPIWithUriSubject(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		eca, serverURL := createCA(cfg, t)
+		ctClient, eca := createCA(cfg, t)
+		ctx := context.Background()
+		server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+		defer func() {
+			server.Stop()
+			conn.Close()
+		}()
 
-		// Create an API client that speaks to the API endpoint we created above.
-		u, err := url.Parse(serverURL)
-		if err != nil {
-			t.Fatalf("url.Parse() = %v", err)
-		}
-		client := NewClient(u)
+		client := protobuf.NewCAClient(conn)
 
 		pubBytes, proof := generateKeyAndProof(c.Subject, t)
 
 		// Hit the API to have it sign our certificate.
-		resp, err := client.SigningCert(CertificateRequest{
-			PublicKey: Key{
+		resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+			Credentials: &protobuf.Credentials{
+				Credentials: &protobuf.Credentials_OidcIdentityToken{
+					OidcIdentityToken: tok,
+				},
+			},
+			PublicKey: &protobuf.PublicKey{
 				Content: pubBytes,
 			},
-			SignedEmailAddress: proof,
-		}, tok)
+			ProofOfPossession: proof,
+		})
 		if err != nil {
 			t.Fatalf("SigningCert() = %v", err)
 		}
@@ -348,24 +415,30 @@ func TestAPIWithKubernetes(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	eca, serverURL := createCA(cfg, t)
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
 
-	// Create an API client that speaks to the API endpoint we created above.
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() = %v", err)
-	}
-	client := NewClient(u)
+	client := protobuf.NewCAClient(conn)
 
 	pubBytes, proof := generateKeyAndProof(k8sSubject, t)
 
 	// Hit the API to have it sign our certificate.
-	resp, err := client.SigningCert(CertificateRequest{
-		PublicKey: Key{
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		PublicKey: &protobuf.PublicKey{
 			Content: pubBytes,
 		},
-		SignedEmailAddress: proof,
-	}, tok)
+		ProofOfPossession: proof,
+	})
 	if err != nil {
 		t.Fatalf("SigningCert() = %v", err)
 	}
@@ -435,24 +508,30 @@ func TestAPIWithGitHub(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	eca, serverURL := createCA(cfg, t)
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
 
-	// Create an API client that speaks to the API endpoint we created above.
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() = %v", err)
-	}
-	client := NewClient(u)
+	client := protobuf.NewCAClient(conn)
 
 	pubBytes, proof := generateKeyAndProof(gitSubject, t)
 
 	// Hit the API to have it sign our certificate.
-	resp, err := client.SigningCert(CertificateRequest{
-		PublicKey: Key{
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		PublicKey: &protobuf.PublicKey{
 			Content: pubBytes,
 		},
-		SignedEmailAddress: proof,
-	}, tok)
+		ProofOfPossession: proof,
+	})
 	if err != nil {
 		t.Fatalf("SigningCert() = %v", err)
 	}
@@ -540,14 +619,15 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	_, serverURL := createCA(cfg, t)
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
 
-	// Create an API client that speaks to the API endpoint we created above.
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() = %v", err)
-	}
-	client := NewClient(u)
+	client := protobuf.NewCAClient(conn)
 
 	priv, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
@@ -558,12 +638,18 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 		t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
 	}
 
-	_, err = client.SigningCert(CertificateRequest{
-		PublicKey: Key{
-			Content: pubBytes,
+	// Hit the API to have it sign our certificate.
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
 		},
-		SignedEmailAddress: []byte{},
-	}, tok)
+		PublicKey: &protobuf.PublicKey{
+			Content: string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)),
+		},
+		ProofOfPossession: []byte{},
+	})
 	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request is insecure") {
 		t.Fatalf("expected insecure public key error, got %v", err)
 	}
@@ -668,7 +754,7 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 }
 
 // createCA initializes an ephemeral CA server and CT log server
-func createCA(cfg *config.FulcioConfig, t *testing.T) (*ephemeralca.EphemeralCA, string) {
+func createCA(cfg *config.FulcioConfig, t *testing.T) (ctl.Client, *ephemeralca.EphemeralCA) {
 	// Stand up an ephemeral CA we can use for signing certificate requests.
 	eca, err := ephemeralca.NewEphemeralCA()
 	if err != nil {
@@ -681,22 +767,12 @@ func createCA(cfg *config.FulcioConfig, t *testing.T) (*ephemeralca.EphemeralCA,
 	}
 
 	// Create a test HTTP server to host our API.
-	h := New(ctl.New(ctlogServer.URL), eca)
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		// For each request, infuse context with our snapshot of the FulcioConfig.
-		ctx = config.With(ctx, cfg)
-
-		h.ServeHTTP(rw, r.WithContext(ctx))
-	}))
-	t.Cleanup(server.Close)
-
-	return eca, server.URL
+	return ctl.New(ctlogServer.URL), eca
 }
 
 // generateKeyAndProof creates a public key to be certified and creates a
 // signature for the OIDC token subject
-func generateKeyAndProof(subject string, t *testing.T) ([]byte, []byte) {
+func generateKeyAndProof(subject string, t *testing.T) (string, []byte) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("GenerateKey() = %v", err)
@@ -710,7 +786,7 @@ func generateKeyAndProof(subject string, t *testing.T) ([]byte, []byte) {
 	if err != nil {
 		t.Fatalf("SignASN1() = %v", err)
 	}
-	return pubBytes, proof
+	return string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)), proof
 }
 
 // findCustomExtension searches a certificate's non-critical extensions by OID
@@ -724,19 +800,19 @@ func findCustomExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (pki
 }
 
 // verifyResponse validates common response expectations for each response field
-func verifyResponse(resp *CertificateResponse, eca *ephemeralca.EphemeralCA, issuer string, t *testing.T) *x509.Certificate {
+func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.EphemeralCA, issuer string, t *testing.T) *x509.Certificate {
 	// Expect SCT
-	if string(resp.SCT) == "" {
+	if string(resp.SignedCertificateTimestamp) == "" {
 		t.Fatal("unexpected empty SCT in response")
 	}
 
 	// Expect root certficate in resp.ChainPEM
-	if len(resp.ChainPEM) == 0 {
+	if len(resp.Chain.Certificates) == 0 {
 		t.Fatal("unexpected empty chain in response")
 	}
 
 	// Expect root cert matches the server's configured root
-	block, rest := pem.Decode(resp.ChainPEM)
+	block, rest := pem.Decode([]byte(resp.Chain.Certificates[1]))
 	if block == nil {
 		t.Fatal("missing PEM data")
 	}
@@ -756,7 +832,8 @@ func verifyResponse(resp *CertificateResponse, eca *ephemeralca.EphemeralCA, iss
 	}
 
 	// Expect leaf certificate values
-	block, rest = pem.Decode(resp.CertPEM)
+	//TODO: if there are intermediates added, this logic needs to change
+	block, rest = pem.Decode([]byte(resp.Chain.Certificates[0]))
 	if len(rest) != 0 {
 		t.Fatal("expected only one leaf certificate in PEM block")
 	}

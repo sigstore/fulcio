@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"strings"
 
 	empty "github.com/golang/protobuf/ptypes/empty"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
@@ -81,6 +82,11 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		}
 	}
 
+	// Validate public key, checking for weak key parameters.
+	if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
+	}
+
 	subject, err := ExtractSubject(ctx, principal, publicKey, request.ProofOfPossession)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
@@ -130,7 +136,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 
 	result := &fulciogrpc.SigningCertificate{
 		Chain: &fulciogrpc.CertificateChain{
-			Certificates: []string{string(finalPEM), string(finalChainPEM)},
+			Certificates: []string{strings.TrimSpace(string(finalPEM)), strings.TrimSpace(string(finalChainPEM))},
 		},
 	}
 
