@@ -28,10 +28,11 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	ct "github.com/google/certificate-transparency-go"
+	ctclient "github.com/google/certificate-transparency-go/client"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -56,14 +57,14 @@ const (
 )
 
 type api struct {
-	ct ctl.Client
+	ct *ctclient.LogClient
 	ca certauth.CertificateAuthority
 
 	*http.ServeMux
 }
 
 // New creates a new http.Handler for serving the Fulcio API.
-func New(ct ctl.Client, ca certauth.CertificateAuthority) http.Handler {
+func New(ct *ctclient.LogClient, ca certauth.CertificateAuthority) http.Handler {
 	var a api
 	a.ServeMux = http.NewServeMux()
 	a.HandleFunc(signingCertPath, a.signingCert)
@@ -177,8 +178,8 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 
 	var csc *certauth.CodeSigningCertificate
 	var sctBytes []byte
-	// TODO: prefer embedding SCT if possible
-	if _, ok := a.ca.(certauth.EmbeddedSCTCA); !ok {
+	// For CAs that do not support embedded SCTs or if the CT log is not configured
+	if sctCa, ok := a.ca.(certauth.EmbeddedSCTCA); !ok || a.ct == nil {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
 		csc, err = a.ca.CreateCertificate(ctx, subject)
 		if err != nil {
@@ -192,9 +193,14 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		// Submit to CTL
+		// submit to CTL
 		if a.ct != nil {
-			sct, err := a.ct.AddChain(csc)
+			chain := []ct.ASN1Cert{}
+			chain = append(chain, ct.ASN1Cert{Data: csc.FinalCertificate.Raw})
+			for _, c := range csc.FinalChain {
+				chain = append(chain, ct.ASN1Cert{Data: c.Raw})
+			}
+			sct, err := a.ct.AddChain(ctx, chain)
 			if err != nil {
 				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
 				return
@@ -206,6 +212,39 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 			}
 		} else {
 			logger.Info("Skipping CT log upload.")
+		}
+	} else {
+		precert, err := sctCa.CreatePrecertificate(ctx, subject)
+		if err != nil {
+			// if the error was due to invalid input in the request, return HTTP 400
+			if _, ok := err.(certauth.ValidationError); ok {
+				handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
+				return
+			}
+			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
+			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
+		}
+		// submit precertificate and chain to CT log
+		chain := []ct.ASN1Cert{}
+		chain = append(chain, ct.ASN1Cert{Data: precert.PreCert.Raw})
+		for _, c := range precert.CertChain {
+			chain = append(chain, ct.ASN1Cert{Data: c.Raw})
+		}
+		sct, err := a.ct.AddPreChain(ctx, chain)
+		if err != nil {
+			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
+			return
+		}
+		csc, err = sctCa.IssueFinalCertificate(ctx, precert, sct)
+		if err != nil {
+			// if the error was due to invalid input in the request, return HTTP 400
+			if _, ok := err.(certauth.ValidationError); ok {
+				handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
+				return
+			}
+			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
+			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
+			return
 		}
 	}
 
@@ -235,7 +274,9 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Set the SCT and Content-Type headers, and then respond with a 201 Created.
-	w.Header().Add("SCT", base64.StdEncoding.EncodeToString(sctBytes))
+	if len(sctBytes) != 0 {
+		w.Header().Add("SCT", base64.StdEncoding.EncodeToString(sctBytes))
+	}
 	w.Header().Add("Content-Type", "application/pem-certificate-chain")
 	w.WriteHeader(http.StatusCreated)
 	// Write the PEM encoded certificate chain to the response body.

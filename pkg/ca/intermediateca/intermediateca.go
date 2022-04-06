@@ -20,9 +20,14 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"errors"
 	"sync"
 
+	ct "github.com/google/certificate-transparency-go"
+	cttls "github.com/google/certificate-transparency-go/tls"
+	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
@@ -35,6 +40,88 @@ type IntermediateCA struct {
 	// certs is a chain of certificates from intermediate to root
 	Certs  []*x509.Certificate
 	Signer crypto.Signer
+}
+
+func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningPreCertificate, error) {
+	cert, err := x509ca.MakeX509(challenge)
+	if err != nil {
+		return nil, err
+	}
+
+	certChain, privateKey := ica.getX509KeyPair()
+
+	// Append poison extension
+	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
+		Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3},
+		Critical: true,
+		Value:    asn1.NullBytes,
+	})
+
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], challenge.PublicKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	csc, err := ca.CreateCSCFromDER(challenge, finalCertBytes, certChain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ca.CodeSigningPreCertificate{
+		Subject:    csc.Subject,
+		PreCert:    csc.FinalCertificate,
+		CertChain:  csc.FinalChain,
+		PrivateKey: privateKey,
+	}, nil
+}
+
+// From https://github.com/letsencrypt/boulder/blob/54b697d51b9f63cfd6055577cd317d4096aeab08/issuance/issuance.go#L497
+func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, error) {
+	list := ctx509.SignedCertificateTimestampList{}
+	for _, sct := range scts {
+		sctBytes, err := cttls.Marshal(sct)
+		if err != nil {
+			return pkix.Extension{}, err
+		}
+		list.SCTList = append(list.SCTList, ctx509.SerializedSCT{Val: sctBytes})
+	}
+	listBytes, err := cttls.Marshal(list)
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	extBytes, err := asn1.Marshal(listBytes)
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	return pkix.Extension{
+		Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2},
+		Value: extBytes,
+	}, nil
+}
+
+func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
+	// remove poison extension from precertificate.
+	var exts []pkix.Extension
+	for _, ext := range precert.PreCert.Extensions {
+		if !ext.Id.Equal(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}) {
+			exts = append(exts, ext)
+		}
+	}
+	// append SCT extension. Supports multiple SCTs, but Fulcio only writes to one log currently.
+	sctExt, err := generateSCTListExt([]ct.SignedCertificateTimestamp{*sct})
+	if err != nil {
+		return nil, err
+	}
+	exts = append(exts, sctExt)
+
+	cert := precert.PreCert
+	cert.ExtraExtensions = exts
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, precert.CertChain[0], precert.PreCert.PublicKey, precert.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return ca.CreateCSCFromDER(precert.Subject, finalCertBytes, precert.CertChain)
 }
 
 func (ica *IntermediateCA) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
