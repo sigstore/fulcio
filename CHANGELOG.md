@@ -1,3 +1,46 @@
+# v0.3.0
+
+## Enhancements
+
+* Generate larger, compliant serial numbers (#500)
+* Use provided HTTP client instead when fetching root cert (#502)
+* Add missing reader lock to File CA when reading certificate chain (#493)
+* Add validation of public keys to prevent certifying weak keys (#490)
+* Refactor API tests (#483)
+* Update Username OIDC flow based on comments  (#463)
+
+## Bug Fixes
+
+* fix_certificate_readme_typos (#487)
+* Fix minor typs in security model README (#488)
+* Fix minor typos in README (#486)
+* fix build date format for version command (#484)
+
+## Others
+
+* update cosign and golang-cross images (#506)
+* Bump codecov/codecov-action from 2.1.0 to 3 (#505)
+* Bump github/codeql-action from 2.1.6 to 2.1.7 (#504)
+* Bump go.step.sm/crypto from 0.16.0 to 0.16.1 (#498)
+* Bump github/codeql-action from 1.1.5 to 2.1.6 (#497)
+* Bump google.golang.org/api from 0.73.0 to 0.74.0 (#499)
+* Bump github.com/prometheus/common from 0.32.1 to 0.33.0 (#491)
+* Bump google.golang.org/protobuf from 1.27.1 to 1.28.0 (#485)
+* Fix concurrency properly in File CA implementation (#495)
+* Bump go.step.sm/crypto from 0.15.3 to 0.16.0 (#482)
+* Bump google.golang.org/api from 0.72.0 to 0.73.0 (#479)
+* Bump github.com/stretchr/testify from 1.7.0 to 1.7.1 (#478)
+* Bump github/codeql-action from 1.1.4 to 1.1.5 (#477)
+* Bump google.golang.org/api from 0.71.0 to 0.72.0 (#476)
+* Bump go.step.sm/crypto from 0.15.2 to 0.15.3 (#473)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+* Jason Hall (@imjasonh)
+* John Speed Meyers (@jspeed-meyers)
+
 # v0.2.0
 
 ## Enhancements
