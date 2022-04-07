@@ -87,5 +87,5 @@ modules: ## Runs go mod to ensure modules are up to date.
 .PHONY: dist
 dist:
 	mkdir -p dist
-	docker run -it -v $(PWD):/go/src/sigstore/fulcio -w /go/src/sigstore/fulcio golang:1.16.6 /bin/bash -c "GOOS=linux GOARCH=amd64 go build -trimpath -o dist/fulcio-server-linux-amd64"
+	docker run -it -v $(PWD):/go/src/sigstore/fulcio -w /go/src/sigstore/fulcio golang:1.17 /bin/bash -c "GOOS=linux GOARCH=amd64 go build -trimpath -o dist/fulcio-server-linux-amd64"
 
