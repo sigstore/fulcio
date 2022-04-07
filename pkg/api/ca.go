@@ -28,11 +28,11 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -195,17 +195,18 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 
 		// submit to CTL
 		if a.ct != nil {
-			chain := []ct.ASN1Cert{}
-			chain = append(chain, ct.ASN1Cert{Data: csc.FinalCertificate.Raw})
-			for _, c := range csc.FinalChain {
-				chain = append(chain, ct.ASN1Cert{Data: c.Raw})
-			}
-			sct, err := a.ct.AddChain(ctx, chain)
+			sct, err := a.ct.AddChain(ctx, ctl.BuildCTChain(csc.FinalCertificate, csc.FinalChain))
 			if err != nil {
 				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
 				return
 			}
-			sctBytes, err = json.Marshal(sct)
+			// convert to AddChainResponse because Cosign expects this struct.
+			addChainResp, err := ctl.ToAddChainResponse(sct)
+			if err != nil {
+				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalSCT)
+				return
+			}
+			sctBytes, err = json.Marshal(addChainResp)
 			if err != nil {
 				handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToMarshalSCT)
 				return
@@ -225,12 +226,7 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
 		}
 		// submit precertificate and chain to CT log
-		chain := []ct.ASN1Cert{}
-		chain = append(chain, ct.ASN1Cert{Data: precert.PreCert.Raw})
-		for _, c := range precert.CertChain {
-			chain = append(chain, ct.ASN1Cert{Data: c.Raw})
-		}
-		sct, err := a.ct.AddPreChain(ctx, chain)
+		sct, err := a.ct.AddPreChain(ctx, ctl.BuildCTChain(precert.PreCert, precert.CertChain))
 		if err != nil {
 			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, failedToEnterCertInCTL)
 			return
