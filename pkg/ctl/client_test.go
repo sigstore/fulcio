@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +50,8 @@ func Test_AddChain(t *testing.T) {
 	defer server.Close()
 
 	api := New(server.URL)
-	csc, _ := ca.CreateCSCFromPEM(nil, rootCert, clientCert)
+	cr := &challenges.ChallengeResult{Value: "test_AddChain@not.an.email"}
+	csc, _ := ca.CreateCSCFromPEM(cr, rootCert, clientCert)
 	body, err := api.AddChain(context.Background(), csc)
 	assert.NoError(t, err)
 	assert.Equal(t, body.SctVersion, 0)
