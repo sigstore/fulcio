@@ -39,7 +39,7 @@ var (
 // Some of this is just ripped from cosign
 func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc api.Client, oidcIssuer string, oidcClientID string) (*api.CertificateResponse, error) {
 
-	tok, err := oauthflow.OIDConnect(oidcIssuer, oidcClientID, "", oauthflow.DefaultIDTokenGetter)
+	tok, err := oauthflow.OIDConnect(oidcIssuer, oidcClientID, "", "", oauthflow.DefaultIDTokenGetter)
 	if err != nil {
 		return nil, err
 	}
