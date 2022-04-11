@@ -17,8 +17,6 @@ package api
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
 	"github.com/sigstore/fulcio/pkg/log"
 	"google.golang.org/grpc/codes"
@@ -26,26 +24,16 @@ import (
 )
 
 const (
-	invalidSignature          = "The signature supplied in the request could not be verified"
-	invalidCertificateRequest = "The CertificateRequest was invalid"
-	invalidPublicKey          = "The public key supplied in the request could not be parsed"
-	failedToEnterCertInCTL    = "Error entering certificate in CTL"
-	failedToMarshalSCT        = "Error marshaling signed certificate timestamp"
-	failedToMarshalCert       = "Error marshaling code signing certificate"
-	insecurePublicKey         = "The public key supplied in the request is insecure"
+	invalidSignature       = "The signature supplied in the request could not be verified"
+	invalidPublicKey       = "The public key supplied in the request could not be parsed"
+	failedToEnterCertInCTL = "Error entering certificate in CTL"
+	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
+	failedToMarshalCert    = "Error marshaling code signing certificate"
+	insecurePublicKey      = "The public key supplied in the request is insecure"
 	//nolint
 	invalidCredentials = "There was an error processing the credentials for this request"
 	genericCAError     = "error communicating with CA backend"
 )
-
-func handleFulcioAPIError(w http.ResponseWriter, req *http.Request, code int, err error, message string, fields ...interface{}) {
-	if message == "" {
-		message = http.StatusText(code)
-	}
-
-	// log.RequestIDLogger(req).Errorw("exiting with error", append([]interface{}{"handler", req.URL.Path, "statusCode", code, "clientMessage", message, "error", err}, fields...)...)
-	http.Error(w, fmt.Sprintf(`{"code":%d,"message":%q}`, code, message), code)
-}
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {
 	log.ContextLogger(ctx).Errorw("returning with error", append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)

@@ -79,7 +79,7 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctx context.Context, ctl ctl.Client, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
+func setupGRPCForTest(ctx context.Context, t *testing.T, cfg *config.FulcioConfig, ctl ctl.Client, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
@@ -105,7 +105,7 @@ func bufDialer(ctx context.Context, _ string) (net.Conn, error) {
 
 func TestMissingGetTrustBundleFails(t *testing.T) {
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(t, nil, ctx, nil, &FailingCertificateAuthority{})
+	server, conn := setupGRPCForTest(ctx, t, nil, nil, &FailingCertificateAuthority{})
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -127,7 +127,7 @@ func TestGetTrustBundleSuccess(t *testing.T) {
 	cfg := &config.FulcioConfig{}
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -238,7 +238,7 @@ func TestAPIWithEmail(t *testing.T) {
 
 		ctClient, eca := createCA(cfg, t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -327,7 +327,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 
 		ctClient, eca := createCA(cfg, t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -417,7 +417,7 @@ func TestAPIWithKubernetes(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -510,7 +510,7 @@ func TestAPIWithGitHub(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -621,7 +621,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(t, cfg, ctx, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()

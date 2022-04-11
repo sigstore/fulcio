@@ -39,6 +39,25 @@ type RootResponse struct {
 	ChainPEM []byte
 }
 
+type Key struct {
+	// +required
+	Content   []byte `json:"content"`
+	Algorithm string `json:"algorithm,omitempty"`
+}
+
+type CertificateRequest struct {
+	// +required
+	PublicKey Key `json:"publicKey"`
+
+	// +required
+	SignedEmailAddress []byte `json:"signedEmailAddress"`
+}
+
+const (
+	signingCertPath = "/api/v1/signingCert"
+	rootCertPath    = "/api/v1/rootCert"
+)
+
 // SigstorePublicServerURL is the URL of Sigstore's public Fulcio service.
 const SigstorePublicServerURL = "https://fulcio.sigstore.dev"
 

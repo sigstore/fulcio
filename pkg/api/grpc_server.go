@@ -18,11 +18,16 @@ package api
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -87,7 +92,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 	}
 
-	subject, err := ExtractSubject(ctx, principal, publicKey, request.ProofOfPossession)
+	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, request.ProofOfPossession)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 	}
@@ -161,4 +166,39 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *empty.Empty) (*ful
 			Certificates: []string{string(root)},
 		}},
 	}, nil
+}
+
+func extractIssuer(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("oidc: malformed jwt payload: %w", err)
+	}
+	var payload struct {
+		Issuer string `json:"iss"`
+	}
+
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return "", fmt.Errorf("oidc: failed to unmarshal claims: %w", err)
+	}
+	return payload.Issuer, nil
+}
+
+// We do this to bypass needing actual OIDC tokens for unit testing.
+var authorize = actualAuthorize
+
+func actualAuthorize(ctx context.Context, token string) (*oidc.IDToken, error) {
+	issuer, err := extractIssuer(token)
+	if err != nil {
+		return nil, err
+	}
+
+	verifier, ok := config.FromContext(ctx).GetVerifier(issuer)
+	if !ok {
+		return nil, fmt.Errorf("unsupported issuer: %s", issuer)
+	}
+	return verifier.Verify(ctx, token)
 }

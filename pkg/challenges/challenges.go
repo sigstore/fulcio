@@ -442,3 +442,26 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	}
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
+
+func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
+	if !ok {
+		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
+	}
+	switch iss.Type {
+	case config.IssuerTypeEmail:
+		return Email(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeSpiffe:
+		return Spiffe(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeGithubWorkflow:
+		return GithubWorkflow(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeKubernetes:
+		return Kubernetes(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeURI:
+		return URI(ctx, tok, publicKey, challenge)
+	case config.IssuerTypeUsername:
+		return Username(ctx, tok, publicKey, challenge)
+	default:
+		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
+	}
+}
