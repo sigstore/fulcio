@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/log"
 )
 
 const addChainPath = "ct/v1/add-chain"
@@ -55,6 +56,8 @@ type CertChainResponse struct {
 }
 
 func (c *client) AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (*CertChainResponse, error) {
+	logger := log.ContextLogger(ctx)
+	logger.Info("Submitting CTL inclusion for subject: ", csc.Subject.Value)
 	chainjson := &certChain{Chain: []string{
 		base64.StdEncoding.EncodeToString(csc.FinalCertificate.Raw),
 	}}
@@ -85,6 +88,9 @@ func (c *client) AddChain(ctx context.Context, csc *ca.CodeSigningCertificate) (
 		if err := json.NewDecoder(resp.Body).Decode(&ctlResp); err != nil {
 			return nil, err
 		}
+		logger.Info("CTL Submission Signature Received: ", ctlResp.Signature)
+		logger.Info("CTL Submission ID Received: ", ctlResp.ID)
+
 		return &ctlResp, nil
 	case 400, 401, 403, 500:
 		var errRes ErrorResponse

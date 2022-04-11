@@ -98,6 +98,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 	var concatCerts strings.Builder
 	for _, cert := range v2Response.Chain.Certificates {
 		concatCerts.WriteString(cert)
+		concatCerts.WriteRune('\n')
 	}
 
 	return &httpbody.HttpBody{
@@ -116,6 +117,7 @@ func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Em
 	for _, chain := range v2Response.Chains {
 		for _, cert := range chain.Certificates {
 			concatCerts.WriteString(cert)
+			concatCerts.WriteRune('\n')
 		}
 	}
 

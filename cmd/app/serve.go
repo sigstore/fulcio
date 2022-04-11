@@ -39,7 +39,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc/reflection"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -194,7 +193,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	var ctClient ctl.Client
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
 		ctClient = ctl.New(logURL)
-		ctClient = ctl.WithLogging(ctClient, log.Logger)
 	}
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
@@ -205,8 +203,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
-	//TODO: remove this reflection call for use with grpc_cli
-	reflection.Register(grpcServer.Server)
 	grpcServer.setupPrometheus(reg)
 	grpcServer.startTCPListener()
 
@@ -214,8 +210,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
-	//TODO: remove this reflection call for use with grpc_cli
-	reflection.Register(legacyGRPCServer.Server)
 	legacyGRPCServer.startUnixListener()
 
 	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
