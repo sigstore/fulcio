@@ -36,17 +36,13 @@ func cp(src, dst string) error {
 }
 
 func TestIOWatch(t *testing.T) {
-	dir, err := os.MkdirTemp("", "fileca")
-	if err != nil {
-		t.Fatal(`Failed to create temp dir`)
-	}
-	// defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	keyPath := filepath.Join(dir, "key.pem")
 	certPath := filepath.Join(dir, "cert.pem")
 
 	// Copy initial certs into place
-	err = cp("testdata/ed25519-key.pem", keyPath)
+	err := cp("testdata/ed25519-key.pem", keyPath)
 	if err != nil {
 		t.Fatal(`Couldn't copy test data to temp file`)
 	}

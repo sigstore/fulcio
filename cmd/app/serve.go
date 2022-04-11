@@ -31,6 +31,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
+	"github.com/sigstore/fulcio/pkg/ca/kmsca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
@@ -55,7 +56,7 @@ func newServeCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&serveCmdConfigFilePath, "config", "c", "", "config file containing all settings")
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
-	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | ephemeralca (for testing)")
+	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | kmsca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
@@ -66,6 +67,8 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("fileca-key", "", "Path to CA encrypted private key")
 	cmd.Flags().String("fileca-key-passwd", "", "Password to decrypt CA private key")
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
+	cmd.Flags().String("kms-resource", "", "KMS key resource path. Must be prefixed with awskms://, azurekms://, gcpkms://, or hashivault://")
+	cmd.Flags().String("kms-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for KMS-backed CA")
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
@@ -122,7 +125,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			// There's a MarkDeprecated function in cobra/pflags, but it doesn't use log.Logger
 			log.Logger.Warn("gcp_private_ca_version is deprecated and will soon be removed; please remove it")
 		}
-
 	case "fileca":
 		if !viper.IsSet("fileca-cert") {
 			log.Logger.Fatal("fileca-cert must be set to certificate path when using fileca")
@@ -133,7 +135,13 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if !viper.IsSet("fileca-key-passwd") {
 			log.Logger.Fatal("fileca-key-passwd must be set to encryption password for private key file when using fileca")
 		}
-
+	case "kmsca":
+		if !viper.IsSet("kms-resource") {
+			log.Logger.Fatal("kms-resource must be set when using kmsca")
+		}
+		if !viper.IsSet("kms-cert-chain-path") {
+			log.Logger.Fatal("kms-cert-chain-path must be set when using kmsca")
+		}
 	case "ephemeralca":
 		// this is a no-op since this is a self-signed in-memory CA for testing
 	default:
@@ -174,6 +182,8 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		baseca, err = fileca.NewFileCA(certFile, keyFile, keyPass, watch)
 	case "ephemeralca":
 		baseca, err = ephemeralca.NewEphemeralCA()
+	case "kmsca":
+		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), viper.GetString("kms-cert-chain-path"))
 	default:
 		err = fmt.Errorf("invalid value for configured CA: %v", baseca)
 	}
