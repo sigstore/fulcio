@@ -93,9 +93,6 @@ func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []
 	buf := bytes.Buffer{}
 	for _, chainCert := range c.FinalChain {
 		buf.Write(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))
-		if chainCert.Raw[len(chainCert.Raw)-1] != '\n' {
-			buf.WriteRune('\n')
-		}
 	}
 	c.finalChainPEM = buf.Bytes()
 	return c, nil
