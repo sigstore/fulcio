@@ -87,16 +87,25 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 		return nil, errors.Wrap(err, "legacy handler")
 	}
 
-	// the SCT for the certificate needs to be returned in a HTTP response header
-	sctString := base64.StdEncoding.EncodeToString(v2Response.SignedCertificateTimestamp)
-	if sctString != "" {
-		if err := grpc.SetHeader(ctx, metadata.Pairs(SCTMetadataKey, sctString)); err != nil {
-			return nil, errors.Wrap(err, "legacy handler")
+	detachedResponse := v2Response.GetSignedCertificateDetachedSct()
+	if detachedResponse != nil && len(detachedResponse.SignedCertificateTimestamp) > 0 {
+		// the SCT for the certificate needs to be returned in a HTTP response header
+		sctString := base64.StdEncoding.EncodeToString(detachedResponse.SignedCertificateTimestamp)
+		if sctString != "" {
+			if err := grpc.SetHeader(ctx, metadata.Pairs(SCTMetadataKey, sctString)); err != nil {
+				return nil, errors.Wrap(err, "legacy handler")
+			}
 		}
+	}
+	var chain *fulciogrpc.CertificateChain
+	if detachedResponse != nil {
+		chain = detachedResponse.Chain
+	} else {
+		chain = v2Response.GetSignedCertificateEmbeddedSct().Chain
 	}
 
 	var concatCerts strings.Builder
-	for _, cert := range v2Response.Chain.Certificates {
+	for _, cert := range chain.Certificates {
 		concatCerts.WriteString(cert)
 		concatCerts.WriteRune('\n')
 	}

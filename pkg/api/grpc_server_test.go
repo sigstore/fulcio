@@ -802,17 +802,24 @@ func findCustomExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (pki
 // verifyResponse validates common response expectations for each response field
 func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.EphemeralCA, issuer string, t *testing.T) *x509.Certificate {
 	// Expect SCT
-	if string(resp.SignedCertificateTimestamp) == "" {
+	if resp.GetSignedCertificateDetachedSct() != nil && string(resp.GetSignedCertificateDetachedSct().SignedCertificateTimestamp) == "" {
 		t.Fatal("unexpected empty SCT in response")
 	}
 
+	var chain *protobuf.CertificateChain
+	if resp.GetSignedCertificateDetachedSct() != nil {
+		chain = resp.GetSignedCertificateDetachedSct().Chain
+	} else {
+		chain = resp.GetSignedCertificateEmbeddedSct().Chain
+	}
+
 	// Expect root certficate in resp.ChainPEM
-	if len(resp.Chain.Certificates) == 0 {
+	if len(chain.Certificates) == 0 {
 		t.Fatal("unexpected empty chain in response")
 	}
 
 	// Expect root cert matches the server's configured root
-	block, rest := pem.Decode([]byte(resp.Chain.Certificates[1]))
+	block, rest := pem.Decode([]byte(chain.Certificates[1]))
 	if block == nil {
 		t.Fatal("missing PEM data")
 	}
@@ -833,7 +840,7 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 
 	// Expect leaf certificate values
 	//TODO: if there are intermediates added, this logic needs to change
-	block, rest = pem.Decode([]byte(resp.Chain.Certificates[0]))
+	block, rest = pem.Decode([]byte(chain.Certificates[0]))
 	if len(rest) != 0 {
 		t.Fatal("expected only one leaf certificate in PEM block")
 	}

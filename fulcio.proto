@@ -27,9 +27,9 @@ option java_outer_classname = "FulcioProto";
 
 service CA {
     /**
-     * Returns an X509 certificate created by the Fulcio certificate authority for the given request parameters
+     * Returns an X.509 certificate created by the Fulcio certificate authority for the given request parameters
      */
-    rpc CreateSigningCertificate(CreateSigningCertificateRequest) returns (SigningCertificate){
+    rpc CreateSigningCertificate (CreateSigningCertificateRequest) returns (SigningCertificate){
         option (google.api.http) = {
           post: "/api/v2/signingCert"
           body: "*"
@@ -38,7 +38,7 @@ service CA {
     /**
      * Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
      */
-    rpc GetTrustBundle(google.protobuf.Empty) returns (TrustBundle){
+    rpc GetTrustBundle (google.protobuf.Empty) returns (TrustBundle){
         option (google.api.http) = {
           get: "/api/v2/trustBundle"
         };
@@ -82,22 +82,39 @@ message PublicKey {
     string content               = 2 [(google.api.field_behavior) = REQUIRED];
 }
 
+message SigningCertificate {
+    oneof certificate {
+        SigningCertificateDetachedSCT signed_certificate_detached_sct = 1;
+        SigningCertificateEmbeddedSCT signed_certificate_embedded_sct = 2;
+    }
+}
+
 // (-- api-linter: core::0142::time-field-type=disabled
 //     aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)
-message SigningCertificate {
-    /*
-     * The signed certificate timestamp is a promise for including the certificate in
-     * a certificate transparency log. It can be "stapled" to verify the inclusion of
-     * a certificate in the log in an offline fashion.
-     */
-    bytes signed_certificate_timestamp = 1;
+message SigningCertificateDetachedSCT {
     /*
      * The certificate chain serialized with the leaf certificate first, followed
      * by all intermediate certificates (if present), finishing with the root certificate.
      *
      * All values are PEM-encoded certificates.
      */
-    CertificateChain chain             = 2;
+    CertificateChain chain = 1;
+    /*
+     * The signed certificate timestamp is a promise for including the certificate in
+     * a certificate transparency log. It can be "stapled" to verify the inclusion of
+     * a certificate in the log in an offline fashion.
+     */
+    bytes signed_certificate_timestamp = 2;
+}
+
+message SigningCertificateEmbeddedSCT {
+    /*
+     * The certificate chain serialized with the leaf certificate first, followed
+     * by all intermediate certificates (if present), finishing with the root certificate.
+     *
+     * All values are PEM-encoded certificates.
+     */
+    CertificateChain chain = 1;
 }
 
 message TrustBundle {

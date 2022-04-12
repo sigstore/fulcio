@@ -99,6 +99,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 
 	var csc *certauth.CodeSigningCertificate
 	var sctBytes []byte
+	result := &fulciogrpc.SigningCertificate{}
 	// TODO: prefer embedding SCT if possible
 	if _, ok := g.ca.(certauth.EmbeddedSCTCA); !ok {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
@@ -125,29 +126,30 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		} else {
 			logger.Info("Skipping CT log upload.")
 		}
+
+		finalPEM, err := csc.CertPEM()
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
+		}
+
+		finalChainPEM, err := csc.ChainPEM()
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
+		}
+
+		result.Certificate = &fulciogrpc.SigningCertificate_SignedCertificateDetachedSct{
+			SignedCertificateDetachedSct: &fulciogrpc.SigningCertificateDetachedSCT{
+				Chain: &fulciogrpc.CertificateChain{
+					Certificates: []string{strings.TrimSpace(string(finalPEM)), strings.TrimSpace(string(finalChainPEM))},
+				},
+			},
+		}
+		if len(sctBytes) > 0 {
+			result.GetSignedCertificateDetachedSct().SignedCertificateTimestamp = sctBytes
+		}
 	}
 
 	metricNewEntries.Inc()
-
-	finalPEM, err := csc.CertPEM()
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
-	}
-
-	finalChainPEM, err := csc.ChainPEM()
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, failedToMarshalCert)
-	}
-
-	result := &fulciogrpc.SigningCertificate{
-		Chain: &fulciogrpc.CertificateChain{
-			Certificates: []string{strings.TrimSpace(string(finalPEM)), strings.TrimSpace(string(finalChainPEM))},
-		},
-	}
-
-	if len(sctBytes) > 0 {
-		result.SignedCertificateTimestamp = sctBytes
-	}
 
 	return result, nil
 }
@@ -170,7 +172,7 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *empty.Empty) (*ful
 
 func extractIssuer(token string) (string, error) {
 	parts := strings.Split(token, ".")
-	if len(parts) < 2 {
+	if len(parts) != 3 {
 		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(parts[1])

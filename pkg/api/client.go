@@ -61,8 +61,8 @@ const (
 // SigstorePublicServerURL is the URL of Sigstore's public Fulcio service.
 const SigstorePublicServerURL = "https://fulcio.sigstore.dev"
 
-// Client is the interface for accessing the Fulcio API.
-type Client interface {
+// LegacyClient is the interface for accessing the Fulcio API.
+type LegacyClient interface {
 	// SigningCert sends the provided CertificateRequest to the /api/v1/signingCert
 	// endpoint of a Fulcio API, authenticated with the provided bearer token.
 	SigningCert(cr CertificateRequest, token string) (*CertificateResponse, error)
@@ -74,7 +74,7 @@ type Client interface {
 type ClientOption func(*clientOptions)
 
 // NewClient creates a new Fulcio API client talking to the provided URL.
-func NewClient(url *url.URL, opts ...ClientOption) Client {
+func NewClient(url *url.URL, opts ...ClientOption) LegacyClient {
 	o := makeOptions(opts...)
 
 	return &client{
@@ -91,7 +91,7 @@ type client struct {
 	client  *http.Client
 }
 
-var _ Client = (*client)(nil)
+var _ LegacyClient = (*client)(nil)
 
 // SigningCert implements Client
 func (c *client) SigningCert(cr CertificateRequest, token string) (*CertificateResponse, error) {
