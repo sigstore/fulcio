@@ -34,6 +34,13 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
+var (
+	// OIDExtensionCTPoison is defined in RFC 6962 s3.1.
+	OIDExtensionCTPoison = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}
+	// OIDExtensionCTSCT is defined in RFC 6962 s3.3.
+	OIDExtensionCTSCT = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}
+)
+
 type IntermediateCA struct {
 	sync.RWMutex
 
@@ -52,7 +59,7 @@ func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, challenge *
 
 	// Append poison extension
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
-		Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3},
+		Id:       OIDExtensionCTPoison,
 		Critical: true,
 		Value:    asn1.NullBytes,
 	})
@@ -94,7 +101,7 @@ func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, e
 		return pkix.Extension{}, err
 	}
 	return pkix.Extension{
-		Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2},
+		Id:    OIDExtensionCTSCT,
 		Value: extBytes,
 	}, nil
 }
@@ -103,7 +110,7 @@ func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *c
 	// remove poison extension from precertificate.
 	var exts []pkix.Extension
 	for _, ext := range precert.PreCert.Extensions {
-		if !ext.Id.Equal(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}) {
+		if !ext.Id.Equal(OIDExtensionCTPoison) {
 			exts = append(exts, ext)
 		}
 	}

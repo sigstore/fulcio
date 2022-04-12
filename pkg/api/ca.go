@@ -233,12 +233,6 @@ func (a *api) signingCert(w http.ResponseWriter, req *http.Request) {
 		}
 		csc, err = sctCa.IssueFinalCertificate(ctx, precert, sct)
 		if err != nil {
-			// if the error was due to invalid input in the request, return HTTP 400
-			if _, ok := err.(certauth.ValidationError); ok {
-				handleFulcioAPIError(w, req, http.StatusBadRequest, err, err.Error())
-				return
-			}
-			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
 			handleFulcioAPIError(w, req, http.StatusInternalServerError, err, genericCAError)
 			return
 		}
