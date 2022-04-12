@@ -287,8 +287,6 @@ func (x *PublicKey) GetContent() string {
 	return ""
 }
 
-// (-- api-linter: core::0142::time-field-type=disabled
-//     aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)
 type SigningCertificate struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -369,6 +367,8 @@ func (*SigningCertificate_SignedCertificateDetachedSct) isSigningCertificate_Cer
 
 func (*SigningCertificate_SignedCertificateEmbeddedSct) isSigningCertificate_Certificate() {}
 
+// (-- api-linter: core::0142::time-field-type=disabled
+//     aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)
 type SigningCertificateDetachedSCT struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
