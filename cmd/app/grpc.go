@@ -21,6 +21,7 @@ import (
 	"net"
 
 	"github.com/goadesign/goa/grpc/middleware"
+	ctclient "github.com/google/certificate-transparency-go/client"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -29,7 +30,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -62,7 +62,7 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient ctl.Client, baseca ca.CertificateAuthority) (*grpcServer, error) {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(

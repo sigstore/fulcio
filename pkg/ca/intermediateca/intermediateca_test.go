@@ -17,11 +17,17 @@ package intermediateca
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/asn1"
 	"reflect"
 	"strings"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -147,5 +153,69 @@ func TestIntermediateCAVerifyCertChain(t *testing.T) {
 	err = VerifyCertChain([]*x509.Certificate{}, weakSubKey)
 	if err == nil || !strings.Contains(err.Error(), "certificate chain must contain at least one certificate") {
 		t.Fatalf("expected error verifying with empty chain: %v", err)
+	}
+}
+
+func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
+
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	challenge := &challenges.ChallengeResult{
+		Issuer:    "iss",
+		TypeVal:   challenges.EmailValue,
+		Value:     "foo@example.com",
+		PublicKey: priv.Public(),
+	}
+	certChain := []*x509.Certificate{subCert, rootCert}
+
+	ica := IntermediateCA{Certs: certChain, Signer: subKey}
+	precsc, err := ica.CreatePrecertificate(context.TODO(), &challenges.ChallengeResult{
+		Issuer:    "iss",
+		TypeVal:   challenges.EmailValue,
+		Value:     "foo@example.com",
+		PublicKey: priv.Public(),
+	})
+
+	if err != nil {
+		t.Fatalf("error generating precertificate: %v", err)
+	}
+	if !reflect.DeepEqual(*precsc.Subject, *challenge) {
+		t.Fatalf("challenges are not equal, got %v, expected %v", *precsc.Subject, *challenge)
+	}
+	if !subKey.Equal(precsc.PrivateKey) {
+		t.Fatal("subordinate private keys are not equal")
+	}
+	if !reflect.DeepEqual(certChain, precsc.CertChain) {
+		t.Fatal("certificate chains are not equal")
+	}
+
+	// check cert doesn't verify due to poison extension
+	rootPool := x509.NewCertPool()
+	rootPool.AddCert(precsc.CertChain[1])
+	subPool := x509.NewCertPool()
+	subPool.AddCert(precsc.CertChain[0])
+	_, err = precsc.PreCert.Verify(x509.VerifyOptions{Roots: rootPool, Intermediates: subPool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}})
+	if err == nil || err.Error() != "x509: unhandled critical extension" {
+		t.Fatalf("expected unhandled critical ext error, got %v", err)
+	}
+
+	csc, err := ica.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
+	if err != nil {
+		t.Fatalf("error issuing certificate: %v", err)
+	}
+	// verify will now work since poison extension is removed
+	_, err = csc.FinalCertificate.Verify(x509.VerifyOptions{Roots: rootPool, Intermediates: subPool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}})
+	if err != nil {
+		t.Fatalf("unexpected error verifying final certificate: %v", err)
+	}
+	var foundSct bool
+	for _, ext := range csc.FinalCertificate.Extensions {
+		if ext.Id.Equal(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}) {
+			foundSct = true
+		}
+	}
+	if !foundSct {
+		t.Fatal("expected SCT extension to be in certificate")
 	}
 }
