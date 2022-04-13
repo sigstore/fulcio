@@ -9,6 +9,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/google/certificate-transparency-go v1.1.2
 	github.com/google/go-cmp v0.5.7
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/magiconair/properties v1.8.6
@@ -19,7 +20,6 @@ require (
 	github.com/sigstore/sigstore v1.2.1-0.20220401110139-0e610e39782f
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.7.1
 	go.step.sm/crypto v0.16.1
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0

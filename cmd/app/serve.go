@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sigstore/fulcio/pkg/api"
@@ -34,10 +36,10 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/kmsca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -71,6 +73,15 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("port", "8080", "The port on which to serve requests")
 
 	return cmd
+}
+
+// Adaptor for logging with the CT log
+type logAdaptor struct {
+	logger *zap.SugaredLogger
+}
+
+func (la logAdaptor) Printf(s string, args ...interface{}) {
+	la.logger.Infof(s, args...)
 }
 
 func runServeCmd(cmd *cobra.Command, args []string) {
@@ -181,10 +192,17 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	host, port := viper.GetString("host"), viper.GetString("port")
 	log.Logger.Infof("%s:%s", host, port)
 
-	var ctClient ctl.Client
+	var ctClient *ctclient.LogClient
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
-		ctClient = ctl.New(logURL)
-		ctClient = ctl.WithLogging(ctClient, log.Logger)
+		ctClient, err = ctclient.New(logURL,
+			&http.Client{Timeout: 30 * time.Second},
+			jsonclient.Options{
+				Logger: logAdaptor{logger: log.Logger},
+				// TODO: Add public key from CT Log for verification.
+			})
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
 	}
 
 	var handler http.Handler

@@ -25,12 +25,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -39,18 +37,17 @@ import (
 	"testing"
 	"time"
 
+	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-// base64 encoded placeholder for SCT
 const (
-	testSCT               = "ZXhhbXBsZXNjdAo="
 	expectedNoRootMessage = "{\"code\":500,\"message\":\"error communicating with CA backend\"}\n"
 )
 
@@ -626,44 +623,17 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 	return signer, *testIssuer
 }
 
-// This is private in pkg/ctl, so making a copy here.
-type certChain struct {
-	Chain []string `json:"chain"`
-}
-
 func fakeCTLogServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatalf("No body")
-		}
-		var chain certChain
-		json.Unmarshal(body, &chain)
-		if len(chain.Chain) != 2 {
-			t.Fatalf("did not get expected chain for input, wanted 2 entries, got %d", len(chain.Chain))
-		}
-		// Just make sure we can decode it.
-		for _, chainEntry := range chain.Chain {
-			_, err := base64.StdEncoding.DecodeString(chainEntry)
-			if err != nil {
-				t.Fatalf("failed to decode incoming chain entry: %v", err)
-			}
-		}
-
-		// Create a fake response.
-		resp := &ctl.CertChainResponse{
-			SctVersion: 1,
-			ID:         "testid",
-			Timestamp:  time.Now().Unix(),
-		}
-		responseBytes, err := json.Marshal(&resp)
-		if err != nil {
-			t.Fatalf("failed to marshal response: %v", err)
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("SCT", testSCT)
-		fmt.Fprint(w, string(responseBytes))
+		addJSONResp := `{
+			"sct_version":0,
+			"id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=",
+			"timestamp":1337,
+			"extensions":"",
+			"signature":"BAMARjBEAiAIc21J5ZbdKZHw5wLxCP+MhBEsV5+nfvGyakOIv6FOvAIgWYMZb6Pw///uiNM7QTg2Of1OqmK1GbeGuEl9VJN8v8c="
+		 }`
+		fmt.Fprint(w, string(addJSONResp))
 	}))
 }
 
@@ -681,7 +651,13 @@ func createCA(cfg *config.FulcioConfig, t *testing.T) (*ephemeralca.EphemeralCA,
 	}
 
 	// Create a test HTTP server to host our API.
-	h := New(ctl.New(ctlogServer.URL), eca)
+	ctClient, err := ctclient.New(ctlogServer.URL,
+		&http.Client{Timeout: 30 * time.Second},
+		jsonclient.Options{})
+	if err != nil {
+		t.Fatalf("error creating CT client: %v", err)
+	}
+	h := New(ctClient, eca)
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		// For each request, infuse context with our snapshot of the FulcioConfig.
@@ -690,6 +666,7 @@ func createCA(cfg *config.FulcioConfig, t *testing.T) (*ephemeralca.EphemeralCA,
 		h.ServeHTTP(rw, r.WithContext(ctx))
 	}))
 	t.Cleanup(server.Close)
+	t.Cleanup(ctlogServer.Close)
 
 	return eca, server.URL
 }
