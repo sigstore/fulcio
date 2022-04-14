@@ -16,6 +16,7 @@
 package app
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -27,8 +28,8 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sigstore/fulcio/pkg/api"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
@@ -38,6 +39,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -69,11 +71,30 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
 	cmd.Flags().String("kms-resource", "", "KMS key resource path. Must be prefixed with awskms://, azurekms://, gcpkms://, or hashivault://")
 	cmd.Flags().String("kms-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for KMS-backed CA")
-	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests")
-	cmd.Flags().String("port", "8080", "The port on which to serve requests")
+	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
+	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
+	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
+	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
+
+	// convert "http-host" flag to "host" and "http-port" flag to be "port"
+	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+		switch name {
+		case "http-port":
+			name = "port"
+		case "http-host":
+			name = "host"
+		}
+		return pflag.NormalizedName(name)
+	})
+	viper.RegisterAlias("http-host", "host")
+	viper.RegisterAlias("http-port", "port")
 
 	return cmd
 }
+
+const (
+	maxMsgSize int64 = 1 << 22 // 4MiB
+)
 
 // Adaptor for logging with the CT log
 type logAdaptor struct {
@@ -181,17 +202,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		log.Logger.Fatal(err)
 	}
 
-	prom := http.Server{
-		Addr:    ":2112",
-		Handler: promhttp.Handler(),
-	}
-	go func() {
-		_ = prom.ListenAndServe()
-	}()
-
-	host, port := viper.GetString("host"), viper.GetString("port")
-	log.Logger.Infof("%s:%s", host, port)
-
 	var ctClient *ctclient.LogClient
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
 		ctClient, err = ctclient.New(logURL,
@@ -205,47 +215,32 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	var handler http.Handler
-	{
-		handler = api.New(ctClient, baseca)
+	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
-		// Inject dependencies
-		withDependencies := func(inner http.Handler) http.Handler {
-			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
+	reg := prometheus.NewRegistry()
 
-				// For each request, infuse context with our snapshot of the FulcioConfig.
-				// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-				// from disk, so that we don't need to cycle pods to pick up config updates.
-				// Alternately we could take advantage of Knative's configmap watcher.
-				ctx = config.With(ctx, cfg)
-
-				inner.ServeHTTP(rw, r.WithContext(ctx))
-			})
-		}
-		handler = withDependencies(handler)
-
-		// Instrument Prometheus metrics
-		handler = promhttp.InstrumentHandlerDuration(api.MetricLatency, handler)
-		handler = promhttp.InstrumentHandlerCounter(api.RequestsCount, handler)
-		// Limit request size
-		handler = api.WithMaxBytes(handler, 1<<22) // 4MiB
-	}
-
-	api := http.Server{
-		Addr:    host + ":" + port,
-		Handler: handler,
-
-		// Timeouts
-		ReadTimeout:       60 * time.Second,
-		ReadHeaderTimeout: 60 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
-	if err := api.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	grpcServer, err := createGRPCServer(cfg, ctClient, baseca)
+	if err != nil {
 		log.Logger.Fatal(err)
 	}
+	grpcServer.setupPrometheus(reg)
+	grpcServer.startTCPListener()
+
+	legacyGRPCServer, err := createLegacyGRPCServer(cfg, grpcServer.caService)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+	legacyGRPCServer.startUnixListener()
+
+	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
+	httpServer.startListener()
+
+	prom := http.Server{
+		Addr:    ":2112",
+		Handler: promhttp.Handler(),
+	}
+	log.Logger.Error(prom.ListenAndServe())
+
 }
 
 func checkServeCmdConfigFile() error {

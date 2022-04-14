@@ -18,11 +18,14 @@ package log
 import (
 	"context"
 	"log"
-	"net/http"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/goadesign/goa/grpc/middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 )
 
 // Logger set the default logger to development mode
@@ -64,21 +67,47 @@ func createCliLogger() *zap.SugaredLogger {
 	return logger.Sugar()
 }
 
-func WithRequestID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, middleware.RequestIDKey, id)
-}
+type requestIDMetadataKeyType string
 
-func RequestIDLogger(r *http.Request) *zap.SugaredLogger {
-	return ContextLogger(r.Context())
-}
+const (
+	requestIDMetadataKey requestIDMetadataKeyType = middleware.RequestIDMetadataKey
+)
 
 func ContextLogger(ctx context.Context) *zap.SugaredLogger {
 	proposedLogger := Logger
 	if ctx != nil {
-		if ctxRequestID, ok := ctx.Value(middleware.RequestIDKey).(string); ok {
-			proposedLogger = proposedLogger.With(zap.String("requestID", ctxRequestID))
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			val := md.Get(string(requestIDMetadataKey))
+			if len(val) == 1 {
+				proposedLogger = proposedLogger.With(zap.String("requestID", val[0]))
+			}
 		}
 	}
 
 	return proposedLogger
+}
+
+func SetupGRPCLogging() (*zap.Logger, []grpc_zap.Option) {
+	var options []grpc_zap.Option
+	options = append(options, grpc_zap.WithDecider(func(methodName string, err error) bool {
+		// TODO: implement filters to eliminate health check log statements
+		return true
+	}))
+	options = append(options, grpc_zap.WithMessageProducer(
+		func(ctx context.Context, msg string, level zapcore.Level, code codes.Code, err error, duration zapcore.Field) {
+			var requestID zap.Field
+			if md, ok := metadata.FromIncomingContext(ctx); ok {
+				val := md.Get(string(requestIDMetadataKey))
+				if len(val) == 1 {
+					requestID = zap.String("requestID", val[0])
+				}
+			}
+			ctxzap.Extract(ctx).Check(level, msg).Write(
+				zap.Error(err),
+				zap.String("grpc.code", code.String()),
+				requestID,
+				duration,
+			)
+		}))
+	return Logger.Desugar(), options
 }

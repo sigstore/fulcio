@@ -48,5 +48,10 @@ if ! [[ -s /etc/config/ct_server.cfg ]]; then
 else
 	echo " found."
 	configid=`cat /etc/config/ct_server.cfg|grep log_id|awk ' { print $2 } '`
-	echo "Existing configuration uses log ID $configid, exiting"
+	echo "Existing configuration uses log ID $configid"
 fi
+curl -s --retry-connrefused --retry 10 http://fulcio-server:5555/api/v1/rootCert -o tmpchain.pem
+csplit -s -f tmpcert- tmpchain.pem '/-----BEGIN CERTIFICATE-----/' '{*}'
+mv $(ls tmpcert-* | tail -1) /etc/config/root.pem
+rm tmpcert-* tmpchain.pem
+echo "Fetched valid root certificate from Fulcio to limit entries in CTFE instance"

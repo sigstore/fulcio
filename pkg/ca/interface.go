@@ -16,7 +16,6 @@
 package ca
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
@@ -31,8 +30,8 @@ type CodeSigningCertificate struct {
 	Subject          *challenges.ChallengeResult
 	FinalCertificate *x509.Certificate
 	FinalChain       []*x509.Certificate
-	finalPEM         []byte
-	finalChainPEM    []byte
+	finalPEM         string
+	finalChainPEM    []string
 }
 
 // CodeSigningPreCertificate holds a precertificate and chain.
@@ -58,7 +57,7 @@ func CreateCSCFromPEM(subject *challenges.ChallengeResult, cert string, chain []
 	if err != nil {
 		return nil, err
 	}
-	c.finalPEM = []byte(cert)
+	c.finalPEM = strings.TrimSpace(cert)
 	c.FinalCertificate = finalCert[0]
 
 	// convert to X509 and store both formats
@@ -68,7 +67,9 @@ func CreateCSCFromPEM(subject *challenges.ChallengeResult, cert string, chain []
 		if err != nil {
 			return nil, err
 		}
-		c.finalChainPEM = chainBytes
+		for _, cert := range chain {
+			c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(cert))
+		}
 	}
 	return c, nil
 }
@@ -79,7 +80,7 @@ func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []
 	}
 
 	// convert to X509 and store both formats
-	c.finalPEM = cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, cert)
+	c.finalPEM = strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, cert)))
 	c.FinalCertificate, err = x509.ParseCertificate(cert)
 	if err != nil {
 		return nil, err
@@ -90,28 +91,30 @@ func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []
 	if err != nil {
 		return nil, err
 	}
-	buf := bytes.Buffer{}
 	for _, chainCert := range c.FinalChain {
-		buf.Write(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))
+		c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))))
 	}
-	c.finalChainPEM = buf.Bytes()
 	return c, nil
 }
 
-func (c *CodeSigningCertificate) CertPEM() ([]byte, error) {
+func (c *CodeSigningCertificate) CertPEM() (string, error) {
 	var err error
-	if c.finalPEM == nil {
-		c.finalPEM, err = cryptoutils.MarshalCertificateToPEM(c.FinalCertificate)
+	if c.finalPEM == "" {
+		finalPemBytes, err := cryptoutils.MarshalCertificateToPEM(c.FinalCertificate)
+		if err == nil {
+			c.finalPEM = strings.TrimSpace(string(finalPemBytes))
+		}
 	}
 	return c.finalPEM, err
 }
 
-func (c *CodeSigningCertificate) ChainPEM() ([]byte, error) {
-	var err error
+func (c *CodeSigningCertificate) ChainPEM() ([]string, error) {
 	if c.finalChainPEM == nil && len(c.FinalChain) > 0 {
-		c.finalChainPEM, err = cryptoutils.MarshalCertificatesToPEM(c.FinalChain)
+		for _, chainCert := range c.FinalChain {
+			c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))))
+		}
 	}
-	return c.finalChainPEM, err
+	return c.finalChainPEM, nil
 }
 
 // CertificateAuthority implements certificate creation with a detached SCT and fetching the CA trust bundle.

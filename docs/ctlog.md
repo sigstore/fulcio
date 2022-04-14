@@ -4,7 +4,7 @@
 
 Fulcio maintains a certificate transparency (CT) log, writing all issued certificates to the log.
 Users of Sigstore can verify via cryptographic proof that certificates are included in the log
-along with monitoring the log for inconsistencies. 
+along with monitoring the log for inconsistencies.
 
 The CT log is backed by [Trillian](https://github.com/google/trillian), a highly scalable and
 verifiable data store. The `certificate-transparency-go`
@@ -20,7 +20,7 @@ included in Sigstore's TUF metadata.
 
 SCTs can either be embedded in a certificate or detached from the certificate. If an SCT is detached,
 this means that Fulcio returns the SCT alongside the certificate, and it's up to the caller to store
-the SCT. For example, with Cosign, the SCT is not stored, so it is only verified during artifact 
+the SCT. For example, with Cosign, the SCT is not stored, so it is only verified during artifact
 signing. All callers should be storing certificates, so SCTs embedded in the certificate can be
 verified both during artifact signing and verification.
 

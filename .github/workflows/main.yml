@@ -35,6 +35,8 @@ jobs:
       - uses: actions/setup-go@f6164bd8c8acb4a71fb2791a8b6c4024ff038dab # v3.0.0
         with:
           go-version: ${{ env.GOVERSION }}
+      - name: Install protobuf
+        run: sudo apt update -y && sudo apt install -y -q protobuf-compiler
 
       - name: Build
         run: make -C $GITHUB_WORKSPACE all
@@ -43,4 +45,4 @@ jobs:
       - name: Upload Coverage Report
         uses: codecov/codecov-action@e3c560433a6cc60aec8812599b7844a7b4fa0d71 # v3.0.0
       - name: Ensure no files were modified as a result of the build
-        run: git update-index --refresh && git diff-index --quiet HEAD -- || git diff --exit-code
+        run: git update-index --refresh && git diff-index --quiet -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" HEAD -- || git diff -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" --exit-code

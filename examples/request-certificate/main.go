@@ -17,17 +17,23 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"log"
 	"net/url"
 
-	"github.com/sigstore/fulcio/pkg/api"
+	fulciopb "github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/oauthflow"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/options"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -37,7 +43,7 @@ var (
 )
 
 // Some of this is just ripped from cosign
-func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc api.Client, oidcIssuer string, oidcClientID string) (*api.CertificateResponse, error) {
+func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc fulciopb.CAClient, oidcIssuer string, oidcClientID string) (*fulciopb.SigningCertificate, error) {
 
 	tok, err := oauthflow.OIDConnect(oidcIssuer, oidcClientID, "", "", oauthflow.DefaultIDTokenGetter)
 	if err != nil {
@@ -51,27 +57,38 @@ func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc api.Client, oidcIss
 		log.Fatal(err)
 	}
 
-	pubBytes, err := x509.MarshalPKIXPublicKey(signer.Public())
+	pubBytesPEM, err := cryptoutils.MarshalPublicKeyToPEM(signer.Public())
 	if err != nil {
 		return nil, err
 	}
-	cr := api.CertificateRequest{
-		PublicKey: api.Key{
-			Algorithm: "rsa4096",
-			Content:   pubBytes,
+	cscr := &fulciopb.CreateSigningCertificateRequest{
+		Credentials: &fulciopb.Credentials{
+			Credentials: &fulciopb.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok.RawString,
+			},
 		},
-		SignedEmailAddress: proof,
+		PublicKey: &fulciopb.PublicKey{
+			Content: string(pubBytesPEM),
+		},
+		ProofOfPossession: proof,
 	}
-	return fc.SigningCert(cr, tok.RawString)
+	return fc.CreateSigningCertificate(context.Background(), cscr)
 }
 
-func NewClient(fulcioURL string) (api.Client, error) {
+func NewClient(fulcioURL string) (fulciopb.CAClient, error) {
 	fulcioServer, err := url.Parse(fulcioURL)
 	if err != nil {
 		return nil, err
 	}
-	fClient := api.NewClient(fulcioServer, api.WithUserAgent("Fulcio Example Code"))
-	return fClient, nil
+	dialOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+	if fulcioServer.Scheme == "https" {
+		dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))
+	}
+	conn, err := grpc.Dial(fulcioServer.Host, dialOpt)
+	if err != nil {
+		return nil, err
+	}
+	return fulciopb.NewCAClient(conn), nil
 }
 
 func main() {
@@ -90,7 +107,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	clientPEM, _ := pem.Decode([]byte(certResp.CertPEM))
+	var chain *fulciopb.CertificateChain
+	switch cert := certResp.Certificate.(type) {
+	case *fulciopb.SigningCertificate_SignedCertificateDetachedSct:
+		chain = cert.SignedCertificateDetachedSct.GetChain()
+	case *fulciopb.SigningCertificate_SignedCertificateEmbeddedSct:
+		chain = cert.SignedCertificateEmbeddedSct.GetChain()
+	}
+	clientPEM, _ := pem.Decode([]byte(chain.Certificates[0]))
 	cert, err := x509.ParseCertificate(clientPEM.Bytes)
 	if err != nil {
 		log.Fatal(err)

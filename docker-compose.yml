@@ -24,8 +24,8 @@ services:
       "serve",
       "--host=0.0.0.0",
       "--port=5555",
-      "--ca=googleca",
-      "--gcp_private_ca_parent=projects/project-rekor/locations/us-central1/certificateAuthorities/sigstore",
+      "--grpc-port=5554",
+      "--ca=ephemeralca",
       "--ct-log-url=http://ct_server:6962/test",
       # Uncomment this for production logging
       # "--log_type=prod",
@@ -33,8 +33,9 @@ services:
     restart: always # keep the server running
     ports:
       - "5555:5555"
+      - "5554:5554"
+      - "2112:2112"
     volumes:
-      - ~/.config/gcloud:/root/.config/gcloud/:z
       - ./config/config.jsn:/etc/fulcio-config/config.json:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/ping"]
@@ -45,6 +46,7 @@ services:
     depends_on:
       - dex-idp
       - ct_server
+    read_only: true
   dex-idp:
     image: dexidp/dex:v2.30.0
     user: root

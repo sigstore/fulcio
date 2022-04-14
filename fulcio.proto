@@ -1,0 +1,143 @@
+//
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+package dev.sigstore.fulcio.v2;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+option go_package = "github.com/sigstore/fulcio/pkg/generated/protobuf";
+option java_package = "dev.sigstore.fulcio.v2";
+option java_multiple_files = true;
+option java_outer_classname = "FulcioProto";
+
+service CA {
+    /**
+     * Returns an X.509 certificate created by the Fulcio certificate authority for the given request parameters
+     */
+    rpc CreateSigningCertificate (CreateSigningCertificateRequest) returns (SigningCertificate){
+        option (google.api.http) = {
+          post: "/api/v2/signingCert"
+          body: "*"
+        };
+    }
+    /**
+     * Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
+     */
+    rpc GetTrustBundle (GetTrustBundleRequest) returns (TrustBundle){
+        option (google.api.http) = {
+          get: "/api/v2/trustBundle"
+        };
+    }
+}
+
+message CreateSigningCertificateRequest {
+    /*
+     * Identity information about who possesses the private / public key pair presented
+     */
+    Credentials credentials    = 1 [(google.api.field_behavior) = REQUIRED];
+    /*
+     * The public key to be stored in the requested certificate
+     */
+    PublicKey public_key       = 2 [(google.api.field_behavior) = REQUIRED];
+    /*
+     * Proof that the client possesses the private key; must be verifiable by provided public key
+     *
+     * This is a currently a signature over the `sub` claim from the OIDC identity token
+     */
+    bytes proof_of_possession  = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message Credentials {
+    oneof credentials {
+        /*
+        * The OIDC token that identifies the caller
+        */
+        string oidc_identity_token = 1;
+    }
+}
+
+message PublicKey {
+    /*
+     * The cryptographic algorithm to use with the key material
+     */
+    PublicKeyAlgorithm algorithm = 1;
+    /*
+     * PEM encoded public key
+     */
+    string content               = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message SigningCertificate {
+    oneof certificate {
+        SigningCertificateDetachedSCT signed_certificate_detached_sct = 1;
+        SigningCertificateEmbeddedSCT signed_certificate_embedded_sct = 2;
+    }
+}
+
+// (-- api-linter: core::0142::time-field-type=disabled
+//     aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)
+message SigningCertificateDetachedSCT {
+    /*
+     * The certificate chain serialized with the leaf certificate first, followed
+     * by all intermediate certificates (if present), finishing with the root certificate.
+     *
+     * All values are PEM-encoded certificates.
+     */
+    CertificateChain chain = 1;
+    /*
+     * The signed certificate timestamp is a promise for including the certificate in
+     * a certificate transparency log. It can be "stapled" to verify the inclusion of
+     * a certificate in the log in an offline fashion.
+     */
+    bytes signed_certificate_timestamp = 2;
+}
+
+message SigningCertificateEmbeddedSCT {
+    /*
+     * The certificate chain serialized with the leaf certificate first, followed
+     * by all intermediate certificates (if present), finishing with the root certificate.
+     *
+     * All values are PEM-encoded certificates.
+     */
+    CertificateChain chain = 1;
+}
+
+// This is created for forward compatibility in case we want to add fields to the TrustBundle service in the future
+message GetTrustBundleRequest {
+}
+
+message TrustBundle {
+    /*
+     * The set of PEM-encoded certificate chains for this Fulcio instance; each chain will start with any
+     * intermediate certificates (if present), finishing with the root certificate.
+     */
+    repeated CertificateChain chains = 1;
+}
+
+message CertificateChain {
+    /*
+     * The PEM-encoded certificate chain, ordered from leaf to intermediate to root as applicable.
+     */
+    repeated string certificates = 1;
+}
+
+enum PublicKeyAlgorithm {
+    PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+    RSA_PSS                          = 1;
+    ECDSA                            = 2;
+    ED25519                          = 3;
+}
