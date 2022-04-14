@@ -4,7 +4,6 @@ package protobuf
 
 import (
 	context "context"
-	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -24,7 +23,7 @@ type CAClient interface {
 	CreateSigningCertificate(ctx context.Context, in *CreateSigningCertificateRequest, opts ...grpc.CallOption) (*SigningCertificate, error)
 	//*
 	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
-	GetTrustBundle(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*TrustBundle, error)
+	GetTrustBundle(ctx context.Context, in *GetTrustBundleRequest, opts ...grpc.CallOption) (*TrustBundle, error)
 }
 
 type cAClient struct {
@@ -44,7 +43,7 @@ func (c *cAClient) CreateSigningCertificate(ctx context.Context, in *CreateSigni
 	return out, nil
 }
 
-func (c *cAClient) GetTrustBundle(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*TrustBundle, error) {
+func (c *cAClient) GetTrustBundle(ctx context.Context, in *GetTrustBundleRequest, opts ...grpc.CallOption) (*TrustBundle, error) {
 	out := new(TrustBundle)
 	err := c.cc.Invoke(ctx, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", in, out, opts...)
 	if err != nil {
@@ -62,7 +61,7 @@ type CAServer interface {
 	CreateSigningCertificate(context.Context, *CreateSigningCertificateRequest) (*SigningCertificate, error)
 	//*
 	// Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
-	GetTrustBundle(context.Context, *empty.Empty) (*TrustBundle, error)
+	GetTrustBundle(context.Context, *GetTrustBundleRequest) (*TrustBundle, error)
 	mustEmbedUnimplementedCAServer()
 }
 
@@ -73,7 +72,7 @@ type UnimplementedCAServer struct {
 func (UnimplementedCAServer) CreateSigningCertificate(context.Context, *CreateSigningCertificateRequest) (*SigningCertificate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSigningCertificate not implemented")
 }
-func (UnimplementedCAServer) GetTrustBundle(context.Context, *empty.Empty) (*TrustBundle, error) {
+func (UnimplementedCAServer) GetTrustBundle(context.Context, *GetTrustBundleRequest) (*TrustBundle, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTrustBundle not implemented")
 }
 func (UnimplementedCAServer) mustEmbedUnimplementedCAServer() {}
@@ -108,7 +107,7 @@ func _CA_CreateSigningCertificate_Handler(srv interface{}, ctx context.Context, 
 }
 
 func _CA_GetTrustBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
+	in := new(GetTrustBundleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -120,7 +119,7 @@ func _CA_GetTrustBundle_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: "/dev.sigstore.fulcio.v2.CA/GetTrustBundle",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CAServer).GetTrustBundle(ctx, req.(*empty.Empty))
+		return srv.(CAServer).GetTrustBundle(ctx, req.(*GetTrustBundleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

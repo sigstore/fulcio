@@ -18,7 +18,6 @@ package dev.sigstore.fulcio.v2;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
-import "google/protobuf/empty.proto";
 
 option go_package = "github.com/sigstore/fulcio/pkg/generated/protobuf";
 option java_package = "dev.sigstore.fulcio.v2";
@@ -38,7 +37,7 @@ service CA {
     /**
      * Returns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance
      */
-    rpc GetTrustBundle (google.protobuf.Empty) returns (TrustBundle){
+    rpc GetTrustBundle (GetTrustBundleRequest) returns (TrustBundle){
         option (google.api.http) = {
           get: "/api/v2/trustBundle"
         };
@@ -115,6 +114,10 @@ message SigningCertificateEmbeddedSCT {
      * All values are PEM-encoded certificates.
      */
     CertificateChain chain = 1;
+}
+
+// This is created for forward compatibility in case we want to add fields to the TrustBundle service in the future
+message GetTrustBundleRequest {
 }
 
 message TrustBundle {

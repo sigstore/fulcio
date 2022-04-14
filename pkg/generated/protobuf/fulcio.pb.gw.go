@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
 	"google.golang.org/grpc"
@@ -67,7 +66,7 @@ func local_request_CA_CreateSigningCertificate_0(ctx context.Context, marshaler 
 }
 
 func request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshaler, client CAClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq empty.Empty
+	var protoReq GetTrustBundleRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := client.GetTrustBundle(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -76,7 +75,7 @@ func request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshale
 }
 
 func local_request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshaler, server CAServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq empty.Empty
+	var protoReq GetTrustBundleRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := server.GetTrustBundle(ctx, &protoReq)

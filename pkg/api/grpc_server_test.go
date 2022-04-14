@@ -49,7 +49,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -111,7 +110,7 @@ func TestMissingGetTrustBundleFails(t *testing.T) {
 	client := protobuf.NewCAClient(conn)
 
 	// Check that we get the CA root back as well.
-	_, err := client.GetTrustBundle(ctx, &emptypb.Empty{})
+	_, err := client.GetTrustBundle(ctx, &protobuf.GetTrustBundleRequest{})
 	if err == nil {
 		t.Fatal("GetTrustBundle did not fail", err)
 	}
@@ -132,7 +131,7 @@ func TestGetTrustBundleSuccess(t *testing.T) {
 
 	client := protobuf.NewCAClient(conn)
 
-	root, err := client.GetTrustBundle(ctx, &emptypb.Empty{})
+	root, err := client.GetTrustBundle(ctx, &protobuf.GetTrustBundleRequest{})
 	if err != nil {
 		t.Fatal("GetTrustBundle failed", err)
 	}

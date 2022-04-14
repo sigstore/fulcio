@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	empty "github.com/golang/protobuf/ptypes/empty"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
@@ -197,7 +196,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	return result, nil
 }
 
-func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *empty.Empty) (*fulciogrpc.TrustBundle, error) {
+func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrustBundleRequest) (*fulciogrpc.TrustBundle, error) {
 	logger := log.ContextLogger(ctx)
 
 	root, err := g.ca.Root(ctx)

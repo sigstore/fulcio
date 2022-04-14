@@ -117,7 +117,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 }
 
 func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Empty) (*httpbody.HttpBody, error) {
-	v2Response, err := l.v2Server.GetTrustBundle(ctx, nil)
+	v2Response, err := l.v2Server.GetTrustBundle(ctx, &fulciogrpc.GetTrustBundleRequest{})
 	if err != nil {
 		return nil, errors.Wrap(err, "legacy handler")
 	}
