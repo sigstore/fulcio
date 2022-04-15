@@ -411,11 +411,13 @@ func TestParsePublicKey(t *testing.T) {
 	failErr(t, err)
 	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
 	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	failErr(t, err)
 	pemCSR := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE REQUEST",
 		Bytes: derCSR,
 	})
 	parsedCSR, err := ParseCSR(pemCSR)
+	failErr(t, err)
 	pubKey, err := ParsePublicKey("", parsedCSR)
 	failErr(t, err)
 	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
@@ -448,6 +450,7 @@ func TestParsePublicKey(t *testing.T) {
 
 	// fails with invalid public key (private key)
 	pemPrivKey, err := cryptoutils.MarshalPrivateKeyToPEM(priv)
+	failErr(t, err)
 	_, err = ParsePublicKey(string(pemPrivKey), nil)
 	if err == nil || err.Error() != "error parsing PEM or DER encoded public key" {
 		t.Fatalf("expected error parsing invalid public key, got %v", err)
