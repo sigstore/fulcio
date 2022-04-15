@@ -18,14 +18,15 @@ package api
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"strings"
 
 	empty "github.com/golang/protobuf/ptypes/empty"
-	"github.com/pkg/errors"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -62,6 +63,10 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 		},
 	}
 
+	if request.PublicKey == nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, errors.New("public key not provided"), invalidPublicKey)
+	}
+
 	// create new CA request mapping fields from legacy to actual
 	algorithmEnum, ok := fulciogrpc.PublicKeyAlgorithm_value[strings.ToUpper(request.PublicKey.Algorithm)] //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API
 	if !ok {
@@ -79,12 +84,12 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 
 	v2Response, err := l.v2Server.CreateSigningCertificate(ctx, &v2Request)
 	if err != nil {
-		return nil, errors.Wrap(err, "legacy handler")
+		return nil, err
 	}
 
 	// we need to return a HTTP 201 Created response code to be backward compliant
 	if err = grpc.SetHeader(ctx, metadata.Pairs(HTTPResponseCodeMetadataKey, "201")); err != nil {
-		return nil, errors.Wrap(err, "legacy handler")
+		return nil, err
 	}
 
 	detachedResponse := v2Response.GetSignedCertificateDetachedSct()
@@ -93,7 +98,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 		sctString := base64.StdEncoding.EncodeToString(detachedResponse.SignedCertificateTimestamp)
 		if sctString != "" {
 			if err := grpc.SetHeader(ctx, metadata.Pairs(SCTMetadataKey, sctString)); err != nil {
-				return nil, errors.Wrap(err, "legacy handler")
+				return nil, err
 			}
 		}
 	}
@@ -119,7 +124,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Empty) (*httpbody.HttpBody, error) {
 	v2Response, err := l.v2Server.GetTrustBundle(ctx, &fulciogrpc.GetTrustBundleRequest{})
 	if err != nil {
-		return nil, errors.Wrap(err, "legacy handler")
+		return nil, err
 	}
 
 	var concatCerts strings.Builder
