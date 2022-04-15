@@ -52,13 +52,21 @@ message CreateSigningCertificateRequest {
     /*
      * The public key to be stored in the requested certificate
      */
-    PublicKey public_key       = 2 [(google.api.field_behavior) = REQUIRED];
+    PublicKey public_key       = 2 [(google.api.field_behavior) = OPTIONAL];
     /*
      * Proof that the client possesses the private key; must be verifiable by provided public key
      *
      * This is a currently a signature over the `sub` claim from the OIDC identity token
      */
-    bytes proof_of_possession  = 3 [(google.api.field_behavior) = REQUIRED];
+    bytes proof_of_possession  = 3 [(google.api.field_behavior) = OPTIONAL];
+    /*
+     * PKCS#10 encoded certificate signing request
+     *
+     * Contains the public key to be stored in the requested certificate. All other CSR fields
+     * are ignored. Since the CSR is self-signed, it also acts as a proof of posession of
+     * the private key.
+     */
+    bytes certificate_signing_request  = 4 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message Credentials {

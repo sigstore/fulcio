@@ -76,28 +76,36 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
 	}
 
-	if request.PublicKey == nil {
+	if request.PublicKey == nil && len(request.CertificateSigningRequest) == 0 {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, errors.New("public key not provided"), invalidPublicKey)
 	}
 
-	publicKeyBytes := request.PublicKey.Content
-	// try to unmarshal as PEM
-	publicKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(publicKeyBytes))
-	if err != nil {
-		// try to unmarshal as DER
-		logger.Debugf("error parsing public key as PEM, trying DER: %v", err.Error())
-		publicKey, err = x509.ParsePKIXPublicKey([]byte(publicKeyBytes))
+	// optionally parse CSR
+	var csr *x509.CertificateRequest
+	if len(request.CertificateSigningRequest) > 0 {
+		csr, err = challenges.ParseCSR(request.CertificateSigningRequest)
 		if err != nil {
-			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidCSR)
 		}
 	}
 
-	// Validate public key, checking for weak key parameters.
+	// fetch public key from request or CSR
+	var pubKeyContent string
+	if request.PublicKey != nil {
+		pubKeyContent = request.PublicKey.Content
+	}
+	publicKey, err := challenges.ParsePublicKey(pubKeyContent, csr)
+	if err != nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
+	}
+
+	// validate public key, checking for weak key parameters
 	if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 	}
 
-	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, request.ProofOfPossession)
+	// verify challenge
+	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, csr, request.ProofOfPossession)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 	}
