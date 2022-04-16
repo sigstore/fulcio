@@ -17,6 +17,7 @@ syntax = "proto3";
 package dev.sigstore.fulcio.v1beta;
 
 import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/api/httpbody.proto";
 import "google/protobuf/empty.proto";
 
@@ -55,11 +56,17 @@ message CreateSigningCertificateRequest {
     /*
      * The public key to be stored in the requested certificate
      */
-    PublicKey publicKey       = 1 [ deprecated=true ];
+    PublicKey publicKey       = 1 [
+        deprecated=true,
+        (google.api.field_behavior) = REQUIRED
+    ];
     /*
      * Proof that the client possesses the private key
      */
-    bytes signedEmailAddress  = 2 [ deprecated=true ];
+    bytes signedEmailAddress  = 2 [
+        deprecated=true,
+        (google.api.field_behavior) = REQUIRED
+    ];
 }
 
 message PublicKey {
@@ -70,5 +77,8 @@ message PublicKey {
     /*
      * DER or PEM encoded public key
      */
-    bytes content    = 2 [ deprecated=true ];
+    bytes content    = 2 [
+        deprecated=true,
+        (google.api.field_behavior) = REQUIRED
+    ];
 }

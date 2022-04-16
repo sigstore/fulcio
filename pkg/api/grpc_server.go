@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -73,6 +74,10 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	principal, err := authorize(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
+	}
+
+	if request.PublicKey == nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, errors.New("public key not provided"), invalidPublicKey)
 	}
 
 	publicKeyBytes := request.PublicKey.Content
