@@ -67,10 +67,14 @@ func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc fulciopb.CAClient, 
 				OidcIdentityToken: tok.RawString,
 			},
 		},
-		PublicKey: &fulciopb.PublicKey{
-			Content: string(pubBytesPEM),
+		Key: &fulciopb.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &fulciopb.PublicKeyRequest{
+				PublicKey: &fulciopb.PublicKey{
+					Content: string(pubBytesPEM),
+				},
+				ProofOfPossession: proof,
+			},
 		},
-		ProofOfPossession: proof,
 	}
 	return fc.CreateSigningCertificate(context.Background(), cscr)
 }
