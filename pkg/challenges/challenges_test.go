@@ -394,7 +394,7 @@ func TestParseCSR(t *testing.T) {
 		t.Fatalf("expected error parsing invalid CSR, got %v", err)
 	}
 
-	// fails with invalid DER typr
+	// fails with invalid DER type
 	pemCSR = pem.EncodeToMemory(&pem.Block{
 		Type:  "BEGIN CERTIFICATE",
 		Bytes: derCSR,
