@@ -65,9 +65,12 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 
 	var v2Request fulciogrpc.CreateSigningCertificateRequest
 	if len(request.CertificateSigningRequest) > 0 {
-		v2Request = fulciogrpc.CreateSigningCertificateRequest{
-			Credentials:               &creds,
+		key := fulciogrpc.CreateSigningCertificateRequest_CertificateSigningRequest{
 			CertificateSigningRequest: request.CertificateSigningRequest, //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API
+		}
+		v2Request = fulciogrpc.CreateSigningCertificateRequest{
+			Credentials: &creds,
+			Key:         &key,
 		}
 	} else {
 		// the CSR and the public key have not been set
@@ -79,13 +82,18 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 		if !ok {
 			algorithmEnum = int32(fulciogrpc.PublicKeyAlgorithm_PUBLIC_KEY_ALGORITHM_UNSPECIFIED)
 		}
+		key := fulciogrpc.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &fulciogrpc.PublicKeyRequest{
+				PublicKey: &fulciogrpc.PublicKey{
+					Algorithm: fulciogrpc.PublicKeyAlgorithm(algorithmEnum),
+					Content:   string(request.PublicKey.Content), //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API
+				},
+				ProofOfPossession: request.SignedEmailAddress, //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API,
+			},
+		}
 		v2Request = fulciogrpc.CreateSigningCertificateRequest{
 			Credentials: &creds,
-			PublicKey: &fulciogrpc.PublicKey{
-				Algorithm: fulciogrpc.PublicKeyAlgorithm(algorithmEnum),
-				Content:   string(request.PublicKey.Content), //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API
-			},
-			ProofOfPossession: request.SignedEmailAddress, //lint:ignore SA1019 this is valid because we're converting from v1beta to v1 API
+			Key:         &key,
 		}
 	}
 

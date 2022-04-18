@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -76,14 +75,10 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
 	}
 
-	if request.PublicKey == nil && len(request.CertificateSigningRequest) == 0 {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, errors.New("public key not provided"), invalidPublicKey)
-	}
-
 	// optionally parse CSR
 	var csr *x509.CertificateRequest
-	if len(request.CertificateSigningRequest) > 0 {
-		csr, err = challenges.ParseCSR(request.CertificateSigningRequest)
+	if len(request.GetCertificateSigningRequest()) > 0 {
+		csr, err = challenges.ParseCSR(request.GetCertificateSigningRequest())
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidCSR)
 		}
@@ -91,8 +86,12 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 
 	// fetch public key from request or CSR
 	var pubKeyContent string
-	if request.PublicKey != nil {
-		pubKeyContent = request.PublicKey.Content
+	var proofOfPossession []byte
+	if request.GetPublicKeyRequest() != nil {
+		if request.GetPublicKeyRequest().PublicKey != nil {
+			pubKeyContent = request.GetPublicKeyRequest().PublicKey.Content
+		}
+		proofOfPossession = request.GetPublicKeyRequest().ProofOfPossession
 	}
 	publicKey, err := challenges.ParsePublicKey(pubKeyContent, csr)
 	if err != nil {
@@ -105,7 +104,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	}
 
 	// verify challenge
-	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, csr, request.ProofOfPossession)
+	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, csr, proofOfPossession)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 	}

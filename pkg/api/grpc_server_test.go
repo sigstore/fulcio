@@ -256,10 +256,14 @@ func TestAPIWithEmail(t *testing.T) {
 					OidcIdentityToken: tok,
 				},
 			},
-			PublicKey: &protobuf.PublicKey{
-				Content: pubBytes,
+			Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+				PublicKeyRequest: &protobuf.PublicKeyRequest{
+					PublicKey: &protobuf.PublicKey{
+						Content: pubBytes,
+					},
+					ProofOfPossession: proof,
+				},
 			},
-			ProofOfPossession: proof,
 		})
 		if err != nil {
 			t.Fatalf("SigningCert() = %v", err)
@@ -345,10 +349,14 @@ func TestAPIWithUriSubject(t *testing.T) {
 					OidcIdentityToken: tok,
 				},
 			},
-			PublicKey: &protobuf.PublicKey{
-				Content: pubBytes,
+			Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+				PublicKeyRequest: &protobuf.PublicKeyRequest{
+					PublicKey: &protobuf.PublicKey{
+						Content: pubBytes,
+					},
+					ProofOfPossession: proof,
+				},
 			},
-			ProofOfPossession: proof,
 		})
 		if err != nil {
 			t.Fatalf("SigningCert() = %v", err)
@@ -435,10 +443,14 @@ func TestAPIWithKubernetes(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		PublicKey: &protobuf.PublicKey{
-			Content: pubBytes,
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
 		},
-		ProofOfPossession: proof,
 	})
 	if err != nil {
 		t.Fatalf("SigningCert() = %v", err)
@@ -528,10 +540,14 @@ func TestAPIWithGitHub(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		PublicKey: &protobuf.PublicKey{
-			Content: pubBytes,
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
 		},
-		ProofOfPossession: proof,
 	})
 	if err != nil {
 		t.Fatalf("SigningCert() = %v", err)
@@ -651,7 +667,9 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		CertificateSigningRequest: pemCSR,
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: pemCSR,
+		},
 	})
 	if err != nil {
 		t.Fatalf("SigningCert() = %v", err)
@@ -726,10 +744,14 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		PublicKey: &protobuf.PublicKey{
-			Content: string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)),
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)),
+				},
+				ProofOfPossession: []byte{},
+			},
 		},
-		ProofOfPossession: []byte{},
 	})
 	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request is insecure") {
 		t.Fatalf("expected insecure public key error, got %v", err)
@@ -781,11 +803,30 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 
 	client := protobuf.NewCAClient(conn)
 
+	// Test with no key proto specified
 	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
 		Credentials: &protobuf.Credentials{
 			Credentials: &protobuf.Credentials_OidcIdentityToken{
 				OidcIdentityToken: tok,
 			},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request could not be parsed") {
+		t.Fatalf("expected parsing public key error, got %v", err)
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+
+	// Test with no public key specified
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{},
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request could not be parsed") {
@@ -847,12 +888,77 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		PublicKey: &protobuf.PublicKey{
-			Content: pubBytes,
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: invalidProof,
+			},
 		},
-		ProofOfPossession: invalidProof,
 	})
 	if err == nil || !strings.Contains(err.Error(), "The signature supplied in the request could not be verified") {
+		t.Fatalf("expected invalid signature error, got %v", err)
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
+// Tests API with an invalid CSR.
+func TestAPIWithInvalidCSR(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports this issuer.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: []byte("invalid"),
+		},
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "The certificate signing request could not be parsed") {
 		t.Fatalf("expected invalid signature error, got %v", err)
 	}
 	if status.Code(err) != codes.InvalidArgument {
@@ -925,7 +1031,9 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 				OidcIdentityToken: tok,
 			},
 		},
-		CertificateSigningRequest: pemCSR,
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: pemCSR,
+		},
 	})
 
 	if err == nil || !strings.Contains(err.Error(), "The signature supplied in the request could not be verified") {
