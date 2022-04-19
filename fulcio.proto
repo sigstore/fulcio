@@ -24,6 +24,12 @@ option java_package = "dev.sigstore.fulcio.v2";
 option java_multiple_files = true;
 option java_outer_classname = "FulcioProto";
 
+// For Fulcio developers: All features should be designed with HTTP support in
+// mind, since some clients may access this API over HTTP rather than gRPC.
+//
+// If there's a feature that you think would negatively impact the HTTP API,
+// open an issue to discuss.
+
 service CA {
     /**
      * Returns an X.509 certificate created by the Fulcio certificate authority for the given request parameters

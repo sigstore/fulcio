@@ -26,9 +26,11 @@ option java_package = "dev.sigstore.fulcio.v1beta";
 option java_multiple_files = true;
 option java_outer_classname = "FulcioProto";
 
+
+
 /*
  * This implements the pre-GA HTTP-based Fulcio API.
- * This interface is deprecated - clients should prefer the GA GRPC interface!
+ * This interface is deprecated and will not receive backports of most new features - clients should prefer the GA GRPC interface!
  */
 service CA {
     /*
