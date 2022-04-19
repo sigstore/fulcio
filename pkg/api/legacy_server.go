@@ -21,13 +21,13 @@ import (
 	"errors"
 	"strings"
 
-	empty "github.com/golang/protobuf/ptypes/empty"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -121,7 +121,7 @@ func (l *legacyGRPCCAServer) CreateSigningCertificate(ctx context.Context, reque
 	}, nil
 }
 
-func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *empty.Empty) (*httpbody.HttpBody, error) {
+func (l *legacyGRPCCAServer) GetRootCertificate(ctx context.Context, _ *emptypb.Empty) (*httpbody.HttpBody, error) {
 	v2Response, err := l.v2Server.GetTrustBundle(ctx, &fulciogrpc.GetTrustBundleRequest{})
 	if err != nil {
 		return nil, err
