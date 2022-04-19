@@ -68,7 +68,7 @@ message CreateSigningCertificateRequest {
         (google.api.field_behavior) = OPTIONAL
     ];
     /*
-     * Optional: PKCS#10 encoded certificate signing request
+     * Optional: PKCS#10 PEM-encoded certificate signing request
      * Contains the public key to be stored in the requested
      * certificate. All other CSR fields are ignored. Since
      * the CSR is self-signed, it also acts as a proof of
@@ -86,7 +86,8 @@ message PublicKey {
      */
     string algorithm = 1 [ deprecated=true ];
     /*
-     * DER or PEM encoded public key
+     * PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
+     * of type PUBLIC KEY.
      */
     bytes content    = 2 [
         deprecated=true,

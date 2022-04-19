@@ -54,7 +54,7 @@ type CreateSigningCertificateRequest struct {
 	// Deprecated: Do not use.
 	SignedEmailAddress []byte `protobuf:"bytes,2,opt,name=signedEmailAddress,proto3" json:"signedEmailAddress,omitempty"`
 	//
-	// Optional: PKCS#10 encoded certificate signing request
+	// Optional: PKCS#10 PEM-encoded certificate signing request
 	// Contains the public key to be stored in the requested
 	// certificate. All other CSR fields are ignored. Since
 	// the CSR is self-signed, it also acts as a proof of
@@ -131,7 +131,8 @@ type PublicKey struct {
 	// Deprecated: Do not use.
 	Algorithm string `protobuf:"bytes,1,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
 	//
-	// DER or PEM encoded public key
+	// PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
+	// of type PUBLIC KEY.
 	//
 	// Deprecated: Do not use.
 	Content []byte `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`

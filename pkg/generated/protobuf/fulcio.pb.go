@@ -175,7 +175,7 @@ type CreateSigningCertificateRequest_PublicKeyRequest struct {
 
 type CreateSigningCertificateRequest_CertificateSigningRequest struct {
 	//
-	// PKCS#10 encoded certificate signing request
+	// PKCS#10 PEM-encoded certificate signing request
 	//
 	// Contains the public key to be stored in the requested certificate. All other CSR fields
 	// are ignored. Since the CSR is self-signed, it also acts as a proof of posession of
@@ -326,7 +326,8 @@ type PublicKey struct {
 	// The cryptographic algorithm to use with the key material
 	Algorithm PublicKeyAlgorithm `protobuf:"varint,1,opt,name=algorithm,proto3,enum=dev.sigstore.fulcio.v2.PublicKeyAlgorithm" json:"algorithm,omitempty"`
 	//
-	// PEM encoded public key
+	// PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
+	// of type PUBLIC KEY.
 	Content string `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 }
 
