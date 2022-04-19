@@ -1,38 +1,75 @@
+# v0.4.0
+
+## Enhancements
+
+* Add CSR support for key delivery and proof of possession (https://github.com/sigstore/fulcio/pull/527)
+* Remove checked in binary (https://github.com/sigstore/fulcio/pull/524)
+* add GRPC interface (https://github.com/sigstore/fulcio/pull/472)
+* Embed SCTs in issued certificates (https://github.com/sigstore/fulcio/pull/507)
+* Add intermediate CA implementation with KMS-backed signer (https://github.com/sigstore/fulcio/pull/496)
+
+## Bug Fixes
+
+* Fix null pointer crash and incorrect error statuses (https://github.com/sigstore/fulcio/pull/526)
+
+## Documentation
+
+* Add documentation for setting up Fulcio instance (https://github.com/sigstore/fulcio/pull/521)
+* Add documentation for CT log (https://github.com/sigstore/fulcio/pull/514)
+* examples: This adds example code on how to fetch a fulcio certificate (https://github.com/sigstore/fulcio/pull/324)
+
+## Others
+
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.8.0 to 2.10.0 (https://github.com/sigstore/fulcio/pull/523)
+* Bump actions/checkout from 3.0.0 to 3.0.1 (https://github.com/sigstore/fulcio/pull/522)
+* Bump google.golang.org/protobuf from 1.27.1 to 1.28.0 in /hack/tools (https://github.com/sigstore/fulcio/pull/520)
+* Update release images (https://github.com/sigstore/fulcio/pull/517)
+* Bump github.com/spf13/viper from 1.10.1 to 1.11.0 (https://github.com/sigstore/fulcio/pull/516)
+* Bump github/codeql-action from 2.1.7 to 2.1.8 (https://github.com/sigstore/fulcio/pull/513)
+* add changelog for v0.3.0 release (https://github.com/sigstore/fulcio/pull/508)
+
+## Contributors
+
+* Bob Callaway (@bobcallaway)
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+* Morten Linderud (@Foxboron)
+
 # v0.3.0
 
 ## Enhancements
 
-* Generate larger, compliant serial numbers (#500)
-* Use provided HTTP client instead when fetching root cert (#502)
-* Add missing reader lock to File CA when reading certificate chain (#493)
-* Add validation of public keys to prevent certifying weak keys (#490)
-* Refactor API tests (#483)
-* Update Username OIDC flow based on comments  (#463)
+* Generate larger, compliant serial numbers (https://github.com/sigstore/fulcio/pull/500)
+* Use provided HTTP client instead when fetching root cert (https://github.com/sigstore/fulcio/pull/502)
+* Add missing reader lock to File CA when reading certificate chain (https://github.com/sigstore/fulcio/pull/493)
+* Add validation of public keys to prevent certifying weak keys (https://github.com/sigstore/fulcio/pull/490)
+* Refactor API tests (https://github.com/sigstore/fulcio/pull/483)
+* Update Username OIDC flow based on comments  (https://github.com/sigstore/fulcio/pull/463)
 
 ## Bug Fixes
 
-* fix_certificate_readme_typos (#487)
-* Fix minor typs in security model README (#488)
-* Fix minor typos in README (#486)
-* fix build date format for version command (#484)
+* fix_certificate_readme_typos (https://github.com/sigstore/fulcio/pull/487)
+* Fix minor typs in security model README (https://github.com/sigstore/fulcio/pull/488)
+* Fix minor typos in README (https://github.com/sigstore/fulcio/pull/486)
+* fix build date format for version command (https://github.com/sigstore/fulcio/pull/484)
 
 ## Others
 
-* update cosign and golang-cross images (#506)
-* Bump codecov/codecov-action from 2.1.0 to 3 (#505)
-* Bump github/codeql-action from 2.1.6 to 2.1.7 (#504)
-* Bump go.step.sm/crypto from 0.16.0 to 0.16.1 (#498)
-* Bump github/codeql-action from 1.1.5 to 2.1.6 (#497)
-* Bump google.golang.org/api from 0.73.0 to 0.74.0 (#499)
-* Bump github.com/prometheus/common from 0.32.1 to 0.33.0 (#491)
-* Bump google.golang.org/protobuf from 1.27.1 to 1.28.0 (#485)
-* Fix concurrency properly in File CA implementation (#495)
-* Bump go.step.sm/crypto from 0.15.3 to 0.16.0 (#482)
-* Bump google.golang.org/api from 0.72.0 to 0.73.0 (#479)
-* Bump github.com/stretchr/testify from 1.7.0 to 1.7.1 (#478)
-* Bump github/codeql-action from 1.1.4 to 1.1.5 (#477)
-* Bump google.golang.org/api from 0.71.0 to 0.72.0 (#476)
-* Bump go.step.sm/crypto from 0.15.2 to 0.15.3 (#473)
+* update cosign and golang-cross images (https://github.com/sigstore/fulcio/pull/506)
+* Bump codecov/codecov-action from 2.1.0 to 3 (https://github.com/sigstore/fulcio/pull/505)
+* Bump github/codeql-action from 2.1.6 to 2.1.7 (https://github.com/sigstore/fulcio/pull/504)
+* Bump go.step.sm/crypto from 0.16.0 to 0.16.1 (https://github.com/sigstore/fulcio/pull/498)
+* Bump github/codeql-action from 1.1.5 to 2.1.6 (https://github.com/sigstore/fulcio/pull/497)
+* Bump google.golang.org/api from 0.73.0 to 0.74.0 (https://github.com/sigstore/fulcio/pull/499)
+* Bump github.com/prometheus/common from 0.32.1 to 0.33.0 (https://github.com/sigstore/fulcio/pull/491)
+* Bump google.golang.org/protobuf from 1.27.1 to 1.28.0 (https://github.com/sigstore/fulcio/pull/485)
+* Fix concurrency properly in File CA implementation (https://github.com/sigstore/fulcio/pull/495)
+* Bump go.step.sm/crypto from 0.15.3 to 0.16.0 (https://github.com/sigstore/fulcio/pull/482)
+* Bump google.golang.org/api from 0.72.0 to 0.73.0 (https://github.com/sigstore/fulcio/pull/479)
+* Bump github.com/stretchr/testify from 1.7.0 to 1.7.1 (https://github.com/sigstore/fulcio/pull/478)
+* Bump github/codeql-action from 1.1.4 to 1.1.5 (https://github.com/sigstore/fulcio/pull/477)
+* Bump google.golang.org/api from 0.71.0 to 0.72.0 (https://github.com/sigstore/fulcio/pull/476)
+* Bump go.step.sm/crypto from 0.15.2 to 0.15.3 (https://github.com/sigstore/fulcio/pull/473)
 
 ## Contributors
 
