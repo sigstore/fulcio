@@ -63,6 +63,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
+	cmd.Flags().String("ct-log-public-key-path", "", "Path to a PEM-encoded public key of the CT log, used to verify SCTs")
 	cmd.Flags().String("config-path", "/etc/fulcio-config/config.json", "path to fulcio config json")
 	cmd.Flags().String("pkcs11-config-path", "config/crypto11.conf", "path to fulcio pkcs11 config file")
 	cmd.Flags().String("fileca-cert", "", "Path to CA certificate")
@@ -204,12 +205,18 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	var ctClient *ctclient.LogClient
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {
-		ctClient, err = ctclient.New(logURL,
-			&http.Client{Timeout: 30 * time.Second},
-			jsonclient.Options{
-				Logger: logAdaptor{logger: log.Logger},
-				// TODO: Add public key from CT Log for verification.
-			})
+		opts := jsonclient.Options{
+			Logger: logAdaptor{logger: log.Logger},
+		}
+		// optionally add CT log public key to verify SCTs
+		if pubKeyPath := viper.GetString("ct-log-public-key-path"); pubKeyPath != "" {
+			pemPubKey, err := os.ReadFile(filepath.Clean(pubKeyPath))
+			if err != nil {
+				log.Logger.Fatal(err)
+			}
+			opts.PublicKey = string(pemPubKey)
+		}
+		ctClient, err = ctclient.New(logURL, &http.Client{Timeout: 30 * time.Second}, opts)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
