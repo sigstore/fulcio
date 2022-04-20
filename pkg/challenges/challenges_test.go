@@ -23,12 +23,17 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 func Test_isSpiffeIDAllowed(t *testing.T) {
@@ -88,24 +93,21 @@ func TestURI(t *testing.T) {
 	issuer := "https://accounts.example.com"
 	token := &oidc.IDToken{Subject: subject, Issuer: issuer}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	failErr(t, err)
-	h := sha256.Sum256([]byte(subject))
-	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
-	failErr(t, err)
-
-	result, err := URI(ctx, token, priv.Public(), signature)
+	result, err := uri(ctx, token)
 	if err != nil {
 		t.Errorf("Expected test success, got %v", err)
 	}
-	if result.Issuer != issuer {
-		t.Errorf("Expected issuer %s, got %s", issuer, result.Issuer)
+	if result.Result.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, result.Result.Issuer)
 	}
-	if result.Value != subject {
-		t.Errorf("Expected subject %s, got %s", subject, result.Value)
+	if result.Result.Value != subject {
+		t.Errorf("Expected subject value %s, got %s", subject, result.Result.Value)
 	}
-	if result.TypeVal != URIValue {
-		t.Errorf("Expected type %v, got %v", URIValue, result.TypeVal)
+	if result.Result.TypeVal != URIValue {
+		t.Errorf("Expected type %v, got %v", URIValue, result.Result.TypeVal)
+	}
+	if result.Subject != token.Subject {
+		t.Errorf("Expected subject %v, got %v", token.Subject, result.Subject)
 	}
 }
 
@@ -121,29 +123,26 @@ func TestUsername(t *testing.T) {
 		},
 	}
 	ctx := config.With(context.Background(), cfg)
-	username := "foobar"
+	usernameVal := "foobar"
 	usernameWithEmail := "foobar@example.com"
 	issuer := "https://accounts.example.com"
-	token := &oidc.IDToken{Subject: username, Issuer: issuer}
+	token := &oidc.IDToken{Subject: usernameVal, Issuer: issuer}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	failErr(t, err)
-	h := sha256.Sum256([]byte(username))
-	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
-	failErr(t, err)
-
-	result, err := Username(ctx, token, priv.Public(), signature)
+	result, err := username(ctx, token)
 	if err != nil {
 		t.Errorf("Expected test success, got %v", err)
 	}
-	if result.Issuer != issuer {
-		t.Errorf("Expected issuer %s, got %s", issuer, result.Issuer)
+	if result.Result.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, result.Result.Issuer)
 	}
-	if result.Value != usernameWithEmail {
-		t.Errorf("Expected subject %s, got %s", usernameWithEmail, result.Value)
+	if result.Result.Value != usernameWithEmail {
+		t.Errorf("Expected subject value %s, got %s", usernameWithEmail, result.Result.Value)
 	}
-	if result.TypeVal != UsernameValue {
-		t.Errorf("Expected type %v, got %v", UsernameValue, result.TypeVal)
+	if result.Result.TypeVal != UsernameValue {
+		t.Errorf("Expected type %v, got %v", UsernameValue, result.Result.TypeVal)
+	}
+	if result.Subject != token.Subject {
+		t.Errorf("Expected subject %s, got %s", token.Subject, result.Subject)
 	}
 }
 
@@ -159,11 +158,11 @@ func TestUsernameInvalidChar(t *testing.T) {
 		},
 	}
 	ctx := config.With(context.Background(), cfg)
-	username := "foobar@example.com"
+	usernameVal := "foobar@example.com"
 	issuer := "https://accounts.example.com"
-	token := &oidc.IDToken{Subject: username, Issuer: issuer}
+	token := &oidc.IDToken{Subject: usernameVal, Issuer: issuer}
 
-	_, err := Username(ctx, token, nil, []byte{})
+	_, err := username(ctx, token)
 	if err == nil {
 		t.Errorf("expected test failure, got no error")
 	}
@@ -357,5 +356,103 @@ func TestCheckSignatureRSA(t *testing.T) {
 	// Try a bad email but "good" signature
 	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
+	}
+}
+
+func TestParseCSR(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	failErr(t, err)
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	failErr(t, err)
+
+	// success with type CERTIFICATE REQUEST
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+	parsedCSR, err := ParseCSR(pemCSR)
+	failErr(t, err)
+	if parsedCSR.Subject.CommonName != "test" {
+		t.Fatalf("unexpected CSR common name")
+	}
+
+	// success with type NEW CERTIFICATE REQUEST
+	pemCSR = pem.EncodeToMemory(&pem.Block{
+		Type:  "NEW CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+	parsedCSR, err = ParseCSR(pemCSR)
+	failErr(t, err)
+	if parsedCSR.Subject.CommonName != "test" {
+		t.Fatalf("unexpected CSR common name")
+	}
+
+	// fails with invalid PEM encoded block
+	_, err = ParseCSR([]byte{1, 2, 3})
+	if err == nil || !strings.Contains(err.Error(), "no CSR found while decoding") {
+		t.Fatalf("expected error parsing invalid CSR, got %v", err)
+	}
+
+	// fails with invalid DER type
+	pemCSR = pem.EncodeToMemory(&pem.Block{
+		Type:  "BEGIN CERTIFICATE",
+		Bytes: derCSR,
+	})
+	_, err = ParseCSR(pemCSR)
+	if err == nil || !strings.Contains(err.Error(), "DER type BEGIN CERTIFICATE is not of any type") {
+		t.Fatalf("expected error parsing invalid CSR, got %v", err)
+	}
+}
+
+func TestParsePublicKey(t *testing.T) {
+	// succeeds with CSR
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	failErr(t, err)
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	failErr(t, err)
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+	parsedCSR, err := ParseCSR(pemCSR)
+	failErr(t, err)
+	pubKey, err := ParsePublicKey("", parsedCSR)
+	failErr(t, err)
+	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
+		t.Fatalf("expected equal public keys")
+	}
+
+	// succeeds with PEM-encoded key
+	pemKey, err := cryptoutils.MarshalPublicKeyToPEM(priv.Public())
+	failErr(t, err)
+	pubKey, err = ParsePublicKey(string(pemKey), nil)
+	failErr(t, err)
+	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
+		t.Fatalf("expected equal public keys")
+	}
+
+	// succeeds with DER-encoded key
+	derKey, err := cryptoutils.MarshalPublicKeyToDER(priv.Public())
+	failErr(t, err)
+	pubKey, err = ParsePublicKey(string(derKey), nil)
+	failErr(t, err)
+	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
+		t.Fatalf("expected equal public keys")
+	}
+
+	// fails with no public key
+	_, err = ParsePublicKey("", nil)
+	if err == nil || err.Error() != "public key not provided" {
+		t.Fatalf("expected error parsing no public key, got %v", err)
+	}
+
+	// fails with invalid public key (private key)
+	pemPrivKey, err := cryptoutils.MarshalPrivateKeyToPEM(priv)
+	failErr(t, err)
+	_, err = ParsePublicKey(string(pemPrivKey), nil)
+	if err == nil || err.Error() != "error parsing PEM or DER encoded public key" {
+		t.Fatalf("expected error parsing invalid public key, got %v", err)
 	}
 }

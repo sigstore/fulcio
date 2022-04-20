@@ -46,11 +46,14 @@ type Key struct {
 }
 
 type CertificateRequest struct {
-	// +required
+	// +optional
 	PublicKey Key `json:"publicKey"`
 
-	// +required
+	// +optional
 	SignedEmailAddress []byte `json:"signedEmailAddress"`
+
+	// +optional
+	CertificateSigningRequest []byte `json:"certificateSigningRequest"`
 }
 
 const (

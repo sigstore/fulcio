@@ -26,6 +26,7 @@ import (
 const (
 	invalidSignature       = "The signature supplied in the request could not be verified"
 	invalidPublicKey       = "The public key supplied in the request could not be parsed"
+	invalidCSR             = "The certificate signing request could not be parsed"
 	failedToEnterCertInCTL = "Error entering certificate in CTL"
 	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
 	failedToMarshalCert    = "Error marshaling code signing certificate"

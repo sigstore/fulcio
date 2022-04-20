@@ -49,16 +49,21 @@ message CreateSigningCertificateRequest {
      * Identity information about who possesses the private / public key pair presented
      */
     Credentials credentials    = 1 [(google.api.field_behavior) = REQUIRED];
-    /*
-     * The public key to be stored in the requested certificate
-     */
-    PublicKey public_key       = 2 [(google.api.field_behavior) = REQUIRED];
-    /*
-     * Proof that the client possesses the private key; must be verifiable by provided public key
-     *
-     * This is a currently a signature over the `sub` claim from the OIDC identity token
-     */
-    bytes proof_of_possession  = 3 [(google.api.field_behavior) = REQUIRED];
+    oneof key {
+        /*
+         * The public key to be stored in the requested certificate along with a signed
+         * challenge as proof of possession of the private key.
+         */
+        PublicKeyRequest public_key_request = 2 [(google.api.field_behavior) = REQUIRED];
+        /*
+        * PKCS#10 PEM-encoded certificate signing request
+        *
+        * Contains the public key to be stored in the requested certificate. All other CSR fields
+        * are ignored. Since the CSR is self-signed, it also acts as a proof of posession of
+        * the private key.
+        */
+        bytes certificate_signing_request  = 3 [(google.api.field_behavior) = REQUIRED];
+    }
 }
 
 message Credentials {
@@ -70,13 +75,27 @@ message Credentials {
     }
 }
 
+message PublicKeyRequest {
+    /*
+     * The public key to be stored in the requested certificate
+     */
+    PublicKey public_key       = 1 [(google.api.field_behavior) = REQUIRED];
+    /*
+     * Proof that the client possesses the private key; must be verifiable by provided public key
+     *
+     * This is a currently a signature over the `sub` claim from the OIDC identity token
+     */
+    bytes proof_of_possession  = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
 message PublicKey {
     /*
      * The cryptographic algorithm to use with the key material
      */
     PublicKeyAlgorithm algorithm = 1;
     /*
-     * PEM encoded public key
+     * PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
+     * of type PUBLIC KEY.
      */
     string content               = 2 [(google.api.field_behavior) = REQUIRED];
 }

@@ -58,15 +58,26 @@ message CreateSigningCertificateRequest {
      */
     PublicKey publicKey       = 1 [
         deprecated=true,
-        (google.api.field_behavior) = REQUIRED
+        (google.api.field_behavior) = OPTIONAL
     ];
     /*
      * Proof that the client possesses the private key
      */
     bytes signedEmailAddress  = 2 [
         deprecated=true,
-        (google.api.field_behavior) = REQUIRED
+        (google.api.field_behavior) = OPTIONAL
     ];
+    /*
+     * Optional: PKCS#10 PEM-encoded certificate signing request
+     * Contains the public key to be stored in the requested
+     * certificate. All other CSR fields are ignored. Since
+     * the CSR is self-signed, it also acts as a proof of
+     * posession of the private key.
+     */
+    bytes certificateSigningRequest  = 3 [
+        deprecated=true,
+        (google.api.field_behavior) = OPTIONAL
+     ];
 }
 
 message PublicKey {
@@ -75,7 +86,8 @@ message PublicKey {
      */
     string algorithm = 1 [ deprecated=true ];
     /*
-     * DER or PEM encoded public key
+     * PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
+     * of type PUBLIC KEY.
      */
     bytes content    = 2 [
         deprecated=true,

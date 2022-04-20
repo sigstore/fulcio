@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/url"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -66,25 +69,31 @@ type ChallengeResult struct {
 	AdditionalInfo map[AdditionalInfo]string
 }
 
-func CheckSignature(pub crypto.PublicKey, proof []byte, email string) error {
+// preChallengeResult holds an additional value for the subject of the token,
+// used to verify the proof of poessession signature.
+type preChallengeResult struct {
+	// Result.PublicKey is not populated. Result.AdditionalInfo is optional.
+	Result *ChallengeResult
+	// Subject or email from the OIDC token
+	Subject string
+}
+
+// CheckSignature verifies a challenge, a signature over the subject or email
+// of an OIDC token
+func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	verifier, err := signature.LoadVerifier(pub, crypto.SHA256)
 	if err != nil {
 		return err
 	}
 
-	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(email))
+	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
 }
 
-func Email(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func email(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
 	} else if err != nil {
-		return nil, err
-	}
-
-	// Check the proof
-	if err := CheckSignature(pubKey, challenge, emailAddress); err != nil {
 		return nil, err
 	}
 
@@ -98,16 +107,17 @@ func Email(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey
 		return nil, err
 	}
 
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   EmailValue,
-		Value:     emailAddress,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:  issuer,
+			TypeVal: EmailValue,
+			Value:   emailAddress,
+		},
+		Subject: emailAddress,
 	}, nil
 }
 
-func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func spiffe(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 
 	spiffeID := principal.Subject
 
@@ -127,33 +137,25 @@ func Spiffe(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKe
 		return nil, fmt.Errorf("%s is not allowed for %s", spiffeID, issuerHostname)
 	}
 
-	// Check the proof
-	if err := CheckSignature(pubKey, challenge, spiffeID); err != nil {
-		return nil, err
-	}
-
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
 	if err != nil {
 		return nil, err
 	}
 
 	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   SpiffeValue,
-		Value:     spiffeID,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:  issuer,
+			TypeVal: SpiffeValue,
+			Value:   spiffeID,
+		},
+		Subject: spiffeID,
 	}, nil
 }
 
-func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func kubernetes(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 	k8sURI, err := kubernetesToken(principal)
 	if err != nil {
-		return nil, err
-	}
-
-	// Check the proof
-	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
 		return nil, err
 	}
 
@@ -167,16 +169,17 @@ func Kubernetes(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Publ
 		return nil, err
 	}
 
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   KubernetesValue,
-		Value:     k8sURI,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:  issuer,
+			TypeVal: KubernetesValue,
+			Value:   k8sURI,
+		},
+		Subject: principal.Subject,
 	}, nil
 }
 
-func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 	workflowRef, err := workflowFromIDToken(principal)
 	if err != nil {
 		return nil, err
@@ -186,11 +189,6 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 		return nil, err
 	}
 
-	// Check the proof
-	if err := CheckSignature(pubKey, challenge, principal.Subject); err != nil {
-		return nil, err
-	}
-
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
@@ -201,17 +199,18 @@ func GithubWorkflow(ctx context.Context, principal *oidc.IDToken, pubKey crypto.
 		return nil, err
 	}
 
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:         issuer,
-		PublicKey:      pubKey,
-		TypeVal:        GithubWorkflowValue,
-		Value:          workflowRef,
-		AdditionalInfo: additionalInfo,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:         issuer,
+			TypeVal:        GithubWorkflowValue,
+			Value:          workflowRef,
+			AdditionalInfo: additionalInfo,
+		},
+		Subject: principal.Subject,
 	}, nil
 }
 
-func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func uri(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 	uriWithSubject := principal.Subject
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
@@ -255,26 +254,22 @@ func URI(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, 
 		return nil, fmt.Errorf("subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
 	}
 
-	// Check the proof - A signature over the OIDC token subject
-	if err := CheckSignature(pubKey, challenge, uriWithSubject); err != nil {
-		return nil, err
-	}
-
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
 	if err != nil {
 		return nil, err
 	}
 
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   URIValue,
-		Value:     uriWithSubject,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:  issuer,
+			TypeVal: URIValue,
+			Value:   uriWithSubject,
+		},
+		Subject: uriWithSubject,
 	}, nil
 }
 
-func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func username(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
 	username := principal.Subject
 
 	if strings.Contains(username, "@") {
@@ -301,11 +296,6 @@ func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Public
 		return nil, err
 	}
 
-	// Check the proof - A signature over the OIDC token subject
-	if err := CheckSignature(pubKey, challenge, username); err != nil {
-		return nil, err
-	}
-
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
 	if err != nil {
 		return nil, err
@@ -313,12 +303,13 @@ func Username(ctx context.Context, principal *oidc.IDToken, pubKey crypto.Public
 
 	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
 
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:    issuer,
-		PublicKey: pubKey,
-		TypeVal:   UsernameValue,
-		Value:     emailSubject,
+	return &preChallengeResult{
+		Result: &ChallengeResult{
+			Issuer:  issuer,
+			TypeVal: UsernameValue,
+			Value:   emailSubject,
+		},
+		Subject: username,
 	}, nil
 }
 
@@ -443,25 +434,87 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
 
-func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, challenge []byte) (*ChallengeResult, error) {
+func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, csr *x509.CertificateRequest, challenge []byte) (*ChallengeResult, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
 	}
+	var result *preChallengeResult
+	var err error
 	switch iss.Type {
 	case config.IssuerTypeEmail:
-		return Email(ctx, tok, publicKey, challenge)
+		result, err = email(ctx, tok)
 	case config.IssuerTypeSpiffe:
-		return Spiffe(ctx, tok, publicKey, challenge)
+		result, err = spiffe(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:
-		return GithubWorkflow(ctx, tok, publicKey, challenge)
+		result, err = githubWorkflow(ctx, tok)
 	case config.IssuerTypeKubernetes:
-		return Kubernetes(ctx, tok, publicKey, challenge)
+		result, err = kubernetes(ctx, tok)
 	case config.IssuerTypeURI:
-		return URI(ctx, tok, publicKey, challenge)
+		result, err = uri(ctx, tok)
 	case config.IssuerTypeUsername:
-		return Username(ctx, tok, publicKey, challenge)
+		result, err = username(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// verify the proof of possession of the private key
+	if csr != nil {
+		err = csr.CheckSignature()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if err := CheckSignature(publicKey, challenge, result.Subject); err != nil {
+			return nil, err
+		}
+	}
+
+	result.Result.PublicKey = publicKey
+	return result.Result, nil
+}
+
+// TODO: Move to sigstore/sigstore
+func ParseCSR(csr []byte) (*x509.CertificateRequest, error) {
+	derBlock, _ := pem.Decode(csr)
+	if derBlock == nil || derBlock.Bytes == nil {
+		return nil, errors.New("no CSR found while decoding")
+	}
+	correctType := false
+	acceptedHeaders := []string{"CERTIFICATE REQUEST", "NEW CERTIFICATE REQUEST"}
+	for _, v := range acceptedHeaders {
+		if derBlock.Type == v {
+			correctType = true
+		}
+	}
+	if !correctType {
+		return nil, fmt.Errorf("DER type %v is not of any type %v for CSR", derBlock.Type, acceptedHeaders)
+	}
+
+	return x509.ParseCertificateRequest(derBlock.Bytes)
+}
+
+// ParsePublicKey parses a PEM or DER encoded public key, or extracts the public
+// key from the provided CSR. Returns an error if decoding fails or if no public
+// key is found.
+func ParsePublicKey(encodedPubKey string, csr *x509.CertificateRequest) (crypto.PublicKey, error) {
+	if csr == nil && len(encodedPubKey) == 0 {
+		return nil, errors.New("public key not provided")
+	}
+	if csr != nil {
+		return csr.PublicKey, nil
+	}
+	// try to unmarshal as PEM
+	publicKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(encodedPubKey))
+	if err != nil {
+		// try to unmarshal as DER
+		publicKey, err = x509.ParsePKIXPublicKey([]byte(encodedPubKey))
+		if err != nil {
+			return nil, errors.New("error parsing PEM or DER encoded public key")
+		}
+	}
+	return publicKey, err
 }
