@@ -54,4 +54,5 @@ curl -s --retry-connrefused --retry 10 http://fulcio-server:5555/api/v1/rootCert
 csplit -s -f tmpcert- tmpchain.pem '/-----BEGIN CERTIFICATE-----/' '{*}'
 mv $(ls tmpcert-* | tail -1) /etc/config/root.pem
 rm tmpcert-* tmpchain.pem
+cat /etc/config/root.pem
 echo "Fetched valid root certificate from Fulcio to limit entries in CTFE instance"
