@@ -96,12 +96,13 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v1/signingCert"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v1/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CA_CreateSigningCertificate_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CA_CreateSigningCertificate_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -119,12 +120,13 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/GetRootCertificate", runtime.WithHTTPPathPattern("/api/v1/rootCert"))
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/GetRootCertificate", runtime.WithHTTPPathPattern("/api/v1/rootCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CA_GetRootCertificate_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CA_GetRootCertificate_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -181,12 +183,13 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v1/signingCert"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v1/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CA_CreateSigningCertificate_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CA_CreateSigningCertificate_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -201,12 +204,13 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/GetRootCertificate", runtime.WithHTTPPathPattern("/api/v1/rootCert"))
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v1beta.CA/GetRootCertificate", runtime.WithHTTPPathPattern("/api/v1/rootCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CA_GetRootCertificate_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CA_GetRootCertificate_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
