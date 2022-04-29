@@ -55,7 +55,7 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 		NotAfter:     time.Now().Add(time.Minute * 10),
 		SubjectKeyId: skid,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		KeyUsage:     x509.KeyUsageCertSign,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
 
 	switch subject.TypeVal {
