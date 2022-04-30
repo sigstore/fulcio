@@ -1225,8 +1225,8 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 	if len(leafCert.SubjectKeyId) != 20 {
 		t.Fatalf("expected certificate subject key ID to be of length 20 bytes, got %d", len(leafCert.SubjectKeyId))
 	}
-	if leafCert.KeyUsage != x509.KeyUsageCertSign {
-		t.Fatalf("unexpected key usage, expected %v, got %v", x509.KeyUsageCertSign, leafCert.KeyUsage)
+	if leafCert.KeyUsage != x509.KeyUsageDigitalSignature {
+		t.Fatalf("unexpected key usage, expected %v, got %v", x509.KeyUsageDigitalSignature, leafCert.KeyUsage)
 	}
 	if len(leafCert.ExtKeyUsage) != 1 {
 		t.Fatalf("unexpected length of extended key usage, expected 1, got %d", len(leafCert.ExtKeyUsage))
