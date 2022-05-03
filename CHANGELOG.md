@@ -1,3 +1,32 @@
+# v0.4.1
+
+## Bug Fixes
+
+* Fix key usage for issued certificates (#549)
+
+## Documentation
+
+* Add note about the status of the legacy HTTP API. (#531)
+
+## Others
+
+* Bump google.golang.org/api from 0.76.0 to 0.77.0 (#552)
+* chore(deps): Included dependency review (#540)
+* Add @haydentherapper to CODEOWNERS (#548)
+* Bump github.com/google/go-cmp from 0.5.7 to 0.5.8 (#544)
+* Bump github.com/fsnotify/fsnotify from 1.5.3 to 1.5.4 (#543)
+* Bump google.golang.org/api from 0.75.0 to 0.76.0 (#542)
+* Bump github/codeql-action from 2.1.8 to 2.1.9 (#545)
+* Bump github.com/googleapis/api-linter in /hack/tools (#546)
+* Bump google.golang.org/grpc from 1.45.0 to 1.46.0 (#541)
+
+## Contributors
+
+* Bob Callaway (@bobcallaway)
+* Hayden Blauzvern (@haydentherapper)
+* Naveen (@naveensrinivasan)
+* Zack Newman (@znewman01)
+
 # v0.4.0
 
 ## Enhancements
