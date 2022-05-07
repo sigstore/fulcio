@@ -25,11 +25,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/log"
 )
+
+const defaultOIDCDiscoveryTimeout = 10 * time.Second
 
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
@@ -132,7 +135,9 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 		return nil, false
 	}
 
-	provider, err := oidc.NewProvider(context.Background(), issuerURL)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
+	defer cancel()
+	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
@@ -145,7 +150,9 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 func (fc *FulcioConfig) prepare() error {
 	fc.verifiers = make(map[string]*oidc.IDTokenVerifier, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
-		provider, err := oidc.NewProvider(context.Background(), iss.IssuerURL)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
+		defer cancel()
+		provider, err := oidc.NewProvider(ctx, iss.IssuerURL)
 		if err != nil {
 			return fmt.Errorf("provider %s: %w", iss.IssuerURL, err)
 		}
