@@ -20,8 +20,6 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"net/url"
@@ -88,7 +86,39 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 	case challenges.UsernameValue:
 		cert.EmailAddresses = []string{subject.Value}
 	}
-	cert.ExtraExtensions = append(IssuerExtension(subject.Issuer), AdditionalExtensions(subject)...)
+
+	exts := Extensions{
+		Issuer: subject.Issuer,
+	}
+	if subject.TypeVal == challenges.GithubWorkflowValue {
+		var ok bool
+		exts.GithubWorkflowTrigger, ok = subject.AdditionalInfo[challenges.GithubWorkflowTrigger]
+		if !ok {
+			return nil, errors.New("x509ca: github workflow missing trigger claim")
+		}
+		exts.GithubWorkflowSHA, ok = subject.AdditionalInfo[challenges.GithubWorkflowSha]
+		if !ok {
+			return nil, errors.New("x509ca: github workflow missing SHA claim")
+		}
+		exts.GithubWorkflowName, ok = subject.AdditionalInfo[challenges.GithubWorkflowName]
+		if !ok {
+			return nil, errors.New("x509ca: github workflow missing workflow name claim")
+		}
+		exts.GithubWorkflowRepository, ok = subject.AdditionalInfo[challenges.GithubWorkflowRepository]
+		if !ok {
+			return nil, errors.New("x509ca: github workflow missing repository claim")
+		}
+		exts.GithubWorkflowRef, ok = subject.AdditionalInfo[challenges.GithubWorkflowRef]
+		if !ok {
+			return nil, errors.New("x509ca: github workflow missing ref claim")
+		}
+	}
+
+	cert.ExtraExtensions, err = exts.Render()
+	if err != nil {
+		return nil, err
+	}
+
 	return cert, nil
 }
 
@@ -111,58 +141,6 @@ func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.Challe
 	}
 
 	return ca.CreateCSCFromDER(subject, finalCertBytes, []*x509.Certificate{x.RootCA})
-}
-
-func AdditionalExtensions(subject *challenges.ChallengeResult) []pkix.Extension {
-	res := []pkix.Extension{}
-	if subject.TypeVal == challenges.GithubWorkflowValue {
-		if trigger, ok := subject.AdditionalInfo[challenges.GithubWorkflowTrigger]; ok {
-			res = append(res, pkix.Extension{
-				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
-				Value: []byte(trigger),
-			})
-		}
-
-		if sha, ok := subject.AdditionalInfo[challenges.GithubWorkflowSha]; ok {
-			res = append(res, pkix.Extension{
-				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
-				Value: []byte(sha),
-			})
-		}
-
-		if name, ok := subject.AdditionalInfo[challenges.GithubWorkflowName]; ok {
-			res = append(res, pkix.Extension{
-				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4},
-				Value: []byte(name),
-			})
-		}
-
-		if repo, ok := subject.AdditionalInfo[challenges.GithubWorkflowRepository]; ok {
-			res = append(res, pkix.Extension{
-				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5},
-				Value: []byte(repo),
-			})
-		}
-
-		if ref, ok := subject.AdditionalInfo[challenges.GithubWorkflowRef]; ok {
-			res = append(res, pkix.Extension{
-				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6},
-				Value: []byte(ref),
-			})
-		}
-	}
-	return res
-}
-
-func IssuerExtension(issuer string) []pkix.Extension {
-	if issuer == "" {
-		return nil
-	}
-
-	return []pkix.Extension{{
-		Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
-		Value: []byte(issuer),
-	}}
 }
 
 // GenerateSerialNumber creates a compliant serial number as per RFC 5280 4.1.2.2.
