@@ -69,13 +69,12 @@ func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, challenge *
 		return nil, err
 	}
 
-	csc, err := ca.CreateCSCFromDER(challenge, finalCertBytes, certChain)
+	csc, err := ca.CreateCSCFromDER(finalCertBytes, certChain)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ca.CodeSigningPreCertificate{
-		Subject:    csc.Subject,
 		PreCert:    csc.FinalCertificate,
 		CertChain:  csc.FinalChain,
 		PrivateKey: privateKey,
@@ -128,7 +127,7 @@ func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *c
 		return nil, err
 	}
 
-	return ca.CreateCSCFromDER(precert.Subject, finalCertBytes, precert.CertChain)
+	return ca.CreateCSCFromDER(finalCertBytes, precert.CertChain)
 }
 
 func (ica *IntermediateCA) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
@@ -144,7 +143,7 @@ func (ica *IntermediateCA) CreateCertificate(ctx context.Context, challenge *cha
 		return nil, err
 	}
 
-	return ca.CreateCSCFromDER(challenge, finalCertBytes, certChain)
+	return ca.CreateCSCFromDER(finalCertBytes, certChain)
 }
 
 func (ica *IntermediateCA) Root(ctx context.Context) ([]byte, error) {

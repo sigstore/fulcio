@@ -140,7 +140,7 @@ func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.Challe
 		return nil, err
 	}
 
-	return ca.CreateCSCFromDER(subject, finalCertBytes, []*x509.Certificate{x.RootCA})
+	return ca.CreateCSCFromDER(finalCertBytes, []*x509.Certificate{x.RootCA})
 }
 
 // GenerateSerialNumber creates a compliant serial number as per RFC 5280 4.1.2.2.
