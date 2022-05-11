@@ -21,7 +21,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
-	"math/big"
 	"net/url"
 	"time"
 
@@ -37,7 +36,7 @@ type X509CA struct {
 }
 
 func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
-	serialNumber, err := GenerateSerialNumber()
+	serialNumber, err := cryptoutils.GenerateSerialNumber()
 	if err != nil {
 		return nil, err
 	}
@@ -141,17 +140,4 @@ func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.Challe
 	}
 
 	return ca.CreateCSCFromDER(finalCertBytes, []*x509.Certificate{x.RootCA})
-}
-
-// GenerateSerialNumber creates a compliant serial number as per RFC 5280 4.1.2.2.
-// Serial numbers must be positive, and can be no longer than 20 bytes.
-// The serial number is generated with 159 bits, so that the first bit will always
-// be 0, resulting in a positive serial number.
-func GenerateSerialNumber() (*big.Int, error) {
-	// Pick a random number from 0 to 2^159.
-	serial, err := rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
-	if err != nil {
-		return nil, errors.Wrap(err, "error generating serial number")
-	}
-	return serial, nil
 }

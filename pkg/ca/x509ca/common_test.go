@@ -23,30 +23,11 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/challenges"
 )
-
-func TestGenerateSerialNumber(t *testing.T) {
-	serialNumber, err := GenerateSerialNumber()
-	if err != nil {
-		t.Fatalf("unexpected error generating serial number: %v", err)
-	}
-	if serialNumber.Cmp(big.NewInt(0)) == -1 {
-		t.Fatalf("serial number is negative: %v", serialNumber)
-	}
-	if serialNumber.Cmp(big.NewInt(0)) == 0 {
-		t.Fatalf("serial number is 0: %v", serialNumber)
-	}
-	maxSerial := (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil)
-	// Serial number must be less than max serial number.
-	if serialNumber.Cmp(maxSerial) >= 0 {
-		t.Fatalf("serial number is too large: %v", serialNumber)
-	}
-}
 
 func mustNewTestPublicKey() crypto.PublicKey {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

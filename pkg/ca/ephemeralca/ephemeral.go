@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -40,7 +41,7 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 
 	e.PrivKey = signer
 
-	serialNumber, err := x509ca.GenerateSerialNumber()
+	serialNumber, err := cryptoutils.GenerateSerialNumber()
 	if err != nil {
 		return nil, err
 	}

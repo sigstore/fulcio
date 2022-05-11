@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -105,7 +105,7 @@ func runCreateCACmd(cmd *cobra.Command, args []string) {
 
 	pubKey := privKey.Public()
 
-	serialNumber, err := x509ca.GenerateSerialNumber()
+	serialNumber, err := cryptoutils.GenerateSerialNumber()
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
