@@ -17,6 +17,7 @@ package v1
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
@@ -30,7 +31,7 @@ import (
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/api/iterator"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
@@ -160,13 +161,13 @@ func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
 	return c.cachedRoots, nil
 }
 
-func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(subj)
+func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
+	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}
 
-	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(subj.PublicKey)
+	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(publicKey)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}

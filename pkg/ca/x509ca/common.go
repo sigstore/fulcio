@@ -21,12 +21,10 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
-	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
@@ -35,13 +33,13 @@ type X509CA struct {
 	PrivKey crypto.Signer
 }
 
-func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
+func MakeX509(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*x509.Certificate, error) {
 	serialNumber, err := cryptoutils.GenerateSerialNumber()
 	if err != nil {
 		return nil, err
 	}
 
-	skid, err := cryptoutils.SKID(subject.PublicKey)
+	skid, err := cryptoutils.SKID(publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -55,67 +53,9 @@ func MakeX509(subject *challenges.ChallengeResult) (*x509.Certificate, error) {
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
 
-	switch subject.TypeVal {
-	case challenges.EmailValue:
-		cert.EmailAddresses = []string{subject.Value}
-	case challenges.SpiffeValue:
-		challengeURL, err := url.Parse(subject.Value)
-		if err != nil {
-			return nil, ca.ValidationError(err)
-		}
-		cert.URIs = []*url.URL{challengeURL}
-	case challenges.GithubWorkflowValue:
-		jobWorkflowURI, err := url.Parse(subject.Value)
-		if err != nil {
-			return nil, ca.ValidationError(err)
-		}
-		cert.URIs = []*url.URL{jobWorkflowURI}
-	case challenges.KubernetesValue:
-		k8sURI, err := url.Parse(subject.Value)
-		if err != nil {
-			return nil, ca.ValidationError(err)
-		}
-		cert.URIs = []*url.URL{k8sURI}
-	case challenges.URIValue:
-		subjectURI, err := url.Parse(subject.Value)
-		if err != nil {
-			return nil, ca.ValidationError(err)
-		}
-		cert.URIs = []*url.URL{subjectURI}
-	case challenges.UsernameValue:
-		cert.EmailAddresses = []string{subject.Value}
-	}
-
-	exts := Extensions{
-		Issuer: subject.Issuer,
-	}
-	if subject.TypeVal == challenges.GithubWorkflowValue {
-		var ok bool
-		exts.GithubWorkflowTrigger, ok = subject.AdditionalInfo[challenges.GithubWorkflowTrigger]
-		if !ok {
-			return nil, errors.New("x509ca: github workflow missing trigger claim")
-		}
-		exts.GithubWorkflowSHA, ok = subject.AdditionalInfo[challenges.GithubWorkflowSha]
-		if !ok {
-			return nil, errors.New("x509ca: github workflow missing SHA claim")
-		}
-		exts.GithubWorkflowName, ok = subject.AdditionalInfo[challenges.GithubWorkflowName]
-		if !ok {
-			return nil, errors.New("x509ca: github workflow missing workflow name claim")
-		}
-		exts.GithubWorkflowRepository, ok = subject.AdditionalInfo[challenges.GithubWorkflowRepository]
-		if !ok {
-			return nil, errors.New("x509ca: github workflow missing repository claim")
-		}
-		exts.GithubWorkflowRef, ok = subject.AdditionalInfo[challenges.GithubWorkflowRef]
-		if !ok {
-			return nil, errors.New("x509ca: github workflow missing ref claim")
-		}
-	}
-
-	cert.ExtraExtensions, err = exts.Render()
+	err = principal.Embed(ctx, cert)
 	if err != nil {
-		return nil, err
+		return nil, ca.ValidationError(err)
 	}
 
 	return cert, nil
@@ -128,13 +68,13 @@ func (x *X509CA) Root(ctx context.Context) ([]byte, error) {
 	}), nil
 }
 
-func (x *X509CA) CreateCertificate(_ context.Context, subject *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	cert, err := MakeX509(subject)
+func (x *X509CA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
+	cert, err := MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, x.RootCA, subject.PublicKey, x.PrivKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, x.RootCA, publicKey, x.PrivKey)
 	if err != nil {
 		return nil, err
 	}

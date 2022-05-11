@@ -16,6 +16,7 @@
 package challenges
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -25,7 +26,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -36,6 +39,95 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
+func TestEmbedChallengeResult(t *testing.T) {
+	tests := map[string]struct {
+		Challenge ChallengeResult
+		WantErr   bool
+		WantFacts map[string]func(x509.Certificate) error
+	}{
+		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
+			Challenge: ChallengeResult{
+				Issuer:  `https://token.actions.githubusercontent.com`,
+				TypeVal: GithubWorkflowValue,
+				Value:   `https://github.com/foo/bar/`,
+				AdditionalInfo: map[AdditionalInfo]string{
+					GithubWorkflowSha:        "sha",
+					GithubWorkflowTrigger:    "trigger",
+					GithubWorkflowName:       "workflowname",
+					GithubWorkflowRepository: "repository",
+					GithubWorkflowRef:        "ref",
+				},
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Certifificate should have correct issuer`:     factIssuerIs(`https://token.actions.githubusercontent.com`),
+				`Certificate has correct trigger extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}, "trigger"),
+				`Certificate has correct SHA extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3}, "sha"),
+				`Certificate has correct workflow extension`:   factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4}, "workflowname"),
+				`Certificate has correct repository extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "repository"),
+				`Certificate has correct ref extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "ref"),
+			},
+		},
+		`Email challenges should set issuer extension and email subject`: {
+			Challenge: ChallengeResult{
+				Issuer:  `example.com`,
+				TypeVal: EmailValue,
+				Value:   `alice@example.com`,
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Certificate should have alice@example.com email subject`: func(cert x509.Certificate) error {
+					if len(cert.EmailAddresses) != 1 {
+						return errors.New("no email SAN set for email challenge")
+					}
+					if cert.EmailAddresses[0] != `alice@example.com` {
+						return errors.New("bad email. expected alice@example.com")
+					}
+					return nil
+				},
+				`Certificate should have issuer extension set`: factIssuerIs("example.com"),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var cert x509.Certificate
+			err := test.Challenge.Embed(context.TODO(), &cert)
+			if err != nil {
+				if !test.WantErr {
+					t.Error(err)
+				}
+				return
+			}
+			for factName, fact := range test.WantFacts {
+				t.Run(factName, func(t *testing.T) {
+					if err := fact(cert); err != nil {
+						t.Error(err)
+					}
+				})
+			}
+		})
+	}
+}
+
+func factIssuerIs(issuer string) func(x509.Certificate) error {
+	return factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, issuer)
+}
+
+func factExtensionIs(oid asn1.ObjectIdentifier, value string) func(x509.Certificate) error {
+	return func(cert x509.Certificate) error {
+		for _, ext := range cert.ExtraExtensions {
+			if ext.Id.Equal(oid) {
+				if !bytes.Equal(ext.Value, []byte(value)) {
+					return fmt.Errorf("expected oid %v to be %s, but got %s", oid, value, ext.Value)
+				}
+				return nil
+			}
+		}
+		return errors.New("extension not set")
+	}
+}
 func Test_isSpiffeIDAllowed(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -93,21 +185,28 @@ func TestURI(t *testing.T) {
 	issuer := "https://accounts.example.com"
 	token := &oidc.IDToken{Subject: subject, Issuer: issuer}
 
-	result, err := uri(ctx, token)
+	principal, err := uri(ctx, token)
 	if err != nil {
 		t.Errorf("Expected test success, got %v", err)
 	}
-	if result.Result.Issuer != issuer {
-		t.Errorf("Expected issuer %s, got %s", issuer, result.Result.Issuer)
+	if principal.Name(ctx) != token.Subject {
+		t.Errorf("Expected subject %v, got %v", token.Subject, principal.Name(ctx))
 	}
-	if result.Result.Value != subject {
-		t.Errorf("Expected subject value %s, got %s", subject, result.Result.Value)
+	raw, ok := principal.(*ChallengeResult)
+	if !ok {
+		t.Fatal("expected principal to be a ChallengeResult")
 	}
-	if result.Result.TypeVal != URIValue {
-		t.Errorf("Expected type %v, got %v", URIValue, result.Result.TypeVal)
+	if raw.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, raw.Issuer)
 	}
-	if result.Subject != token.Subject {
-		t.Errorf("Expected subject %v, got %v", token.Subject, result.Subject)
+	if raw.Value != subject {
+		t.Errorf("Expected subject value %s, got %s", subject, raw.Value)
+	}
+	if raw.TypeVal != URIValue {
+		t.Errorf("Expected type %v, got %v", URIValue, raw.TypeVal)
+	}
+	if raw.subject != token.Subject {
+		t.Errorf("Expected subject %v, got %v", token.Subject, raw.subject)
 	}
 }
 
@@ -128,21 +227,29 @@ func TestUsername(t *testing.T) {
 	issuer := "https://accounts.example.com"
 	token := &oidc.IDToken{Subject: usernameVal, Issuer: issuer}
 
-	result, err := username(ctx, token)
+	principal, err := username(ctx, token)
 	if err != nil {
 		t.Errorf("Expected test success, got %v", err)
 	}
-	if result.Result.Issuer != issuer {
-		t.Errorf("Expected issuer %s, got %s", issuer, result.Result.Issuer)
+	if principal.Name(ctx) != token.Subject {
+		t.Errorf("Expected subject %s, got %s", token.Subject, principal.Name(ctx))
 	}
-	if result.Result.Value != usernameWithEmail {
-		t.Errorf("Expected subject value %s, got %s", usernameWithEmail, result.Result.Value)
+	raw, ok := principal.(*ChallengeResult)
+	if !ok {
+		t.Fatal("expected principal to be a ChallengeResult")
 	}
-	if result.Result.TypeVal != UsernameValue {
-		t.Errorf("Expected type %v, got %v", UsernameValue, result.Result.TypeVal)
+
+	if raw.Issuer != issuer {
+		t.Errorf("Expected issuer %s, got %s", issuer, raw.Issuer)
 	}
-	if result.Subject != token.Subject {
-		t.Errorf("Expected subject %s, got %s", token.Subject, result.Subject)
+	if raw.Value != usernameWithEmail {
+		t.Errorf("Expected subject value %s, got %s", usernameWithEmail, raw.Value)
+	}
+	if raw.TypeVal != UsernameValue {
+		t.Errorf("Expected type %v, got %v", UsernameValue, raw.TypeVal)
+	}
+	if raw.subject != token.Subject {
+		t.Errorf("Expected subject %s, got %s", token.Subject, raw.subject)
 	}
 }
 

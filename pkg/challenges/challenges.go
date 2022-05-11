@@ -26,7 +26,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/identity"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -61,21 +63,91 @@ const (
 )
 
 type ChallengeResult struct {
-	Issuer    string
-	TypeVal   ChallengeType
-	PublicKey crypto.PublicKey
-	Value     string
+	Issuer  string
+	TypeVal ChallengeType
+
+	// Value configures what will be set for SubjectAlternativeName in
+	// the certificate issued.
+	Value string
+
 	// Extra information from the token that can be added to extensions.
 	AdditionalInfo map[AdditionalInfo]string
+
+	// subject or email from the id token. This must be the thing
+	// signed in the proof of possession!
+	subject string
 }
 
-// preChallengeResult holds an additional value for the subject of the token,
-// used to verify the proof of poessession signature.
-type preChallengeResult struct {
-	// Result.PublicKey is not populated. Result.AdditionalInfo is optional.
-	Result *ChallengeResult
-	// Subject or email from the OIDC token
-	Subject string
+func (cr *ChallengeResult) Name(context.Context) string {
+	return cr.subject
+}
+
+func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) error {
+	switch cr.TypeVal {
+	case EmailValue:
+		cert.EmailAddresses = []string{cr.Value}
+	case SpiffeValue:
+		challengeURL, err := url.Parse(cr.Value)
+		if err != nil {
+			return err
+		}
+		cert.URIs = []*url.URL{challengeURL}
+	case GithubWorkflowValue:
+		jobWorkflowURI, err := url.Parse(cr.Value)
+		if err != nil {
+			return err
+		}
+		cert.URIs = []*url.URL{jobWorkflowURI}
+	case KubernetesValue:
+		k8sURI, err := url.Parse(cr.Value)
+		if err != nil {
+			return err
+		}
+		cert.URIs = []*url.URL{k8sURI}
+	case URIValue:
+		subjectURI, err := url.Parse(cr.Value)
+		if err != nil {
+			return err
+		}
+		cert.URIs = []*url.URL{subjectURI}
+	case UsernameValue:
+		cert.EmailAddresses = []string{cr.Value}
+	}
+
+	exts := x509ca.Extensions{
+		Issuer: cr.Issuer,
+	}
+	if cr.TypeVal == GithubWorkflowValue {
+		var ok bool
+		exts.GithubWorkflowTrigger, ok = cr.AdditionalInfo[GithubWorkflowTrigger]
+		if !ok {
+			return errors.New("github workflow missing trigger claim")
+		}
+		exts.GithubWorkflowSHA, ok = cr.AdditionalInfo[GithubWorkflowSha]
+		if !ok {
+			return errors.New("github workflow missing SHA claim")
+		}
+		exts.GithubWorkflowName, ok = cr.AdditionalInfo[GithubWorkflowName]
+		if !ok {
+			return errors.New("github workflow missing workflow name claim")
+		}
+		exts.GithubWorkflowRepository, ok = cr.AdditionalInfo[GithubWorkflowRepository]
+		if !ok {
+			return errors.New("github workflow missing repository claim")
+		}
+		exts.GithubWorkflowRef, ok = cr.AdditionalInfo[GithubWorkflowRef]
+		if !ok {
+			return errors.New("github workflow missing ref claim")
+		}
+	}
+
+	var err error
+	cert.ExtraExtensions, err = exts.Render()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CheckSignature verifies a challenge, a signature over the subject or email
@@ -89,7 +161,7 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
 }
 
-func email(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
@@ -107,17 +179,15 @@ func email(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, e
 		return nil, err
 	}
 
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:  issuer,
-			TypeVal: EmailValue,
-			Value:   emailAddress,
-		},
-		Subject: emailAddress,
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: EmailValue,
+		Value:   emailAddress,
+		subject: emailAddress,
 	}, nil
 }
 
-func spiffe(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 
 	spiffeID := principal.Subject
 
@@ -143,17 +213,15 @@ func spiffe(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, 
 	}
 
 	// Now issue cert!
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:  issuer,
-			TypeVal: SpiffeValue,
-			Value:   spiffeID,
-		},
-		Subject: spiffeID,
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: SpiffeValue,
+		Value:   spiffeID,
+		subject: spiffeID,
 	}, nil
 }
 
-func kubernetes(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func kubernetes(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	k8sURI, err := kubernetesToken(principal)
 	if err != nil {
 		return nil, err
@@ -169,17 +237,15 @@ func kubernetes(ctx context.Context, principal *oidc.IDToken) (*preChallengeResu
 		return nil, err
 	}
 
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:  issuer,
-			TypeVal: KubernetesValue,
-			Value:   k8sURI,
-		},
-		Subject: principal.Subject,
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: KubernetesValue,
+		Value:   k8sURI,
+		subject: principal.Subject,
 	}, nil
 }
 
-func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	workflowRef, err := workflowFromIDToken(principal)
 	if err != nil {
 		return nil, err
@@ -199,18 +265,16 @@ func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (*preChallenge
 		return nil, err
 	}
 
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:         issuer,
-			TypeVal:        GithubWorkflowValue,
-			Value:          workflowRef,
-			AdditionalInfo: additionalInfo,
-		},
-		Subject: principal.Subject,
+	return &ChallengeResult{
+		Issuer:         issuer,
+		TypeVal:        GithubWorkflowValue,
+		Value:          workflowRef,
+		AdditionalInfo: additionalInfo,
+		subject:        principal.Subject,
 	}, nil
 }
 
-func uri(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	uriWithSubject := principal.Subject
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
@@ -259,17 +323,15 @@ func uri(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, err
 		return nil, err
 	}
 
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:  issuer,
-			TypeVal: URIValue,
-			Value:   uriWithSubject,
-		},
-		Subject: uriWithSubject,
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: URIValue,
+		Value:   uriWithSubject,
+		subject: uriWithSubject,
 	}, nil
 }
 
-func username(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult, error) {
+func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	username := principal.Subject
 
 	if strings.Contains(username, "@") {
@@ -303,13 +365,11 @@ func username(ctx context.Context, principal *oidc.IDToken) (*preChallengeResult
 
 	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
 
-	return &preChallengeResult{
-		Result: &ChallengeResult{
-			Issuer:  issuer,
-			TypeVal: UsernameValue,
-			Value:   emailSubject,
-		},
-		Subject: username,
+	return &ChallengeResult{
+		Issuer:  issuer,
+		TypeVal: UsernameValue,
+		Value:   emailSubject,
+		subject: username,
 	}, nil
 }
 
@@ -434,26 +494,26 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
 
-func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, csr *x509.CertificateRequest, challenge []byte) (*ChallengeResult, error) {
+func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, csr *x509.CertificateRequest, challenge []byte) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
 	}
-	var result *preChallengeResult
+	var principal identity.Principal
 	var err error
 	switch iss.Type {
 	case config.IssuerTypeEmail:
-		result, err = email(ctx, tok)
+		principal, err = email(ctx, tok)
 	case config.IssuerTypeSpiffe:
-		result, err = spiffe(ctx, tok)
+		principal, err = spiffe(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:
-		result, err = githubWorkflow(ctx, tok)
+		principal, err = githubWorkflow(ctx, tok)
 	case config.IssuerTypeKubernetes:
-		result, err = kubernetes(ctx, tok)
+		principal, err = kubernetes(ctx, tok)
 	case config.IssuerTypeURI:
-		result, err = uri(ctx, tok)
+		principal, err = uri(ctx, tok)
 	case config.IssuerTypeUsername:
-		result, err = username(ctx, tok)
+		principal, err = username(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
@@ -468,13 +528,12 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 			return nil, err
 		}
 	} else {
-		if err := CheckSignature(publicKey, challenge, result.Subject); err != nil {
+		if err := CheckSignature(publicKey, challenge, principal.Name(ctx)); err != nil {
 			return nil, err
 		}
 	}
 
-	result.Result.PublicKey = publicKey
-	return result.Result, nil
+	return principal, nil
 }
 
 // TODO: Move to sigstore/sigstore

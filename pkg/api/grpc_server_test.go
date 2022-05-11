@@ -17,6 +17,7 @@ package api
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -42,9 +43,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -1250,7 +1251,7 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 type FailingCertificateAuthority struct {
 }
 
-func (fca *FailingCertificateAuthority) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
+func (fca *FailingCertificateAuthority) CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	return nil, errors.New("CreateCertificate always fails for testing")
 }
 func (fca *FailingCertificateAuthority) Root(ctx context.Context) ([]byte, error) {

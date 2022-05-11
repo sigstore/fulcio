@@ -17,13 +17,14 @@ package ca
 
 import (
 	"context"
+	"crypto"
 
-	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/identity"
 )
 
 // CertificateAuthority implements certificate creation with a detached SCT and
 // fetching the CA trust bundle.
 type CertificateAuthority interface {
-	CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*CodeSigningCertificate, error)
+	CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*CodeSigningCertificate, error)
 	Root(ctx context.Context) ([]byte, error)
 }
