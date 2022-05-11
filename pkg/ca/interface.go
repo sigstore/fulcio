@@ -27,7 +27,6 @@ import (
 )
 
 type CodeSigningCertificate struct {
-	Subject          *challenges.ChallengeResult
 	FinalCertificate *x509.Certificate
 	FinalChain       []*x509.Certificate
 	finalPEM         string
@@ -36,8 +35,6 @@ type CodeSigningCertificate struct {
 
 // CodeSigningPreCertificate holds a precertificate and chain.
 type CodeSigningPreCertificate struct {
-	// Subject contains information about the OIDC identity of the caller.
-	Subject *challenges.ChallengeResult
 	// PreCert contains the precertificate. Not a valid certificate due to a critical poison extension.
 	PreCert *x509.Certificate
 	// CertChain contains the certificate chain to verify the precertificate.
@@ -47,10 +44,8 @@ type CodeSigningPreCertificate struct {
 	PrivateKey crypto.Signer
 }
 
-func CreateCSCFromPEM(subject *challenges.ChallengeResult, cert string, chain []string) (*CodeSigningCertificate, error) {
-	c := &CodeSigningCertificate{
-		Subject: subject,
-	}
+func CreateCSCFromPEM(cert string, chain []string) (*CodeSigningCertificate, error) {
+	var c CodeSigningCertificate
 
 	// convert to X509 and store both formats
 	finalCert, err := cryptoutils.UnmarshalCertificatesFromPEM([]byte(cert))
@@ -71,13 +66,14 @@ func CreateCSCFromPEM(subject *challenges.ChallengeResult, cert string, chain []
 			c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(cert))
 		}
 	}
-	return c, nil
+	return &c, nil
 }
 
-func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []*x509.Certificate) (c *CodeSigningCertificate, err error) {
-	c = &CodeSigningCertificate{
-		Subject: subject,
-	}
+func CreateCSCFromDER(cert []byte, chain []*x509.Certificate) (*CodeSigningCertificate, error) {
+	var (
+		c   CodeSigningCertificate
+		err error
+	)
 
 	// convert to X509 and store both formats
 	c.finalPEM = strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, cert)))
@@ -94,7 +90,7 @@ func CreateCSCFromDER(subject *challenges.ChallengeResult, cert []byte, chain []
 	for _, chainCert := range c.FinalChain {
 		c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))))
 	}
-	return c, nil
+	return &c, nil
 }
 
 func (c *CodeSigningCertificate) CertPEM() (string, error) {

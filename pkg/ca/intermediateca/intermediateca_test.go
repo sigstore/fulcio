@@ -161,12 +161,6 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	challenge := &challenges.ChallengeResult{
-		Issuer:    "iss",
-		TypeVal:   challenges.EmailValue,
-		Value:     "foo@example.com",
-		PublicKey: priv.Public(),
-	}
 	certChain := []*x509.Certificate{subCert, rootCert}
 
 	ica := IntermediateCA{Certs: certChain, Signer: subKey}
@@ -179,9 +173,6 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("error generating precertificate: %v", err)
-	}
-	if !reflect.DeepEqual(*precsc.Subject, *challenge) {
-		t.Fatalf("challenges are not equal, got %v, expected %v", *precsc.Subject, *challenge)
 	}
 	if !subKey.Equal(precsc.PrivateKey) {
 		t.Fatal("subordinate private keys are not equal")

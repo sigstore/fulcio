@@ -186,5 +186,5 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 		return nil, err
 	}
 
-	return ca.CreateCSCFromPEM(subj, resp.PemCertificate, resp.PemCertificateChain)
+	return ca.CreateCSCFromPEM(resp.PemCertificate, resp.PemCertificateChain)
 }
