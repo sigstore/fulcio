@@ -20,7 +20,8 @@ import (
 )
 
 type Principal interface {
-	// URI, email etc of principal
+	// Name is the email or subject of OIDC ID token. This value must match the
+	// value signed in the proof of private key possession challenge.
 	Name(ctx context.Context) string
 
 	// Embed all SubjectAltName and custom x509 extension information into
