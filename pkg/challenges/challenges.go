@@ -523,15 +523,11 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	return principal, nil
 }
 
-// ParsePublicKey parses a PEM or DER encoded public key, or extracts the public
-// key from the provided CSR. Returns an error if decoding fails or if no public
-// key is found.
-func ParsePublicKey(encodedPubKey string, csr *x509.CertificateRequest) (crypto.PublicKey, error) {
-	if csr == nil && len(encodedPubKey) == 0 {
+// ParsePublicKey parses a PEM or DER encoded public key. Returns an error if
+// decoding fails or if no public key is found.
+func ParsePublicKey(encodedPubKey string) (crypto.PublicKey, error) {
+	if len(encodedPubKey) == 0 {
 		return nil, errors.New("public key not provided")
-	}
-	if csr != nil {
-		return csr.PublicKey, nil
 	}
 	// try to unmarshal as PEM
 	publicKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(encodedPubKey))

@@ -17,7 +17,7 @@ package api
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -83,40 +83,49 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
 	}
 
-	// optionally parse CSR
-	var csr *x509.CertificateRequest
+	var publicKey crypto.PublicKey
+	// Verify caller is in possession of their private key and extract
+	// public key from request.
 	if len(request.GetCertificateSigningRequest()) > 0 {
-		csr, err = cryptoutils.ParseCSR(request.GetCertificateSigningRequest())
+		// Option 1: Verify CSR
+		csr, err := cryptoutils.ParseCSR(request.GetCertificateSigningRequest())
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidCSR)
 		}
-	}
 
-	// fetch public key from request or CSR
-	var pubKeyContent string
-	var proofOfPossession []byte
-	if request.GetPublicKeyRequest() != nil {
-		if request.GetPublicKeyRequest().PublicKey != nil {
-			pubKeyContent = request.GetPublicKeyRequest().PublicKey.Content
+		// Parse public key and check for weak key parameters
+		publicKey = csr.PublicKey
+		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
-		proofOfPossession = request.GetPublicKeyRequest().ProofOfPossession
-	}
-	publicKey, err := challenges.ParsePublicKey(pubKeyContent, csr)
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
-	}
 
-	// validate public key, checking for weak key parameters
-	if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
-	}
-
-	// verify the challenge
-	if csr != nil {
 		if err := csr.CheckSignature(); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 		}
 	} else {
+		// Option 2: Check the signature for proof of possession of a private key
+		var (
+			pubKeyContent     string
+			proofOfPossession []byte
+			err               error
+		)
+		if request.GetPublicKeyRequest() != nil {
+			if request.GetPublicKeyRequest().PublicKey != nil {
+				pubKeyContent = request.GetPublicKeyRequest().PublicKey.Content
+			}
+			proofOfPossession = request.GetPublicKeyRequest().ProofOfPossession
+		}
+
+		// Parse public key and check for weak parameters
+		publicKey, err = challenges.ParsePublicKey(pubKeyContent)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
+		}
+		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
+		}
+
+		// Check proof of possession signature
 		if err := challenges.CheckSignature(publicKey, proofOfPossession, principal.Name(ctx)); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 		}

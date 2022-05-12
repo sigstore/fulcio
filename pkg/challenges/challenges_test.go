@@ -25,9 +25,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/url"
@@ -466,28 +464,13 @@ func TestCheckSignatureRSA(t *testing.T) {
 }
 
 func TestParsePublicKey(t *testing.T) {
-	// succeeds with CSR
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	failErr(t, err)
-	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
-	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
-	failErr(t, err)
-	pemCSR := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE REQUEST",
-		Bytes: derCSR,
-	})
-	parsedCSR, err := cryptoutils.ParseCSR(pemCSR)
-	failErr(t, err)
-	pubKey, err := ParsePublicKey("", parsedCSR)
-	failErr(t, err)
-	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
-		t.Fatalf("expected equal public keys")
-	}
 
 	// succeeds with PEM-encoded key
 	pemKey, err := cryptoutils.MarshalPublicKeyToPEM(priv.Public())
 	failErr(t, err)
-	pubKey, err = ParsePublicKey(string(pemKey), nil)
+	pubKey, err := ParsePublicKey(string(pemKey))
 	failErr(t, err)
 	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
 		t.Fatalf("expected equal public keys")
@@ -496,14 +479,14 @@ func TestParsePublicKey(t *testing.T) {
 	// succeeds with DER-encoded key
 	derKey, err := cryptoutils.MarshalPublicKeyToDER(priv.Public())
 	failErr(t, err)
-	pubKey, err = ParsePublicKey(string(derKey), nil)
+	pubKey, err = ParsePublicKey(string(derKey))
 	failErr(t, err)
 	if err := cryptoutils.EqualKeys(pubKey, priv.Public()); err != nil {
 		t.Fatalf("expected equal public keys")
 	}
 
 	// fails with no public key
-	_, err = ParsePublicKey("", nil)
+	_, err = ParsePublicKey("")
 	if err == nil || err.Error() != "public key not provided" {
 		t.Fatalf("expected error parsing no public key, got %v", err)
 	}
@@ -511,7 +494,7 @@ func TestParsePublicKey(t *testing.T) {
 	// fails with invalid public key (private key)
 	pemPrivKey, err := cryptoutils.MarshalPrivateKeyToPEM(priv)
 	failErr(t, err)
-	_, err = ParsePublicKey(string(pemPrivKey), nil)
+	_, err = ParsePublicKey(string(pemPrivKey))
 	if err == nil || err.Error() != "error parsing PEM or DER encoded public key" {
 		t.Fatalf("expected error parsing invalid public key, got %v", err)
 	}
