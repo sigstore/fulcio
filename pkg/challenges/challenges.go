@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/url"
@@ -534,26 +533,6 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 	}
 
 	return principal, nil
-}
-
-// TODO: Move to sigstore/sigstore
-func ParseCSR(csr []byte) (*x509.CertificateRequest, error) {
-	derBlock, _ := pem.Decode(csr)
-	if derBlock == nil || derBlock.Bytes == nil {
-		return nil, errors.New("no CSR found while decoding")
-	}
-	correctType := false
-	acceptedHeaders := []string{"CERTIFICATE REQUEST", "NEW CERTIFICATE REQUEST"}
-	for _, v := range acceptedHeaders {
-		if derBlock.Type == v {
-			correctType = true
-		}
-	}
-	if !correctType {
-		return nil, fmt.Errorf("DER type %v is not of any type %v for CSR", derBlock.Type, acceptedHeaders)
-	}
-
-	return x509.ParseCertificateRequest(derBlock.Bytes)
 }
 
 // ParsePublicKey parses a PEM or DER encoded public key, or extracts the public

@@ -78,7 +78,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	// optionally parse CSR
 	var csr *x509.CertificateRequest
 	if len(request.GetCertificateSigningRequest()) > 0 {
-		csr, err = challenges.ParseCSR(request.GetCertificateSigningRequest())
+		csr, err = cryptoutils.ParseCSR(request.GetCertificateSigningRequest())
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidCSR)
 		}

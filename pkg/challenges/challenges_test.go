@@ -31,7 +31,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -466,52 +465,6 @@ func TestCheckSignatureRSA(t *testing.T) {
 	}
 }
 
-func TestParseCSR(t *testing.T) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	failErr(t, err)
-	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
-	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
-	failErr(t, err)
-
-	// success with type CERTIFICATE REQUEST
-	pemCSR := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE REQUEST",
-		Bytes: derCSR,
-	})
-	parsedCSR, err := ParseCSR(pemCSR)
-	failErr(t, err)
-	if parsedCSR.Subject.CommonName != "test" {
-		t.Fatalf("unexpected CSR common name")
-	}
-
-	// success with type NEW CERTIFICATE REQUEST
-	pemCSR = pem.EncodeToMemory(&pem.Block{
-		Type:  "NEW CERTIFICATE REQUEST",
-		Bytes: derCSR,
-	})
-	parsedCSR, err = ParseCSR(pemCSR)
-	failErr(t, err)
-	if parsedCSR.Subject.CommonName != "test" {
-		t.Fatalf("unexpected CSR common name")
-	}
-
-	// fails with invalid PEM encoded block
-	_, err = ParseCSR([]byte{1, 2, 3})
-	if err == nil || !strings.Contains(err.Error(), "no CSR found while decoding") {
-		t.Fatalf("expected error parsing invalid CSR, got %v", err)
-	}
-
-	// fails with invalid DER type
-	pemCSR = pem.EncodeToMemory(&pem.Block{
-		Type:  "BEGIN CERTIFICATE",
-		Bytes: derCSR,
-	})
-	_, err = ParseCSR(pemCSR)
-	if err == nil || !strings.Contains(err.Error(), "DER type BEGIN CERTIFICATE is not of any type") {
-		t.Fatalf("expected error parsing invalid CSR, got %v", err)
-	}
-}
-
 func TestParsePublicKey(t *testing.T) {
 	// succeeds with CSR
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -523,7 +476,7 @@ func TestParsePublicKey(t *testing.T) {
 		Type:  "CERTIFICATE REQUEST",
 		Bytes: derCSR,
 	})
-	parsedCSR, err := ParseCSR(pemCSR)
+	parsedCSR, err := cryptoutils.ParseCSR(pemCSR)
 	failErr(t, err)
 	pubKey, err := ParsePublicKey("", parsedCSR)
 	failErr(t, err)
