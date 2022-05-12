@@ -70,9 +70,17 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		}
 	}
 
-	principal, err := authorize(ctx, token)
+	// Authenticate OIDC ID token by checking signature
+	idtoken, err := authorize(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
+	}
+	// Parse authenticated ID token into principal
+	// TODO:(nsmith5) replace this and authorize call above with
+	// just identity.IssuerPool.Authenticate()
+	principal, err := challenges.PrincipalFromIDToken(ctx, idtoken)
+	if err != nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
 	}
 
 	// optionally parse CSR
@@ -103,10 +111,15 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 	}
 
-	// verify challenge
-	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, csr, proofOfPossession)
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+	// verify the challenge
+	if csr != nil {
+		if err := csr.CheckSignature(); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		}
+	} else {
+		if err := challenges.CheckSignature(publicKey, proofOfPossession, principal.Name(ctx)); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		}
 	}
 
 	var csc *certauth.CodeSigningCertificate
@@ -115,7 +128,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	// For CAs that do not support embedded SCTs or if the CT log is not configured
 	if sctCa, ok := g.ca.(certauth.EmbeddedSCTCA); !ok || g.ct == nil {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
-		csc, err = g.ca.CreateCertificate(ctx, subject, publicKey)
+		csc, err = g.ca.CreateCertificate(ctx, principal, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
@@ -165,7 +178,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 			result.GetSignedCertificateDetachedSct().SignedCertificateTimestamp = sctBytes
 		}
 	} else {
-		precert, err := sctCa.CreatePrecertificate(ctx, subject, publicKey)
+		precert, err := sctCa.CreatePrecertificate(ctx, principal, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
