@@ -30,7 +30,7 @@ import (
 	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
@@ -49,8 +49,8 @@ type IntermediateCA struct {
 	Signer crypto.Signer
 }
 
-func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningPreCertificate, error) {
-	cert, err := x509ca.MakeX509(challenge)
+func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
+	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, challenge *
 		Value:    asn1.NullBytes,
 	})
 
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], challenge.PublicKey, privateKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -130,15 +130,15 @@ func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *c
 	return ca.CreateCSCFromDER(finalCertBytes, precert.CertChain)
 }
 
-func (ica *IntermediateCA) CreateCertificate(ctx context.Context, challenge *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(challenge)
+func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
+	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	certChain, privateKey := ica.getX509KeyPair()
 
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], challenge.PublicKey, privateKey)
+	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
 		return nil, err
 	}

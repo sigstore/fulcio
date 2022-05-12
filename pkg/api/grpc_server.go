@@ -115,7 +115,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	// For CAs that do not support embedded SCTs or if the CT log is not configured
 	if sctCa, ok := g.ca.(certauth.EmbeddedSCTCA); !ok || g.ct == nil {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
-		csc, err = g.ca.CreateCertificate(ctx, subject)
+		csc, err = g.ca.CreateCertificate(ctx, subject, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
@@ -165,7 +165,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 			result.GetSignedCertificateDetachedSct().SignedCertificateTimestamp = sctBytes
 		}
 	} else {
-		precert, err := sctCa.CreatePrecertificate(ctx, subject)
+		precert, err := sctCa.CreatePrecertificate(ctx, subject, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {

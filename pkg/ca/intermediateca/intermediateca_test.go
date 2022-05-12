@@ -165,11 +165,10 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 
 	ica := IntermediateCA{Certs: certChain, Signer: subKey}
 	precsc, err := ica.CreatePrecertificate(context.TODO(), &challenges.ChallengeResult{
-		Issuer:    "iss",
-		TypeVal:   challenges.EmailValue,
-		Value:     "foo@example.com",
-		PublicKey: priv.Public(),
-	})
+		Issuer:  "iss",
+		TypeVal: challenges.EmailValue,
+		Value:   "foo@example.com",
+	}, priv.Public())
 
 	if err != nil {
 		t.Fatalf("error generating precertificate: %v", err)
