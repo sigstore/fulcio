@@ -32,7 +32,7 @@ jobs:
         with:
           go-version: ${{ env.GOVERSION }}
       - name: Install kubeval
-        run: go get github.com/instrumenta/kubeval@v0.16.1
+        run: go install github.com/instrumenta/kubeval@v0.16.1
       - run: kubeval config/*.yaml
 
   verify-k8s-deployment:
