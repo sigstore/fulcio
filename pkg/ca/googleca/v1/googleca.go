@@ -31,7 +31,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
-	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/api/iterator"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
@@ -162,8 +161,6 @@ func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
 }
 
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *challenges.ChallengeResult) (*ca.CodeSigningCertificate, error) {
-	logger := log.ContextLogger(ctx)
-
 	cert, err := x509ca.MakeX509(subj)
 	if err != nil {
 		return nil, ca.ValidationError(err)
@@ -178,8 +175,6 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, subj *chal
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}
-
-	logger.Infof("requesting cert from %s for %v", c.parent, subj.Value)
 
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
