@@ -34,6 +34,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/google/go-cmp/cmp"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -67,6 +68,21 @@ func TestEmbedChallengeResult(t *testing.T) {
 				`Certificate has correct ref extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "ref"),
 			},
 		},
+		`Github workflow value with bad URL fails`: {
+			Challenge: ChallengeResult{
+				Issuer:  `https://token.actions.githubusercontent.com`,
+				TypeVal: GithubWorkflowValue,
+				Value:   "\nbadurl",
+				AdditionalInfo: map[AdditionalInfo]string{
+					GithubWorkflowSha:        "sha",
+					GithubWorkflowTrigger:    "trigger",
+					GithubWorkflowName:       "workflowname",
+					GithubWorkflowRepository: "repository",
+					GithubWorkflowRef:        "ref",
+				},
+			},
+			WantErr: true,
+		},
 		`Email challenges should set issuer extension and email subject`: {
 			Challenge: ChallengeResult{
 				Issuer:  `example.com`,
@@ -87,6 +103,130 @@ func TestEmbedChallengeResult(t *testing.T) {
 				`Certificate should have issuer extension set`: factIssuerIs("example.com"),
 			},
 		},
+		`Good spiffe challenge`: {
+			Challenge: ChallengeResult{
+				Issuer:  `example.com`,
+				TypeVal: SpiffeValue,
+				Value:   `spiffe://example.com/foo/bar`,
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Issuer	is example.com`: factIssuerIs(`example.com`),
+				`SAN is spiffe://example.com/foo/bar`: func(cert x509.Certificate) error {
+					WantURI, err := url.Parse("spiffe://example.com/foo/bar")
+					if err != nil {
+						return err
+					}
+					if len(cert.URIs) != 1 {
+						return errors.New("no URI SAN set")
+					}
+					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
+						return errors.New(diff)
+					}
+					return nil
+				},
+			},
+		},
+		`Spiffe value with bad URL fails`: {
+			Challenge: ChallengeResult{
+				Issuer:  `example.com`,
+				TypeVal: SpiffeValue,
+				Value:   "\nbadurl",
+			},
+			WantErr: true,
+		},
+		`Good Kubernetes value`: {
+			Challenge: ChallengeResult{
+				Issuer:  `k8s.example.com`,
+				TypeVal: KubernetesValue,
+				Value:   "https://k8s.example.com",
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Issuer	is k8s.example.com`: factIssuerIs(`k8s.example.com`),
+				`SAN is https://k8s.example.com`: func(cert x509.Certificate) error {
+					WantURI, err := url.Parse("https://k8s.example.com")
+					if err != nil {
+						return err
+					}
+					if len(cert.URIs) != 1 {
+						return errors.New("no URI SAN set")
+					}
+					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
+						return errors.New(diff)
+					}
+					return nil
+				},
+			},
+		},
+		`Kubernetes value with bad URL fails`: {
+			Challenge: ChallengeResult{
+				Issuer:  `example.com`,
+				TypeVal: KubernetesValue,
+				Value:   "\nbadurl",
+			},
+			WantErr: true,
+		},
+		`Good URI value`: {
+			Challenge: ChallengeResult{
+				Issuer:  `foo.example.com`,
+				TypeVal: URIValue,
+				Value:   "https://foo.example.com",
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Issuer	is foo.example.com`: factIssuerIs(`foo.example.com`),
+				`SAN is https://foo.example.com`: func(cert x509.Certificate) error {
+					WantURI, err := url.Parse("https://foo.example.com")
+					if err != nil {
+						return err
+					}
+					if len(cert.URIs) != 1 {
+						return errors.New("no URI SAN set")
+					}
+					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
+						return errors.New(diff)
+					}
+					return nil
+				},
+			},
+		},
+		`Bad URI value fails`: {
+			Challenge: ChallengeResult{
+				Issuer:  `foo.example.com`,
+				TypeVal: URIValue,
+				Value:   "\nnoooooo",
+			},
+			WantErr: true,
+		},
+		`Good username value`: {
+			Challenge: ChallengeResult{
+				Issuer:  `foo.example.com`,
+				TypeVal: UsernameValue,
+				Value:   "name@foo.example.com",
+			},
+			WantErr: false,
+			WantFacts: map[string]func(x509.Certificate) error{
+				`Issuer	is foo.example.com`: factIssuerIs(`foo.example.com`),
+				`SAN is name@foo.example.com`: func(cert x509.Certificate) error {
+					if len(cert.EmailAddresses) != 1 {
+						return errors.New("no email SAN set")
+					}
+					if cert.EmailAddresses[0] != "name@foo.example.com" {
+						return errors.New("wrong email")
+					}
+					return nil
+				},
+			},
+		},
+		`No issuer should faile to render extensions`: {
+			Challenge: ChallengeResult{
+				Issuer:  ``,
+				TypeVal: SpiffeValue,
+				Value:   "spiffe://foo.example.com/foo/bar",
+			},
+			WantErr: true,
+		},
 	}
 
 	for name, test := range tests {
@@ -98,6 +238,10 @@ func TestEmbedChallengeResult(t *testing.T) {
 					t.Error(err)
 				}
 				return
+			} else {
+				if test.WantErr {
+					t.Error("expected error")
+				}
 			}
 			for factName, fact := range test.WantFacts {
 				t.Run(factName, func(t *testing.T) {
