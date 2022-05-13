@@ -580,6 +580,11 @@ func TestCheckSignatureECDSA(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Nil key should fail
+	if err := CheckSignature(nil, signature, email); err == nil {
+		t.Error("nil public key should raise error")
+	}
+
 	// Try a bad email but "good" signature
 	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
 		t.Fatal("check should have failed")
