@@ -16,6 +16,7 @@
 package oauthflow
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/PaesslerAG/jsonpath"
@@ -30,6 +31,9 @@ func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 	}
 	if err := token.Claims(&claims); err != nil {
 		return "", false, err
+	}
+	if claims.Email == "" {
+		return "", false, errors.New("token missing email claim")
 	}
 
 	return claims.Email, claims.Verified, nil

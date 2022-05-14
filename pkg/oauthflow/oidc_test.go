@@ -53,13 +53,17 @@ func TestTokenWithClaims(t *testing.T) {
 		inputClaims:      []byte(`{}`),
 		expectedEmail:    "",
 		expectedVerified: false,
-		expectedErr:      nil,
+		expectedErr:      errors.New("token missing email claim"),
 	}, {
 		name:             "token with non-verified claims set",
 		inputClaims:      []byte(`{"email":"John.Doe@email.com"}`),
 		expectedEmail:    "John.Doe@email.com",
 		expectedVerified: false,
 		expectedErr:      nil,
+	}, {
+		name:        "token missing email claim",
+		inputClaims: []byte(`{"email_verified": true}`),
+		expectedErr: errors.New("token missing email claim"),
 	}, {
 		name:             "token with claims set",
 		inputClaims:      []byte(`{"email":"John.Doe@email.com", "email_verified":true}`),
