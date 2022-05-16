@@ -187,7 +187,6 @@ func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, er
 }
 
 func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-
 	spiffeID := principal.Subject
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
@@ -195,15 +194,13 @@ func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, e
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
-	// The Spiffe ID must be a subdomain of the issuer (spiffe://foo.example.com -> example.com/...)
-	u, err := url.Parse(cfg.IssuerURL)
+	parsed, err := url.Parse(spiffeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse spiffeID: %w", err)
 	}
 
-	issuerHostname := u.Hostname()
-	if !isSpiffeIDAllowed(u.Hostname(), spiffeID) {
-		return nil, fmt.Errorf("%s is not allowed for %s", spiffeID, issuerHostname)
+	if parsed.Hostname() != cfg.SPIFFETrustDomain {
+		return nil, fmt.Errorf("spiffe id %s doesn't match configured trust domain %s", spiffeID, cfg.SPIFFETrustDomain)
 	}
 
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
@@ -443,20 +440,6 @@ func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, er
 		GithubWorkflowName:       claims.Workflow,
 		GithubWorkflowRepository: claims.Repository,
 		GithubWorkflowRef:        claims.Ref}, nil
-}
-
-func isSpiffeIDAllowed(host, spiffeID string) bool {
-	u, err := url.Parse(spiffeID)
-	if err != nil {
-		return false
-	}
-	if u.Scheme != "spiffe" {
-		return false
-	}
-	if u.Hostname() == host {
-		return true
-	}
-	return strings.Contains(u.Hostname(), "."+host)
 }
 
 // isURISubjectAllowed compares the subject and issuer URIs,

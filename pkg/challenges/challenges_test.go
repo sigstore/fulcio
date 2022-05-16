@@ -269,46 +269,6 @@ func factExtensionIs(oid asn1.ObjectIdentifier, value string) func(x509.Certific
 		return errors.New("extension not set")
 	}
 }
-func Test_isSpiffeIDAllowed(t *testing.T) {
-	tests := []struct {
-		name     string
-		host     string
-		spiffeID string
-		want     bool
-	}{{
-		name:     "match",
-		host:     "foobar.com",
-		spiffeID: "spiffe://foobar.com/stuff",
-		want:     true,
-	}, {
-		name:     "subdomain match",
-		host:     "foobar.com",
-		spiffeID: "spiffe://spife.foobar.com/stuff",
-		want:     true,
-	}, {
-		name:     "subdomain mismatch",
-		host:     "foo.foobar.com",
-		spiffeID: "spiffe://spife.foobar.com/stuff",
-		want:     false,
-	}, {
-		name:     "inverted mismatch",
-		host:     "foo.foobar.com",
-		spiffeID: "spiffe://foobar.com/stuff",
-		want:     false,
-	}, {
-		name:     "no dot mismatch",
-		host:     "foobar.com",
-		spiffeID: "spiffe://foofoobar.com/stuff",
-		want:     false,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isSpiffeIDAllowed(tt.host, tt.spiffeID); got != tt.want {
-				t.Errorf("isSpiffeIDAllowed() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestURI(t *testing.T) {
 	cfg := &config.FulcioConfig{
@@ -538,6 +498,79 @@ func TestEmailWithClaims(t *testing.T) {
 				}
 				return
 			} else if test.WantErr {
+				t.Error("expected error")
+			}
+		})
+	}
+}
+
+func TestSpiffe(t *testing.T) {
+	tests := map[string]struct {
+		Token   *oidc.IDToken
+		Config  *config.FulcioConfig
+		WantErr bool
+	}{
+		"good token": {
+			Token: &oidc.IDToken{
+				Subject: "spiffe://foo.com/bar",
+				Issuer:  "id.foo.com",
+			},
+			Config: &config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"id.foo.com": {
+						IssuerURL:         "id.foo.com",
+						ClientID:          "sigstore",
+						Type:              config.IssuerTypeSpiffe,
+						SPIFFETrustDomain: "foo.com",
+					},
+				},
+			},
+			WantErr: false,
+		},
+		"spiffe id wrong trust domain": {
+			Token: &oidc.IDToken{
+				Subject: "spiffe://baz.com/bar",
+				Issuer:  "id.foo.com",
+			},
+			Config: &config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"id.foo.com": {
+						IssuerURL:         "id.foo.com",
+						ClientID:          "sigstore",
+						Type:              config.IssuerTypeSpiffe,
+						SPIFFETrustDomain: "foo.com",
+					},
+				},
+			},
+			WantErr: true,
+		},
+		"spiffe id no issuer configured": {
+			Token: &oidc.IDToken{
+				Subject: "spiffe://foo.com/bar",
+				Issuer:  "id.foo.com",
+			},
+			Config: &config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"id.bar.com": {
+						IssuerURL:         "id.bar.com",
+						ClientID:          "sigstore",
+						Type:              config.IssuerTypeSpiffe,
+						SPIFFETrustDomain: "foo.com",
+					},
+				},
+			},
+			WantErr: true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := config.With(context.Background(), test.Config)
+			_, err := spiffe(ctx, test.Token)
+			if err != nil && !test.WantErr {
+				t.Error(err)
+			}
+			if err == nil && test.WantErr {
 				t.Error("expected error")
 			}
 		})

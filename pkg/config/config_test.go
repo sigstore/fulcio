@@ -86,3 +86,89 @@ func TestMetaURLs(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfig(t *testing.T) {
+	tests := map[string]struct {
+		Config    *FulcioConfig
+		WantError bool
+	}{
+		"good spiffe config": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:         "issuer.example.com",
+						ClientID:          "foo",
+						Type:              IssuerTypeSpiffe,
+						SPIFFETrustDomain: "example.com",
+					},
+				},
+			},
+			WantError: false,
+		},
+		"spiffe issuer requires a trust domain": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL: "issuer.example.com",
+						ClientID:  "foo",
+						Type:      IssuerTypeSpiffe,
+					},
+				},
+			},
+			WantError: true,
+		},
+		"spiffe issuer cannot be a meta issuer": {
+			Config: &FulcioConfig{
+				MetaIssuers: map[string]OIDCIssuer{
+					"*.example.com": {
+						ClientID:          "foo",
+						Type:              IssuerTypeSpiffe,
+						SPIFFETrustDomain: "example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"good uri config": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "other.example.com",
+					},
+				},
+			},
+			WantError: false,
+		},
+		"uri issuer requires a subject domain": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL: "issuer.example.com",
+						ClientID:  "foo",
+						Type:      IssuerTypeURI,
+					},
+				},
+			},
+			WantError: true,
+		},
+		"nil config isn't valid": {
+			Config:    nil,
+			WantError: true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := validateConfig(test.Config)
+			if err != nil && !test.WantError {
+				t.Error(err)
+			}
+			if err == nil && test.WantError {
+				t.Error("expected error")
+			}
+		})
+	}
+}
