@@ -18,6 +18,7 @@ package config
 import (
 	"context"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -40,6 +41,13 @@ var validCfg = `
 	}
 }
 `
+
+// Skip test when HERMETIC=true is set, since config tests require network access
+func skipHermetic(t *testing.T) {
+	if os.Getenv("HERMETIC") != "" {
+		t.Skip("Skipping testing in hermetic test environment")
+	}
+}
 
 func TestMetaURLs(t *testing.T) {
 	tests := []struct {
@@ -94,6 +102,8 @@ func TestMetaURLs(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
+	skipHermetic(t)
+
 	td := t.TempDir()
 	cfgPath := filepath.Join(td, "config.json")
 	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
@@ -132,6 +142,8 @@ func TestLoad(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
+	skipHermetic(t)
+
 	td := t.TempDir()
 
 	// Don't put anything here!
