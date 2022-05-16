@@ -16,14 +16,7 @@
 package config
 
 import (
-	"context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var validCfg = `
@@ -41,13 +34,6 @@ var validCfg = `
 	}
 }
 `
-
-// Skip test when HERMETIC=true is set, since config tests require network access
-func skipHermetic(t *testing.T) {
-	if os.Getenv("HERMETIC") != "" {
-		t.Skip("Skipping testing in hermetic test environment")
-	}
-}
 
 func TestMetaURLs(t *testing.T) {
 	tests := []struct {
@@ -98,73 +84,5 @@ func TestMetaURLs(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestLoad(t *testing.T) {
-	skipHermetic(t)
-
-	td := t.TempDir()
-	cfgPath := filepath.Join(td, "config.json")
-	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg, _ := Load(cfgPath)
-	got, ok := cfg.GetIssuer("https://accounts.google.com")
-	if !ok {
-		t.Error("expected true, got false")
-	}
-	if got.ClientID != "foo" {
-		t.Errorf("expected foo, got %s", got.ClientID)
-	}
-	if got.IssuerURL != "https://accounts.google.com" {
-		t.Errorf("expected https://accounts.google.com, got %s", got.IssuerURL)
-	}
-	if got := len(cfg.OIDCIssuers); got != 1 {
-		t.Errorf("expected 1 issuer, got %d", got)
-	}
-
-	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
-	if !ok {
-		t.Error("expected true, got false")
-	}
-	if got.ClientID != "bar" {
-		t.Errorf("expected bar, got %s", got.ClientID)
-	}
-	if got.IssuerURL != "https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER" {
-		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
-	}
-
-	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
-		t.Error("no error returned from an unconfigured issuer")
-	}
-}
-
-func TestLoadDefaults(t *testing.T) {
-	skipHermetic(t)
-
-	td := t.TempDir()
-
-	// Don't put anything here!
-	cfgPath := filepath.Join(td, "config.json")
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if diff := cmp.Diff(DefaultConfig, cfg, cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
-		t.Errorf("DefaultConfig(): -want +got: %s", diff)
-	}
-
-	ctx := context.Background()
-
-	if got := FromContext(ctx); nil != got {
-		t.Errorf("FromContext(): %#v, wanted nil", got)
-	}
-
-	ctx = With(ctx, cfg)
-	if diff := cmp.Diff(cfg, FromContext(ctx), cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
-		t.Errorf("FromContext(): -want +got: %s", diff)
 	}
 }
