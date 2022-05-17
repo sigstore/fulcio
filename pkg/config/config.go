@@ -31,6 +31,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
 const defaultOIDCDiscoveryTimeout = 10 * time.Second
@@ -198,8 +199,14 @@ func validateConfig(conf *FulcioConfig) error {
 	}
 
 	for _, issuer := range conf.OIDCIssuers {
-		if issuer.Type == IssuerTypeSpiffe && issuer.SPIFFETrustDomain == "" {
-			return errors.New("spiffe issuer must have SPIFFETrustDomain set")
+		if issuer.Type == IssuerTypeSpiffe {
+			if issuer.SPIFFETrustDomain == "" {
+				return errors.New("spiffe issuer must have SPIFFETrustDomain set")
+			}
+			// verify that trust domain is valid
+			if _, err := spiffeid.TrustDomainFromString(issuer.SPIFFETrustDomain); err != nil {
+				return errors.New("spiffe trust domain is invalid")
+			}
 		}
 		if issuer.Type == IssuerTypeURI && issuer.SubjectDomain == "" {
 			return errors.New("uri issuer must have SubjectDomain set")

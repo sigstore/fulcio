@@ -42,9 +42,10 @@ var boilerPlate = `#
 `
 
 type federationConfig struct {
-	URL         string
-	Type        string
-	IssuerClaim string
+	URL               string
+	Type              string
+	IssuerClaim       string
+	SpiffeTrustDomain string
 }
 
 func main() {
@@ -92,6 +93,9 @@ func main() {
 			ClientID:    "sigstore",
 			Type:        config.IssuerType(cfg.Type),
 			IssuerClaim: cfg.IssuerClaim,
+		}
+		if fulcioCfg.Type == config.IssuerTypeSpiffe {
+			fulcioCfg.SPIFFETrustDomain = cfg.SpiffeTrustDomain
 		}
 		fulcioConfig.OIDCIssuers[cfg.URL] = fulcioCfg
 	}

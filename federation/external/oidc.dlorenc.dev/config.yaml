@@ -16,3 +16,4 @@ url: https://oidc.dlorenc.dev
 contact: lorenc.d@gmail.com
 description: "test address for federation!"
 type: "spiffe"
+spiffetrustdomain: "oidc.dlorenc.dev"
