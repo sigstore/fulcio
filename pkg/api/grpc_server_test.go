@@ -293,7 +293,8 @@ func TestAPIWithUriSubject(t *testing.T) {
 			%q: {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
-				"Type": "spiffe"
+				"Type": "spiffe",
+				"SPIFFETrustDomain": "foo.com"
 			},
 			%q: {
 				"IssuerURL": %q,
@@ -307,7 +308,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
-	spiffeSubject := strings.ReplaceAll(spiffeIssuer+"/foo/bar", "http", "spiffe")
+	spiffeSubject := "spiffe://foo.com/bar"
 	uriSubject := uriIssuer + "/users/1"
 
 	tests := []oidcTestContainer{

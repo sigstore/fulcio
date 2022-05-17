@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -65,6 +66,10 @@ type OIDCIssuer struct {
 	// The domain that must be present in the subject for 'uri' issuer types
 	// Also used to create an email for 'username' issuer types
 	SubjectDomain string `json:"SubjectDomain,omitempty"`
+	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
+	// issue ID tokens for. Tokens with a different trust domain will be
+	// rejected.
+	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -183,7 +188,33 @@ func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
 	if err := json.Unmarshal(b, cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
+
 	return cfg, nil
+}
+
+func validateConfig(conf *FulcioConfig) error {
+	if conf == nil {
+		return errors.New("nil config")
+	}
+
+	for _, issuer := range conf.OIDCIssuers {
+		if issuer.Type == IssuerTypeSpiffe && issuer.SPIFFETrustDomain == "" {
+			return errors.New("spiffe issuer must have SPIFFETrustDomain set")
+		}
+		if issuer.Type == IssuerTypeURI && issuer.SubjectDomain == "" {
+			return errors.New("uri issuer must have SubjectDomain set")
+		}
+	}
+
+	for _, metaIssuer := range conf.MetaIssuers {
+		if metaIssuer.Type == IssuerTypeSpiffe {
+			// This would establish a many to one relationship for OIDC issuers
+			// to trust domains so we fail early and reject this configuration.
+			return errors.New("SPIFFE meta issuers not supported")
+		}
+	}
+
+	return nil
 }
 
 var DefaultConfig = &FulcioConfig{
@@ -246,6 +277,11 @@ func Read(b []byte) (*FulcioConfig, error) {
 	config, err := parseConfig(b)
 	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
+	}
+
+	err = validateConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("validate: %w", err)
 	}
 
 	if _, ok := config.GetIssuer("https://kubernetes.default.svc"); ok {
