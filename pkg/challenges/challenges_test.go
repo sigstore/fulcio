@@ -494,11 +494,11 @@ func TestEmailWithClaims(t *testing.T) {
 			_, err := email(ctx, idToken)
 			if err != nil {
 				if !test.WantErr {
-					t.Error(err)
+					t.Errorf("%s: %v", name, err)
 				}
 				return
 			} else if test.WantErr {
-				t.Error("expected error")
+				t.Errorf("%s: expected error", name)
 			}
 		})
 	}
@@ -561,6 +561,40 @@ func TestSpiffe(t *testing.T) {
 			},
 			WantErr: true,
 		},
+		"invalid spiffe id": {
+			Token: &oidc.IDToken{
+				Subject: "spiffe://foo#com/bar",
+				Issuer:  "id.foo.com",
+			},
+			Config: &config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"id.foo.com": {
+						IssuerURL:         "id.foo.com",
+						ClientID:          "sigstore",
+						Type:              config.IssuerTypeSpiffe,
+						SPIFFETrustDomain: "foo.com",
+					},
+				},
+			},
+			WantErr: true,
+		},
+		"invalid configured trust domain": {
+			Token: &oidc.IDToken{
+				Subject: "spiffe://foo.com/bar",
+				Issuer:  "id.foo.com",
+			},
+			Config: &config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"id.foo.com": {
+						IssuerURL:         "id.foo.com",
+						ClientID:          "sigstore",
+						Type:              config.IssuerTypeSpiffe,
+						SPIFFETrustDomain: "foo#com",
+					},
+				},
+			},
+			WantErr: true,
+		},
 	}
 
 	for name, test := range tests {
@@ -568,10 +602,10 @@ func TestSpiffe(t *testing.T) {
 			ctx := config.With(context.Background(), test.Config)
 			_, err := spiffe(ctx, test.Token)
 			if err != nil && !test.WantErr {
-				t.Error(err)
+				t.Errorf("%s: %v", name, err)
 			}
 			if err == nil && test.WantErr {
-				t.Error("expected error")
+				t.Errorf("%s: expected error", name)
 			}
 		})
 	}

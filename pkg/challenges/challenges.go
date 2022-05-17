@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -194,13 +195,18 @@ func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, e
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
-	parsed, err := url.Parse(spiffeID)
+	trustDomain, err := spiffeid.TrustDomainFromString(cfg.SPIFFETrustDomain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse spiffeID: %w", err)
+		return nil, fmt.Errorf("unable to parse trust domain from configuration: %s", cfg.SPIFFETrustDomain)
 	}
 
-	if parsed.Hostname() != cfg.SPIFFETrustDomain {
-		return nil, fmt.Errorf("spiffe id %s doesn't match configured trust domain %s", spiffeID, cfg.SPIFFETrustDomain)
+	parsedSpiffeID, err := spiffeid.FromString(spiffeID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid spiffe ID provided: %s", spiffeID)
+	}
+
+	if parsedSpiffeID.TrustDomain().Compare(trustDomain) != 0 {
+		return nil, fmt.Errorf("spiffe ID trust domain %s doesn't match configured trust domain %s", parsedSpiffeID.TrustDomain(), trustDomain)
 	}
 
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)

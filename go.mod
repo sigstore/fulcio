@@ -25,6 +25,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.11.0
+	github.com/spiffe/go-spiffe/v2 v2.1.0
 	go.step.sm/crypto v0.16.1
 	go.uber.org/zap v1.21.0
 	google.golang.org/api v0.79.0

@@ -129,6 +129,19 @@ func TestValidateConfig(t *testing.T) {
 			},
 			WantError: true,
 		},
+		"invalid spiffe trust domain": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:         "issuer.example.com",
+						ClientID:          "foo",
+						Type:              IssuerTypeSpiffe,
+						SPIFFETrustDomain: "invalid#domain",
+					},
+				},
+			},
+			WantError: true,
+		},
 		"good uri config": {
 			Config: &FulcioConfig{
 				OIDCIssuers: map[string]OIDCIssuer{

@@ -25,7 +25,8 @@ data:
             "https://allow.pub": {
               "IssuerURL": "https://allow.pub",
               "ClientID": "sigstore",
-              "Type": "spiffe"
+              "Type": "spiffe",
+              "SPIFFETrustDomain": "allow.pub"
             },
             "https://oauth2.sigstore.dev/auth": {
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
