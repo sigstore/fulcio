@@ -30,6 +30,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/ctl"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/fulcio/pkg/identity/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc/codes"
@@ -78,7 +79,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	// Parse authenticated ID token into principal
 	// TODO:(nsmith5) replace this and authorize call above with
 	// just identity.IssuerPool.Authenticate()
-	principal, err := challenges.PrincipalFromIDToken(ctx, idtoken)
+	principal, err := legacy.PrincipalFromIDToken(ctx, idtoken)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
 	}
