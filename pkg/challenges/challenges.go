@@ -278,31 +278,11 @@ func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, erro
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
+	// The subject hostname must exactly match the subject domain from the configuration
 	uSubject, err := url.Parse(uriWithSubject)
 	if err != nil {
 		return nil, err
 	}
-
-	// The subject prefix URI must match the domain (excluding the subdomain) of the issuer
-	// In order to declare this configuration, a test must have been done to prove ownership
-	// over both the issuer and domain configuration values.
-	// Valid examples:
-	// * uriWithSubject = https://example.com/users/user1, issuer = https://accounts.example.com
-	// * uriWithSubject = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
-	// * uriWithSubject = https://users.example.com/users/user1, issuer = https://accounts.example.com
-	uIssuer, err := url.Parse(cfg.IssuerURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check that:
-	// * The URI schemes match
-	// * Either the hostnames exactly match or the top level and second level domains match
-	if err := isURISubjectAllowed(uSubject, uIssuer); err != nil {
-		return nil, err
-	}
-
-	// The subject hostname must exactly match the subject domain from the configuration
 	uDomain, err := url.Parse(cfg.SubjectDomain)
 	if err != nil {
 		return nil, err
@@ -337,21 +317,6 @@ func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal,
 	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	// The domain in the configuration must match the domain (excluding the subdomain) of the issuer
-	// In order to declare this configuration, a test must have been done to prove ownership
-	// over both the issuer and domain configuration values.
-	// Valid examples:
-	// * domain = https://example.com/users/user1, issuer = https://accounts.example.com
-	// * domain = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
-	// * domain = https://users.example.com/users/user1, issuer = https://accounts.example.com
-	uIssuer, err := url.Parse(cfg.IssuerURL)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateAllowedDomain(cfg.SubjectDomain, uIssuer.Hostname()); err != nil {
-		return nil, err
 	}
 
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
@@ -440,40 +405,6 @@ func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, er
 		GithubWorkflowName:       claims.Workflow,
 		GithubWorkflowRepository: claims.Repository,
 		GithubWorkflowRef:        claims.Ref}, nil
-}
-
-// isURISubjectAllowed compares the subject and issuer URIs,
-// returning an error if the scheme or the hostnames do not match
-func isURISubjectAllowed(subject, issuer *url.URL) error {
-	if subject.Scheme != issuer.Scheme {
-		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
-	}
-
-	return validateAllowedDomain(subject.Hostname(), issuer.Hostname())
-}
-
-// validateAllowedDomain compares two hostnames, returning an error if the
-// top-level and second-level domains do not match
-func validateAllowedDomain(subjectHostname, issuerHostname string) error {
-	// If the hostnames exactly match, return early
-	if subjectHostname == issuerHostname {
-		return nil
-	}
-
-	// Compare the top level and second level domains
-	sHostname := strings.Split(subjectHostname, ".")
-	iHostname := strings.Split(issuerHostname, ".")
-	if len(sHostname) < minimumHostnameLength {
-		return fmt.Errorf("URI hostname too short: %s", subjectHostname)
-	}
-	if len(iHostname) < minimumHostnameLength {
-		return fmt.Errorf("URI hostname too short: %s", issuerHostname)
-	}
-	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
-		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
-		return nil
-	}
-	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
 
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {

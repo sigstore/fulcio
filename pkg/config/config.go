@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -34,6 +35,10 @@ import (
 )
 
 const defaultOIDCDiscoveryTimeout = 10 * time.Second
+
+// All hostnames for subject and issuer OIDC claims must have at least a
+// top-level and second-level domain
+const minimumHostnameLength = 2
 
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
@@ -201,8 +206,63 @@ func validateConfig(conf *FulcioConfig) error {
 		if issuer.Type == IssuerTypeSpiffe && issuer.SPIFFETrustDomain == "" {
 			return errors.New("spiffe issuer must have SPIFFETrustDomain set")
 		}
-		if issuer.Type == IssuerTypeURI && issuer.SubjectDomain == "" {
-			return errors.New("uri issuer must have SubjectDomain set")
+		if issuer.Type == IssuerTypeURI {
+			if issuer.SubjectDomain == "" {
+				return errors.New("uri issuer must have SubjectDomain set")
+			}
+			uDomain, err := url.Parse(issuer.SubjectDomain)
+			if err != nil {
+				return err
+			}
+			if uDomain.Scheme == "" {
+				return errors.New("SubjectDomain for uri must contain scheme")
+			}
+			uIssuer, err := url.Parse(issuer.IssuerURL)
+			if err != nil {
+				return err
+			}
+			if uIssuer.Scheme == "" {
+				return errors.New("issuer for uri must contain scheme")
+			}
+			// The domain in the configuration must match the domain (excluding the subdomain) of the issuer
+			// In order to declare this configuration, a test must have been done to prove ownership
+			// over both the issuer and domain configuration values.
+			// Valid examples:
+			// * SubjectDomain = https://example.com, IssuerURL = https://accounts.example.com
+			// * SubjectDomain = https://accounts.example.com, IssuerURL = https://accounts.example.com
+			// * SubjectDomain = https://users.example.com, IssuerURL = https://accounts.example.com
+			if err := isURISubjectAllowed(uDomain, uIssuer); err != nil {
+				return err
+			}
+		}
+		if issuer.Type == IssuerTypeUsername {
+			if issuer.SubjectDomain == "" {
+				return errors.New("username issuer must have SubjectDomain set")
+			}
+			uDomain, err := url.Parse(issuer.SubjectDomain)
+			if err != nil {
+				return err
+			}
+			if uDomain.Scheme != "" {
+				return errors.New("SubjectDomain for username should not contain scheme")
+			}
+			uIssuer, err := url.Parse(issuer.IssuerURL)
+			if err != nil {
+				return err
+			}
+			if uIssuer.Scheme == "" {
+				return errors.New("issuer for username must contain scheme")
+			}
+			// The domain in the configuration must match the domain (excluding the subdomain) of the issuer
+			// In order to declare this configuration, a test must have been done to prove ownership
+			// over both the issuer and domain configuration values.
+			// Valid examples:
+			// * SubjectDomain = example.com, IssuerURL = https://accounts.example.com
+			// * SubjectDomain = accounts.example.com, IssuerURL = https://accounts.example.com
+			// * SubjectDomain = users.example.com, IssuerURL = https://accounts.example.com
+			if err := validateAllowedDomain(issuer.SubjectDomain, uIssuer.Hostname()); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -314,4 +374,40 @@ func Read(b []byte) (*FulcioConfig, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+// isURISubjectAllowed compares the subject and issuer URIs,
+// returning an error if the scheme or the hostnames do not match
+func isURISubjectAllowed(subject, issuer *url.URL) error {
+	if subject.Scheme != issuer.Scheme {
+		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
+	}
+
+	return validateAllowedDomain(subject.Hostname(), issuer.Hostname())
+}
+
+// validateAllowedDomain compares two hostnames, returning an error if the
+// top-level and second-level domains do not match
+// TODO: This does not work for domains that end in co.jp or co.uk. We should consider
+// using eTLDs, or removing this validation when we can challenge domain ownership.
+func validateAllowedDomain(subjectHostname, issuerHostname string) error {
+	// If the hostnames exactly match, return early
+	if subjectHostname == issuerHostname {
+		return nil
+	}
+
+	// Compare the top level and second level domains
+	sHostname := strings.Split(subjectHostname, ".")
+	iHostname := strings.Split(issuerHostname, ".")
+	if len(sHostname) < minimumHostnameLength {
+		return fmt.Errorf("URI hostname too short: %s", subjectHostname)
+	}
+	if len(iHostname) < minimumHostnameLength {
+		return fmt.Errorf("URI hostname too short: %s", issuerHostname)
+	}
+	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
+		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
+		return nil
+	}
+	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }

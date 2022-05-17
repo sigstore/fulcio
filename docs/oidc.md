@@ -104,9 +104,9 @@ The token must include the following claims:
 }
 ```
 
-Tokens must conform to the following:
+The configuration must include `SPIFFETrustDomain`, for example `example.com`. Tokens must conform to the following:
 
-* The SPIFFE trust domain from `sub` must match the issuer in the configuration.
+* The trust domain of the configuration and hostname of `sub` must match exactly.
 
 `sub` is included as a SAN URI.
 
@@ -144,7 +144,7 @@ The token must include the following claims:
 
 Additionally, the configuration must include `SubjectDomain`, for example `https://example.com`. Tokens must conform to the following:
 
-* The issuer of the token must partially match the domain in the configuration. The scheme, top level domain, and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
+* The issuer in the configuration must partially match the domain in the configuration. The scheme, top level domain, and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
 * The domain of the configuration and hostname of the subject of the token must match exactly.
 
 `sub` is included as a SAN URI.
@@ -161,6 +161,6 @@ The token must include the following claims:
 
 Additionally, the configuration must include `SubjectDomain`, for example `example.com`. Tokens must conform to the following:
 
-* The issuer of the token must partially match the domain in the configuration. The top level domain and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
+* The issuer in the configuration must partially match the domain in the configuration. The top level domain and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
 
 `SubjectDomain` is appended to `sub` to form an email, `sub@SubjectDomain`, and included as a SAN email address.
