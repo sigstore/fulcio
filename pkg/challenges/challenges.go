@@ -46,10 +46,6 @@ const (
 	UsernameValue
 )
 
-// All hostnames for subject and issuer OIDC claims must have at least a
-// top-level and second-level domain
-const minimumHostnameLength = 2
-
 type AdditionalInfo int
 
 // Additional information that can be added as a cert extension.
