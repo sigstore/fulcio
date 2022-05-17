@@ -17,7 +17,7 @@ package api
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -70,43 +70,65 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		}
 	}
 
-	principal, err := authorize(ctx, token)
+	// Authenticate OIDC ID token by checking signature
+	idtoken, err := authorize(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
 	}
+	// Parse authenticated ID token into principal
+	// TODO:(nsmith5) replace this and authorize call above with
+	// just identity.IssuerPool.Authenticate()
+	principal, err := challenges.PrincipalFromIDToken(ctx, idtoken)
+	if err != nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
+	}
 
-	// optionally parse CSR
-	var csr *x509.CertificateRequest
+	var publicKey crypto.PublicKey
+	// Verify caller is in possession of their private key and extract
+	// public key from request.
 	if len(request.GetCertificateSigningRequest()) > 0 {
-		csr, err = cryptoutils.ParseCSR(request.GetCertificateSigningRequest())
+		// Option 1: Verify CSR
+		csr, err := cryptoutils.ParseCSR(request.GetCertificateSigningRequest())
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidCSR)
 		}
-	}
 
-	// fetch public key from request or CSR
-	var pubKeyContent string
-	var proofOfPossession []byte
-	if request.GetPublicKeyRequest() != nil {
-		if request.GetPublicKeyRequest().PublicKey != nil {
-			pubKeyContent = request.GetPublicKeyRequest().PublicKey.Content
+		// Parse public key and check for weak key parameters
+		publicKey = csr.PublicKey
+		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
-		proofOfPossession = request.GetPublicKeyRequest().ProofOfPossession
-	}
-	publicKey, err := challenges.ParsePublicKey(pubKeyContent, csr)
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
-	}
 
-	// validate public key, checking for weak key parameters
-	if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
-	}
+		if err := csr.CheckSignature(); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		}
+	} else {
+		// Option 2: Check the signature for proof of possession of a private key
+		var (
+			pubKeyContent     string
+			proofOfPossession []byte
+			err               error
+		)
+		if request.GetPublicKeyRequest() != nil {
+			if request.GetPublicKeyRequest().PublicKey != nil {
+				pubKeyContent = request.GetPublicKeyRequest().PublicKey.Content
+			}
+			proofOfPossession = request.GetPublicKeyRequest().ProofOfPossession
+		}
 
-	// verify challenge
-	subject, err := challenges.ExtractSubject(ctx, principal, publicKey, csr, proofOfPossession)
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		// Parse public key and check for weak parameters
+		publicKey, err = challenges.ParsePublicKey(pubKeyContent)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
+		}
+		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
+		}
+
+		// Check proof of possession signature
+		if err := challenges.CheckSignature(publicKey, proofOfPossession, principal.Name(ctx)); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		}
 	}
 
 	var csc *certauth.CodeSigningCertificate
@@ -115,7 +137,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	// For CAs that do not support embedded SCTs or if the CT log is not configured
 	if sctCa, ok := g.ca.(certauth.EmbeddedSCTCA); !ok || g.ct == nil {
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
-		csc, err = g.ca.CreateCertificate(ctx, subject, publicKey)
+		csc, err = g.ca.CreateCertificate(ctx, principal, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
@@ -165,7 +187,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 			result.GetSignedCertificateDetachedSct().SignedCertificateTimestamp = sctBytes
 		}
 	} else {
-		precert, err := sctCa.CreatePrecertificate(ctx, subject, publicKey)
+		precert, err := sctCa.CreatePrecertificate(ctx, principal, publicKey)
 		if err != nil {
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {

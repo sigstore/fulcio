@@ -33,7 +33,9 @@ const (
 	insecurePublicKey      = "The public key supplied in the request is insecure"
 	//nolint
 	invalidCredentials = "There was an error processing the credentials for this request"
-	genericCAError     = "error communicating with CA backend"
+	// nolint
+	invalidIdentityToken = "There was an error processing the identity token"
+	genericCAError       = "error communicating with CA backend"
 )
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {

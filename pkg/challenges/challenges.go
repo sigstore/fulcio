@@ -493,7 +493,7 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
 
-func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.PublicKey, csr *x509.CertificateRequest, challenge []byte) (identity.Principal, error) {
+func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
@@ -520,30 +520,14 @@ func ExtractSubject(ctx context.Context, tok *oidc.IDToken, publicKey crypto.Pub
 		return nil, err
 	}
 
-	// verify the proof of possession of the private key
-	if csr != nil {
-		err = csr.CheckSignature()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		if err := CheckSignature(publicKey, challenge, principal.Name(ctx)); err != nil {
-			return nil, err
-		}
-	}
-
 	return principal, nil
 }
 
-// ParsePublicKey parses a PEM or DER encoded public key, or extracts the public
-// key from the provided CSR. Returns an error if decoding fails or if no public
-// key is found.
-func ParsePublicKey(encodedPubKey string, csr *x509.CertificateRequest) (crypto.PublicKey, error) {
-	if csr == nil && len(encodedPubKey) == 0 {
+// ParsePublicKey parses a PEM or DER encoded public key. Returns an error if
+// decoding fails or if no public key is found.
+func ParsePublicKey(encodedPubKey string) (crypto.PublicKey, error) {
+	if len(encodedPubKey) == 0 {
 		return nil, errors.New("public key not provided")
-	}
-	if csr != nil {
-		return csr.PublicKey, nil
 	}
 	// try to unmarshal as PEM
 	publicKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(encodedPubKey))
