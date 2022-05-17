@@ -37,7 +37,8 @@ data:
             "https://oidc.dlorenc.dev": {
               "IssuerURL": "https://oidc.dlorenc.dev",
               "ClientID": "sigstore",
-              "Type": "spiffe"
+              "Type": "spiffe",
+              "SPIFFETrustDomain": "oidc.dlorenc.dev"
             },
             "https://token.actions.githubusercontent.com": {
               "IssuerURL": "https://token.actions.githubusercontent.com",

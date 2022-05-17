@@ -16,3 +16,4 @@ url: https://allow.pub
 contact: evan@phx.io
 description: "Server side signing support for the OCI registry vcr.pub"
 type: "spiffe"
+spiffetrustdomain: "allow.pub"
