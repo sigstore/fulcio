@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
-package config
+package legacy
 
 import (
 	"fmt"
@@ -91,16 +90,16 @@ func TestMetaURLs(t *testing.T) {
 
 func TestValidateConfig(t *testing.T) {
 	tests := map[string]struct {
-		Config    *FulcioConfig
+		Config    *legacyIssuer
 		WantError bool
 	}{
 		"good spiffe config": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:         "issuer.example.com",
 						ClientID:          "foo",
-						Type:              IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "example.com",
 					},
 				},
@@ -108,23 +107,23 @@ func TestValidateConfig(t *testing.T) {
 			WantError: false,
 		},
 		"spiffe issuer requires a trust domain": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL: "issuer.example.com",
 						ClientID:  "foo",
-						Type:      IssuerTypeSpiffe,
+						Type:      issuerTypeSpiffe,
 					},
 				},
 			},
 			WantError: true,
 		},
 		"spiffe issuer cannot be a meta issuer": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				MetaIssuers: map[string]OIDCIssuer{
 					"*.example.com": {
 						ClientID:          "foo",
-						Type:              IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "example.com",
 					},
 				},
@@ -132,12 +131,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"invalid spiffe trust domain": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:         "issuer.example.com",
 						ClientID:          "foo",
-						Type:              IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "invalid#domain",
 					},
 				},
@@ -145,12 +144,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"good uri config": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeURI,
+						Type:          issuerTypeURI,
 						SubjectDomain: "https://other.example.com",
 					},
 				},
@@ -158,24 +157,24 @@ func TestValidateConfig(t *testing.T) {
 			WantError: false,
 		},
 		"uri issuer requires a subject domain": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL: "https://issuer.example.com",
 						ClientID:  "foo",
-						Type:      IssuerTypeURI,
+						Type:      issuerTypeURI,
 					},
 				},
 			},
 			WantError: true,
 		},
 		"uri subject domain should contain scheme": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeURI,
+						Type:          issuerTypeURI,
 						SubjectDomain: "other.example.com",
 					},
 				},
@@ -183,12 +182,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"uri issuer url should contain scheme": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeURI,
+						Type:          issuerTypeURI,
 						SubjectDomain: "https://other.example.com",
 					},
 				},
@@ -196,12 +195,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"uri issuer and subject domains must have same top-level hostname": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeURI,
+						Type:          issuerTypeURI,
 						SubjectDomain: "https://different.com",
 					},
 				},
@@ -209,12 +208,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"uri issuer and subject domains must have same scheme": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeURI,
+						Type:          issuerTypeURI,
 						SubjectDomain: "http://example.com",
 					},
 				},
@@ -222,12 +221,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"good username config": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeUsername,
+						Type:          issuerTypeUsername,
 						SubjectDomain: "other.example.com",
 					},
 				},
@@ -235,24 +234,24 @@ func TestValidateConfig(t *testing.T) {
 			WantError: false,
 		},
 		"username issuer requires a subject domain": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL: "https://issuer.example.com",
 						ClientID:  "foo",
-						Type:      IssuerTypeUsername,
+						Type:      issuerTypeUsername,
 					},
 				},
 			},
 			WantError: true,
 		},
 		"username subject domain should not contain scheme": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeUsername,
+						Type:          issuerTypeUsername,
 						SubjectDomain: "https://other.example.com",
 					},
 				},
@@ -260,12 +259,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"username issuer url should contain scheme": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeUsername,
+						Type:          issuerTypeUsername,
 						SubjectDomain: "other.example.com",
 					},
 				},
@@ -273,12 +272,12 @@ func TestValidateConfig(t *testing.T) {
 			WantError: true,
 		},
 		"username issuer and subject domains must have same top-level hostname": {
-			Config: &FulcioConfig{
+			Config: &legacyIssuer{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
 						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
-						Type:          IssuerTypeUsername,
+						Type:          issuerTypeUsername,
 						SubjectDomain: "different.com",
 					},
 				},

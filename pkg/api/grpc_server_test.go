@@ -43,9 +43,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/legacy"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -63,26 +63,11 @@ const (
 
 var lis *bufconn.Listener
 
-func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		// For each request, infuse context with our snapshot of the FulcioConfig.
-		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-		// from disk, so that we don't need to cycle pods to pick up config updates.
-		// Alternately we could take advantage of Knative's configmap watcher.
-		ctx = config.With(ctx, cfg)
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		// Calls the inner handler
-		return handler(ctx, req)
-	}
-}
-
-func setupGRPCForTest(ctx context.Context, t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
+func setupGRPCForTest(ctx context.Context, t *testing.T, ctl *ctclient.LogClient, ca ca.CertificateAuthority, ip identity.IssuerPool) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
 	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
-	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca))
+	s := grpc.NewServer()
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, ip))
 	go func() {
 		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("Server exited with error: %v", err)
@@ -104,7 +89,11 @@ func bufDialer(ctx context.Context, _ string) (net.Conn, error) {
 
 func TestMissingGetTrustBundleFails(t *testing.T) {
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, nil, nil, &FailingCertificateAuthority{})
+	issuer, err := legacy.NewDefaultIssuer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, conn := setupGRPCForTest(ctx, t, nil, &FailingCertificateAuthority{}, identity.IssuerPool{issuer})
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -113,7 +102,7 @@ func TestMissingGetTrustBundleFails(t *testing.T) {
 	client := protobuf.NewCAClient(conn)
 
 	// Check that we get the CA root back as well.
-	_, err := client.GetTrustBundle(ctx, &protobuf.GetTrustBundleRequest{})
+	_, err = client.GetTrustBundle(ctx, &protobuf.GetTrustBundleRequest{})
 	if err == nil {
 		t.Fatal("GetTrustBundle did not fail", err)
 	}
@@ -126,10 +115,13 @@ func TestMissingGetTrustBundleFails(t *testing.T) {
 }
 
 func TestGetTrustBundleSuccess(t *testing.T) {
-	cfg := &config.FulcioConfig{}
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	issuer, err := legacy.NewDefaultIssuer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, identity.IssuerPool{issuer})
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -193,8 +185,8 @@ func TestAPIWithEmail(t *testing.T) {
 		t.Fatal("issuer URL could not be parsed", err)
 	}
 
-	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	// Create legacy issuer to supports these issuers
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -212,6 +204,7 @@ func TestAPIWithEmail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 	usernameSubject := "foo"
@@ -238,9 +231,9 @@ func TestAPIWithEmail(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		ctClient, eca := createCA(cfg, t)
+		ctClient, eca := createCA(t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -288,7 +281,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 	uriSigner, uriIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -307,6 +300,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	spiffeSubject := "spiffe://foo.com/bar"
 	uriSubject := uriIssuer + "/users/1"
@@ -332,9 +326,9 @@ func TestAPIWithUriSubject(t *testing.T) {
 			t.Fatalf("CompactSerialize() = %v", err)
 		}
 
-		ctClient, eca := createCA(cfg, t)
+		ctClient, eca := createCA(t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -395,7 +389,7 @@ func TestAPIWithKubernetes(t *testing.T) {
 	k8sSigner, k8sIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
         "MetaIssuers": {
           %q: {
             "ClientID": "sigstore",
@@ -406,6 +400,7 @@ func TestAPIWithKubernetes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	namespace := "namespace"
 	saName := "sa"
@@ -426,9 +421,9 @@ func TestAPIWithKubernetes(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -488,7 +483,7 @@ func TestAPIWithGitHub(t *testing.T) {
 	gitSigner, gitIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -500,6 +495,7 @@ func TestAPIWithGitHub(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	claims := gitClaims{
 		JobWorkflowRef: "job/workflow/ref",
@@ -523,9 +519,9 @@ func TestAPIWithGitHub(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -611,7 +607,7 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -623,6 +619,7 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -638,9 +635,9 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -693,7 +690,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -705,6 +702,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -720,9 +718,9 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -768,7 +766,7 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -780,6 +778,7 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -795,9 +794,9 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -844,7 +843,7 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -856,6 +855,7 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -871,9 +871,9 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -912,7 +912,7 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -924,6 +924,7 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -939,9 +940,9 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -973,7 +974,7 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	issuer, err := legacy.NewIssuerFromBytes([]byte(fmt.Sprintf(`{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -985,6 +986,7 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
+	ip := identity.IssuerPool{issuer}
 
 	emailSubject := "foo@example.com"
 
@@ -1000,9 +1002,9 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 		t.Fatalf("CompactSerialize() = %v", err)
 	}
 
-	ctClient, eca := createCA(cfg, t)
+	ctClient, eca := createCA(t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(ctx, t, ctClient, eca, ip)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1118,7 +1120,7 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 }
 
 // createCA initializes an ephemeral CA server and CT log server
-func createCA(cfg *config.FulcioConfig, t *testing.T) (*ctclient.LogClient, *ephemeralca.EphemeralCA) {
+func createCA(t *testing.T) (*ctclient.LogClient, *ephemeralca.EphemeralCA) {
 	// Stand up an ephemeral CA we can use for signing certificate requests.
 	eca, err := ephemeralca.NewEphemeralCA()
 	if err != nil {

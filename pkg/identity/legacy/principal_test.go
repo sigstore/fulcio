@@ -28,7 +28,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/go-cmp/cmp"
-	"github.com/sigstore/fulcio/pkg/config"
 )
 
 func TestEmbedLegacyPrincipal(t *testing.T) {
@@ -263,17 +262,17 @@ func factExtensionIs(oid asn1.ObjectIdentifier, value string) func(x509.Certific
 }
 
 func TestURI(t *testing.T) {
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
+	cfg := &legacyIssuer{
+		OIDCIssuers: map[string]OIDCIssuer{
 			"https://accounts.example.com": {
 				IssuerURL:     "https://accounts.example.com",
 				ClientID:      "sigstore",
 				SubjectDomain: "https://example.com",
-				Type:          config.IssuerTypeURI,
+				Type:          issuerTypeURI,
 			},
 		},
 	}
-	ctx := config.With(context.Background(), cfg)
+	ctx := with(context.Background(), cfg)
 	subject := "https://example.com/users/1"
 	issuer := "https://accounts.example.com"
 	token := &oidc.IDToken{Subject: subject, Issuer: issuer}
@@ -304,17 +303,17 @@ func TestURI(t *testing.T) {
 }
 
 func TestUsername(t *testing.T) {
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
+	cfg := &legacyIssuer{
+		OIDCIssuers: map[string]OIDCIssuer{
 			"https://accounts.example.com": {
 				IssuerURL:     "https://accounts.example.com",
 				ClientID:      "sigstore",
 				SubjectDomain: "example.com",
-				Type:          config.IssuerTypeUsername,
+				Type:          issuerTypeUsername,
 			},
 		},
 	}
-	ctx := config.With(context.Background(), cfg)
+	ctx := with(context.Background(), cfg)
 	usernameVal := "foobar"
 	usernameWithEmail := "foobar@example.com"
 	issuer := "https://accounts.example.com"
@@ -347,17 +346,17 @@ func TestUsername(t *testing.T) {
 }
 
 func TestUsernameInvalidChar(t *testing.T) {
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
+	cfg := &legacyIssuer{
+		OIDCIssuers: map[string]OIDCIssuer{
 			"https://accounts.example.com": {
 				IssuerURL:     "https://accounts.example.com",
 				ClientID:      "sigstore",
 				SubjectDomain: "example.com",
-				Type:          config.IssuerTypeUsername,
+				Type:          issuerTypeUsername,
 			},
 		},
 	}
-	ctx := config.With(context.Background(), cfg)
+	ctx := with(context.Background(), cfg)
 	usernameVal := "foobar@example.com"
 	issuer := "https://accounts.example.com"
 	token := &oidc.IDToken{Subject: usernameVal, Issuer: issuer}
@@ -369,74 +368,6 @@ func TestUsernameInvalidChar(t *testing.T) {
 	msg := "username cannot contain @ character"
 	if err.Error() != msg {
 		t.Errorf("unexpected test failure message, got %s, expected %s", err.Error(), msg)
-	}
-}
-
-func Test_isURISubjectAllowed(t *testing.T) {
-	tests := []struct {
-		name    string
-		subject string // Parsed to url.URL
-		issuer  string // Parsed to url.URL
-		want    error
-	}{{
-		name:    "match",
-		subject: "https://accounts.example.com",
-		issuer:  "https://accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "issuer subdomain",
-		subject: "https://example.com",
-		issuer:  "https://accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "subject subdomain",
-		subject: "https://profiles.example.com",
-		issuer:  "https://example.com",
-		want:    nil,
-	}, {
-		name:    "subdomain mismatch",
-		subject: "https://profiles.example.com",
-		issuer:  "https://accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "scheme mismatch",
-		subject: "http://example.com",
-		issuer:  "https://example.com",
-		want:    fmt.Errorf("subject (http) and issuer (https) URI schemes do not match"),
-	}, {
-		name:    "subject domain too short",
-		subject: "https://example",
-		issuer:  "https://example.com",
-		want:    fmt.Errorf("URI hostname too short: example"),
-	}, {
-		name:    "issuer domain too short",
-		subject: "https://example.com",
-		issuer:  "https://issuer",
-		want:    fmt.Errorf("URI hostname too short: issuer"),
-	}, {
-		name:    "domain mismatch",
-		subject: "https://example.com",
-		issuer:  "https://otherexample.com",
-		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
-	}, {
-		name:    "top level domain mismatch",
-		subject: "https://example.com",
-		issuer:  "https://example.org",
-		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
-	}}
-	for _, tt := range tests {
-		subject, _ := url.Parse(tt.subject)
-		issuer, _ := url.Parse(tt.issuer)
-		t.Run(tt.name, func(t *testing.T) {
-			got := isURISubjectAllowed(subject, issuer)
-			if got == nil && tt.want != nil ||
-				got != nil && tt.want == nil {
-				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
-			}
-			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
-				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -470,12 +401,12 @@ func TestEmailWithClaims(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
+	cfg := &legacyIssuer{
+		OIDCIssuers: map[string]OIDCIssuer{
 			"email.com": {IssuerURL: "email.com"},
 		},
 	}
-	ctx = config.With(ctx, cfg)
+	ctx = with(ctx, cfg)
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -499,7 +430,7 @@ func TestEmailWithClaims(t *testing.T) {
 func TestSpiffe(t *testing.T) {
 	tests := map[string]struct {
 		Token   *oidc.IDToken
-		Config  *config.FulcioConfig
+		Config  *legacyIssuer
 		WantErr bool
 	}{
 		"good token": {
@@ -507,12 +438,12 @@ func TestSpiffe(t *testing.T) {
 				Subject: "spiffe://foo.com/bar",
 				Issuer:  "id.foo.com",
 			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
+			Config: &legacyIssuer{
+				OIDCIssuers: map[string]OIDCIssuer{
 					"id.foo.com": {
 						IssuerURL:         "id.foo.com",
 						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "foo.com",
 					},
 				},
@@ -524,12 +455,12 @@ func TestSpiffe(t *testing.T) {
 				Subject: "spiffe://baz.com/bar",
 				Issuer:  "id.foo.com",
 			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
+			Config: &legacyIssuer{
+				OIDCIssuers: map[string]OIDCIssuer{
 					"id.foo.com": {
 						IssuerURL:         "id.foo.com",
 						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "foo.com",
 					},
 				},
@@ -541,12 +472,12 @@ func TestSpiffe(t *testing.T) {
 				Subject: "spiffe://foo.com/bar",
 				Issuer:  "id.foo.com",
 			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
+			Config: &legacyIssuer{
+				OIDCIssuers: map[string]OIDCIssuer{
 					"id.bar.com": {
 						IssuerURL:         "id.bar.com",
 						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "foo.com",
 					},
 				},
@@ -558,12 +489,12 @@ func TestSpiffe(t *testing.T) {
 				Subject: "spiffe://foo#com/bar",
 				Issuer:  "id.foo.com",
 			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
+			Config: &legacyIssuer{
+				OIDCIssuers: map[string]OIDCIssuer{
 					"id.foo.com": {
 						IssuerURL:         "id.foo.com",
 						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "foo.com",
 					},
 				},
@@ -575,12 +506,12 @@ func TestSpiffe(t *testing.T) {
 				Subject: "spiffe://foo.com/bar",
 				Issuer:  "id.foo.com",
 			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
+			Config: &legacyIssuer{
+				OIDCIssuers: map[string]OIDCIssuer{
 					"id.foo.com": {
 						IssuerURL:         "id.foo.com",
 						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
+						Type:              issuerTypeSpiffe,
 						SPIFFETrustDomain: "foo#com",
 					},
 				},
@@ -591,79 +522,13 @@ func TestSpiffe(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx := config.With(context.Background(), test.Config)
+			ctx := with(context.Background(), test.Config)
 			_, err := spiffe(ctx, test.Token)
 			if err != nil && !test.WantErr {
 				t.Errorf("%s: %v", name, err)
 			}
 			if err == nil && test.WantErr {
 				t.Errorf("%s: expected error", name)
-			}
-		})
-	}
-}
-
-func Test_validateAllowedDomain(t *testing.T) {
-	tests := []struct {
-		name    string
-		subject string // Parsed to url.URL
-		issuer  string // Parsed to url.URL
-		want    error
-	}{{
-		name:    "match",
-		subject: "accounts.example.com",
-		issuer:  "accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "issuer subdomain",
-		subject: "example.com",
-		issuer:  "accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "subject subdomain",
-		subject: "profiles.example.com",
-		issuer:  "example.com",
-		want:    nil,
-	}, {
-		name:    "subdomain mismatch",
-		subject: "profiles.example.com",
-		issuer:  "accounts.example.com",
-		want:    nil,
-	}, {
-		name:    "subject domain too short",
-		subject: "example",
-		issuer:  "example.com",
-		want:    fmt.Errorf("URI hostname too short: example"),
-	}, {
-		name:    "issuer domain too short",
-		subject: "example.com",
-		issuer:  "issuer",
-		want:    fmt.Errorf("URI hostname too short: issuer"),
-	}, {
-		name:    "domain mismatch",
-		subject: "example.com",
-		issuer:  "otherexample.com",
-		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
-	}, {
-		name:    "domain mismatch, subdomain match",
-		subject: "test.example.com",
-		issuer:  "test.otherexample.com",
-		want:    fmt.Errorf("hostname top-level and second-level domains do not match: test.example.com, test.otherexample.com"),
-	}, {
-		name:    "top level domain mismatch",
-		subject: "example.com",
-		issuer:  "example.org",
-		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := validateAllowedDomain(tt.subject, tt.issuer)
-			if got == nil && tt.want != nil ||
-				got != nil && tt.want == nil {
-				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
-			}
-			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
-				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 		})
 	}

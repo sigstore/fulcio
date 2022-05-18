@@ -15,27 +15,31 @@
 
 //go:build !hermetic
 
-package config
+package legacy
 
 import (
 	"context"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func TestLoad(t *testing.T) {
+func TestNewFromConfig(t *testing.T) {
 	td := t.TempDir()
 	cfgPath := filepath.Join(td, "config.json")
 	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	cfg, _ := Load(cfgPath)
-	got, ok := cfg.GetIssuer("https://accounts.google.com")
+	cfg, err := NewIssuerFromConfig(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, ok := cfg.(*legacyIssuer)
+	if !ok {
+		t.Fatal("expected config to be legacy issuer")
+	}
+	got, ok := raw.getIssuer("https://accounts.google.com")
 	if !ok {
 		t.Error("expected true, got false")
 	}
@@ -45,11 +49,11 @@ func TestLoad(t *testing.T) {
 	if got.IssuerURL != "https://accounts.google.com" {
 		t.Errorf("expected https://accounts.google.com, got %s", got.IssuerURL)
 	}
-	if got := len(cfg.OIDCIssuers); got != 1 {
+	if got := len(raw.OIDCIssuers); got != 1 {
 		t.Errorf("expected 1 issuer, got %d", got)
 	}
 
-	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
+	got, ok = raw.getIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
 	if !ok {
 		t.Error("expected true, got false")
 	}
@@ -60,33 +64,37 @@ func TestLoad(t *testing.T) {
 		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
 	}
 
-	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
+	if _, ok := raw.getIssuer("not_an_issuer"); ok {
 		t.Error("no error returned from an unconfigured issuer")
 	}
 }
 
-func TestLoadDefaults(t *testing.T) {
+func TestNewIssuerFromConfigDefaults(t *testing.T) {
 	td := t.TempDir()
 
 	// Don't put anything here!
 	cfgPath := filepath.Join(td, "config.json")
-	cfg, err := Load(cfgPath)
+	cfg, err := NewIssuerFromConfig(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
+	raw, ok := cfg.(*legacyIssuer)
+	if !ok {
+		t.Fatal("expected issuer to be legacy issuer")
+	}
 
-	if diff := cmp.Diff(DefaultConfig, cfg, cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
-		t.Errorf("DefaultConfig(): -want +got: %s", diff)
+	if defaultConfig != raw {
+		t.Error("default config")
 	}
 
 	ctx := context.Background()
 
-	if got := FromContext(ctx); nil != got {
+	if got := fromContext(ctx); nil != got {
 		t.Errorf("FromContext(): %#v, wanted nil", got)
 	}
 
-	ctx = With(ctx, cfg)
-	if diff := cmp.Diff(cfg, FromContext(ctx), cmpopts.IgnoreUnexported(FulcioConfig{})); diff != "" {
-		t.Errorf("FromContext(): -want +got: %s", diff)
+	ctx = with(ctx, raw)
+	if raw != fromContext(ctx) {
+		t.Error("from context")
 	}
 }

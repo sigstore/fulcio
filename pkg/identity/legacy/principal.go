@@ -23,10 +23,9 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
 )
@@ -41,10 +40,6 @@ const (
 	URIValue
 	UsernameValue
 )
-
-// All hostnames for subject and issuer OIDC claims must have at least a
-// top-level and second-level domain
-const minimumHostnameLength = 2
 
 type additionalInfo int
 
@@ -153,7 +148,7 @@ func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, er
 		return nil, err
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -174,7 +169,7 @@ func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, er
 func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	spiffeID := principal.Subject
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -213,7 +208,7 @@ func kubernetes(ctx context.Context, principal *oidc.IDToken) (identity.Principa
 		return nil, err
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -241,7 +236,7 @@ func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (identity.Prin
 		return nil, err
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
@@ -263,36 +258,17 @@ func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (identity.Prin
 func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	uriWithSubject := principal.Subject
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
+	// The subject hostname must exactly match the subject domain from the configuration
 	uSubject, err := url.Parse(uriWithSubject)
 	if err != nil {
 		return nil, err
 	}
 
-	// The subject prefix URI must match the domain (excluding the subdomain) of the issuer
-	// In order to declare this configuration, a test must have been done to prove ownership
-	// over both the issuer and domain configuration values.
-	// Valid examples:
-	// * uriWithSubject = https://example.com/users/user1, issuer = https://accounts.example.com
-	// * uriWithSubject = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
-	// * uriWithSubject = https://users.example.com/users/user1, issuer = https://accounts.example.com
-	uIssuer, err := url.Parse(cfg.IssuerURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check that:
-	// * The URI schemes match
-	// * Either the hostnames exactly match or the top level and second level domains match
-	if err := isURISubjectAllowed(uSubject, uIssuer); err != nil {
-		return nil, err
-	}
-
-	// The subject hostname must exactly match the subject domain from the configuration
 	uDomain, err := url.Parse(cfg.SubjectDomain)
 	if err != nil {
 		return nil, err
@@ -324,24 +300,9 @@ func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal,
 		return nil, errors.New("username cannot contain @ character")
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
+	cfg, ok := fromContext(ctx).getIssuer(principal.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	// The domain in the configuration must match the domain (excluding the subdomain) of the issuer
-	// In order to declare this configuration, a test must have been done to prove ownership
-	// over both the issuer and domain configuration values.
-	// Valid examples:
-	// * domain = https://example.com/users/user1, issuer = https://accounts.example.com
-	// * domain = https://accounts.example.com/users/user1, issuer = https://accounts.example.com
-	// * domain = https://users.example.com/users/user1, issuer = https://accounts.example.com
-	uIssuer, err := url.Parse(cfg.IssuerURL)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateAllowedDomain(cfg.SubjectDomain, uIssuer.Hostname()); err != nil {
-		return nil, err
 	}
 
 	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
@@ -432,59 +393,25 @@ func workflowInfoFromIDToken(token *oidc.IDToken) (map[additionalInfo]string, er
 		githubWorkflowRef:        claims.Ref}, nil
 }
 
-// isURISubjectAllowed compares the subject and issuer URIs,
-// returning an error if the scheme or the hostnames do not match
-func isURISubjectAllowed(subject, issuer *url.URL) error {
-	if subject.Scheme != issuer.Scheme {
-		return fmt.Errorf("subject (%s) and issuer (%s) URI schemes do not match", subject.Scheme, issuer.Scheme)
-	}
-
-	return validateAllowedDomain(subject.Hostname(), issuer.Hostname())
-}
-
-// validateAllowedDomain compares two hostnames, returning an error if the
-// top-level and second-level domains do not match
-func validateAllowedDomain(subjectHostname, issuerHostname string) error {
-	// If the hostnames exactly match, return early
-	if subjectHostname == issuerHostname {
-		return nil
-	}
-
-	// Compare the top level and second level domains
-	sHostname := strings.Split(subjectHostname, ".")
-	iHostname := strings.Split(issuerHostname, ".")
-	if len(sHostname) < minimumHostnameLength {
-		return fmt.Errorf("URI hostname too short: %s", subjectHostname)
-	}
-	if len(iHostname) < minimumHostnameLength {
-		return fmt.Errorf("URI hostname too short: %s", issuerHostname)
-	}
-	if sHostname[len(sHostname)-1] == iHostname[len(iHostname)-1] &&
-		sHostname[len(sHostname)-2] == iHostname[len(iHostname)-2] {
-		return nil
-	}
-	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
-}
-
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
-	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
+	iss, ok := fromContext(ctx).getIssuer(tok.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
 	}
 	var principal identity.Principal
 	var err error
 	switch iss.Type {
-	case config.IssuerTypeEmail:
+	case issuerTypeEmail:
 		principal, err = email(ctx, tok)
-	case config.IssuerTypeSpiffe:
+	case issuerTypeSpiffe:
 		principal, err = spiffe(ctx, tok)
-	case config.IssuerTypeGithubWorkflow:
+	case issuerTypeGithubWorkflow:
 		principal, err = githubWorkflow(ctx, tok)
-	case config.IssuerTypeKubernetes:
+	case issuerTypeKubernetes:
 		principal, err = kubernetes(ctx, tok)
-	case config.IssuerTypeURI:
+	case issuerTypeURI:
 		principal, err = uri(ctx, tok)
-	case config.IssuerTypeUsername:
+	case issuerTypeUsername:
 		principal, err = username(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)

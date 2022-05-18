@@ -29,9 +29,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -47,22 +47,7 @@ type grpcServer struct {
 	caService          gw.CAServer
 }
 
-func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		// For each request, infuse context with our snapshot of the FulcioConfig.
-		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
-		// from disk, so that we don't need to cycle pods to pick up config updates.
-		// Alternately we could take advantage of Knative's configmap watcher.
-		ctx = config.With(ctx, cfg)
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		// Calls the inner handler
-		return handler(ctx, req)
-	}
-}
-
-func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority) (*grpcServer, error) {
+func createGRPCServer(ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
@@ -70,12 +55,11 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			passFulcioConfigThruContext(cfg),
 			grpc_prometheus.UnaryServerInterceptor,
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
-	grpcCAServer := api.NewGRPCCAServer(ctClient, baseca)
+	grpcCAServer := api.NewGRPCCAServer(ctClient, baseca, ip)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
@@ -124,7 +108,7 @@ func (g *grpcServer) startUnixListener() {
 	}()
 }
 
-func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*grpcServer, error) {
+func createLegacyGRPCServer(v2Server gw.CAServer) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
@@ -132,7 +116,6 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*gr
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			passFulcioConfigThruContext(cfg),
 			grpc_prometheus.UnaryServerInterceptor,
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))

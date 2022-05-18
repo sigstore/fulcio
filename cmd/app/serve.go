@@ -36,7 +36,8 @@ import (
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	"github.com/sigstore/fulcio/pkg/ca/kmsca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
-	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -166,13 +167,18 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	// from https://github.com/golang/glog/commit/fca8c8854093a154ff1eb580aae10276ad6b1b5f
 	_ = flag.CommandLine.Parse([]string{})
 
-	cp := viper.GetString("config-path")
-	cfg, err := config.Load(cp)
-	if err != nil {
-		log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
+	var ip identity.IssuerPool
+	{
+		cp := viper.GetString("config-path")
+		issuer, err := legacy.NewIssuerFromConfig(cp)
+		if err != nil {
+			log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
+		}
+		ip = append(ip, issuer)
 	}
 
 	var baseca certauth.CertificateAuthority
+	var err error
 	switch viper.GetString("ca") {
 	case "googleca":
 		baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
@@ -226,14 +232,14 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	reg := prometheus.NewRegistry()
 
-	grpcServer, err := createGRPCServer(cfg, ctClient, baseca)
+	grpcServer, err := createGRPCServer(ctClient, baseca, ip)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
 	grpcServer.setupPrometheus(reg)
 	grpcServer.startTCPListener()
 
-	legacyGRPCServer, err := createLegacyGRPCServer(cfg, grpcServer.caService)
+	legacyGRPCServer, err := createLegacyGRPCServer(grpcServer.caService)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
