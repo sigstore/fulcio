@@ -26,7 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.11.0
 	github.com/spiffe/go-spiffe/v2 v2.1.0
-	go.step.sm/crypto v0.16.1
+	go.step.sm/crypto v0.16.2
 	go.uber.org/zap v1.21.0
 	google.golang.org/api v0.80.0
 	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3
