@@ -162,7 +162,7 @@ func (tp testPrincipal) Name(context.Context) string {
 	return "test@example.com"
 }
 
-func (tc testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (tp testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
 	return nil
 }
 

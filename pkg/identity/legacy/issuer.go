@@ -391,7 +391,7 @@ func NewDefaultIssuer() (identity.Issuer, error) {
 }
 
 // NewIssuerFromBytes parses the bytes of a config
-func NewIssuerFromBytes(b []byte) (*legacyIssuer, error) {
+func NewIssuerFromBytes(b []byte) (identity.Issuer, error) {
 	config, err := parseConfig(b)
 	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
