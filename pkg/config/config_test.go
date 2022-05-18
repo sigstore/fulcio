@@ -16,6 +16,8 @@
 package config
 
 import (
+	"fmt"
+	"net/url"
 	"testing"
 )
 
@@ -146,10 +148,10 @@ func TestValidateConfig(t *testing.T) {
 			Config: &FulcioConfig{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
-						IssuerURL:     "issuer.example.com",
+						IssuerURL:     "https://issuer.example.com",
 						ClientID:      "foo",
 						Type:          IssuerTypeURI,
-						SubjectDomain: "other.example.com",
+						SubjectDomain: "https://other.example.com",
 					},
 				},
 			},
@@ -159,9 +161,125 @@ func TestValidateConfig(t *testing.T) {
 			Config: &FulcioConfig{
 				OIDCIssuers: map[string]OIDCIssuer{
 					"issuer.example.com": {
-						IssuerURL: "issuer.example.com",
+						IssuerURL: "https://issuer.example.com",
 						ClientID:  "foo",
 						Type:      IssuerTypeURI,
+					},
+				},
+			},
+			WantError: true,
+		},
+		"uri subject domain should contain scheme": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "other.example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"uri issuer url should contain scheme": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "https://other.example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"uri issuer and subject domains must have same top-level hostname": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "https://different.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"uri issuer and subject domains must have same scheme": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "http://example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"good username config": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeUsername,
+						SubjectDomain: "other.example.com",
+					},
+				},
+			},
+			WantError: false,
+		},
+		"username issuer requires a subject domain": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL: "https://issuer.example.com",
+						ClientID:  "foo",
+						Type:      IssuerTypeUsername,
+					},
+				},
+			},
+			WantError: true,
+		},
+		"username subject domain should not contain scheme": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeUsername,
+						SubjectDomain: "https://other.example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"username issuer url should contain scheme": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeUsername,
+						SubjectDomain: "other.example.com",
+					},
+				},
+			},
+			WantError: true,
+		},
+		"username issuer and subject domains must have same top-level hostname": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:     "https://issuer.example.com",
+						ClientID:      "foo",
+						Type:          IssuerTypeUsername,
+						SubjectDomain: "different.com",
 					},
 				},
 			},
@@ -177,10 +295,144 @@ func TestValidateConfig(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			err := validateConfig(test.Config)
 			if err != nil && !test.WantError {
-				t.Error(err)
+				t.Errorf("%s: %v", name, err)
 			}
 			if err == nil && test.WantError {
-				t.Error("expected error")
+				t.Errorf("%s: expected error", name)
+			}
+		})
+	}
+}
+
+func Test_isURISubjectAllowed(t *testing.T) {
+	tests := []struct {
+		name    string
+		subject string // Parsed to url.URL
+		issuer  string // Parsed to url.URL
+		want    error
+	}{{
+		name:    "match",
+		subject: "https://accounts.example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "issuer subdomain",
+		subject: "https://example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject subdomain",
+		subject: "https://profiles.example.com",
+		issuer:  "https://example.com",
+		want:    nil,
+	}, {
+		name:    "subdomain mismatch",
+		subject: "https://profiles.example.com",
+		issuer:  "https://accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "scheme mismatch",
+		subject: "http://example.com",
+		issuer:  "https://example.com",
+		want:    fmt.Errorf("subject (http) and issuer (https) URI schemes do not match"),
+	}, {
+		name:    "subject domain too short",
+		subject: "https://example",
+		issuer:  "https://example.com",
+		want:    fmt.Errorf("URI hostname too short: example"),
+	}, {
+		name:    "issuer domain too short",
+		subject: "https://example.com",
+		issuer:  "https://issuer",
+		want:    fmt.Errorf("URI hostname too short: issuer"),
+	}, {
+		name:    "domain mismatch",
+		subject: "https://example.com",
+		issuer:  "https://otherexample.com",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
+	}, {
+		name:    "top level domain mismatch",
+		subject: "https://example.com",
+		issuer:  "https://example.org",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
+	}}
+	for _, tt := range tests {
+		subject, _ := url.Parse(tt.subject)
+		issuer, _ := url.Parse(tt.issuer)
+		t.Run(tt.name, func(t *testing.T) {
+			got := isURISubjectAllowed(subject, issuer)
+			if got == nil && tt.want != nil ||
+				got != nil && tt.want == nil {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+			}
+			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
+				t.Errorf("isURISubjectAllowed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateAllowedDomain(t *testing.T) {
+	tests := []struct {
+		name    string
+		subject string // Parsed to url.URL
+		issuer  string // Parsed to url.URL
+		want    error
+	}{{
+		name:    "match",
+		subject: "accounts.example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "issuer subdomain",
+		subject: "example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject subdomain",
+		subject: "profiles.example.com",
+		issuer:  "example.com",
+		want:    nil,
+	}, {
+		name:    "subdomain mismatch",
+		subject: "profiles.example.com",
+		issuer:  "accounts.example.com",
+		want:    nil,
+	}, {
+		name:    "subject domain too short",
+		subject: "example",
+		issuer:  "example.com",
+		want:    fmt.Errorf("URI hostname too short: example"),
+	}, {
+		name:    "issuer domain too short",
+		subject: "example.com",
+		issuer:  "issuer",
+		want:    fmt.Errorf("URI hostname too short: issuer"),
+	}, {
+		name:    "domain mismatch",
+		subject: "example.com",
+		issuer:  "otherexample.com",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, otherexample.com"),
+	}, {
+		name:    "domain mismatch, subdomain match",
+		subject: "test.example.com",
+		issuer:  "test.otherexample.com",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: test.example.com, test.otherexample.com"),
+	}, {
+		name:    "top level domain mismatch",
+		subject: "example.com",
+		issuer:  "example.org",
+		want:    fmt.Errorf("hostname top-level and second-level domains do not match: example.com, example.org"),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validateAllowedDomain(tt.subject, tt.issuer)
+			if got == nil && tt.want != nil ||
+				got != nil && tt.want == nil {
+				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
+			}
+			if got != nil && tt.want != nil && got.Error() != tt.want.Error() {
+				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 		})
 	}
