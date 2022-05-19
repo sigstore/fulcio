@@ -18,7 +18,6 @@ package app
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/sigstore/fulcio/pkg/api"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +49,7 @@ func runVersion(opts *versionOptions) error {
 	if opts.json {
 		j, err := v.JSONString()
 		if err != nil {
-			return errors.Wrap(err, "unable to generate JSON from version info")
+			return fmt.Errorf("unable to generate JSON from version info: %w", err)
 		}
 		res = j
 	}
