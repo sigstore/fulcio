@@ -27,7 +27,6 @@ import (
 
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
@@ -253,11 +252,11 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 func checkServeCmdConfigFile() error {
 	if serveCmdConfigFilePath != "" {
 		if _, err := os.Stat(serveCmdConfigFilePath); err != nil {
-			return errors.Wrap(err, "unable to stat config file provided")
+			return fmt.Errorf("unable to stat config file provided: %w", err)
 		}
 		abspath, err := filepath.Abs(serveCmdConfigFilePath)
 		if err != nil {
-			return errors.Wrap(err, "unable to determine absolute path of config file provided")
+			return fmt.Errorf("unable to determine absolute path of config file provided: %w", err)
 		}
 		extWithDot := filepath.Ext(abspath)
 		ext := strings.TrimPrefix(extWithDot, ".")
@@ -275,7 +274,7 @@ func checkServeCmdConfigFile() error {
 		viper.SetConfigType(ext)
 		viper.AddConfigPath(filepath.Dir(serveCmdConfigFilePath))
 		if err := viper.ReadInConfig(); err != nil {
-			return errors.Wrap(err, "unable to parse config file provided")
+			return fmt.Errorf("unable to parse config file provided: %w", err)
 		}
 	}
 	return nil
