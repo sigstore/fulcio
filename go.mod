@@ -14,7 +14,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/magiconair/properties v1.8.6
 	github.com/prometheus/client_golang v1.12.2
@@ -28,7 +28,7 @@ require (
 	go.step.sm/crypto v0.16.2
 	go.uber.org/zap v1.21.0
 	google.golang.org/api v0.80.0
-	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3
+	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
 	google.golang.org/grpc v1.46.2
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/square/go-jose.v2 v2.6.0
