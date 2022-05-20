@@ -30,7 +30,7 @@ func TestNewEphemeralCA(t *testing.T) {
 	if ca.RootCA == nil {
 		t.Fatalf("ca not set up")
 	}
-	if ca.RootCA.NotAfter.Sub(ca.RootCA.NotBefore) < time.Hour*87660 {
+	if ca.RootCA.NotAfter.Sub(ca.RootCA.NotBefore) < time.Hour*24*365*10 {
 		t.Fatalf("expected CA to have 10 year lifetime, got %v", ca.RootCA.NotAfter.Sub(ca.RootCA.NotBefore))
 	}
 	if !ca.RootCA.IsCA {
