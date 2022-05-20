@@ -18,6 +18,7 @@ package oauthflow
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -35,7 +36,7 @@ func updateIDToken(idToken *oidc.IDToken, fieldName string, data []byte) {
 	*realPointer = data
 }
 
-func TestTokenWithClaims(t *testing.T) {
+func TestEmailFromIDToken(t *testing.T) {
 	tests := []struct {
 		name             string
 		inputClaims      []byte
@@ -84,5 +85,43 @@ func TestTokenWithClaims(t *testing.T) {
 				assert.Equal(t, actualErr, tt.expectedErr)
 			}
 		})
+	}
+}
+
+func TestIssuerFromIDToken(t *testing.T) {
+	expectedIss := "issuer"
+	idToken := &oidc.IDToken{Issuer: expectedIss}
+
+	// Test with no claims path
+	iss, err := IssuerFromIDToken(idToken, "")
+	if err != nil {
+		t.Fatalf("unexpected error generating issuer: %v", err)
+	}
+	if iss != expectedIss {
+		t.Fatalf("unexpected issuer, expected %s, got %s", expectedIss, iss)
+	}
+
+	// append additional claims
+	otherExpectedIss := "otherIssuer"
+	updateIDToken(idToken, "claims", []byte(`{"other_issuer":"otherIssuer"}`))
+	iss, err = IssuerFromIDToken(idToken, "$.other_issuer")
+	if err != nil {
+		t.Fatalf("unexpected error generating issuer: %v", err)
+	}
+	if iss != otherExpectedIss {
+		t.Fatalf("unexpected issuer, expected %s, got %s", otherExpectedIss, iss)
+	}
+
+	// failure with invalid claim path
+	_, err = IssuerFromIDToken(idToken, "$.invalid")
+	if err == nil || !strings.Contains(err.Error(), "unknown key invalid") {
+		t.Fatalf("expected error fetching invalid key, got %v", err)
+	}
+
+	// failure with invalid claims
+	updateIDToken(idToken, "claims", []byte(`{`))
+	_, err = IssuerFromIDToken(idToken, "$.other_issuer")
+	if err == nil || !strings.Contains(err.Error(), "unexpected end of JSON input") {
+		t.Fatalf("expected error with malformed ID token, got %v", err)
 	}
 }
