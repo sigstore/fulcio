@@ -45,44 +45,6 @@ func TestEmbedChallengeResult(t *testing.T) {
 		WantErr   bool
 		WantFacts map[string]func(x509.Certificate) error
 	}{
-		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
-			Challenge: ChallengeResult{
-				Issuer:  `https://token.actions.githubusercontent.com`,
-				TypeVal: GithubWorkflowValue,
-				Value:   `https://github.com/foo/bar/`,
-				AdditionalInfo: map[AdditionalInfo]string{
-					GithubWorkflowSha:        "sha",
-					GithubWorkflowTrigger:    "trigger",
-					GithubWorkflowName:       "workflowname",
-					GithubWorkflowRepository: "repository",
-					GithubWorkflowRef:        "ref",
-				},
-			},
-			WantErr: false,
-			WantFacts: map[string]func(x509.Certificate) error{
-				`Certifificate should have correct issuer`:     factIssuerIs(`https://token.actions.githubusercontent.com`),
-				`Certificate has correct trigger extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}, "trigger"),
-				`Certificate has correct SHA extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3}, "sha"),
-				`Certificate has correct workflow extension`:   factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4}, "workflowname"),
-				`Certificate has correct repository extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "repository"),
-				`Certificate has correct ref extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "ref"),
-			},
-		},
-		`Github workflow value with bad URL fails`: {
-			Challenge: ChallengeResult{
-				Issuer:  `https://token.actions.githubusercontent.com`,
-				TypeVal: GithubWorkflowValue,
-				Value:   "\nbadurl",
-				AdditionalInfo: map[AdditionalInfo]string{
-					GithubWorkflowSha:        "sha",
-					GithubWorkflowTrigger:    "trigger",
-					GithubWorkflowName:       "workflowname",
-					GithubWorkflowRepository: "repository",
-					GithubWorkflowRef:        "ref",
-				},
-			},
-			WantErr: true,
-		},
 		`Email challenges should set issuer extension and email subject`: {
 			Challenge: ChallengeResult{
 				Issuer:  `example.com`,

@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -41,21 +42,9 @@ type ChallengeType int
 const (
 	EmailValue ChallengeType = iota
 	SpiffeValue
-	GithubWorkflowValue
 	KubernetesValue
 	URIValue
 	UsernameValue
-)
-
-type AdditionalInfo int
-
-// Additional information that can be added as a cert extension.
-const (
-	GithubWorkflowTrigger AdditionalInfo = iota
-	GithubWorkflowSha
-	GithubWorkflowName
-	GithubWorkflowRepository
-	GithubWorkflowRef
 )
 
 type ChallengeResult struct {
@@ -65,9 +54,6 @@ type ChallengeResult struct {
 	// Value configures what will be set for SubjectAlternativeName in
 	// the certificate issued.
 	Value string
-
-	// Extra information from the token that can be added to extensions.
-	AdditionalInfo map[AdditionalInfo]string
 
 	// subject or email from the id token. This must be the thing
 	// signed in the proof of possession!
@@ -88,12 +74,6 @@ func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) er
 			return err
 		}
 		cert.URIs = []*url.URL{challengeURL}
-	case GithubWorkflowValue:
-		jobWorkflowURI, err := url.Parse(cr.Value)
-		if err != nil {
-			return err
-		}
-		cert.URIs = []*url.URL{jobWorkflowURI}
 	case KubernetesValue:
 		k8sURI, err := url.Parse(cr.Value)
 		if err != nil {
@@ -112,29 +92,6 @@ func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) er
 
 	exts := x509ca.Extensions{
 		Issuer: cr.Issuer,
-	}
-	if cr.TypeVal == GithubWorkflowValue {
-		var ok bool
-		exts.GithubWorkflowTrigger, ok = cr.AdditionalInfo[GithubWorkflowTrigger]
-		if !ok {
-			return errors.New("github workflow missing trigger claim")
-		}
-		exts.GithubWorkflowSHA, ok = cr.AdditionalInfo[GithubWorkflowSha]
-		if !ok {
-			return errors.New("github workflow missing SHA claim")
-		}
-		exts.GithubWorkflowName, ok = cr.AdditionalInfo[GithubWorkflowName]
-		if !ok {
-			return errors.New("github workflow missing workflow name claim")
-		}
-		exts.GithubWorkflowRepository, ok = cr.AdditionalInfo[GithubWorkflowRepository]
-		if !ok {
-			return errors.New("github workflow missing repository claim")
-		}
-		exts.GithubWorkflowRef, ok = cr.AdditionalInfo[GithubWorkflowRef]
-		if !ok {
-			return errors.New("github workflow missing ref claim")
-		}
 	}
 
 	var err error
@@ -228,25 +185,6 @@ func kubernetes(ctx context.Context, principal *oidc.IDToken) (identity.Principa
 	}, nil
 }
 
-func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	workflowRef, err := workflowFromIDToken(principal)
-	if err != nil {
-		return nil, err
-	}
-	additionalInfo, err := workflowInfoFromIDToken(principal)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ChallengeResult{
-		Issuer:         principal.Issuer,
-		TypeVal:        GithubWorkflowValue,
-		Value:          workflowRef,
-		AdditionalInfo: additionalInfo,
-		subject:        principal.Subject,
-	}, nil
-}
-
 func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	uriWithSubject := principal.Subject
 
@@ -335,45 +273,6 @@ func kubernetesToken(token *oidc.IDToken) (string, error) {
 	return "https://kubernetes.io/namespaces/" + claims.Kubernetes.Namespace + "/serviceaccounts/" + claims.Kubernetes.ServiceAccount.Name, nil
 }
 
-func workflowFromIDToken(token *oidc.IDToken) (string, error) {
-	// Extract custom claims
-	var claims struct {
-		JobWorkflowRef string `json:"job_workflow_ref"`
-		// The other fields that are present here seem to depend on the type
-		// of workflow trigger that initiated the action.
-	}
-	if err := token.Claims(&claims); err != nil {
-		return "", err
-	}
-
-	// We use this in URIs, so it has to be a URI.
-	return "https://github.com/" + claims.JobWorkflowRef, nil
-}
-
-func workflowInfoFromIDToken(token *oidc.IDToken) (map[AdditionalInfo]string, error) {
-	// Extract custom claims
-	var claims struct {
-		Sha        string `json:"sha"`
-		Trigger    string `json:"event_name"`
-		Repository string `json:"repository"`
-		Workflow   string `json:"workflow"`
-		Ref        string `json:"ref"`
-		// The other fields that are present here seem to depend on the type
-		// of workflow trigger that initiated the action.
-	}
-	if err := token.Claims(&claims); err != nil {
-		return nil, err
-	}
-
-	// We use this in URIs, so it has to be a URI.
-	return map[AdditionalInfo]string{
-		GithubWorkflowSha:        claims.Sha,
-		GithubWorkflowTrigger:    claims.Trigger,
-		GithubWorkflowName:       claims.Workflow,
-		GithubWorkflowRepository: claims.Repository,
-		GithubWorkflowRef:        claims.Ref}, nil
-}
-
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
@@ -387,7 +286,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeSpiffe:
 		principal, err = spiffe(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:
-		principal, err = githubWorkflow(ctx, tok)
+		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeKubernetes:
 		principal, err = kubernetes(ctx, tok)
 	case config.IssuerTypeURI:
