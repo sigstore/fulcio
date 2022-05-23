@@ -205,14 +205,9 @@ func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, e
 		return nil, fmt.Errorf("spiffe ID trust domain %s doesn't match configured trust domain %s", parsedSpiffeID.TrustDomain(), trustDomain)
 	}
 
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
 	// Now issue cert!
 	return &ChallengeResult{
-		Issuer:  issuer,
+		Issuer:  principal.Issuer,
 		TypeVal: SpiffeValue,
 		Value:   spiffeID,
 		subject: spiffeID,
@@ -225,18 +220,8 @@ func kubernetes(ctx context.Context, principal *oidc.IDToken) (identity.Principa
 		return nil, err
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ChallengeResult{
-		Issuer:  issuer,
+		Issuer:  principal.Issuer,
 		TypeVal: KubernetesValue,
 		Value:   k8sURI,
 		subject: principal.Subject,
@@ -253,18 +238,8 @@ func githubWorkflow(ctx context.Context, principal *oidc.IDToken) (identity.Prin
 		return nil, err
 	}
 
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ChallengeResult{
-		Issuer:         issuer,
+		Issuer:         principal.Issuer,
 		TypeVal:        GithubWorkflowValue,
 		Value:          workflowRef,
 		AdditionalInfo: additionalInfo,
@@ -296,13 +271,8 @@ func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, erro
 		return nil, fmt.Errorf("subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
 	}
 
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ChallengeResult{
-		Issuer:  issuer,
+		Issuer:  principal.Issuer,
 		TypeVal: URIValue,
 		Value:   uriWithSubject,
 		subject: uriWithSubject,
@@ -321,15 +291,10 @@ func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal,
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
 	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
 
 	return &ChallengeResult{
-		Issuer:  issuer,
+		Issuer:  principal.Issuer,
 		TypeVal: UsernameValue,
 		Value:   emailSubject,
 		subject: username,

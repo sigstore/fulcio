@@ -285,6 +285,20 @@ func TestValidateConfig(t *testing.T) {
 			},
 			WantError: true,
 		},
+		"non email issuer with issuer claim set is invalid": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"https://issuer.example.com": {
+						IssuerURL:         "htts://issuer.example.com",
+						ClientID:          "foo",
+						Type:              IssuerTypeSpiffe,
+						SPIFFETrustDomain: "example.com",
+						IssuerClaim:       "$.foo.bar",
+					},
+				},
+			},
+			WantError: true,
+		},
 		"nil config isn't valid": {
 			Config:    nil,
 			WantError: true,

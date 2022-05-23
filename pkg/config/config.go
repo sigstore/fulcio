@@ -204,6 +204,9 @@ func validateConfig(conf *FulcioConfig) error {
 	}
 
 	for _, issuer := range conf.OIDCIssuers {
+		if issuer.IssuerClaim != "" && issuer.Type != IssuerTypeEmail {
+			return errors.New("only email issuers can use issuer claim mapping")
+		}
 		if issuer.Type == IssuerTypeSpiffe {
 			if issuer.SPIFFETrustDomain == "" {
 				return errors.New("spiffe issuer must have SPIFFETrustDomain set")
