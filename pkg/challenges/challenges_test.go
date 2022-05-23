@@ -65,38 +65,6 @@ func TestEmbedChallengeResult(t *testing.T) {
 				`Certificate should have issuer extension set`: factIssuerIs("example.com"),
 			},
 		},
-		`Good spiffe challenge`: {
-			Challenge: ChallengeResult{
-				Issuer:  `example.com`,
-				TypeVal: SpiffeValue,
-				Value:   `spiffe://example.com/foo/bar`,
-			},
-			WantErr: false,
-			WantFacts: map[string]func(x509.Certificate) error{
-				`Issuer	is example.com`: factIssuerIs(`example.com`),
-				`SAN is spiffe://example.com/foo/bar`: func(cert x509.Certificate) error {
-					WantURI, err := url.Parse("spiffe://example.com/foo/bar")
-					if err != nil {
-						return err
-					}
-					if len(cert.URIs) != 1 {
-						return errors.New("no URI SAN set")
-					}
-					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
-						return errors.New(diff)
-					}
-					return nil
-				},
-			},
-		},
-		`Spiffe value with bad URL fails`: {
-			Challenge: ChallengeResult{
-				Issuer:  `example.com`,
-				TypeVal: SpiffeValue,
-				Value:   "\nbadurl",
-			},
-			WantErr: true,
-		},
 		`Good Kubernetes value`: {
 			Challenge: ChallengeResult{
 				Issuer:  `k8s.example.com`,
@@ -184,8 +152,8 @@ func TestEmbedChallengeResult(t *testing.T) {
 		`No issuer should fail to render extensions`: {
 			Challenge: ChallengeResult{
 				Issuer:  ``,
-				TypeVal: SpiffeValue,
-				Value:   "spiffe://foo.example.com/foo/bar",
+				TypeVal: URIValue,
+				Value:   "https://foo.example.com/foo/bar",
 			},
 			WantErr: true,
 		},
@@ -392,113 +360,6 @@ func TestEmailWithClaims(t *testing.T) {
 				}
 				return
 			} else if test.WantErr {
-				t.Errorf("%s: expected error", name)
-			}
-		})
-	}
-}
-
-func TestSpiffe(t *testing.T) {
-	tests := map[string]struct {
-		Token   *oidc.IDToken
-		Config  *config.FulcioConfig
-		WantErr bool
-	}{
-		"good token": {
-			Token: &oidc.IDToken{
-				Subject: "spiffe://foo.com/bar",
-				Issuer:  "id.foo.com",
-			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
-					"id.foo.com": {
-						IssuerURL:         "id.foo.com",
-						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
-						SPIFFETrustDomain: "foo.com",
-					},
-				},
-			},
-			WantErr: false,
-		},
-		"spiffe id wrong trust domain": {
-			Token: &oidc.IDToken{
-				Subject: "spiffe://baz.com/bar",
-				Issuer:  "id.foo.com",
-			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
-					"id.foo.com": {
-						IssuerURL:         "id.foo.com",
-						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
-						SPIFFETrustDomain: "foo.com",
-					},
-				},
-			},
-			WantErr: true,
-		},
-		"spiffe id no issuer configured": {
-			Token: &oidc.IDToken{
-				Subject: "spiffe://foo.com/bar",
-				Issuer:  "id.foo.com",
-			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
-					"id.bar.com": {
-						IssuerURL:         "id.bar.com",
-						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
-						SPIFFETrustDomain: "foo.com",
-					},
-				},
-			},
-			WantErr: true,
-		},
-		"invalid spiffe id": {
-			Token: &oidc.IDToken{
-				Subject: "spiffe://foo#com/bar",
-				Issuer:  "id.foo.com",
-			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
-					"id.foo.com": {
-						IssuerURL:         "id.foo.com",
-						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
-						SPIFFETrustDomain: "foo.com",
-					},
-				},
-			},
-			WantErr: true,
-		},
-		"invalid configured trust domain": {
-			Token: &oidc.IDToken{
-				Subject: "spiffe://foo.com/bar",
-				Issuer:  "id.foo.com",
-			},
-			Config: &config.FulcioConfig{
-				OIDCIssuers: map[string]config.OIDCIssuer{
-					"id.foo.com": {
-						IssuerURL:         "id.foo.com",
-						ClientID:          "sigstore",
-						Type:              config.IssuerTypeSpiffe,
-						SPIFFETrustDomain: "foo#com",
-					},
-				},
-			},
-			WantErr: true,
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			ctx := config.With(context.Background(), test.Config)
-			_, err := spiffe(ctx, test.Token)
-			if err != nil && !test.WantErr {
-				t.Errorf("%s: %v", name, err)
-			}
-			if err == nil && test.WantErr {
 				t.Errorf("%s: expected error", name)
 			}
 		})

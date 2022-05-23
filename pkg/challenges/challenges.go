@@ -29,7 +29,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/github"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -41,7 +41,6 @@ type ChallengeType int
 
 const (
 	EmailValue ChallengeType = iota
-	SpiffeValue
 	KubernetesValue
 	URIValue
 	UsernameValue
@@ -68,12 +67,6 @@ func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) er
 	switch cr.TypeVal {
 	case EmailValue:
 		cert.EmailAddresses = []string{cr.Value}
-	case SpiffeValue:
-		challengeURL, err := url.Parse(cr.Value)
-		if err != nil {
-			return err
-		}
-		cert.URIs = []*url.URL{challengeURL}
 	case KubernetesValue:
 		k8sURI, err := url.Parse(cr.Value)
 		if err != nil {
@@ -137,37 +130,6 @@ func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, er
 		TypeVal: EmailValue,
 		Value:   emailAddress,
 		subject: emailAddress,
-	}, nil
-}
-
-func spiffe(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	spiffeID := principal.Subject
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	trustDomain, err := spiffeid.TrustDomainFromString(cfg.SPIFFETrustDomain)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse trust domain from configuration: %s", cfg.SPIFFETrustDomain)
-	}
-
-	parsedSpiffeID, err := spiffeid.FromString(spiffeID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid spiffe ID provided: %s", spiffeID)
-	}
-
-	if parsedSpiffeID.TrustDomain().Compare(trustDomain) != 0 {
-		return nil, fmt.Errorf("spiffe ID trust domain %s doesn't match configured trust domain %s", parsedSpiffeID.TrustDomain(), trustDomain)
-	}
-
-	// Now issue cert!
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: SpiffeValue,
-		Value:   spiffeID,
-		subject: spiffeID,
 	}, nil
 }
 
@@ -284,7 +246,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeEmail:
 		principal, err = email(ctx, tok)
 	case config.IssuerTypeSpiffe:
-		principal, err = spiffe(ctx, tok)
+		principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:
 		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeKubernetes:
