@@ -181,6 +181,7 @@ type oidcTestContainer struct {
 type customClaims struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
+	OtherIssuer   string `json:"other_issuer"`
 }
 
 // Tests API for email and username subject types
@@ -603,6 +604,84 @@ func TestAPIWithGitHub(t *testing.T) {
 	}
 	if string(refExt.Value) != claims.Ref {
 		t.Fatalf("unexpected ref, expected %s, got %s", claims.Ref, string(refExt.Value))
+	}
+}
+
+// Tests API with issuer claim in different field in the OIDC token
+func TestAPIWithIssuerClaimConfig(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email",
+				"IssuerClaim": "$.other_issuer"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+	otherIssuerVal := "other.issuer.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true, OtherIssuer: otherIssuerVal}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	pubBytes, proof := generateKeyAndProof(emailSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	// The issuer should be otherIssuerVal, not emailIssuer
+	leafCert := verifyResponse(resp, eca, otherIssuerVal, t)
+
+	// Expect email subject
+	if len(leafCert.EmailAddresses) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	if leafCert.EmailAddresses[0] != emailSubject {
+		t.Fatalf("subjects do not match: Expected %v, got %v", emailSubject, leafCert.EmailAddresses[0])
 	}
 }
 
