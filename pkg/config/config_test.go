@@ -18,7 +18,10 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"reflect"
 	"testing"
+
+	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 )
 
 var validCfg = `
@@ -299,6 +302,18 @@ func TestValidateConfig(t *testing.T) {
 			},
 			WantError: true,
 		},
+		"type without challenge claim is invalid": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"https://issuer.example.com": {
+						IssuerURL: "htts://issuer.example.com",
+						ClientID:  "sigstore",
+						Type:      "invalid",
+					},
+				},
+			},
+			WantError: true,
+		},
 		"nil config isn't valid": {
 			Config:    nil,
 			WantError: true,
@@ -449,5 +464,74 @@ func Test_validateAllowedDomain(t *testing.T) {
 				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_issuerToChallengeClaim(t *testing.T) {
+	if claim := issuerToChallengeClaim(IssuerTypeEmail); claim != "email" {
+		t.Fatalf("expected email subject claim for email issuer, got %s", claim)
+	}
+	if claim := issuerToChallengeClaim(IssuerTypeSpiffe); claim != "sub" {
+		t.Fatalf("expected sub subject claim for SPIFFE issuer, got %s", claim)
+	}
+	if claim := issuerToChallengeClaim(IssuerTypeUsername); claim != "sub" {
+		t.Fatalf("expected sub subject claim for username issuer, got %s", claim)
+	}
+	if claim := issuerToChallengeClaim(IssuerTypeURI); claim != "sub" {
+		t.Fatalf("expected sub subject claim for URI issuer, got %s", claim)
+	}
+	if claim := issuerToChallengeClaim(IssuerTypeGithubWorkflow); claim != "sub" {
+		t.Fatalf("expected sub subject claim for GitHub issuer, got %s", claim)
+	}
+	if claim := issuerToChallengeClaim(IssuerTypeKubernetes); claim != "sub" {
+		t.Fatalf("expected sub subject claim for K8S issuer, got %s", claim)
+	}
+	// unexpected issuer has empty claim
+	if claim := issuerToChallengeClaim("invalid"); claim != "" {
+		t.Fatalf("expected no claim for invalid issuer, got %s", claim)
+	}
+}
+
+func TestToIssuers(t *testing.T) {
+	config := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			"example.com": {
+				IssuerURL: "example.com",
+				ClientID:  "sigstore",
+				Type:      IssuerTypeEmail,
+			},
+		},
+		MetaIssuers: map[string]OIDCIssuer{
+			"wildcard.*.example.com": {
+				ClientID: "sigstore",
+				Type:     IssuerTypeKubernetes,
+			},
+		},
+	}
+
+	issuers := config.ToIssuers()
+	if len(issuers) != 2 {
+		t.Fatalf("unexpected number of issues, expected 2, got %v", len(issuers))
+	}
+
+	iss := &protobuf.OIDCIssuer{
+		Audience:       "sigstore",
+		ChallengeClaim: "email",
+		Issuer: &protobuf.OIDCIssuer_IssuerUrl{
+			IssuerUrl: "example.com",
+		},
+	}
+	if !reflect.DeepEqual(issuers[0], iss) {
+		t.Fatalf("expected issuer %v, got %v", iss, issuers[0])
+	}
+	iss = &protobuf.OIDCIssuer{
+		Audience:       "sigstore",
+		ChallengeClaim: "sub",
+		Issuer: &protobuf.OIDCIssuer_WildcardIssuerUrl{
+			WildcardIssuerUrl: "wildcard.*.example.com",
+		},
+	}
+	if !reflect.DeepEqual(issuers[1], iss) {
+		t.Fatalf("expected issuer %v, got %v", iss, issuers[1])
 	}
 }

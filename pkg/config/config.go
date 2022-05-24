@@ -31,6 +31,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
+	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
@@ -158,6 +159,33 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 	return verifier, true
 }
 
+// ToIssuers returns a proto representation of the OIDC issuer configuration.
+func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
+	var issuers []*fulciogrpc.OIDCIssuer
+
+	for _, cfgIss := range fc.OIDCIssuers {
+		issuer := &fulciogrpc.OIDCIssuer{
+			Issuer:            &fulciogrpc.OIDCIssuer_IssuerUrl{IssuerUrl: cfgIss.IssuerURL},
+			Audience:          cfgIss.ClientID,
+			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
+			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type),
+		}
+		issuers = append(issuers, issuer)
+	}
+
+	for metaIss, cfgIss := range fc.MetaIssuers {
+		issuer := &fulciogrpc.OIDCIssuer{
+			Issuer:            &fulciogrpc.OIDCIssuer_WildcardIssuerUrl{WildcardIssuerUrl: metaIss},
+			Audience:          cfgIss.ClientID,
+			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
+			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type),
+		}
+		issuers = append(issuers, issuer)
+	}
+
+	return issuers
+}
+
 func (fc *FulcioConfig) prepare() error {
 	fc.verifiers = make(map[string]*oidc.IDTokenVerifier, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
@@ -274,6 +302,10 @@ func validateConfig(conf *FulcioConfig) error {
 				return err
 			}
 		}
+
+		if issuerToChallengeClaim(issuer.Type) == "" {
+			return errors.New("issuer missing challenge claim")
+		}
 	}
 
 	for _, metaIssuer := range conf.MetaIssuers {
@@ -281,6 +313,10 @@ func validateConfig(conf *FulcioConfig) error {
 			// This would establish a many to one relationship for OIDC issuers
 			// to trust domains so we fail early and reject this configuration.
 			return errors.New("SPIFFE meta issuers not supported")
+		}
+
+		if issuerToChallengeClaim(metaIssuer.Type) == "" {
+			return errors.New("issuer missing challenge claim")
 		}
 	}
 
@@ -420,4 +456,23 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 		return nil
 	}
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
+}
+
+func issuerToChallengeClaim(issType IssuerType) string {
+	switch issType {
+	case IssuerTypeEmail:
+		return "email"
+	case IssuerTypeGithubWorkflow:
+		return "sub"
+	case IssuerTypeKubernetes:
+		return "sub"
+	case IssuerTypeSpiffe:
+		return "sub"
+	case IssuerTypeURI:
+		return "sub"
+	case IssuerTypeUsername:
+		return "sub"
+	default:
+		return ""
+	}
 }

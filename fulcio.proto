@@ -48,6 +48,15 @@ service CA {
           get: "/api/v2/trustBundle"
         };
     }
+
+    /**
+     * Returns the configuration of supported OIDC issuers, including the required challenge for each issuer.
+     */
+    rpc GetConfiguration (GetConfigurationRequest) returns (Configuration) {
+        option (google.api.http) = {
+          get: "/api/v2/configuration"
+        };
+    }
 }
 
 message CreateSigningCertificateRequest {
@@ -165,4 +174,31 @@ enum PublicKeyAlgorithm {
     RSA_PSS                          = 1;
     ECDSA                            = 2;
     ED25519                          = 3;
+}
+
+// This is created for forward compatibility in case we want to add fields in the future.
+message GetConfigurationRequest {
+}
+
+// The configuration for the Fulcio instance.
+message Configuration {
+    // The OIDC issuers supported by this Fulcio instance.
+    repeated OIDCIssuer issuers = 1;
+}
+
+// Metadata about an OIDC issuer.
+message OIDCIssuer {
+    oneof issuer {
+        // The URL of the OIDC issuer.
+        string issuer_url = 1;
+        // The URL of wildcard OIDC issuer, e.g. "https://oidc.eks.*.amazonaws.com/id/*".
+        // When comparing the issuer, the wildcards will be replaced by "[-_a-zA-Z0-9]+".
+        string wildcard_issuer_url = 2;
+    }
+    // The expected audience of the OIDC token for the issuer.
+    string audience = 3;
+    // The OIDC claim that must be signed for a proof of possession challenge.
+    string challenge_claim = 4;
+    // The expected SPIFFE trust domain. Only present when the OIDC issuer issues tokens for SPIFFE identities.
+    string spiffe_trust_domain = 5;
 }
