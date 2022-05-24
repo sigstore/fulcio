@@ -29,12 +29,14 @@ var validCfg = `
 	"OIDCIssuers": {
 		"https://accounts.google.com": {
 			"IssuerURL": "https://accounts.google.com",
-			"ClientID": "foo"
+			"ClientID": "foo",
+			"Type": "email"
 		}
 	},
 	"MetaIssuers": {
 		"https://oidc.eks.*.amazonaws.com/id/*": {
-			"ClientID": "bar"
+			"ClientID": "bar",
+			"Type": "kubernetes"
 		}
 	}
 }
