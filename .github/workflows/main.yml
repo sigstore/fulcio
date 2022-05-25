@@ -45,13 +45,10 @@ jobs:
       - name: Upload Coverage Report
         uses: codecov/codecov-action@81cd2dc8148241f03f5839d295e000b8f761e378 # v3.0.0
       - name: Ensure no files were modified as a result of the build 1
-        continue-on-error: true
-        run: git update-index --refresh
+        run: git update-index --refresh -q
       - name: Ensure no files were modified as a result of the build 2
-        continue-on-error: true
         run: git diff-index -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" HEAD --
       - name: Ensure no files were modified as a result of the build 3
-        continue-on-error: true
         run: git diff -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" --exit-code
       - name: Ensure no files were modified as a result of the build
-        run: git update-index --refresh && git diff-index --quiet -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" HEAD -- || git diff -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" --exit-code
+        run: git update-index --refresh -q && git diff-index --quiet -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" HEAD -- || git diff -I"^\/\/\s+protoc(-gen-go)?\s+v[0-9]+\.[0-9]+\.[0-9]+$" --exit-code
