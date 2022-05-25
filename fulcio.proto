@@ -165,4 +165,5 @@ enum PublicKeyAlgorithm {
     RSA_PSS                          = 1;
     ECDSA                            = 2;
     ED25519                          = 3;
+    BOGUS                            = 4;
 }
