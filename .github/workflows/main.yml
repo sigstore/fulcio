@@ -35,6 +35,8 @@ jobs:
       - uses: actions/setup-go@fcdc43634adb5f7ae75a9d7a9b9361790f7293e2 # v3.0.0
         with:
           go-version: ${{ env.GOVERSION }}
+      - name: Detect git version
+        run: git --version
       - name: Install protobuf
         run: sudo apt update -y && sudo apt install -y -q protobuf-compiler
 
