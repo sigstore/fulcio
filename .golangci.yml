@@ -32,7 +32,7 @@ issues:
     - errcheck
     - gosec
   # the following section is due to the legacy API being deprecated
-  - path: pkg/api/legacy_server.go
+  - path: pkg/server/legacy_server.go
     linters:
     - staticcheck
     text: SA1019

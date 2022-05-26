@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package api
+package server
 
 import (
 	"github.com/prometheus/client_golang/prometheus"

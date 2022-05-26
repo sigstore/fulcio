@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package api
+package server
 
 import "net/http"
 

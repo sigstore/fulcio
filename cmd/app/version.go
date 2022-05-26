@@ -18,7 +18,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/sigstore/fulcio/pkg/api"
+	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +43,7 @@ func newVersionCmd() *cobra.Command {
 }
 
 func runVersion(opts *versionOptions) error {
-	v := api.VersionInfo()
+	v := server.VersionInfo()
 	res := v.String()
 
 	if opts.json {

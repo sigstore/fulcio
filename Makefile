@@ -46,8 +46,8 @@ ifeq ($(DIFF), 1)
     GIT_TREESTATE = "dirty"
 endif
 
-FULCIO_PKG=github.com/sigstore/fulcio/pkg/api
-LDFLAGS=-X $(FULCIO_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_PKG).gitCommit=$(GIT_HASH) -X $(FULCIO_PKG).gitTreeState=$(GIT_TREESTATE) -X $(FULCIO_PKG).buildDate=$(BUILD_DATE)
+FULCIO_VERSION_PKG=github.com/sigstore/fulcio/pkg/server
+LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_VERSION_PKG).gitCommit=$(GIT_HASH) -X $(FULCIO_VERSION_PKG).gitTreeState=$(GIT_TREESTATE) -X $(FULCIO_VERSION_PKG).buildDate=$(BUILD_DATE)
 
 KO_PREFIX ?= gcr.io/projectsigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
