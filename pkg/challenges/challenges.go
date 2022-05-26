@@ -29,6 +29,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/github"
+	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -41,7 +42,6 @@ type ChallengeType int
 
 const (
 	EmailValue ChallengeType = iota
-	KubernetesValue
 	URIValue
 	UsernameValue
 )
@@ -67,12 +67,6 @@ func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) er
 	switch cr.TypeVal {
 	case EmailValue:
 		cert.EmailAddresses = []string{cr.Value}
-	case KubernetesValue:
-		k8sURI, err := url.Parse(cr.Value)
-		if err != nil {
-			return err
-		}
-		cert.URIs = []*url.URL{k8sURI}
 	case URIValue:
 		subjectURI, err := url.Parse(cr.Value)
 		if err != nil {
@@ -133,20 +127,6 @@ func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, er
 	}, nil
 }
 
-func kubernetes(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	k8sURI, err := kubernetesToken(principal)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: KubernetesValue,
-		Value:   k8sURI,
-		subject: principal.Subject,
-	}, nil
-}
-
 func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
 	uriWithSubject := principal.Subject
 
@@ -201,40 +181,6 @@ func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal,
 	}, nil
 }
 
-func kubernetesToken(token *oidc.IDToken) (string, error) {
-	// Extract custom claims
-	var claims struct {
-		// "kubernetes.io": {
-		//   "namespace": "default",
-		//   "pod": {
-		// 	    "name": "oidc-test",
-		// 	    "uid": "49ad3572-b3dd-43a6-8d77-5858d3660275"
-		//   },
-		//   "serviceaccount": {
-		// 	    "name": "default",
-		//      "uid": "f5720c1d-e152-4356-a897-11b07aff165d"
-		//   }
-		// }
-		Kubernetes struct {
-			Namespace string `json:"namespace"`
-			Pod       struct {
-				Name string `json:"name"`
-				UID  string `json:"uid"`
-			} `json:"pod"`
-			ServiceAccount struct {
-				Name string `json:"name"`
-				UID  string `json:"uid"`
-			} `json:"serviceaccount"`
-		} `json:"kubernetes.io"`
-	}
-	if err := token.Claims(&claims); err != nil {
-		return "", err
-	}
-
-	// We use this in URIs, so it has to be a URI.
-	return "https://kubernetes.io/namespaces/" + claims.Kubernetes.Namespace + "/serviceaccounts/" + claims.Kubernetes.ServiceAccount.Name, nil
-}
-
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
 	if !ok {
@@ -250,7 +196,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeGithubWorkflow:
 		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeKubernetes:
-		principal, err = kubernetes(ctx, tok)
+		principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeURI:
 		principal, err = uri(ctx, tok)
 	case config.IssuerTypeUsername:

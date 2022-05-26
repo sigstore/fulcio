@@ -65,38 +65,6 @@ func TestEmbedChallengeResult(t *testing.T) {
 				`Certificate should have issuer extension set`: factIssuerIs("example.com"),
 			},
 		},
-		`Good Kubernetes value`: {
-			Challenge: ChallengeResult{
-				Issuer:  `k8s.example.com`,
-				TypeVal: KubernetesValue,
-				Value:   "https://k8s.example.com",
-			},
-			WantErr: false,
-			WantFacts: map[string]func(x509.Certificate) error{
-				`Issuer	is k8s.example.com`: factIssuerIs(`k8s.example.com`),
-				`SAN is https://k8s.example.com`: func(cert x509.Certificate) error {
-					WantURI, err := url.Parse("https://k8s.example.com")
-					if err != nil {
-						return err
-					}
-					if len(cert.URIs) != 1 {
-						return errors.New("no URI SAN set")
-					}
-					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
-						return errors.New(diff)
-					}
-					return nil
-				},
-			},
-		},
-		`Kubernetes value with bad URL fails`: {
-			Challenge: ChallengeResult{
-				Issuer:  `example.com`,
-				TypeVal: KubernetesValue,
-				Value:   "\nbadurl",
-			},
-			WantErr: true,
-		},
 		`Good URI value`: {
 			Challenge: ChallengeResult{
 				Issuer:  `foo.example.com`,
