@@ -27,12 +27,12 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -75,7 +75,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
-	grpcCAServer := api.NewGRPCCAServer(ctClient, baseca)
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
@@ -86,7 +86,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
 	grpcMetrics := grpc_prometheus.DefaultServerMetrics
 	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, api.MetricLatency, api.RequestsCount)
+	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
 	grpc_prometheus.Register(g.Server)
 }
 
@@ -137,7 +137,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*gr
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
-	legacyGRPCCAServer := api.NewLegacyGRPCCAServer(v2Server)
+	legacyGRPCCAServer := server.NewLegacyGRPCCAServer(v2Server)
 
 	// Register your gRPC service implementations.
 	gw_legacy.RegisterCAServer(myServer, legacyGRPCCAServer)
