@@ -28,12 +28,12 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/fulcio/pkg/oauthflow"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
@@ -41,8 +41,7 @@ import (
 type ChallengeType int
 
 const (
-	EmailValue ChallengeType = iota
-	URIValue
+	URIValue ChallengeType = iota
 	UsernameValue
 )
 
@@ -65,8 +64,6 @@ func (cr *ChallengeResult) Name(context.Context) string {
 
 func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) error {
 	switch cr.TypeVal {
-	case EmailValue:
-		cert.EmailAddresses = []string{cr.Value}
 	case URIValue:
 		subjectURI, err := url.Parse(cr.Value)
 		if err != nil {
@@ -99,32 +96,6 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	}
 
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
-}
-
-func email(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	emailAddress, emailVerified, err := oauthflow.EmailFromIDToken(principal)
-	if !emailVerified {
-		return nil, errors.New("email_verified claim was false")
-	} else if err != nil {
-		return nil, err
-	}
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	issuer, err := oauthflow.IssuerFromIDToken(principal, cfg.IssuerClaim)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ChallengeResult{
-		Issuer:  issuer,
-		TypeVal: EmailValue,
-		Value:   emailAddress,
-		subject: emailAddress,
-	}, nil
 }
 
 func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
@@ -190,7 +161,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	var err error
 	switch iss.Type {
 	case config.IssuerTypeEmail:
-		principal, err = email(ctx, tok)
+		principal, err = email.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeSpiffe:
 		principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:

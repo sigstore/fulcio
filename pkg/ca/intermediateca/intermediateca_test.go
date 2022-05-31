@@ -27,7 +27,7 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/sigstore/fulcio/pkg/challenges"
+	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -156,6 +156,20 @@ func TestIntermediateCAVerifyCertChain(t *testing.T) {
 	}
 }
 
+type testPrincipal struct{}
+
+func (tp testPrincipal) Name(context.Context) string {
+	return "doesntmatter"
+}
+
+func (tp testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) (err error) {
+	cert.EmailAddresses = []string{"alice@example.com"}
+	cert.ExtraExtensions, err = x509ca.Extensions{
+		Issuer: "example.com",
+	}.Render()
+	return
+}
+
 func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
@@ -164,11 +178,8 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	certChain := []*x509.Certificate{subCert, rootCert}
 
 	ica := IntermediateCA{Certs: certChain, Signer: subKey}
-	precsc, err := ica.CreatePrecertificate(context.TODO(), &challenges.ChallengeResult{
-		Issuer:  "iss",
-		TypeVal: challenges.EmailValue,
-		Value:   "foo@example.com",
-	}, priv.Public())
+
+	precsc, err := ica.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
 
 	if err != nil {
 		t.Fatalf("error generating precertificate: %v", err)

@@ -29,9 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"reflect"
 	"testing"
-	"unsafe"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/go-cmp/cmp"
@@ -45,26 +43,6 @@ func TestEmbedChallengeResult(t *testing.T) {
 		WantErr   bool
 		WantFacts map[string]func(x509.Certificate) error
 	}{
-		`Email challenges should set issuer extension and email subject`: {
-			Challenge: ChallengeResult{
-				Issuer:  `example.com`,
-				TypeVal: EmailValue,
-				Value:   `alice@example.com`,
-			},
-			WantErr: false,
-			WantFacts: map[string]func(x509.Certificate) error{
-				`Certificate should have alice@example.com email subject`: func(cert x509.Certificate) error {
-					if len(cert.EmailAddresses) != 1 {
-						return errors.New("no email SAN set for email challenge")
-					}
-					if cert.EmailAddresses[0] != `alice@example.com` {
-						return errors.New("bad email. expected alice@example.com")
-					}
-					return nil
-				},
-				`Certificate should have issuer extension set`: factIssuerIs("example.com"),
-			},
-		},
 		`Good URI value`: {
 			Challenge: ChallengeResult{
 				Issuer:  `foo.example.com`,
@@ -275,62 +253,6 @@ func TestUsernameInvalidChar(t *testing.T) {
 	msg := "username cannot contain @ character"
 	if err.Error() != msg {
 		t.Errorf("unexpected test failure message, got %s, expected %s", err.Error(), msg)
-	}
-}
-
-// reflect hack because "claims" field is unexported by oidc IDToken
-// https://github.com/coreos/go-oidc/pull/329
-func updateIDToken(idToken *oidc.IDToken, fieldName string, data []byte) {
-	val := reflect.Indirect(reflect.ValueOf(idToken))
-	member := val.FieldByName(fieldName)
-	pointer := unsafe.Pointer(member.UnsafeAddr())
-	realPointer := (*[]byte)(pointer)
-	*realPointer = data
-}
-
-func TestEmailWithClaims(t *testing.T) {
-	tests := map[string]struct {
-		InputClaims []byte
-		WantErr     bool
-	}{
-		"Good": {
-			InputClaims: []byte(`{"email":"John.Doe@email.com", "email_verified":true}`),
-			WantErr:     false,
-		},
-		"Email not verified": {
-			InputClaims: []byte(`{"email":"John.Doe@email.com", "email_verified":false}`),
-			WantErr:     true,
-		},
-		"Email missing": {
-			InputClaims: []byte(`{"email_verified":true}`),
-			WantErr:     true,
-		},
-	}
-
-	ctx := context.Background()
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
-			"email.com": {IssuerURL: "email.com"},
-		},
-	}
-	ctx = config.With(ctx, cfg)
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			idToken := &oidc.IDToken{
-				Issuer: `email.com`,
-			}
-			updateIDToken(idToken, "claims", test.InputClaims)
-			_, err := email(ctx, idToken)
-			if err != nil {
-				if !test.WantErr {
-					t.Errorf("%s: %v", name, err)
-				}
-				return
-			} else if test.WantErr {
-				t.Errorf("%s: expected error", name)
-			}
-		})
 	}
 }
 
