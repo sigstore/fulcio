@@ -28,11 +28,9 @@ import (
 	"encoding/asn1"
 	"errors"
 	"fmt"
-	"net/url"
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/google/go-cmp/cmp"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -43,38 +41,6 @@ func TestEmbedChallengeResult(t *testing.T) {
 		WantErr   bool
 		WantFacts map[string]func(x509.Certificate) error
 	}{
-		`Good URI value`: {
-			Challenge: ChallengeResult{
-				Issuer:  `foo.example.com`,
-				TypeVal: URIValue,
-				Value:   "https://foo.example.com",
-			},
-			WantErr: false,
-			WantFacts: map[string]func(x509.Certificate) error{
-				`Issuer	is foo.example.com`: factIssuerIs(`foo.example.com`),
-				`SAN is https://foo.example.com`: func(cert x509.Certificate) error {
-					WantURI, err := url.Parse("https://foo.example.com")
-					if err != nil {
-						return err
-					}
-					if len(cert.URIs) != 1 {
-						return errors.New("no URI SAN set")
-					}
-					if diff := cmp.Diff(cert.URIs[0], WantURI); diff != "" {
-						return errors.New(diff)
-					}
-					return nil
-				},
-			},
-		},
-		`Bad URI value fails`: {
-			Challenge: ChallengeResult{
-				Issuer:  `foo.example.com`,
-				TypeVal: URIValue,
-				Value:   "\nnoooooo",
-			},
-			WantErr: true,
-		},
 		`Good username value`: {
 			Challenge: ChallengeResult{
 				Issuer:  `foo.example.com`,
@@ -98,7 +64,7 @@ func TestEmbedChallengeResult(t *testing.T) {
 		`No issuer should fail to render extensions`: {
 			Challenge: ChallengeResult{
 				Issuer:  ``,
-				TypeVal: URIValue,
+				TypeVal: UsernameValue,
 				Value:   "https://foo.example.com/foo/bar",
 			},
 			WantErr: true,
@@ -143,47 +109,6 @@ func factExtensionIs(oid asn1.ObjectIdentifier, value string) func(x509.Certific
 			}
 		}
 		return errors.New("extension not set")
-	}
-}
-
-func TestURI(t *testing.T) {
-	cfg := &config.FulcioConfig{
-		OIDCIssuers: map[string]config.OIDCIssuer{
-			"https://accounts.example.com": {
-				IssuerURL:     "https://accounts.example.com",
-				ClientID:      "sigstore",
-				SubjectDomain: "https://example.com",
-				Type:          config.IssuerTypeURI,
-			},
-		},
-	}
-	ctx := config.With(context.Background(), cfg)
-	subject := "https://example.com/users/1"
-	issuer := "https://accounts.example.com"
-	token := &oidc.IDToken{Subject: subject, Issuer: issuer}
-
-	principal, err := uri(ctx, token)
-	if err != nil {
-		t.Errorf("Expected test success, got %v", err)
-	}
-	if principal.Name(ctx) != token.Subject {
-		t.Errorf("Expected subject %v, got %v", token.Subject, principal.Name(ctx))
-	}
-	raw, ok := principal.(*ChallengeResult)
-	if !ok {
-		t.Fatal("expected principal to be a ChallengeResult")
-	}
-	if raw.Issuer != issuer {
-		t.Errorf("Expected issuer %s, got %s", issuer, raw.Issuer)
-	}
-	if raw.Value != subject {
-		t.Errorf("Expected subject value %s, got %s", subject, raw.Value)
-	}
-	if raw.TypeVal != URIValue {
-		t.Errorf("Expected type %v, got %v", URIValue, raw.TypeVal)
-	}
-	if raw.subject != token.Subject {
-		t.Errorf("Expected subject %v, got %v", token.Subject, raw.subject)
 	}
 }
 

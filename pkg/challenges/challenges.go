@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
@@ -32,6 +31,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
+	"github.com/sigstore/fulcio/pkg/identity/uri"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -41,8 +41,7 @@ import (
 type ChallengeType int
 
 const (
-	URIValue ChallengeType = iota
-	UsernameValue
+	UsernameValue ChallengeType = iota
 )
 
 type ChallengeResult struct {
@@ -64,12 +63,6 @@ func (cr *ChallengeResult) Name(context.Context) string {
 
 func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) error {
 	switch cr.TypeVal {
-	case URIValue:
-		subjectURI, err := url.Parse(cr.Value)
-		if err != nil {
-			return err
-		}
-		cert.URIs = []*url.URL{subjectURI}
 	case UsernameValue:
 		cert.EmailAddresses = []string{cr.Value}
 	}
@@ -96,38 +89,6 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	}
 
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
-}
-
-func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	uriWithSubject := principal.Subject
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	// The subject hostname must exactly match the subject domain from the configuration
-	uSubject, err := url.Parse(uriWithSubject)
-	if err != nil {
-		return nil, err
-	}
-	uDomain, err := url.Parse(cfg.SubjectDomain)
-	if err != nil {
-		return nil, err
-	}
-	if uSubject.Scheme != uDomain.Scheme {
-		return nil, fmt.Errorf("subject URI scheme (%s) must match expected domain URI scheme (%s)", uSubject.Scheme, uDomain.Scheme)
-	}
-	if uSubject.Hostname() != uDomain.Hostname() {
-		return nil, fmt.Errorf("subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
-	}
-
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: URIValue,
-		Value:   uriWithSubject,
-		subject: uriWithSubject,
-	}, nil
 }
 
 func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
@@ -169,7 +130,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeKubernetes:
 		principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeURI:
-		principal, err = uri(ctx, tok)
+		principal, err = uri.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeUsername:
 		principal, err = username(ctx, tok)
 	default:
