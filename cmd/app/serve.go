@@ -75,6 +75,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
+	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -242,7 +243,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	httpServer.startListener()
 
 	prom := http.Server{
-		Addr:    ":2112",
+		Addr:    fmt.Sprintf(":%v", viper.GetString("metrics-port")),
 		Handler: promhttp.Handler(),
 	}
 	log.Logger.Error(prom.ListenAndServe())
