@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/email"
@@ -32,53 +31,12 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 	"github.com/sigstore/fulcio/pkg/identity/uri"
+	"github.com/sigstore/fulcio/pkg/identity/username"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
-
-type ChallengeType int
-
-const (
-	UsernameValue ChallengeType = iota
-)
-
-type ChallengeResult struct {
-	Issuer  string
-	TypeVal ChallengeType
-
-	// Value configures what will be set for SubjectAlternativeName in
-	// the certificate issued.
-	Value string
-
-	// subject or email from the id token. This must be the thing
-	// signed in the proof of possession!
-	subject string
-}
-
-func (cr *ChallengeResult) Name(context.Context) string {
-	return cr.subject
-}
-
-func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) error {
-	switch cr.TypeVal {
-	case UsernameValue:
-		cert.EmailAddresses = []string{cr.Value}
-	}
-
-	exts := x509ca.Extensions{
-		Issuer: cr.Issuer,
-	}
-
-	var err error
-	cert.ExtraExtensions, err = exts.Render()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // CheckSignature verifies a challenge, a signature over the subject or email
 // of an OIDC token
@@ -89,28 +47,6 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	}
 
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
-}
-
-func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	username := principal.Subject
-
-	if strings.Contains(username, "@") {
-		return nil, errors.New("username cannot contain @ character")
-	}
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
-
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: UsernameValue,
-		Value:   emailSubject,
-		subject: username,
-	}, nil
 }
 
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
@@ -132,7 +68,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeURI:
 		principal, err = uri.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeUsername:
-		principal, err = username(ctx, tok)
+		principal, err = username.PrincipalFromIDToken(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
