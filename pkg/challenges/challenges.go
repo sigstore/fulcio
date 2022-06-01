@@ -22,70 +22,21 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
+	"github.com/sigstore/fulcio/pkg/identity/uri"
+	"github.com/sigstore/fulcio/pkg/identity/username"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
-
-type ChallengeType int
-
-const (
-	URIValue ChallengeType = iota
-	UsernameValue
-)
-
-type ChallengeResult struct {
-	Issuer  string
-	TypeVal ChallengeType
-
-	// Value configures what will be set for SubjectAlternativeName in
-	// the certificate issued.
-	Value string
-
-	// subject or email from the id token. This must be the thing
-	// signed in the proof of possession!
-	subject string
-}
-
-func (cr *ChallengeResult) Name(context.Context) string {
-	return cr.subject
-}
-
-func (cr *ChallengeResult) Embed(ctx context.Context, cert *x509.Certificate) error {
-	switch cr.TypeVal {
-	case URIValue:
-		subjectURI, err := url.Parse(cr.Value)
-		if err != nil {
-			return err
-		}
-		cert.URIs = []*url.URL{subjectURI}
-	case UsernameValue:
-		cert.EmailAddresses = []string{cr.Value}
-	}
-
-	exts := x509ca.Extensions{
-		Issuer: cr.Issuer,
-	}
-
-	var err error
-	cert.ExtraExtensions, err = exts.Render()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // CheckSignature verifies a challenge, a signature over the subject or email
 // of an OIDC token
@@ -96,60 +47,6 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 	}
 
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
-}
-
-func uri(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	uriWithSubject := principal.Subject
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	// The subject hostname must exactly match the subject domain from the configuration
-	uSubject, err := url.Parse(uriWithSubject)
-	if err != nil {
-		return nil, err
-	}
-	uDomain, err := url.Parse(cfg.SubjectDomain)
-	if err != nil {
-		return nil, err
-	}
-	if uSubject.Scheme != uDomain.Scheme {
-		return nil, fmt.Errorf("subject URI scheme (%s) must match expected domain URI scheme (%s)", uSubject.Scheme, uDomain.Scheme)
-	}
-	if uSubject.Hostname() != uDomain.Hostname() {
-		return nil, fmt.Errorf("subject hostname (%s) must match expected domain (%s)", uSubject.Hostname(), uDomain.Hostname())
-	}
-
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: URIValue,
-		Value:   uriWithSubject,
-		subject: uriWithSubject,
-	}, nil
-}
-
-func username(ctx context.Context, principal *oidc.IDToken) (identity.Principal, error) {
-	username := principal.Subject
-
-	if strings.Contains(username, "@") {
-		return nil, errors.New("username cannot contain @ character")
-	}
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(principal.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
-	}
-
-	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
-
-	return &ChallengeResult{
-		Issuer:  principal.Issuer,
-		TypeVal: UsernameValue,
-		Value:   emailSubject,
-		subject: username,
-	}, nil
 }
 
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
@@ -169,9 +66,9 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	case config.IssuerTypeKubernetes:
 		principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeURI:
-		principal, err = uri(ctx, tok)
+		principal, err = uri.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeUsername:
-		principal, err = username(ctx, tok)
+		principal, err = username.PrincipalFromIDToken(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
 	}
