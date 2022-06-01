@@ -169,6 +169,133 @@ func TestGetTrustBundleSuccess(t *testing.T) {
 	}
 }
 
+// Tests GetConfiguration API
+func TestGetConfiguration(t *testing.T) {
+	_, emailIssuer := newOIDCIssuer(t)
+	_, spiffeIssuer := newOIDCIssuer(t)
+	_, uriIssuer := newOIDCIssuer(t)
+	_, usernameIssuer := newOIDCIssuer(t)
+	_, k8sIssuer := newOIDCIssuer(t)
+	_, gitHubIssuer := newOIDCIssuer(t)
+
+	issuerDomain, err := url.Parse(usernameIssuer)
+	if err != nil {
+		t.Fatal("issuer URL could not be parsed", err)
+	}
+
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "spiffe",
+				"SPIFFETrustDomain": "example.com"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"SubjectDomain": %q,
+				"Type": "uri"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"SubjectDomain": %q,
+				"Type": "username"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "github-workflow"
+			}
+		},
+	    "MetaIssuers": {
+          %q: {
+            "ClientID": "sigstore",
+            "Type": "kubernetes"
+          }
+        }
+	}`, spiffeIssuer, spiffeIssuer,
+		uriIssuer, uriIssuer, uriIssuer,
+		emailIssuer, emailIssuer,
+		usernameIssuer, usernameIssuer, issuerDomain.Hostname(),
+		gitHubIssuer, gitHubIssuer,
+		k8sIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	config, err := client.GetConfiguration(ctx, &protobuf.GetConfigurationRequest{})
+	if err != nil {
+		t.Fatal("GetConfiguration failed", err)
+	}
+
+	if len(config.Issuers) != 6 {
+		t.Fatalf("expected 6 issuers, got %v", len(config.Issuers))
+	}
+
+	expectedIssuers := map[string]bool{
+		emailIssuer: true, spiffeIssuer: true, uriIssuer: true,
+		usernameIssuer: true, k8sIssuer: true, gitHubIssuer: true,
+	}
+	for _, iss := range config.Issuers {
+		var issURL string
+		switch {
+		case expectedIssuers[iss.GetIssuerUrl()]:
+			delete(expectedIssuers, iss.GetIssuerUrl())
+			issURL = iss.GetIssuerUrl()
+		case expectedIssuers[iss.GetWildcardIssuerUrl()]:
+			delete(expectedIssuers, iss.GetWildcardIssuerUrl())
+			issURL = iss.GetWildcardIssuerUrl()
+		default:
+			t.Fatal("issuer missing from expected issuers")
+		}
+
+		if iss.Audience != "sigstore" {
+			t.Fatalf("expected audience to be sigstore, got %v", iss.Audience)
+		}
+
+		if issURL == emailIssuer {
+			if iss.ChallengeClaim != "email" {
+				t.Fatalf("expected email claim for email PoP challenge, got %v", iss.ChallengeClaim)
+			}
+		} else {
+			if iss.ChallengeClaim != "sub" {
+				t.Fatalf("expected sub claim for non-email PoP challenge, got %v", iss.ChallengeClaim)
+			}
+		}
+
+		if issURL == spiffeIssuer {
+			if iss.SpiffeTrustDomain != "example.com" {
+				t.Fatalf("expected SPIFFE trust domain example.com, got %v", iss.SpiffeTrustDomain)
+			}
+		} else {
+			if iss.SpiffeTrustDomain != "" {
+				t.Fatalf("expected no SPIFFE trust domain, got %v", iss.SpiffeTrustDomain)
+			}
+		}
+	}
+
+	if len(expectedIssuers) != 0 {
+		t.Fatal("not all issuers were found in configuration")
+	}
+}
+
 // oidcTestContainer holds values needed for each API test invocation
 type oidcTestContainer struct {
 	Signer          jose.Signer

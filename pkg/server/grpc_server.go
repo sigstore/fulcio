@@ -20,6 +20,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -243,6 +244,21 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrus
 		Chains: []*fulciogrpc.CertificateChain{{
 			Certificates: []string{string(root)},
 		}},
+	}, nil
+}
+
+func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetConfigurationRequest) (*fulciogrpc.Configuration, error) {
+	logger := log.ContextLogger(ctx)
+
+	cfg := config.FromContext(ctx)
+	if cfg == nil {
+		err := errors.New("configuration not loaded")
+		logger.Error(err)
+		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+	}
+
+	return &fulciogrpc.Configuration{
+		Issuers: cfg.ToIssuers(),
 	}, nil
 }
 

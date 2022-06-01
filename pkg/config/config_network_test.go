@@ -34,7 +34,10 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, _ := Load(cfgPath)
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	got, ok := cfg.GetIssuer("https://accounts.google.com")
 	if !ok {
 		t.Error("expected true, got false")
