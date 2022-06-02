@@ -24,29 +24,29 @@ presented at the time the code signing certificate was requested to be created.
 This claim is the URI of the OIDC Identity Provider that digitally signed the
 identity token.
 
-### 1.3.6.1.4.1.57264.1.2 | Github Workflow Trigger
+### 1.3.6.1.4.1.57264.1.2 | GitHub Workflow Trigger
 
 This contains the `event_name` claim from the GitHub OIDC Identity token that
 contains the name of the event that triggered the workflow run.
 [(docs)][github-oidc-doc]
 
-### 1.3.6.1.4.1.57264.1.3 | Github Workflow SHA
+### 1.3.6.1.4.1.57264.1.3 | GitHub Workflow SHA
 
 This contains the `sha` claim from the GitHub OIDC Identity token that contains
 the commit SHA that the workflow run was based upon. [(docs)][github-oidc-doc]
 
-### 1.3.6.1.4.1.57264.1.4 | Github Workflow Name
+### 1.3.6.1.4.1.57264.1.4 | GitHub Workflow Name
 
 This contains the `workflow` claim from the GitHub OIDC Identity token that
 contains the name of the executed workflow. [(docs)][github-oidc-doc]
 
-### 1.3.6.1.4.1.57264.1.5 | Github Workflow Repository
+### 1.3.6.1.4.1.57264.1.5 | GitHub Workflow Repository
 
 This contains the `repository` claim from the GitHub OIDC Identity token that
 contains the repository that the workflow run was based upon.
 [(docs)][github-oidc-doc]
 
-### 1.3.6.1.4.1.57264.1.6 | Github Workflow Ref
+### 1.3.6.1.4.1.57264.1.6 | GitHub Workflow Ref
 
 This contains the `ref` claim from the GitHub OIDC Identity token that contains
 the git ref that the workflow run was based upon.
