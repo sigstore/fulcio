@@ -89,6 +89,15 @@ func NewClient(url *url.URL, opts ...ClientOption) LegacyClient {
 	}
 }
 
+// NewClientFromString creates a new Fulcio API client talking to the provided URL string.
+func NewClientFromString(rawURL string, opts ...ClientOption) (LegacyClient, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(u, opts...), nil
+}
+
 type client struct {
 	baseURL *url.URL
 	client  *http.Client
