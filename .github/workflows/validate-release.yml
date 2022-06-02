@@ -30,7 +30,7 @@ jobs:
     permissions: {}
 
     env:
-      CROSS_BUILDER_IMAGE: ghcr.io/gythialy/golang-cross:v1.18.2-0@sha256:28f77bf112fc14bfc1d3d272e23bfc99652594e5fdc065e2b71f2e232ab941ed
+      CROSS_BUILDER_IMAGE: ghcr.io/gythialy/golang-cross:v1.18.3-0@sha256:d4614e3a12fd43b1ef29252d1add330c0b496b5313eda37975d4a87815a6ae90
       COSIGN_IMAGE: gcr.io/projectsigstore/cosign:v1.8.0@sha256:12b4d428529654c95a7550a936cbb5c6fe93a046ea7454676cb6fb0ce566d78c
 
     steps:
