@@ -1,24 +1,116 @@
+# v0.5.0
+
+## Enhancements
+
+* code refactor (https://github.com/sigstore/fulcio/pull/626 / https://github.com/sigstore/fulcio/pull/620 /
+https://github.com/sigstore/fulcio/pull/625 / https://github.com/sigstore/fulcio/pull/619 /
+https://github.com/sigstore/fulcio/pull/604 / https://github.com/sigstore/fulcio/pull/599 /
+https://github.com/sigstore/fulcio/pull/590 / https://github.com/sigstore/fulcio/pull/580 /
+https://github.com/sigstore/fulcio/pull/561 / https://github.com/sigstore/fulcio/pull/558)
+* Add API for fetching Fulcio configuration (https://github.com/sigstore/fulcio/pull/608)
+* Split pkg/server from pkg/api (https://github.com/sigstore/fulcio/pull/616)
+* Restict issuer claim mapping to email issuers (https://github.com/sigstore/fulcio/pull/606)
+* Validate SPIFFE IDs and trust domains via library (https://github.com/sigstore/fulcio/pull/592)
+* Use principal in CA abstraction (https://github.com/sigstore/fulcio/pull/570)
+* googleca: Don't log all identities (https://github.com/sigstore/fulcio/pull/577)
+* Small `ca` refactor (https://github.com/sigstore/fulcio/pull/569)
+* Remove unused Subject field from code signing certificate (https://github.com/sigstore/fulcio/pull/568)
+* Add client options testing (https://github.com/sigstore/fulcio/pull/562)
+* Add timeout to OIDC discovery (https://github.com/sigstore/fulcio/pull/560)
+
+## Bug Fixes
+
+* spiffe: correct trust domain checking (https://github.com/sigstore/fulcio/pull/588)
+* fix the digest image (https://github.com/sigstore/fulcio/pull/555)
+
+## Documentation
+
+* identity: improve the documentation for Principal.Name() (https://github.com/sigstore/fulcio/pull/579)
+
+## Miscellaneous
+
+* Use GenerateSerialNumber from cryptoutils (https://github.com/sigstore/fulcio/pull/571)
+* challenges: remove ParseCSR (https://github.com/sigstore/fulcio/pull/578)
+* Bump github/codeql-action from 2.1.11 to 2.1.12 (https://github.com/sigstore/fulcio/pull/629)
+* Bump ossf/scorecard-action from 1.1.0 to 1.1.1 (https://github.com/sigstore/fulcio/pull/630)
+* update cross-builder image to use go1.18.3 (https://github.com/sigstore/fulcio/pull/635)
+* typo: Github -> GitHub (https://github.com/sigstore/fulcio/pull/636)
+* Bump google.golang.org/api from 0.81.0 to 0.82.0 (https://github.com/sigstore/fulcio/pull/631)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.2 to 2.10.3 (https://github.com/sigstore/fulcio/pull/632)
+* Bump golang from 1.18.2 to 1.18.3 (https://github.com/sigstore/fulcio/pull/628)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 in /hack/tools (https://github.com/sigstore/fulcio/pull/633)
+* Bump google.golang.org/grpc from 1.46.2 to 1.47.0 (https://github.com/sigstore/fulcio/pull/627)
+* Bump gopkg.in/yaml.v3 from 3.0.0 to 3.0.1 (https://github.com/sigstore/fulcio/pull/623)
+* Bump actions/setup-go from 3.1.0 to 3.2.0 (https://github.com/sigstore/fulcio/pull/621)
+* Bump github.com/spf13/viper from 1.11.0 to 1.12.0 (https://github.com/sigstore/fulcio/pull/622)
+* Update sigstore to pull in go-tuf security fixes (https://github.com/sigstore/fulcio/pull/617)
+* Bump ossf/scorecard-action from 1.0.4 to 1.1.0 (https://github.com/sigstore/fulcio/pull/618)
+* Bump cloud.google.com/go/security from 1.3.0 to 1.4.0 (https://github.com/sigstore/fulcio/pull/613)
+* Bump google.golang.org/api from 0.80.0 to 0.81.0 (https://github.com/sigstore/fulcio/pull/614)
+* Bump actions/dependency-review-action from 1.0.1 to 1.0.2 (https://github.com/sigstore/fulcio/pull/609)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.1 to 2.10.2 (https://github.com/sigstore/fulcio/pull/610)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 in /hack/tools (https://github.com/sigstore/fulcio/pull/611)
+* Add e2e test that tests IssuerClaim (https://github.com/sigstore/fulcio/pull/605)
+* Bump actions/upload-artifact from 3.0.0 to 3.1.0 (https://github.com/sigstore/fulcio/pull/603)
+* Added additional tests for CA implementations and OIDC (https://github.com/sigstore/fulcio/pull/602)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 in /hack/tools (https://github.com/sigstore/fulcio/pull/601)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.0 to 2.10.1 (https://github.com/sigstore/fulcio/pull/600)
+* cmd/app: remove dependency on deprecated github.com/pkg/errors (https://github.com/sigstore/fulcio/pull/598)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/597)
+* Bump github/codeql-action from 2.1.10 to 2.1.11 (https://github.com/sigstore/fulcio/pull/593)
+* Bump go.step.sm/crypto from 0.16.1 to 0.16.2 (https://github.com/sigstore/fulcio/pull/594)
+* Bump google.golang.org/api from 0.79.0 to 0.80.0 (https://github.com/sigstore/fulcio/pull/595)
+* Skip tests that require network access with HERMETIC=true (https://github.com/sigstore/fulcio/pull/587)
+* Bump github.com/google/certificate-transparency-go from 1.1.2 to 1.1.3 (https://github.com/sigstore/fulcio/pull/586)
+* Bump google.golang.org/grpc from 1.46.0 to 1.46.2 (https://github.com/sigstore/fulcio/pull/585)
+* Bump github.com/prometheus/client_golang from 1.12.1 to 1.12.2 (https://github.com/sigstore/fulcio/pull/584)
+* Bump actions/setup-go from 3.0.0 to 3.1.0 (https://github.com/sigstore/fulcio/pull/582)
+* Add some tests for challenges (https://github.com/sigstore/fulcio/pull/583)
+* Bump actions/dependency-review-action (https://github.com/sigstore/fulcio/pull/581)
+* Bump github/codeql-action (https://github.com/sigstore/fulcio/pull/572)
+* Bump golangci/golangci-lint-action from 3.1.0 to 3.2.0 (https://github.com/sigstore/fulcio/pull/573)
+* Update to use go1.18 (https://github.com/sigstore/fulcio/pull/576)
+* Bump github.com/coreos/go-oidc/v3 from 3.1.0 to 3.2.0 (https://github.com/sigstore/fulcio/pull/574)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/575)
+* update go to 1.17.10 (https://github.com/sigstore/fulcio/pull/567)
+* Bump github/codeql-action from 2.1.9 to 2.1.10 (https://github.com/sigstore/fulcio/pull/565)
+* Bump google.golang.org/api from 0.78.0 to 0.79.0 (https://github.com/sigstore/fulcio/pull/566)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/557)
+* Bump google.golang.org/api from 0.77.0 to 0.78.0 (https://github.com/sigstore/fulcio/pull/556)
+* update go builder image and cosign image (https://github.com/sigstore/fulcio/pull/554)
+* add changelog for 0.4.1 release (https://github.com/sigstore/fulcio/pull/553)
+
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+* Jason Hall (@imjasonh)
+* Koichi Shiraishi (@zchee)
+* Miloslav Trmač (@mtrmac)
+* Nathan Smith (@nsmith5)
+
 # v0.4.1
 
 ## Bug Fixes
 
-* Fix key usage for issued certificates (#549)
+* Fix key usage for issued certificates (https://github.com/sigstore/fulcio/pull/549)
 
 ## Documentation
 
-* Add note about the status of the legacy HTTP API. (#531)
+* Add note about the status of the legacy HTTP API. (https://github.com/sigstore/fulcio/pull/531)
 
 ## Others
 
-* Bump google.golang.org/api from 0.76.0 to 0.77.0 (#552)
-* chore(deps): Included dependency review (#540)
-* Add @haydentherapper to CODEOWNERS (#548)
-* Bump github.com/google/go-cmp from 0.5.7 to 0.5.8 (#544)
-* Bump github.com/fsnotify/fsnotify from 1.5.3 to 1.5.4 (#543)
-* Bump google.golang.org/api from 0.75.0 to 0.76.0 (#542)
-* Bump github/codeql-action from 2.1.8 to 2.1.9 (#545)
-* Bump github.com/googleapis/api-linter in /hack/tools (#546)
-* Bump google.golang.org/grpc from 1.45.0 to 1.46.0 (#541)
+* Bump google.golang.org/api from 0.76.0 to 0.77.0 (https://github.com/sigstore/fulcio/pull/552)
+* chore(deps): Included dependency review (https://github.com/sigstore/fulcio/pull/540)
+* Add @haydentherapper to CODEOWNERS (https://github.com/sigstore/fulcio/pull/548)
+* Bump github.com/google/go-cmp from 0.5.7 to 0.5.8 (https://github.com/sigstore/fulcio/pull/544)
+* Bump github.com/fsnotify/fsnotify from 1.5.3 to 1.5.4 (https://github.com/sigstore/fulcio/pull/543)
+* Bump google.golang.org/api from 0.75.0 to 0.76.0 (https://github.com/sigstore/fulcio/pull/542)
+* Bump github/codeql-action from 2.1.8 to 2.1.9 (https://github.com/sigstore/fulcio/pull/545)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/546)
+* Bump google.golang.org/grpc from 1.45.0 to 1.46.0 (https://github.com/sigstore/fulcio/pull/541)
 
 ## Contributors
 
