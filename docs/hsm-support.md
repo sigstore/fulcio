@@ -1,24 +1,25 @@
-## CA / KMS support
-
-### Google Cloud Platform CA Service
-
-The public Fulcio root CA is currently running on [GCP CA Service](https://cloud.google.com/certificate-authority-service/docs) with the EC_P384_SHA384 algorithm.
-
-You can also run Fulcio with your own CA on CA Service by passing in a parent and specifying Google as the CA:
-
-```
-go run main.go serve --ca googleca  --gcp_private_ca_parent=projects/myproject/locations/us-central1/caPools/mypool
-```
+## HSM Support 
 
 ### PKCS11CA
 
 Fulcio may also be used with a pkcs11 capable device such as a SoftHSM. You will also need `pkcs11-tool`.
 
+You will need to specify `CGO_ENABLED=1`, since PKCS11 support requires C libraries.
+
+> :warning: A SoftHSM does not provide the same security guarantees as a hardware-based HSM.
+> **Use for testing only.**
+
+You will need `pkcs11-tool`. On Debian, you can install the necessary tools with:
+
+```
+apt-get install softhsm2 opensc
+```
+
 To configure a SoftHSM:
 
 Create a `config/crypto11.conf` file:
 
-```
+```json
 {
 "Path" : "/usr/lib64/softhsm/libsofthsm.so",
 "TokenLabel": "fulcio",
@@ -34,6 +35,12 @@ objectstore.backend = file
 log.level = INFO
 ```
 
+Make sure `/tmp/tokens` exists
+
+```shell
+mkdir /tmp/tokens
+```
+
 Export the `config/softhsm2.conf`
 
 ```
@@ -42,13 +49,14 @@ export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg
 
 ### Start a SoftHSM instance
 
-```
-softhsm2-util --init-token --slot 0 --label fulcio
+```shell
+# Note: these pins match config/crypto11.conf above
+softhsm2-util --init-token --slot 0 --label fulcio --pin 2324 --so-pin 2324
 ```
 
 ### Create keys within the SoftHSM
 
-```
+```shell
 pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user --keypairgen --id 1 --label PKCS11CA  --key-type EC:secp384r1
 ```
 
@@ -59,9 +67,11 @@ pkcs11-tool --module /usr/lib64/softhsm/libsofthsm.so --login --login-type user 
 Now that your keys are generated, you can use the fulcio `createca` command to generate a Root CA. This command
 will also store the generated Root CA into the HSM by the delegated id passed to `--hsm-caroot-id`
 
-```
+```shell
 fulcio createca --org=acme --country=UK --locality=SomeTown --province=SomeProvince --postal-code=XXXX --street-address=XXXX --hsm-caroot-id 99 --out myrootCA.pem
 ```
+
+`fulcio createca` will return a root certificate if used with the `-o` flag.
 
 ### Run PKCS11CA
 
@@ -69,8 +79,8 @@ fulcio createca --org=acme --country=UK --locality=SomeTown --province=SomeProvi
 fulcio serve --ca pkcs11ca --hsm-caroot-id 99
 ```
 
-> :warning: A SoftHSM does not provide the same security guarantees as hardware based HSM
-> Use for test development purposes only.
+> :warning: A SoftHSM does not provide the same security guarantees as a hardware-based HSM.
+> **Use for testing only.**
 
 ---
 **NOTE**
@@ -79,13 +89,3 @@ PKCS11CA has only been validated against a SoftHSM. In theory this should also w
 HSM's, but to date we have only tested against a SoftHSM.
 
 ---
-
-
-### Other KMS / CA support
-
-Support will be extended to the following CA / KMS systems, feel free to contribute to expedite support coverage
-
-Planned support for:
-- [ ] AWS CloudHSM
-- [ ] Azure Dedicated HSM
-- [ ] YubiHSM

@@ -6,6 +6,12 @@ The first is to use `docker-compose up`. This sets up both Fulcio and the Trilli
 used for the certificate transparency (CT) log. See below for details on customizing the signing
 backend, as the default uses an ephemeral CA that is not persisted. 
 
+Simply run:
+
+```
+docker-compose up
+```
+
 The other way is running the Fulcio binary:
 
 ```
@@ -38,6 +44,9 @@ Configuration:
 * `--kms-resource=gcpkms://<resource>`, also supporting `awskms://`, `azurekms://` or `hashivault://`
 * `--kms-cert-chain-path=/...`, a PEM-encoded certificate chain
 
+Be sure to run `gcloud auth application-default login` before `docker-compose up` so that
+your credentials are mounted on the container.
+
 ### Google Cloud Platform CA Service
 
 The GCP CA Service signing backend delegates creation and signing of the certificates
@@ -52,6 +61,9 @@ issue if you need support.
 Configuration:
 * `--ca=googleca`
 * `--gcp_private_ca_parent=projects/<project>/locations/<location>/caPools/<CA-pool>`
+
+Be sure to run `gcloud auth application-default login` before `docker-compose up` so that
+your credentials are mounted on the container.
 
 ### On-disk file
 
@@ -78,13 +90,26 @@ Configuration:
 * `--hsm-caroot-id=...`
 * Optional: `--aws-hsm-root-ca-path=...`, a path to an AWS HSM resource
 
-### Ephemeral - For testing only
+See [HSM Support](hsm-support.md) for more information.
+
+### Ephemeral - **For testing only**
 
 Ephemeral CAs create the key material in memory and destroy the key material on server
-turndown. Do not use ephemeral CAs for production.
+turndown. **Do not use ephemeral CAs for production.**
 
 Configuration:
 * `--ca=ephemeralca`
+
+To view the root certificate, you can access it at
+`http://localhost:5555/api/v1/rootCert`:
+
+```
+curl http://localhost:5555/api/v1/rootCert
+
+-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+```
 
 ## Certificate Transparency Log support
 

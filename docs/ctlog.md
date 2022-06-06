@@ -101,3 +101,15 @@ We will create new log shards each year. The log's name will be the year. Curren
 at `https://ctfe.sigstore.dev/test`. After sharding the log, the log will be accessible at
 `https://ctfe.sigstore.dev/2022`. We can use the same signing key for each year's shard, so that we don't
 need to distribute a new key each year in the TUF metadata.
+
+## Test secrets
+
+There are test secrets in `ctfe` for **DEVELOPMENT ONLY**.
+They were generated with:
+
+```shell
+openssl ec -in <(openssl ecparam -genkey -name prime256v1) -out privkey.pem -des
+openssl ec -in privkey.pem -pubout -out pubkey.pem
+```
+
+The password is `foobar` and is stored in the `ct_server.cfg` file.

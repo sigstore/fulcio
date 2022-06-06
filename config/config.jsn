@@ -16,11 +16,6 @@
       "IssuerClaim": "$.federated_claims.connector_id",
       "Type": "email"
     },
-    "https://oidc.dlorenc.dev": {
-      "IssuerURL": "https://oidc.dlorenc.dev",
-      "ClientID": "sigstore",
-      "Type": "spiffe"
-    },
     "https://token.actions.githubusercontent.com": {
               "IssuerURL": "https://token.actions.githubusercontent.com",
               "ClientID": "sigstore",
