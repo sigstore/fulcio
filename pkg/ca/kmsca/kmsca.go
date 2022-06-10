@@ -63,7 +63,7 @@ func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAutho
 	if err != nil {
 		return nil, err
 	}
-	if err := baseca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
+	if err := ca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
 		return nil, err
 	}
 
