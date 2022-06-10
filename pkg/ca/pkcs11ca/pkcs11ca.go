@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-package x509ca
+package pkcs11ca
 
 import (
 	"crypto/x509"
@@ -40,7 +40,7 @@ type PKCS11CA struct {
 	baseca.BaseCA
 }
 
-func NewX509CA(params Params) (*PKCS11CA, error) {
+func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	pkcs11ca := &PKCS11CA{}
 	p11Ctx, err := crypto11.ConfigureFromFile(params.ConfigPath)
 	if err != nil {
