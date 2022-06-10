@@ -34,9 +34,9 @@ func TestValidLoadKeyPair(t *testing.T) {
 		keyPath := fmt.Sprintf("testdata/%s-key.pem", keypair)
 		certPath := fmt.Sprintf("testdata/%s-cert.pem", keypair)
 
-		_, _, err := loadKeyPair(certPath, keyPath, testKeyPass)
+		_, err := loadKeyPair(certPath, keyPath, testKeyPass)
 		if err != nil {
-			t.Errorf("Failed to load key pair of type %s", keypair)
+			t.Errorf("Failed to load key pair of type %s: %v", keypair, err)
 		}
 	}
 }
@@ -52,7 +52,7 @@ func TestInvalidLoadKeyPair(t *testing.T) {
 		keyPath := fmt.Sprintf("testdata/%s-key.pem", keypair)
 		certPath := fmt.Sprintf("testdata/%s-cert.pem", keypair)
 
-		_, _, err := loadKeyPair(certPath, keyPath, testKeyPass)
+		_, err := loadKeyPair(certPath, keyPath, testKeyPass)
 		if err == nil {
 			t.Errorf("Expected invalid key pair of type %s to fail to load", keypair)
 		}

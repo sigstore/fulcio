@@ -23,7 +23,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
-	"sync"
 
 	ct "github.com/google/certificate-transparency-go"
 	cttls "github.com/google/certificate-transparency-go/tls"
@@ -42,11 +41,8 @@ var (
 )
 
 type IntermediateCA struct {
-	sync.RWMutex
-
-	// certs is a chain of certificates from intermediate to root
-	Certs  []*x509.Certificate
-	Signer crypto.Signer
+	// contains the chain of certificates and signer
+	ca.SignerWithChain
 }
 
 func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
@@ -55,7 +51,7 @@ func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, principal i
 		return nil, err
 	}
 
-	certChain, privateKey := ica.getX509KeyPair()
+	certChain, privateKey := ica.GetSignerWithChain()
 
 	// Append poison extension
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
@@ -136,7 +132,7 @@ func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal iden
 		return nil, err
 	}
 
-	certChain, privateKey := ica.getX509KeyPair()
+	certChain, privateKey := ica.GetSignerWithChain()
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
@@ -147,17 +143,8 @@ func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal iden
 }
 
 func (ica *IntermediateCA) Root(ctx context.Context) ([]byte, error) {
-	ica.RLock()
-	defer ica.RUnlock()
-
-	return cryptoutils.MarshalCertificatesToPEM(ica.Certs)
-}
-
-func (ica *IntermediateCA) getX509KeyPair() ([]*x509.Certificate, crypto.Signer) {
-	ica.RLock()
-	defer ica.RUnlock()
-
-	return ica.Certs, ica.Signer
+	certs, _ := ica.GetSignerWithChain()
+	return cryptoutils.MarshalCertificatesToPEM(certs)
 }
 
 func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {

@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -48,8 +49,7 @@ func TestIntermediateCARoot(t *testing.T) {
 	}
 
 	ica := IntermediateCA{
-		Certs:  certChain,
-		Signer: signer,
+		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
 	rootBytes, err := ica.Root(context.TODO())
@@ -62,7 +62,7 @@ func TestIntermediateCARoot(t *testing.T) {
 	}
 }
 
-func TestIntermediateCAGetX509KeyPair(t *testing.T) {
+func TestIntermediateCAGetSignerWithChain(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		t.Fatalf("unexpected error generating signer: %v", err)
@@ -73,11 +73,10 @@ func TestIntermediateCAGetX509KeyPair(t *testing.T) {
 	certChain := []*x509.Certificate{subCert, rootCert}
 
 	ica := IntermediateCA{
-		Certs:  certChain,
-		Signer: signer,
+		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	foundCertChain, foundSigner := ica.getX509KeyPair()
+	foundCertChain, foundSigner := ica.GetSignerWithChain()
 
 	if !reflect.DeepEqual(certChain, foundCertChain) {
 		t.Fatal("expected cert chains to be equivalent")
@@ -177,7 +176,9 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	certChain := []*x509.Certificate{subCert, rootCert}
 
-	ica := IntermediateCA{Certs: certChain, Signer: subKey}
+	ica := IntermediateCA{
+		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: subKey},
+	}
 
 	precsc, err := ica.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
 

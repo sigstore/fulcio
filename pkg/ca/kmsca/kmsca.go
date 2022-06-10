@@ -49,17 +49,21 @@ func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAutho
 	if err != nil {
 		return nil, err
 	}
-	ica.Signer = signer
+
+	sc := ca.SignerCerts{}
+	ica.SignerWithChain = &sc
+
+	sc.Signer = signer
 
 	data, err := os.ReadFile(filepath.Clean(certPath))
 	if err != nil {
 		return nil, err
 	}
-	ica.Certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
+	sc.Certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	if err := intermediateca.VerifyCertChain(ica.Certs, ica.Signer); err != nil {
+	if err := intermediateca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
 		return nil, err
 	}
 
