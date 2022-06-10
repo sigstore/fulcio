@@ -21,11 +21,11 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 )
 
 type fileCA struct {
-	intermediateca.IntermediateCA
+	baseca.BaseCA
 }
 
 // NewFileCA returns a file backed certificate authority. Expects paths to a

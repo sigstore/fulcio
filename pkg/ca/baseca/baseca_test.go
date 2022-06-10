@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package intermediateca
+package baseca
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-func TestIntermediateCARoot(t *testing.T) {
+func TestBaseCARoot(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		t.Fatalf("unexpected error generating signer: %v", err)
@@ -48,11 +48,11 @@ func TestIntermediateCARoot(t *testing.T) {
 		t.Fatalf("unexpected error marshalling cert chain: %v", err)
 	}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	rootBytes, err := ica.Root(context.TODO())
+	rootBytes, err := bca.Root(context.TODO())
 	if err != nil {
 		t.Fatalf("unexpected error reading root: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestIntermediateCARoot(t *testing.T) {
 	}
 }
 
-func TestIntermediateCAGetSignerWithChain(t *testing.T) {
+func TestBaseCAGetSignerWithChain(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		t.Fatalf("unexpected error generating signer: %v", err)
@@ -72,11 +72,11 @@ func TestIntermediateCAGetSignerWithChain(t *testing.T) {
 	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 	certChain := []*x509.Certificate{subCert, rootCert}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	foundCertChain, foundSigner := ica.GetSignerWithChain()
+	foundCertChain, foundSigner := bca.GetSignerWithChain()
 
 	if !reflect.DeepEqual(certChain, foundCertChain) {
 		t.Fatal("expected cert chains to be equivalent")
@@ -87,7 +87,7 @@ func TestIntermediateCAGetSignerWithChain(t *testing.T) {
 	}
 }
 
-func TestIntermediateCAVerifyCertChain(t *testing.T) {
+func TestBaseCAVerifyCertChain(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 	leafCert, _, _ := test.GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
@@ -176,11 +176,11 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	certChain := []*x509.Certificate{subCert, rootCert}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: subKey},
 	}
 
-	precsc, err := ica.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
+	precsc, err := bca.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
 
 	if err != nil {
 		t.Fatalf("error generating precertificate: %v", err)
@@ -202,7 +202,7 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 		t.Fatalf("expected unhandled critical ext error, got %v", err)
 	}
 
-	csc, err := ica.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
+	csc, err := bca.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
 	if err != nil {
 		t.Fatalf("error issuing certificate: %v", err)
 	}

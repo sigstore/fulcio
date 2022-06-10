@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package intermediateca
+package baseca
 
 import (
 	"context"
@@ -40,18 +40,18 @@ var (
 	OIDExtensionCTSCT = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}
 )
 
-type IntermediateCA struct {
+type BaseCA struct {
 	// contains the chain of certificates and signer
 	ca.SignerWithChain
 }
 
-func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
+func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
 	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	certChain, privateKey := ica.GetSignerWithChain()
+	certChain, privateKey := bca.GetSignerWithChain()
 
 	// Append poison extension
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
@@ -101,7 +101,7 @@ func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, e
 	}, nil
 }
 
-func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
+func (bca *BaseCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
 	// remove poison extension from precertificate.
 	var exts []pkix.Extension
 	for _, ext := range precert.PreCert.Extensions {
@@ -126,13 +126,13 @@ func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *c
 	return ca.CreateCSCFromDER(finalCertBytes, precert.CertChain)
 }
 
-func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
+func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	certChain, privateKey := ica.GetSignerWithChain()
+	certChain, privateKey := bca.GetSignerWithChain()
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
@@ -142,8 +142,8 @@ func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal iden
 	return ca.CreateCSCFromDER(finalCertBytes, certChain)
 }
 
-func (ica *IntermediateCA) Root(ctx context.Context) ([]byte, error) {
-	certs, _ := ica.GetSignerWithChain()
+func (bca *BaseCA) Root(ctx context.Context) ([]byte, error) {
+	certs, _ := bca.GetSignerWithChain()
 	return cryptoutils.MarshalCertificatesToPEM(certs)
 }
 

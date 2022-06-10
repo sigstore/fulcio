@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.step.sm/crypto/pemutil"
 )
@@ -58,7 +58,7 @@ func loadKeyPair(certPath, keyPath, keyPass string) (*ca.SignerCertsMutex, error
 		}
 	}
 
-	if err := intermediateca.VerifyCertChain(certs, key); err != nil {
+	if err := baseca.VerifyCertChain(certs, key); err != nil {
 		return nil, err
 	}
 

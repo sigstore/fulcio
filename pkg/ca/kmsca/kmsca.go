@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 
@@ -35,7 +35,7 @@ import (
 )
 
 type kmsCA struct {
-	intermediateca.IntermediateCA
+	baseca.BaseCA
 }
 
 func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAuthority, error) {
@@ -63,7 +63,7 @@ func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAutho
 	if err != nil {
 		return nil, err
 	}
-	if err := intermediateca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
+	if err := baseca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
 		return nil, err
 	}
 
