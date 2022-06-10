@@ -13,25 +13,17 @@
 // limitations under the License.
 //
 
-package x509ca
+package ca
 
 import (
 	"context"
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"time"
 
-	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
-
-type X509CA struct {
-	RootCA  *x509.Certificate
-	PrivKey crypto.Signer
-}
 
 func MakeX509(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*x509.Certificate, error) {
 	serialNumber, err := cryptoutils.GenerateSerialNumber()
@@ -55,29 +47,8 @@ func MakeX509(ctx context.Context, principal identity.Principal, publicKey crypt
 
 	err = principal.Embed(ctx, cert)
 	if err != nil {
-		return nil, ca.ValidationError(err)
+		return nil, ValidationError(err)
 	}
 
 	return cert, nil
-}
-
-func (x *X509CA) Root(ctx context.Context) ([]byte, error) {
-	return pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: x.RootCA.Raw,
-	}), nil
-}
-
-func (x *X509CA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := MakeX509(ctx, principal, publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, x.RootCA, publicKey, x.PrivKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return ca.CreateCSCFromDER(finalCertBytes, []*x509.Certificate{x.RootCA})
 }

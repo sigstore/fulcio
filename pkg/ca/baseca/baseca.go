@@ -28,7 +28,6 @@ import (
 	cttls "github.com/google/certificate-transparency-go/tls"
 	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -46,7 +45,7 @@ type BaseCA struct {
 }
 
 func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
-	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +126,7 @@ func (bca *BaseCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSi
 }
 
 func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}

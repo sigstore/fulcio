@@ -30,7 +30,6 @@ import (
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/api/iterator"
@@ -162,7 +161,7 @@ func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
 }
 
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}

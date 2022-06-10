@@ -21,7 +21,7 @@ import (
 	"net/url"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
@@ -111,7 +111,7 @@ func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) er
 	cert.URIs = []*url.URL{parsed}
 
 	// Embed additional information into custom extensions
-	cert.ExtraExtensions, err = x509ca.Extensions{
+	cert.ExtraExtensions, err = ca.Extensions{
 		Issuer:                   w.issuer,
 		GithubWorkflowTrigger:    w.trigger,
 		GithubWorkflowSHA:        w.sha,
