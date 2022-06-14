@@ -47,6 +47,32 @@ Configuration:
 Be sure to run `gcloud auth application-default login` before `docker-compose up` so that
 your credentials are mounted on the container.
 
+### Tink
+
+The Tink signing backend uses an on-disk signer loaded from an encrypted Tink keyset and
+certificate chain, where the first certificate in the chain certifies the public key from
+the Tink keyset. The Tink keyset must be encrypted with a GCP KMS key, and stored in
+a JSON format. The CA can either run as an intermediate CA chaining up to an offline root CA,
+or as a root CA.
+
+**Tink keysets use strong security defaults and are the most secure way to store an encryption
+key locally.**
+
+The supported Tink keysets are:
+* ECDSA P-256, SHA256 hash
+* ECDSA P-384, SHA512 hash
+* ECDSA P-521, SHA512 hash
+* ED25519
+
+Configuration:
+* `--ca=tinkca`
+* `--tink-kms-resource=gcp-kms://<resource>`, also supporting `aws-kms://`
+* `--tink-keyset-path=/...`, a JSON-encoded encrypted Tink keyset
+* `--tink-cert-chain-path=/...`, a PEM-encoded certificate chain
+
+Be sure to run `gcloud auth application-default login` before `docker-compose up` so that
+your credentials are mounted on the container.
+
 ### Google Cloud Platform CA Service
 
 The GCP CA Service signing backend delegates creation and signing of the certificates
