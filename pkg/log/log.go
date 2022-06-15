@@ -102,12 +102,7 @@ func SetupGRPCLogging() (*zap.Logger, []grpc_zap.Option) {
 					requestID = zap.String("requestID", val[0])
 				}
 			}
-			ctxzap.Extract(ctx).Check(level, msg).Write(
-				zap.Error(err),
-				zap.String("grpc.code", code.String()),
-				requestID,
-				duration,
-			)
+			ctxzap.Extract(ctx).Debug(msg, zap.Error(err), zap.String("grpc.code", code.String()), requestID, duration)
 		}))
 	return Logger.Desugar(), options
 }
