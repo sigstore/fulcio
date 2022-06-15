@@ -65,11 +65,12 @@ func TestNewKMSCA(t *testing.T) {
 
 	// Expect signer and certificate's public keys match
 	ica := ca.(*kmsCA)
-	if err := cryptoutils.EqualKeys(ica.Signer.Public(), subKey.Public()); err != nil {
+	certs, signer := ica.GetSignerWithChain()
+	if err := cryptoutils.EqualKeys(signer.Public(), subKey.Public()); err != nil {
 		t.Fatalf("keys between CA and signer do not match: %v", err)
 	}
-	if !reflect.DeepEqual(ica.Certs, []*x509.Certificate{subCert, rootCert}) {
-		t.Fatalf("expected certificate chains to match: %v", err)
+	if !reflect.DeepEqual(certs, []*x509.Certificate{subCert, rootCert}) {
+		t.Fatalf("expected certificate chains to match")
 	}
 
 	// Failure: Mismatch between signer and certificate key

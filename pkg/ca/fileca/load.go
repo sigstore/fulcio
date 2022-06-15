@@ -23,12 +23,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/intermediateca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.step.sm/crypto/pemutil"
 )
 
-func loadKeyPair(certPath, keyPath, keyPass string) ([]*x509.Certificate, crypto.Signer, error) {
+func loadKeyPair(certPath, keyPath, keyPass string) (*ca.SignerCertsMutex, error) {
 	var (
 		certs []*x509.Certificate
 		err   error
@@ -37,29 +38,29 @@ func loadKeyPair(certPath, keyPath, keyPass string) ([]*x509.Certificate, crypto
 
 	data, err := os.ReadFile(filepath.Clean(certPath))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	{
 		opaqueKey, err := pemutil.Read(keyPath, pemutil.WithPassword([]byte(keyPass)))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		var ok bool
 		key, ok = opaqueKey.(crypto.Signer)
 		if !ok {
-			return nil, nil, errors.New(`fileca: loaded private key can't be used to sign`)
+			return nil, errors.New(`fileca: loaded private key can't be used to sign`)
 		}
 	}
 
 	if err := intermediateca.VerifyCertChain(certs, key); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return certs, key, nil
+	return &ca.SignerCertsMutex{Certs: certs, Signer: key}, nil
 }

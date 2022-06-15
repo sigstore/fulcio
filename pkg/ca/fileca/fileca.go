@@ -35,7 +35,7 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	var fca fileCA
 
 	var err error
-	fca.Certs, fca.Signer, err = loadKeyPair(certPath, keyPath, keyPass)
+	fca.SignerWithChain, err = loadKeyPair(certPath, keyPath, keyPass)
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +61,13 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 }
 
 func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, signer crypto.Signer) {
-	fca.Lock()
-	defer fca.Unlock()
+	scm := fca.SignerWithChain.(*ca.SignerCertsMutex)
+	scm.Lock()
+	defer scm.Unlock()
 
-	// NB: We use the RWLock to unsure a reading thread can't get a mismatching
+	// NB: We use a lock to ensure a reading thread can't get a mismatching
 	// cert / key pair by reading the attributes halfway through the update
 	// below.
-	fca.Certs = certs
-	fca.Signer = signer
+	scm.Certs = certs
+	scm.Signer = signer
 }

@@ -57,18 +57,19 @@ func TestCertUpdate(t *testing.T) {
 		t.Fatal(`Bad CA type`)
 	}
 
-	key := fca.Signer
+	_, key := fca.GetSignerWithChain()
+
 	if _, ok = key.(ed25519.PrivateKey); !ok {
 		t.Error(`first key should have been an ed25519 key`)
 	}
 
-	cert, key, err := loadKeyPair(newCert, newKey, testKeyPass)
+	signerWithMutex, err := loadKeyPair(newCert, newKey, testKeyPass)
 	if err != nil {
 		t.Fatal(`Failed to load new keypair`)
 	}
 
-	fca.updateX509KeyPair(cert, key)
-	key = fca.Signer
+	fca.updateX509KeyPair(signerWithMutex.Certs, signerWithMutex.Signer)
+	_, key = fca.GetSignerWithChain()
 
 	if _, ok = key.(*ecdsa.PrivateKey); !ok {
 		t.Fatal(`file CA should have been updated with ecdsa key`)
