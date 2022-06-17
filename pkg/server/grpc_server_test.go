@@ -164,8 +164,9 @@ func TestGetTrustBundleSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse the received root cert: %v", err)
 	}
-	if !rootCert.Equal(eca.RootCA) {
-		t.Errorf("root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
+	certs, _ := eca.GetSignerWithChain()
+	if !rootCert.Equal(certs[0]) {
+		t.Errorf("root CA does not match, wanted %+v got %+v", certs[0], rootCert)
 	}
 }
 
@@ -1410,8 +1411,9 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 	if err != nil {
 		t.Fatalf("failed to parse the received root cert: %v", err)
 	}
-	if !rootCert.Equal(eca.RootCA) {
-		t.Errorf("root CA does not match, wanted %+v got %+v", eca.RootCA, rootCert)
+	certs, _ := eca.GetSignerWithChain()
+	if !rootCert.Equal(certs[0]) {
+		t.Errorf("root CA does not match, wanted %+v got %+v", certs[0], rootCert)
 	}
 
 	// Expect leaf certificate values

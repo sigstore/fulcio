@@ -27,22 +27,24 @@ func TestNewEphemeralCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error generating ephemeral CA: %v", err)
 	}
-	if ca.RootCA == nil {
+	certs, signer := ca.GetSignerWithChain()
+	if len(certs) != 1 {
 		t.Fatalf("ca not set up")
 	}
-	if ca.RootCA.NotAfter.Sub(ca.RootCA.NotBefore) < time.Hour*24*365*10 {
-		t.Fatalf("expected CA to have 10 year lifetime, got %v", ca.RootCA.NotAfter.Sub(ca.RootCA.NotBefore))
+	rootCert := certs[0]
+	if rootCert.NotAfter.Sub(rootCert.NotBefore) < time.Hour*24*365*10 {
+		t.Fatalf("expected CA to have 10 year lifetime, got %v", rootCert.NotAfter.Sub(rootCert.NotBefore))
 	}
-	if !ca.RootCA.IsCA {
+	if !rootCert.IsCA {
 		t.Fatalf("ca does not have IsCA bit set")
 	}
-	if ca.RootCA.MaxPathLen != 1 {
-		t.Fatalf("expected CA with path length of 1, got %d", ca.RootCA.MaxPathLen)
+	if rootCert.MaxPathLen != 1 {
+		t.Fatalf("expected CA with path length of 1, got %d", rootCert.MaxPathLen)
 	}
-	if ca.RootCA.KeyUsage != x509.KeyUsageCertSign|x509.KeyUsageCRLSign {
+	if rootCert.KeyUsage != x509.KeyUsageCertSign|x509.KeyUsageCRLSign {
 		t.Fatalf("expected cert sign and crl sign key usage")
 	}
-	if err := cryptoutils.EqualKeys(ca.PrivKey.Public(), ca.RootCA.PublicKey); err != nil {
+	if err := cryptoutils.EqualKeys(signer.Public(), rootCert.PublicKey); err != nil {
 		t.Fatalf("expected verification key and certificate key to match")
 	}
 }

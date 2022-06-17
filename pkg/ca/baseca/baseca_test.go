@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package intermediateca
+package baseca
 
 import (
 	"context"
@@ -23,18 +23,16 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"reflect"
-	"strings"
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-func TestIntermediateCARoot(t *testing.T) {
+func TestBaseCARoot(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		t.Fatalf("unexpected error generating signer: %v", err)
@@ -48,11 +46,11 @@ func TestIntermediateCARoot(t *testing.T) {
 		t.Fatalf("unexpected error marshalling cert chain: %v", err)
 	}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	rootBytes, err := ica.Root(context.TODO())
+	rootBytes, err := bca.Root(context.TODO())
 	if err != nil {
 		t.Fatalf("unexpected error reading root: %v", err)
 	}
@@ -62,7 +60,7 @@ func TestIntermediateCARoot(t *testing.T) {
 	}
 }
 
-func TestIntermediateCAGetSignerWithChain(t *testing.T) {
+func TestBaseCAGetSignerWithChain(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		t.Fatalf("unexpected error generating signer: %v", err)
@@ -72,11 +70,11 @@ func TestIntermediateCAGetSignerWithChain(t *testing.T) {
 	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 	certChain := []*x509.Certificate{subCert, rootCert}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	foundCertChain, foundSigner := ica.GetSignerWithChain()
+	foundCertChain, foundSigner := bca.GetSignerWithChain()
 
 	if !reflect.DeepEqual(certChain, foundCertChain) {
 		t.Fatal("expected cert chains to be equivalent")
@@ -84,74 +82,6 @@ func TestIntermediateCAGetSignerWithChain(t *testing.T) {
 
 	if err := cryptoutils.EqualKeys(signer.Public(), foundSigner.Public()); err != nil {
 		t.Fatalf("expected keys to be equivalent, expected %v, got %v, error %v", signer.Public(), foundSigner.Public(), err)
-	}
-}
-
-func TestIntermediateCAVerifyCertChain(t *testing.T) {
-	rootCert, rootKey, _ := test.GenerateRootCA()
-	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
-	leafCert, _, _ := test.GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
-
-	err := VerifyCertChain([]*x509.Certificate{subCert, rootCert}, subKey)
-	if err != nil {
-		t.Fatalf("unexpected error verifying cert chain: %v", err)
-	}
-
-	// Handles single certifiacte in chain
-	err = VerifyCertChain([]*x509.Certificate{rootCert}, rootKey)
-	if err != nil {
-		t.Fatalf("unexpected error verifying single cert chain: %v", err)
-	}
-
-	// Handles multiple intermediates
-	subCert2, subKey2, _ := test.GenerateSubordinateCA(subCert, subKey)
-	err = VerifyCertChain([]*x509.Certificate{subCert2, subCert, rootCert}, subKey2)
-	if err != nil {
-		t.Fatalf("unexpected error verifying cert chain: %v", err)
-	}
-
-	// Failure: Certificate is not a CA certificate
-	err = VerifyCertChain([]*x509.Certificate{leafCert}, nil)
-	if err == nil || !strings.Contains(err.Error(), "certificate is not a CA") {
-		t.Fatalf("expected error with non-CA cert: %v", err)
-	}
-
-	// Failure: Certificate missing EKU
-	// Note that the wrong EKU will be caught by x509.Verify
-	invalidSubCert, invalidSubKey, _ := test.GenerateSubordinateCAWithoutEKU(rootCert, rootKey)
-	err = VerifyCertChain([]*x509.Certificate{invalidSubCert, rootCert}, invalidSubKey)
-	if err == nil || !strings.Contains(err.Error(), "certificate must have extended key usage code signing") {
-		t.Fatalf("expected error verifying cert chain without EKU: %v", err)
-	}
-
-	// Failure: Invalid chain
-	rootCert2, _, _ := test.GenerateRootCA()
-	err = VerifyCertChain([]*x509.Certificate{subCert, rootCert2}, subKey)
-	if err == nil || !strings.Contains(err.Error(), "certificate signed by unknown authority") {
-		t.Fatalf("expected error verifying cert chain: %v", err)
-	}
-
-	// Failure: Different signer with different key
-	signer, _, err := signature.NewDefaultECDSASignerVerifier()
-	if err != nil {
-		t.Fatalf("expected error generating signer: %v", err)
-	}
-	err = VerifyCertChain([]*x509.Certificate{subCert, rootCert}, signer)
-	if err == nil || !strings.Contains(err.Error(), "public keys are not equal") {
-		t.Fatalf("expected error verifying cert with mismatched public keys: %v", err)
-	}
-
-	// Failure: Weak key
-	weakSubCert, weakSubKey, _ := test.GenerateWeakSubordinateCA(rootCert, rootKey)
-	err = VerifyCertChain([]*x509.Certificate{weakSubCert, rootCert}, weakSubKey)
-	if err == nil || !strings.Contains(err.Error(), "unsupported ec curve") {
-		t.Fatalf("expected error verifying weak cert chain: %v", err)
-	}
-
-	// Failure: Empty chain
-	err = VerifyCertChain([]*x509.Certificate{}, weakSubKey)
-	if err == nil || !strings.Contains(err.Error(), "certificate chain must contain at least one certificate") {
-		t.Fatalf("expected error verifying with empty chain: %v", err)
 	}
 }
 
@@ -163,7 +93,7 @@ func (tp testPrincipal) Name(context.Context) string {
 
 func (tp testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) (err error) {
 	cert.EmailAddresses = []string{"alice@example.com"}
-	cert.ExtraExtensions, err = x509ca.Extensions{
+	cert.ExtraExtensions, err = ca.Extensions{
 		Issuer: "example.com",
 	}.Render()
 	return
@@ -176,11 +106,11 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	certChain := []*x509.Certificate{subCert, rootCert}
 
-	ica := IntermediateCA{
+	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: subKey},
 	}
 
-	precsc, err := ica.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
+	precsc, err := bca.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
 
 	if err != nil {
 		t.Fatalf("error generating precertificate: %v", err)
@@ -202,7 +132,7 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 		t.Fatalf("expected unhandled critical ext error, got %v", err)
 	}
 
-	csc, err := ica.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
+	csc, err := bca.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
 	if err != nil {
 		t.Fatalf("error issuing certificate: %v", err)
 	}

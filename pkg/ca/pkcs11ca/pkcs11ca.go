@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-package x509ca
+package pkcs11ca
 
 import (
 	"crypto/x509"
@@ -27,6 +27,7 @@ import (
 
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 )
 
 type Params struct {
@@ -35,18 +36,24 @@ type Params struct {
 	CAPath     *string
 }
 
-func NewX509CA(params Params) (ca.CertificateAuthority, error) {
-	ca := &X509CA{}
+type PKCS11CA struct {
+	baseca.BaseCA
+}
+
+func NewPKCS11CA(params Params) (*PKCS11CA, error) {
+	pkcs11ca := &PKCS11CA{}
 	p11Ctx, err := crypto11.ConfigureFromFile(params.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
 
+	var cert *x509.Certificate
+
 	rootID := []byte(params.RootID)
 
 	// get the existing root CA from the HSM or from disk
 	if params.CAPath == nil {
-		ca.RootCA, err = p11Ctx.FindCertificate(rootID, nil, nil)
+		cert, err = p11Ctx.FindCertificate(rootID, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -60,21 +67,24 @@ func NewX509CA(params Params) (ca.CertificateAuthority, error) {
 		if block == nil || block.Type != "CERTIFICATE" {
 			return nil, errors.New("failed to decode PEM block containing certificate")
 		}
-		ca.RootCA, err = x509.ParseCertificate(block.Bytes)
+		cert, err = x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// get the private key object from HSM
-	ca.PrivKey, err = p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
+	signer, err := p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
 	if err != nil {
 		return nil, err
 	}
-	if ca.PrivKey == nil {
+	if signer == nil {
 		return nil, errors.New("cannot find private key")
 	}
 
-	return ca, nil
+	sc := ca.SignerCerts{Signer: signer, Certs: []*x509.Certificate{cert}}
+	pkcs11ca.SignerWithChain = &sc
+
+	return pkcs11ca, nil
 
 }

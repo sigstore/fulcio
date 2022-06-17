@@ -21,13 +21,14 @@ import (
 	"crypto/x509/pkix"
 	"time"
 
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type EphemeralCA struct {
-	x509ca.X509CA
+	baseca.BaseCA
 }
 
 func NewEphemeralCA() (*EphemeralCA, error) {
@@ -38,8 +39,6 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	e.PrivKey = signer
 
 	serialNumber, err := cryptoutils.GenerateSerialNumber()
 	if err != nil {
@@ -67,10 +66,13 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 		return nil, err
 	}
 
-	e.RootCA, err = x509.ParseCertificate(caBytes)
+	rootCert, err := x509.ParseCertificate(caBytes)
 	if err != nil {
 		return nil, err
 	}
+
+	sc := ca.SignerCerts{Signer: signer, Certs: []*x509.Certificate{rootCert}}
+	e.SignerWithChain = &sc
 
 	return e, nil
 }

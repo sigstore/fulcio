@@ -34,7 +34,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	"github.com/sigstore/fulcio/pkg/ca/kmsca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
+	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
@@ -177,7 +177,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	case "googleca":
 		baseca, err = googlecav1.NewCertAuthorityService(cmd.Context(), viper.GetString("gcp_private_ca_parent"))
 	case "pkcs11ca":
-		params := x509ca.Params{
+		params := pkcs11ca.Params{
 			ConfigPath: viper.GetString("pkcs11-config-path"),
 			RootID:     viper.GetString("hsm-caroot-id"),
 		}
@@ -185,7 +185,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			path := viper.GetString("aws-hsm-root-ca-path")
 			params.CAPath = &path
 		}
-		baseca, err = x509ca.NewX509CA(params)
+		baseca, err = pkcs11ca.NewPKCS11CA(params)
 	case "fileca":
 		certFile := viper.GetString("fileca-cert")
 		keyFile := viper.GetString("fileca-key")

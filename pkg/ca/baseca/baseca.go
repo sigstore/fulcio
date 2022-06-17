@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package intermediateca
+package baseca
 
 import (
 	"context"
@@ -22,13 +22,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"errors"
 
 	ct "github.com/google/certificate-transparency-go"
 	cttls "github.com/google/certificate-transparency-go/tls"
 	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/ca"
-	"github.com/sigstore/fulcio/pkg/ca/x509ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
@@ -40,18 +38,18 @@ var (
 	OIDExtensionCTSCT = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}
 )
 
-type IntermediateCA struct {
+type BaseCA struct {
 	// contains the chain of certificates and signer
 	ca.SignerWithChain
 }
 
-func (ica *IntermediateCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
-	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
+func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
+	cert, err := ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	certChain, privateKey := ica.GetSignerWithChain()
+	certChain, privateKey := bca.GetSignerWithChain()
 
 	// Append poison extension
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
@@ -101,7 +99,7 @@ func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, e
 	}, nil
 }
 
-func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
+func (bca *BaseCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
 	// remove poison extension from precertificate.
 	var exts []pkix.Extension
 	for _, ext := range precert.PreCert.Extensions {
@@ -126,13 +124,13 @@ func (ica *IntermediateCA) IssueFinalCertificate(ctx context.Context, precert *c
 	return ca.CreateCSCFromDER(finalCertBytes, precert.CertChain)
 }
 
-func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := x509ca.MakeX509(ctx, principal, publicKey)
+func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
+	cert, err := ca.MakeX509(ctx, principal, publicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	certChain, privateKey := ica.GetSignerWithChain()
+	certChain, privateKey := bca.GetSignerWithChain()
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
@@ -142,63 +140,7 @@ func (ica *IntermediateCA) CreateCertificate(ctx context.Context, principal iden
 	return ca.CreateCSCFromDER(finalCertBytes, certChain)
 }
 
-func (ica *IntermediateCA) Root(ctx context.Context) ([]byte, error) {
-	certs, _ := ica.GetSignerWithChain()
+func (bca *BaseCA) Root(ctx context.Context) ([]byte, error) {
+	certs, _ := bca.GetSignerWithChain()
 	return cryptoutils.MarshalCertificatesToPEM(certs)
-}
-
-func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
-	if len(certs) == 0 {
-		return errors.New("certificate chain must contain at least one certificate")
-	}
-
-	roots := x509.NewCertPool()
-	roots.AddCert(certs[len(certs)-1])
-
-	intermediates := x509.NewCertPool()
-	if len(certs) > 1 {
-		for _, intermediate := range certs[1 : len(certs)-1] {
-			intermediates.AddCert(intermediate)
-		}
-	}
-
-	opts := x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: intermediates,
-		KeyUsages: []x509.ExtKeyUsage{
-			x509.ExtKeyUsageCodeSigning,
-		},
-	}
-	if _, err := certs[0].Verify(opts); err != nil {
-		return err
-	}
-
-	if !certs[0].IsCA {
-		return errors.New("certificate is not a CA")
-	}
-
-	// If using an intermediate, verify that code signing extended key
-	// usage is set to satify extended key usage chainging
-	if len(certs) > 1 {
-		var hasExtKeyUsageCodeSigning bool
-		for _, extKeyUsage := range certs[0].ExtKeyUsage {
-			if extKeyUsage == x509.ExtKeyUsageCodeSigning {
-				hasExtKeyUsageCodeSigning = true
-				break
-			}
-		}
-		if !hasExtKeyUsageCodeSigning {
-			return errors.New(`certificate must have extended key usage code signing set to sign code signing certificates`)
-		}
-	}
-
-	if err := cryptoutils.EqualKeys(certs[0].PublicKey, signer.Public()); err != nil {
-		return err
-	}
-
-	if err := cryptoutils.ValidatePubKey(signer.Public()); err != nil {
-		return err
-	}
-
-	return nil
 }

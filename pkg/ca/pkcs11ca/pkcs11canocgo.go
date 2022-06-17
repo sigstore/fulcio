@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-package x509ca
+package pkcs11ca
 
 import (
 	"errors"
@@ -28,8 +28,8 @@ type Params struct {
 	CAPath     *string
 }
 
-// NewX509CA is a placeholder for erroring with a meaningful message if the
+// NewPKCS11CA is a placeholder for erroring with a meaningful message if the
 // binary has been built with CGO_ENABLED=0 tags.
-func NewX509CA(params Params) (*X509CA, error) {
+func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	return nil, errors.New("binary has been built with no cgo support, PKCS11 not supported")
 }

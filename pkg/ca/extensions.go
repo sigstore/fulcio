@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package x509ca
+package ca
 
 import (
 	"crypto/x509/pkix"
@@ -61,7 +61,7 @@ func (e Extensions) Render() ([]pkix.Extension, error) {
 			Value: []byte(e.Issuer),
 		})
 	} else {
-		return nil, errors.New("x509ca: extensions must have a non-empty issuer url")
+		return nil, errors.New("extensions must have a non-empty issuer url")
 	}
 	if e.GithubWorkflowTrigger != "" {
 		exts = append(exts, pkix.Extension{
