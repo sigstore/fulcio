@@ -35,6 +35,7 @@ import (
 	googlecav1 "github.com/sigstore/fulcio/pkg/ca/googleca/v1"
 	"github.com/sigstore/fulcio/pkg/ca/kmsca"
 	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
+	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
@@ -57,7 +58,7 @@ func newServeCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&serveCmdConfigFilePath, "config", "c", "", "config file containing all settings")
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
-	cmd.Flags().String("ca", "", "googleca | pkcs11ca | fileca | kmsca | ephemeralca (for testing)")
+	cmd.Flags().String("ca", "", "googleca | tinkca | pkcs11ca | fileca | kmsca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
@@ -71,6 +72,9 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
 	cmd.Flags().String("kms-resource", "", "KMS key resource path. Must be prefixed with awskms://, azurekms://, gcpkms://, or hashivault://")
 	cmd.Flags().String("kms-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for KMS-backed CA")
+	cmd.Flags().String("tink-kms-resource", "", "KMS key resource path for encrypted Tink keyset. Must be prefixed with gcp-kms:// or aws-kms://")
+	cmd.Flags().String("tink-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for Tink-backed CA")
+	cmd.Flags().String("tink-keyset-path", "", "Path to KMS-encrypted keyset for Tink-backed CA")
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
@@ -154,6 +158,16 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if !viper.IsSet("kms-cert-chain-path") {
 			log.Logger.Fatal("kms-cert-chain-path must be set when using kmsca")
 		}
+	case "tinkca":
+		if !viper.IsSet("tink-kms-resource") {
+			log.Logger.Fatal("tink-kms-resource must be set when using tinkca")
+		}
+		if !viper.IsSet("tink-cert-chain-path") {
+			log.Logger.Fatal("tink-cert-chain-path must be set when using tinkca")
+		}
+		if !viper.IsSet("tink-keyset-path") {
+			log.Logger.Fatal("tink-keyset-path must be set when using tinkca")
+		}
 	case "ephemeralca":
 		// this is a no-op since this is a self-signed in-memory CA for testing
 	default:
@@ -196,6 +210,9 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		baseca, err = ephemeralca.NewEphemeralCA()
 	case "kmsca":
 		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), viper.GetString("kms-cert-chain-path"))
+	case "tinkca":
+		baseca, err = tinkca.NewTinkCA(cmd.Context(),
+			viper.GetString("tink-kms-resource"), viper.GetString("tink-keyset-path"), viper.GetString("tink-cert-chain-path"))
 	default:
 		err = fmt.Errorf("invalid value for configured CA: %v", baseca)
 	}

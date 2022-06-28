@@ -23,9 +23,12 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
+	"github.com/google/tink/go/keyset"
+	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -45,23 +48,54 @@ go run cmd/fetch_ca_cert/fetch_ca_cert.go \
   --gcp-ca-parent="projects/<project>/locations/<region>/caPools/<ca-pool>" \
   --output="chain.crt.pem"
 
+go run cmd/fetch_ca_cert/fetch_ca_cert.go \
+  --tink-kms-resource="gcp-kms://projects/<project>/locations/<region>/keyRings/<key-ring>/cryptoKeys/<key>" \
+  --tink-keyset-path="enc-keyset.cfg" \
+  --gcp-ca-parent="projects/<project>/locations/<region>/caPools/<ca-pool>" \
+  --output="chain.crt.pem"
+
 You must have the permissions to read the KMS key, and create a certificate in the CA pool.
 */
 
 var (
-	gcpCaParent = flag.String("gcp-ca-parent", "", "Resource path to GCP CA Service CA")
-	kmsKey      = flag.String("kms-resource", "", "Resource path to KMS key, starting with gcpkms://, awskms://, azurekms:// or hashivault://")
-	outputPath  = flag.String("output", "", "Path to the output file")
+	gcpCaParent    = flag.String("gcp-ca-parent", "", "Resource path to GCP CA Service CA")
+	kmsKey         = flag.String("kms-resource", "", "Resource path to KMS key, starting with gcpkms://, awskms://, azurekms:// or hashivault://")
+	tinkKeysetPath = flag.String("tink-keyset-path", "", "Path to Tink keyset")
+	tinkKmsKey     = flag.String("tink-kms-resource", "", "Resource path to KMS key to decrypt Tink keyset, starting with gcp-kms:// or aws-kms://")
+	outputPath     = flag.String("output", "", "Path to the output file")
 )
 
-func fetchCACertificate(ctx context.Context, parent, kmsKey string, client *privateca.CertificateAuthorityClient) ([]*x509.Certificate, error) {
-	kmsSigner, err := kms.Get(ctx, kmsKey, crypto.SHA256)
-	if err != nil {
-		return nil, err
-	}
-	signer, _, err := kmsSigner.CryptoSigner(ctx, func(err error) {})
-	if err != nil {
-		return nil, err
+func fetchCACertificate(ctx context.Context, parent, kmsKey, tinkKeysetPath, tinkKmsKey string,
+	client *privateca.CertificateAuthorityClient) ([]*x509.Certificate, error) {
+	var signer crypto.Signer
+	if len(kmsKey) > 0 {
+		kmsSigner, err := kms.Get(ctx, kmsKey, crypto.SHA256)
+		if err != nil {
+			return nil, err
+		}
+		signer, _, err = kmsSigner.CryptoSigner(ctx, func(err error) {})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		primaryKey, err := tinkca.GetPrimaryKey(tinkKmsKey)
+		if err != nil {
+			return nil, err
+		}
+		f, err := os.Open(filepath.Clean(tinkKeysetPath))
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		kh, err := keyset.Read(keyset.NewJSONReader(f), primaryKey)
+		if err != nil {
+			return nil, err
+		}
+		signer, err = tinkca.KeyHandleToSigner(kh)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pemPubKey, err := cryptoutils.MarshalPublicKeyToPEM(signer.Public())
@@ -142,8 +176,11 @@ func main() {
 	if *gcpCaParent == "" {
 		log.Fatal("gcp-ca-parent must be set")
 	}
-	if *kmsKey == "" {
-		log.Fatal("kms-resource must be set")
+	if *kmsKey == "" && *tinkKeysetPath == "" {
+		log.Fatal("either kms-resource or tink-keyset-path must be set")
+	}
+	if *tinkKeysetPath != "" && *tinkKmsKey == "" {
+		log.Fatal("tink-keyset-path must be set with tink-kms-resource must be set")
 	}
 	if *outputPath == "" {
 		log.Fatal("output must be set")
@@ -153,7 +190,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	parsedCerts, err := fetchCACertificate(context.Background(), *gcpCaParent, *kmsKey, client)
+	parsedCerts, err := fetchCACertificate(context.Background(), *gcpCaParent, *kmsKey, *tinkKeysetPath, *tinkKmsKey, client)
 	if err != nil {
 		log.Fatal(err)
 	}

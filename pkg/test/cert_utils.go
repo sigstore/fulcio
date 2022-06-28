@@ -87,6 +87,28 @@ func GenerateRootCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	return cert, priv, nil
 }
 
+func GenerateRootCAFromSigner(signer crypto.Signer) (*x509.Certificate, error) {
+	rootTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName:   "sigstore",
+			Organization: []string{"sigstore.dev"},
+		},
+		NotBefore:             time.Now().Add(-5 * time.Minute),
+		NotAfter:              time.Now().Add(5 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	cert, err := createCertificate(rootTemplate, rootTemplate, signer.Public(), signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return cert, nil
+}
+
 func GenerateSubordinateCA(rootTemplate *x509.Certificate, rootPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	subTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
