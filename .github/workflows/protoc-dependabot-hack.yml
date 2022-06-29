@@ -1,0 +1,19 @@
+---
+# This file will never actually run, and simply exists as a hack to trigger dependabot
+# to notify us if protobuf issues a new release that we should upgrade to
+name: Dependabot hack
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - never-trigger-this-dependabot-hack-workflow
+
+jobs:
+
+  dependabot_hack:
+    name: Ensure dependabot version checks
+    runs-on: ubuntu-20.04
+    steps:
+
+      # update the version in these places manually when Dependabot proposes a change to it here:
+      # 1. the version in main.yml used to install protoc
+      - uses: protocol-buffers/protobuf@v3.12.4
