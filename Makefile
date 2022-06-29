@@ -26,7 +26,7 @@ BIN_DIR := $(abspath $(ROOT_DIR)/bin)
 
 GO_MODULE=$(shell head -1 go.mod | cut -f2 -d ' ')
 
-GENSRC = pkg/generated/protobuf/%.go
+GENSRC = pkg/generated/protobuf/%.go %.swagger.json
 PROTOBUF_DEPS = $(shell find . -iname "*.proto" | grep -v "third_party")
 
 # Set version variables for LDFLAGS
@@ -60,9 +60,10 @@ FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
 PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
 PROTOC-GEN-GRPC-GATEWAY := $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway
+PROTOC-GEN-OPENAPIV2 := $(TOOLS_BIN_DIR)/protoc-gen-openapiv2
 PROTOC-API-LINTER := $(TOOLS_BIN_DIR)/api-linter
 
-$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOC-API-LINTER) $(PROTOBUF_DEPS)
+$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOC-API-LINTER) $(PROTOC-GEN-OPENAPIV2) $(PROTOBUF_DEPS)
 	mkdir -p pkg/generated/protobuf
 	$(PROTOC-API-LINTER) -I third_party/googleapis/ -I . $(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
 	protoc --plugin=protoc-gen-go=$(TOOLS_BIN_DIR)/protoc-gen-go \
@@ -71,6 +72,8 @@ $(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(P
 	       --go-grpc_opt=module=$(GO_MODULE) --go-grpc_out=. \
 	       --plugin=protoc-gen-grpc-gateway=$(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway \
 	       --grpc-gateway_opt=module=$(GO_MODULE) --grpc-gateway_opt=logtostderr=true --grpc-gateway_out=. \
+	       --plugin=protoc-gen-openapiv2=$(TOOLS_BIN_DIR)/protoc-gen-openapiv2 \
+	       --openapiv2_out . \
 		   -I third_party/googleapis/ -I . $(PROTOBUF_DEPS)
 
 lint: ## Runs golangci-lint
@@ -92,7 +95,7 @@ clean: ## Clean the workspace
 	rm -rf fulcio
 
 clean-gen: clean
-	rm -rf $(shell find pkg/generated -iname "*.go")
+	rm -rf $(shell find pkg/generated -iname "*.go") *.swagger.json
 
 up: ## Start docker compose
 	docker-compose -f docker-compose.yml build
@@ -114,6 +117,9 @@ $(PROTOC-GEN-GO-GRPC): $(TOOLS_DIR)/go.mod
 
 $(PROTOC-GEN-GRPC-GATEWAY): $(TOOLS_DIR)/go.mod
 	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+
+$(PROTOC-GEN-OPENAPIV2): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-openapiv2 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 
 $(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
 	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/api-linter github.com/googleapis/api-linter/cmd/api-linter

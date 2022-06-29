@@ -20,11 +20,37 @@ import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/api/httpbody.proto";
 import "google/protobuf/empty.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
 option go_package = "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy";
 option java_package = "dev.sigstore.fulcio.v1beta";
 option java_multiple_files = true;
 option java_outer_classname = "FulcioProto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Fulcio Legacy";
+    version: "0.0.1";
+    contact: {
+      name: "sigstore Fulcio project";
+      url: "https://github.com/sigstore/fulcio";
+      email: "sigstore-dev@googlegroups.com";
+    };
+    license: {
+      name: "Apache License 2.0";
+      url: "https://github.com/sigstore/fulcio/blob/main/LICENSE";
+    };
+  };
+
+  host: "fulcio.sigstore.dev";
+  external_docs: {
+    url: "https://github.com/sigstore/fulcio";
+    description: "More about Fulcio";
+  };
+  schemes: HTTP;
+  consumes: "application/json";
+  produces: "application/json";
+};
 
 
 
