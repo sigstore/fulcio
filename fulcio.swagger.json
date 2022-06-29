@@ -1,0 +1,329 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Fulcio",
+    "version": "0.0.1",
+    "contact": {
+      "name": "sigstore Fulcio project",
+      "url": "https://github.com/sigstore/fulcio",
+      "email": "sigstore-dev@googlegroups.com"
+    },
+    "license": {
+      "name": "Apache License 2.0",
+      "url": "https://github.com/sigstore/fulcio/blob/main/LICENSE"
+    }
+  },
+  "tags": [
+    {
+      "name": "CA"
+    }
+  ],
+  "host": "fulcio.sigstore.dev",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v2/configuration": {
+      "get": {
+        "summary": "*\nReturns the configuration of supported OIDC issuers, including the required challenge for each issuer.",
+        "operationId": "CA_GetConfiguration",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2Configuration"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "CA"
+        ]
+      }
+    },
+    "/api/v2/signingCert": {
+      "post": {
+        "summary": "*\nReturns an X.509 certificate created by the Fulcio certificate authority for the given request parameters",
+        "operationId": "CA_CreateSigningCertificate",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2SigningCertificate"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fulciov2CreateSigningCertificateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "CA"
+        ]
+      }
+    },
+    "/api/v2/trustBundle": {
+      "get": {
+        "summary": "*\nReturns the bundle of certificates that can be used to validate code signing certificates issued by this Fulcio instance",
+        "operationId": "CA_GetTrustBundle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2TrustBundle"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "CA"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "fulciov2CreateSigningCertificateRequest": {
+      "type": "object",
+      "properties": {
+        "credentials": {
+          "$ref": "#/definitions/v2Credentials",
+          "title": "Identity information about who possesses the private / public key pair presented"
+        },
+        "publicKeyRequest": {
+          "$ref": "#/definitions/v2PublicKeyRequest",
+          "description": "The public key to be stored in the requested certificate along with a signed\nchallenge as proof of possession of the private key."
+        },
+        "certificateSigningRequest": {
+          "type": "string",
+          "format": "byte",
+          "description": "Contains the public key to be stored in the requested certificate. All other CSR fields\nare ignored. Since the CSR is self-signed, it also acts as a proof of posession of\nthe private key.",
+          "title": "PKCS#10 PEM-encoded certificate signing request",
+          "required": [
+            "certificateSigningRequest"
+          ]
+        }
+      },
+      "required": [
+        "certificateSigningRequest"
+      ]
+    },
+    "fulciov2PublicKey": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "$ref": "#/definitions/v2PublicKeyAlgorithm",
+          "title": "The cryptographic algorithm to use with the key material"
+        },
+        "content": {
+          "type": "string",
+          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY.",
+          "required": [
+            "content"
+          ]
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string",
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+        }
+      },
+      "additionalProperties": {},
+      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := ptypes.MarshalAny(foo)\n     ...\n     foo := \u0026pb.Foo{}\n     if err := ptypes.UnmarshalAny(any, foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v2CertificateChain": {
+      "type": "object",
+      "properties": {
+        "certificates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The PEM-encoded certificate chain, ordered from leaf to intermediate to root as applicable."
+        }
+      }
+    },
+    "v2Configuration": {
+      "type": "object",
+      "properties": {
+        "issuers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v2OIDCIssuer"
+          },
+          "description": "The OIDC issuers supported by this Fulcio instance."
+        }
+      },
+      "description": "The configuration for the Fulcio instance."
+    },
+    "v2Credentials": {
+      "type": "object",
+      "properties": {
+        "oidcIdentityToken": {
+          "type": "string",
+          "title": "The OIDC token that identifies the caller"
+        }
+      }
+    },
+    "v2OIDCIssuer": {
+      "type": "object",
+      "properties": {
+        "issuerUrl": {
+          "type": "string",
+          "description": "The URL of the OIDC issuer."
+        },
+        "wildcardIssuerUrl": {
+          "type": "string",
+          "description": "The URL of wildcard OIDC issuer, e.g. \"https://oidc.eks.*.amazonaws.com/id/*\".\nWhen comparing the issuer, the wildcards will be replaced by \"[-_a-zA-Z0-9]+\"."
+        },
+        "audience": {
+          "type": "string",
+          "description": "The expected audience of the OIDC token for the issuer."
+        },
+        "challengeClaim": {
+          "type": "string",
+          "description": "The OIDC claim that must be signed for a proof of possession challenge."
+        },
+        "spiffeTrustDomain": {
+          "type": "string",
+          "description": "The expected SPIFFE trust domain. Only present when the OIDC issuer issues tokens for SPIFFE identities."
+        }
+      },
+      "description": "Metadata about an OIDC issuer."
+    },
+    "v2PublicKeyAlgorithm": {
+      "type": "string",
+      "enum": [
+        "PUBLIC_KEY_ALGORITHM_UNSPECIFIED",
+        "RSA_PSS",
+        "ECDSA",
+        "ED25519"
+      ],
+      "default": "PUBLIC_KEY_ALGORITHM_UNSPECIFIED"
+    },
+    "v2PublicKeyRequest": {
+      "type": "object",
+      "properties": {
+        "publicKey": {
+          "$ref": "#/definitions/fulciov2PublicKey",
+          "title": "The public key to be stored in the requested certificate"
+        },
+        "proofOfPossession": {
+          "type": "string",
+          "format": "byte",
+          "description": "This is a currently a signature over the `sub` claim from the OIDC identity token",
+          "title": "Proof that the client possesses the private key; must be verifiable by provided public key",
+          "required": [
+            "proofOfPossession"
+          ]
+        }
+      },
+      "required": [
+        "proofOfPossession"
+      ]
+    },
+    "v2SigningCertificate": {
+      "type": "object",
+      "properties": {
+        "signedCertificateDetachedSct": {
+          "$ref": "#/definitions/v2SigningCertificateDetachedSCT"
+        },
+        "signedCertificateEmbeddedSct": {
+          "$ref": "#/definitions/v2SigningCertificateEmbeddedSCT"
+        }
+      }
+    },
+    "v2SigningCertificateDetachedSCT": {
+      "type": "object",
+      "properties": {
+        "chain": {
+          "$ref": "#/definitions/v2CertificateChain",
+          "description": "The certificate chain serialized with the leaf certificate first, followed\nby all intermediate certificates (if present), finishing with the root certificate.\n\nAll values are PEM-encoded certificates."
+        },
+        "signedCertificateTimestamp": {
+          "type": "string",
+          "format": "byte",
+          "description": "The signed certificate timestamp is a promise for including the certificate in\na certificate transparency log. It can be \"stapled\" to verify the inclusion of\na certificate in the log in an offline fashion."
+        }
+      },
+      "title": "(-- api-linter: core::0142::time-field-type=disabled\n    aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)"
+    },
+    "v2SigningCertificateEmbeddedSCT": {
+      "type": "object",
+      "properties": {
+        "chain": {
+          "$ref": "#/definitions/v2CertificateChain",
+          "description": "The certificate chain serialized with the leaf certificate first, followed\nby all intermediate certificates (if present), finishing with the root certificate.\n\nAll values are PEM-encoded certificates."
+        }
+      }
+    },
+    "v2TrustBundle": {
+      "type": "object",
+      "properties": {
+        "chains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v2CertificateChain"
+          },
+          "description": "The set of PEM-encoded certificate chains for this Fulcio instance; each chain will start with any\nintermediate certificates (if present), finishing with the root certificate."
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "More about Fulcio",
+    "url": "https://github.com/sigstore/fulcio"
+  }
+}
