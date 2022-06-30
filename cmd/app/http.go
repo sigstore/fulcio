@@ -69,6 +69,7 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	handler = promhttp.InstrumentHandlerCounter(server.RequestsCount, handler)
 
 	// enable CORS
+	// cors.Default() configures to accept requests for all domains
 	handler = cors.Default().Handler(handler)
 
 	api := http.Server{

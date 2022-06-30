@@ -44,18 +44,20 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	grpcServer.startTCPListener()
 	// loop until server starts listening in separate goroutine
 	for {
-		if grpcServer.grpcServerEndpoint != ":" {
+		if grpcServer.grpcServerEndpoint != ":0" {
 			break
 		}
 	}
 	// set the correct listener value before creating the wrapping http server
 	grpcServer.grpcServerEndpoint = strings.Replace(grpcServer.grpcServerEndpoint, "::", "localhost", 1)
-	httpServer := createHTTPServer(context.Background(), httpListen.Addr().String(), grpcServer, nil)
+
+	httpHost := fmt.Sprintf("localhost:%d", httpListen.Addr().(*net.TCPAddr).Port)
+	httpServer := createHTTPServer(context.Background(), httpHost, grpcServer, nil)
 	go func() {
 		_ = httpServer.Serve(httpListen)
 	}()
 
-	return httpServer, fmt.Sprintf("http://localhost:%d", httpListen.Addr().(*net.TCPAddr).Port)
+	return httpServer, fmt.Sprintf("http://%s", httpHost)
 
 }
 
@@ -71,9 +73,8 @@ func TestHTTPCORSSupport(t *testing.T) {
 	}
 
 	resp, err := http.DefaultClient.Do(&req)
-	if err != nil {
+	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Error(err)
-		// handle error
 	}
 	defer resp.Body.Close()
 
@@ -87,9 +88,8 @@ func TestHTTPDoesntLeakGRPCHeaders(t *testing.T) {
 	defer httpServer.Close()
 
 	resp, err := http.Get(host + "/api/v2/trustBundle")
-	if err != nil {
+	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Error(err)
-		// handle error
 	}
 	defer resp.Body.Close()
 	fmt.Println(resp)
