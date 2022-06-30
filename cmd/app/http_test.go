@@ -28,12 +28,15 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/spf13/viper"
 )
 
 func setupHTTPServer(t *testing.T) (httpServer, string) {
 	t.Helper()
 	httpListen, _ := net.Listen("tcp", ":0")
 
+	viper.Set("grpc-host", "")
+	viper.Set("grpc-port", 0)
 	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{})
 	if err != nil {
 		t.Error(err)
