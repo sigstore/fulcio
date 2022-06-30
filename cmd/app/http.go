@@ -26,6 +26,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -67,6 +68,9 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	handler = promhttp.InstrumentHandlerDuration(server.MetricLatency, handler)
 	handler = promhttp.InstrumentHandlerCounter(server.RequestsCount, handler)
 
+	// enable CORS
+	handler = cors.Default().Handler(handler)
+
 	api := http.Server{
 		Addr:    serverEndpoint,
 		Handler: handler,
@@ -102,6 +106,13 @@ func setResponseCodeModifier(ctx context.Context, w http.ResponseWriter, _ proto
 		w.Header().Set("SCT", vals[0])
 	}
 
+	// strip all GRPC response headers
+	for headerKey := range w.Header() {
+		if strings.HasPrefix(headerKey, "Grpc-") {
+			delete(w.Header(), headerKey)
+		}
+	}
+
 	// set http status code
 	if vals := md.HeaderMD.Get(server.HTTPResponseCodeMetadataKey); len(vals) > 0 {
 		code, err := strconv.Atoi(vals[0])
@@ -110,7 +121,6 @@ func setResponseCodeModifier(ctx context.Context, w http.ResponseWriter, _ proto
 		}
 		// delete the headers to not expose any grpc-metadata in http response
 		delete(md.HeaderMD, server.HTTPResponseCodeMetadataKey)
-		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
 		w.WriteHeader(code)
 	}
 
