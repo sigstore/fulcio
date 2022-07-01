@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
@@ -43,9 +44,13 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	}
 	grpcServer.startTCPListener()
 	// loop until server starts listening in separate goroutine
+	start := time.Now()
 	for {
 		if grpcServer.grpcServerEndpoint != ":0" {
 			break
+		}
+		if time.Since(start) > 3*time.Second {
+			t.Errorf("timeout waiting for grpcServer to start")
 		}
 	}
 	// set the correct listener value before creating the wrapping http server
@@ -92,7 +97,6 @@ func TestHTTPDoesntLeakGRPCHeaders(t *testing.T) {
 		t.Error(err)
 	}
 	defer resp.Body.Close()
-	fmt.Println(resp)
 
 	for headerKey := range resp.Header {
 		if strings.HasPrefix(headerKey, "Grpc-") {
