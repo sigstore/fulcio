@@ -44,6 +44,7 @@ func ConfigureLogger(logType string) {
 	} else {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.OutputPaths = []string{"stdout"}
 	}
 	logger, err := cfg.Build()
 	if err != nil {
