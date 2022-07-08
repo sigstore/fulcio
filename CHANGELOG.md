@@ -1,3 +1,45 @@
+# v0.5.1
+
+## Enhancements
+
+* pipe all log messages to stdout for dev logger (#673)
+* Add CORS support to HTTP endpoint (#670)
+* generate OpenAPI documents from protobuf (#666)
+* Add Tink signing backend (#645)
+* Refactor in-memory signing CAs to use a single implementation (#644)
+* change grpc response logger to debug level instead of error (#648)
+* Add interface for certs/signer fetching to remove mutex (#643)
+
+## Miscellaneous
+
+* Bump github.com/googleapis/api-linter in /hack/tools (#674)
+* Update sigstore to pull in fixes (#671)
+* Bump github.com/spiffe/go-spiffe/v2 from 2.1.0 to 2.1.1 (#668)
+* Bump github.com/googleapis/api-linter in /hack/tools (#669)
+* add dependabot hack to monitor for new protoc releases (#667)
+* Bump github/codeql-action from 2.1.14 to 2.1.15 (#663)
+* Bump google.golang.org/api from 0.85.0 to 0.86.0 (#664)
+* Bump ossf/scorecard-action from 1.1.1 to 1.1.2 (#662)
+* Bump golang from `957001e` to `a452d62` (#661)
+* Bump golang from `1c3d22f` to `957001e` (#660)
+* Bump github/codeql-action from 2.1.13 to 2.1.14 (#659)
+* Bump github/codeql-action from 2.1.12 to 2.1.13 (#656)
+* Bump google.golang.org/api from 0.84.0 to 0.85.0 (#657)
+* Bump github.com/spf13/cobra from 1.4.0 to 1.5.0 (#658)
+* Bump github.com/prometheus/common from 0.34.0 to 0.35.0 (#655)
+* Bump github.com/googleapis/api-linter in /hack/tools (#653)
+* Bump actions/dependency-review-action from 2.0.1 to 2.0.2 (#652)
+* Bump golang from `b203dc5` to `1c3d22f` (#649)
+* Bump github.com/googleapis/api-linter in /hack/tools (#651)
+* Bump actions/dependency-review-action from 1.0.2 to 2.0.1 (#650)
+* Bump google.golang.org/api from 0.83.0 to 0.84.0 (#647)
+* Bump google.golang.org/api from 0.82.0 to 0.83.0 (#642)
+
+## Contributors
+
+* Bob Callaway (@bobcallaway)
+* Hayden Blauzvern (@haydentherapper)
+
 # v0.5.0
 
 ## Enhancements
