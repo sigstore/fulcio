@@ -42,7 +42,7 @@ type CertAuthorityService struct {
 	client *privateca.CertificateAuthorityClient
 
 	// protected by once
-	cachedRoots     []byte
+	cachedRoots     []*x509.Certificate
 	cachedRootsOnce sync.Once
 }
 
@@ -136,9 +136,10 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 	}, nil
 }
 
-func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
+func (c *CertAuthorityService) Root(ctx context.Context) ([]*x509.Certificate, error) {
 	c.cachedRootsOnce.Do(func() {
 		var pems string
+		var err error
 		cas := c.client.ListCertificateAuthorities(ctx, &privatecapb.ListCertificateAuthoritiesRequest{
 			Parent: c.parent,
 		})
@@ -152,7 +153,10 @@ func (c *CertAuthorityService) Root(ctx context.Context) ([]byte, error) {
 			}
 			pems += strings.Join(c.PemCaCertificates, "")
 		}
-		c.cachedRoots = []byte(pems)
+		c.cachedRoots, err = cryptoutils.LoadCertificatesFromPEM(strings.NewReader(pems))
+		if err != nil {
+			panic(fmt.Errorf("failed parsing PemCACertificates: %w", err))
+		}
 	})
 	if len(c.cachedRoots) == 0 {
 		return c.cachedRoots, fmt.Errorf("error fetching root certificates")

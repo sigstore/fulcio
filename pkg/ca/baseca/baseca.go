@@ -28,7 +28,6 @@ import (
 	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 var (
@@ -140,7 +139,7 @@ func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Pri
 	return ca.CreateCSCFromDER(finalCertBytes, certChain)
 }
 
-func (bca *BaseCA) Root(ctx context.Context) ([]byte, error) {
+func (bca *BaseCA) Root(ctx context.Context) ([]*x509.Certificate, error) {
 	certs, _ := bca.GetSignerWithChain()
-	return cryptoutils.MarshalCertificatesToPEM(certs)
+	return certs, nil
 }

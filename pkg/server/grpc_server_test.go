@@ -1463,6 +1463,6 @@ type FailingCertificateAuthority struct {
 func (fca *FailingCertificateAuthority) CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	return nil, errors.New("CreateCertificate always fails for testing")
 }
-func (fca *FailingCertificateAuthority) Root(ctx context.Context) ([]byte, error) {
+func (fca *FailingCertificateAuthority) Root(ctx context.Context) ([]*x509.Certificate, error) {
 	return nil, errors.New("Root always fails for testing")
 }

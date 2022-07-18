@@ -18,6 +18,7 @@ package ca
 import (
 	"context"
 	"crypto"
+	"crypto/x509"
 
 	"github.com/sigstore/fulcio/pkg/identity"
 )
@@ -26,5 +27,5 @@ import (
 // fetching the CA trust bundle.
 type CertificateAuthority interface {
 	CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*CodeSigningCertificate, error)
-	Root(ctx context.Context) ([]byte, error)
+	Root(ctx context.Context) ([]*x509.Certificate, error)
 }

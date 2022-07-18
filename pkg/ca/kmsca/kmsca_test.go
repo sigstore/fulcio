@@ -40,7 +40,8 @@ func TestNewKMSCA(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 
-	pemChain, err := cryptoutils.MarshalCertificatesToPEM([]*x509.Certificate{subCert, rootCert})
+	chain := []*x509.Certificate{subCert, rootCert}
+	pemChain, err := cryptoutils.MarshalCertificatesToPEM(chain)
 	if err != nil {
 		t.Fatalf("error marshalling cert chain: %v", err)
 	}
@@ -59,7 +60,7 @@ func TestNewKMSCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error fetching root: %v", err)
 	}
-	if !reflect.DeepEqual(rootBytes, pemChain) {
+	if !reflect.DeepEqual(rootBytes, chain) {
 		t.Fatal("cert chains do not match")
 	}
 

@@ -51,7 +51,8 @@ func TestNewTinkCA(t *testing.T) {
 	}
 
 	rootCert, _ := test.GenerateRootCAFromSigner(khsigner)
-	pemChain, err := cryptoutils.MarshalCertificatesToPEM([]*x509.Certificate{rootCert})
+	chain := []*x509.Certificate{rootCert}
+	pemChain, err := cryptoutils.MarshalCertificatesToPEM(chain)
 	if err != nil {
 		t.Fatalf("error marshalling cert chain: %v", err)
 	}
@@ -83,7 +84,7 @@ func TestNewTinkCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error fetching root: %v", err)
 	}
-	if !reflect.DeepEqual(rootBytes, pemChain) {
+	if !reflect.DeepEqual(rootBytes, chain) {
 		t.Fatal("cert chains do not match")
 	}
 

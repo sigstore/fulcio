@@ -41,10 +41,6 @@ func TestBaseCARoot(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 	certChain := []*x509.Certificate{subCert, rootCert}
-	pemChain, err := cryptoutils.MarshalCertificatesToPEM(certChain)
-	if err != nil {
-		t.Fatalf("unexpected error marshalling cert chain: %v", err)
-	}
 
 	bca := BaseCA{
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
@@ -55,7 +51,7 @@ func TestBaseCARoot(t *testing.T) {
 		t.Fatalf("unexpected error reading root: %v", err)
 	}
 
-	if !reflect.DeepEqual(pemChain, rootBytes) {
+	if !reflect.DeepEqual(certChain, rootBytes) {
 		t.Fatal("expected cert chains to be equivalent")
 	}
 }

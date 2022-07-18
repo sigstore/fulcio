@@ -240,11 +240,17 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrus
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 	}
 
-	return &fulciogrpc.TrustBundle{
-		Chains: []*fulciogrpc.CertificateChain{{
-			Certificates: []string{string(root)},
-		}},
-	}, nil
+	tb := &fulciogrpc.TrustBundle{
+		Chains: []*fulciogrpc.CertificateChain{{}},
+	}
+	for _, cert := range root {
+		certPEM, err := cryptoutils.MarshalCertificateToPEM(cert)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+		}
+		tb.Chains[0].Certificates = append(tb.Chains[0].Certificates, string(certPEM))
+	}
+	return tb, nil
 }
 
 func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetConfigurationRequest) (*fulciogrpc.Configuration, error) {
