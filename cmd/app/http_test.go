@@ -33,7 +33,7 @@ import (
 )
 
 func setupHTTPServer(t *testing.T) (httpServer, string) {
-	t.Helper()
+	//t.Helper()
 	httpListen, _ := net.Listen("tcp", ":0")
 
 	viper.Set("grpc-host", "")
