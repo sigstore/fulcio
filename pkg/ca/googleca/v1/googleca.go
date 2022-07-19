@@ -42,7 +42,7 @@ type CertAuthorityService struct {
 	client *privateca.CertificateAuthorityClient
 
 	// protected by once
-	cachedRoots     []*x509.Certificate
+	cachedRoots     [][]*x509.Certificate
 	cachedRootsOnce sync.Once
 }
 
@@ -139,11 +139,11 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
 	// if we've already successfully fetched the CA info, just use the cached value
 	if c.cachedRoots != nil {
-		return [][]*x509.Certificate{c.cachedRoots}, nil
+		return c.cachedRoots, nil
 	}
 
 	// fetch the latest values for the specified CA
-	var pems string
+	var roots [][]*x509.Certificate
 	cas := c.client.ListCertificateAuthorities(ctx, &privatecapb.ListCertificateAuthoritiesRequest{
 		Parent: c.parent,
 	})
@@ -155,21 +155,21 @@ func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certi
 			// if the iterator returns an issue for some reason, exit
 			return [][]*x509.Certificate{}, done
 		}
-		pems += strings.Join(ca.PemCaCertificates, "")
-	}
-	// if we fail to parse the PEM content, return an error
-	roots, err := cryptoutils.LoadCertificatesFromPEM(strings.NewReader(pems))
-	if err != nil {
-		return [][]*x509.Certificate{}, fmt.Errorf("failed parsing PemCACertificates response: %w", err)
-	}
-	if len(roots) == 0 {
-		return [][]*x509.Certificate{}, fmt.Errorf("error fetching root certificates")
+		// if we fail to parse the PEM content, return an error
+		caCerts, err := cryptoutils.LoadCertificatesFromPEM(strings.NewReader(strings.Join(ca.PemCaCertificates, "")))
+		if err != nil {
+			return [][]*x509.Certificate{}, fmt.Errorf("failed parsing PemCACertificates response: %w", err)
+		}
+		if len(roots) == 0 {
+			return [][]*x509.Certificate{}, fmt.Errorf("error fetching root certificates")
+		}
+		roots = append(roots, caCerts)
 	}
 	c.cachedRootsOnce.Do(func() {
 		c.cachedRoots = roots
 	})
 
-	return [][]*x509.Certificate{c.cachedRoots}, nil
+	return c.cachedRoots, nil
 }
 
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
