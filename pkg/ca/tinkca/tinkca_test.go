@@ -80,11 +80,14 @@ func TestNewTinkCA(t *testing.T) {
 	}
 
 	// Expect certificate chain from Root matches provided certificate chain
-	rootBytes, err := ca.Root(context.TODO())
+	rootChains, err := ca.TrustBundle(context.TODO())
 	if err != nil {
 		t.Fatalf("error fetching root: %v", err)
 	}
-	if !reflect.DeepEqual(rootBytes, chain) {
+	if len(rootChains) != 1 {
+		t.Fatalf("unexpected number of chains: %d", len(rootChains))
+	}
+	if !reflect.DeepEqual(rootChains[0], chain) {
 		t.Fatal("cert chains do not match")
 	}
 

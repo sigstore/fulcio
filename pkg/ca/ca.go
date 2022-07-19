@@ -27,5 +27,5 @@ import (
 // fetching the CA trust bundle.
 type CertificateAuthority interface {
 	CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*CodeSigningCertificate, error)
-	Root(ctx context.Context) ([]*x509.Certificate, error)
+	TrustBundle(ctx context.Context) ([][]*x509.Certificate, error)
 }

@@ -46,12 +46,15 @@ func TestBaseCARoot(t *testing.T) {
 		SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: signer},
 	}
 
-	rootBytes, err := bca.Root(context.TODO())
+	rootChains, err := bca.TrustBundle(context.TODO())
 	if err != nil {
 		t.Fatalf("unexpected error reading root: %v", err)
 	}
+	if len(rootChains) != 1 {
+		t.Fatalf("unexpected number of chains: %d", len(rootChains))
+	}
 
-	if !reflect.DeepEqual(certChain, rootBytes) {
+	if !reflect.DeepEqual(certChain, rootChains[0]) {
 		t.Fatal("expected cert chains to be equivalent")
 	}
 }
