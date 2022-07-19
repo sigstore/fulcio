@@ -42,6 +42,7 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	if err != nil {
 		t.Error(err)
 	}
+	t.Logf("value before startTCP: %v", grpcServer.grpcServerEndpoint)
 	grpcServer.startTCPListener()
 	// loop until server starts listening in separate goroutine
 	start := time.Now()
@@ -54,7 +55,9 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 		}
 	}
 	// set the correct listener value before creating the wrapping http server
+	t.Logf("value before reset: %v", grpcServer.grpcServerEndpoint)
 	grpcServer.grpcServerEndpoint = strings.Replace(grpcServer.grpcServerEndpoint, "::", "localhost", 1)
+	t.Logf("value after reset: %v", grpcServer.grpcServerEndpoint)
 
 	httpHost := fmt.Sprintf("localhost:%d", httpListen.Addr().(*net.TCPAddr).Port)
 	httpServer := createHTTPServer(context.Background(), httpHost, grpcServer, nil)
