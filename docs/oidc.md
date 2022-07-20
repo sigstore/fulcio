@@ -51,11 +51,11 @@ OIDC token: OIDC tokens are JWTs. At a minimum, all tokens must include the foll
 
 For example, `iss` could be `https://oauth2.sigstore.dev/auth` or `https://token.actions.githubusercontent.com`.
 
-```
+```json
 {
-    "aud": "sigstore"
-    "iss": "<uri>"
-    "exp": "<timestamp>"
+    "aud": "sigstore",
+    "iss": "<uri>",
+    "exp": "<timestamp>",
     "iat": "<timestamp>"
 }
 ```
@@ -66,9 +66,9 @@ If the issuer is in a different claim than `iss`, then you can include `IssuerCl
 
 In addition to the standard JWT claims, the token must include the following claims:
 
-```
+```json
 {
-    "email_verified": true
+    "email_verified": true,
     "email": "user@example.com"
 }
 ```
@@ -79,9 +79,9 @@ In addition to the standard JWT claims, the token must include the following cla
 
 The token must include the following claims:
 
-```
+```json
 {
-    "job_workflow_ref": "octo-org/octo-automation/.github/workflows/oidc.yml@refs/heads/main"
+    "job_workflow_ref": "octo-org/octo-automation/.github/workflows/oidc.yml@refs/heads/main",
     "sha": "example-sha",
     "event_name": "workflow_dispatch",
     "repository": "octo-org/octo-repo",
@@ -98,7 +98,7 @@ All other required claims are extracted and included in custom OID fields, as do
 
 The token must include the following claims:
 
-```
+```json
 {
     "sub": "spiffe://foo.example.com"
 }
@@ -114,7 +114,7 @@ The configuration must include `SPIFFETrustDomain`, for example `example.com`. T
 
 The token must include the following claims:
 
-```
+```json
 {
     "kubernetes.io": {
 	    "namespace": "default",
@@ -136,7 +136,7 @@ These claims are used to form the SAN URI of the certificate: `https://kubernete
 
 The token must include the following claims:
 
-```
+```json
 {
     "sub": "https://example.com/users/1"
 }
@@ -153,7 +153,7 @@ Additionally, the configuration must include `SubjectDomain`, for example `https
 
 The token must include the following claims:
 
-```
+```json
 {
     "sub": "exampleUsername"
 }
