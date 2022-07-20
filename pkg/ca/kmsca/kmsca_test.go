@@ -30,7 +30,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature/kms/fake"
-	_ "github.com/sigstore/sigstore/pkg/signature/kms/fake"
 )
 
 func TestNewKMSCA(t *testing.T) {
@@ -40,7 +39,8 @@ func TestNewKMSCA(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 
-	pemChain, err := cryptoutils.MarshalCertificatesToPEM([]*x509.Certificate{subCert, rootCert})
+	chain := []*x509.Certificate{subCert, rootCert}
+	pemChain, err := cryptoutils.MarshalCertificatesToPEM(chain)
 	if err != nil {
 		t.Fatalf("error marshalling cert chain: %v", err)
 	}
@@ -55,11 +55,14 @@ func TestNewKMSCA(t *testing.T) {
 	}
 
 	// Expect certificate chain from Root matches provided certificate chain
-	rootBytes, err := ca.Root(context.TODO())
+	rootChains, err := ca.TrustBundle(context.TODO())
 	if err != nil {
 		t.Fatalf("error fetching root: %v", err)
 	}
-	if !reflect.DeepEqual(rootBytes, pemChain) {
+	if len(rootChains) != 1 {
+		t.Fatalf("unexpected number of chains: %d", len(rootChains))
+	}
+	if !reflect.DeepEqual(rootChains[0], chain) {
 		t.Fatal("cert chains do not match")
 	}
 

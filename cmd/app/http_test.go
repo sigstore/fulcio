@@ -18,6 +18,7 @@ package app
 import (
 	"context"
 	"crypto"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -112,6 +113,6 @@ type TrivialCertificateAuthority struct {
 func (tca *TrivialCertificateAuthority) CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	return nil, errors.New("CreateCertificate always fails for testing")
 }
-func (tca *TrivialCertificateAuthority) Root(ctx context.Context) ([]byte, error) {
-	return []byte("not a certificate"), nil
+func (tca *TrivialCertificateAuthority) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
+	return [][]*x509.Certificate{}, nil
 }

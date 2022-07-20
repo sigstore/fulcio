@@ -234,17 +234,28 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrustBundleRequest) (*fulciogrpc.TrustBundle, error) {
 	logger := log.ContextLogger(ctx)
 
-	root, err := g.ca.Root(ctx)
+	trustBundle, err := g.ca.TrustBundle(ctx)
 	if err != nil {
-		logger.Error("Error retrieving root cert: ", err)
+		logger.Error("Error retrieving trust bundle: ", err)
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 	}
 
-	return &fulciogrpc.TrustBundle{
-		Chains: []*fulciogrpc.CertificateChain{{
-			Certificates: []string{string(root)},
-		}},
-	}, nil
+	resp := &fulciogrpc.TrustBundle{
+		Chains: []*fulciogrpc.CertificateChain{},
+	}
+
+	for _, chain := range trustBundle {
+		certChain := &fulciogrpc.CertificateChain{}
+		for _, cert := range chain {
+			certPEM, err := cryptoutils.MarshalCertificateToPEM(cert)
+			if err != nil {
+				return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+			}
+			certChain.Certificates = append(certChain.Certificates, string(certPEM))
+		}
+		resp.Chains = append(resp.Chains, certChain)
+	}
+	return resp, nil
 }
 
 func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetConfigurationRequest) (*fulciogrpc.Configuration, error) {
