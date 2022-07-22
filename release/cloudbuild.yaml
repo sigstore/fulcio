@@ -32,16 +32,16 @@ steps:
     echo "Checking out ${_GIT_TAG}"
     git checkout ${_GIT_TAG}
 
-- name: 'gcr.io/projectsigstore/cosign:v1.8.0@sha256:12b4d428529654c95a7550a936cbb5c6fe93a046ea7454676cb6fb0ce566d78c'
+- name: 'gcr.io/projectsigstore/cosign:v1.10.0@sha256:a719237925984033fb72685c1998d922c903bbe62464f6d401b5108d3195bb94'
   dir: "go/src/sigstore/fulcio"
   env:
   - COSIGN_EXPERIMENTAL=true
   - TUF_ROOT=/tmp
   args:
   - 'verify'
-  - 'ghcr.io/gythialy/golang-cross:v1.18.3-0@sha256:d4614e3a12fd43b1ef29252d1add330c0b496b5313eda37975d4a87815a6ae90'
+  - 'ghcr.io/gythialy/golang-cross:v1.18.4-0@sha256:eb34062f525b626622ada1b4e7ee782537edef2c0938122fc133ea2ca4fafe9d'
 
-- name: ghcr.io/gythialy/golang-cross:v1.18.3-0@sha256:d4614e3a12fd43b1ef29252d1add330c0b496b5313eda37975d4a87815a6ae90
+- name: ghcr.io/gythialy/golang-cross:v1.18.4-0@sha256:eb34062f525b626622ada1b4e7ee782537edef2c0938122fc133ea2ca4fafe9d
   entrypoint: /bin/sh
   dir: "go/src/sigstore/fulcio"
   env:
@@ -64,7 +64,7 @@ steps:
       gcloud auth configure-docker \
       && make release
 
-- name: ghcr.io/gythialy/golang-cross:v1.18.3-0@sha256:d4614e3a12fd43b1ef29252d1add330c0b496b5313eda37975d4a87815a6ae90
+- name: ghcr.io/gythialy/golang-cross:v1.18.4-0@sha256:eb34062f525b626622ada1b4e7ee782537edef2c0938122fc133ea2ca4fafe9d
   entrypoint: 'bash'
   dir: "go/src/sigstore/fulcio"
   env:
