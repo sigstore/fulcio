@@ -1,3 +1,31 @@
+# v0.5.2
+
+## Bug Fixes
+
+* Ensure GetTrustBundle returns array of strings instead of a single string with newlines (https://github.com/sigstore/fulcio/pull/690)
+
+## Miscellaneous
+
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 in /hack/tools (https://github.com/sigstore/fulcio/pull/696)
+* Bump google.golang.org/api from 0.87.0 to 0.88.0 (https://github.com/sigstore/fulcio/pull/694)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.3 to 2.11.0 (#https://github.com/sigstore/fulcio/pull/695)
+* bump cosign to v1.9.0 (https://github.com/sigstore/fulcio/pull/692)
+* Bump go.step.sm/crypto from 0.16.2 to 0.17.0 (https://github.com/sigstore/fulcio/pull/688)
+* Bump actions/dependency-review-action from 2.0.2 to 2.0.4 (https://github.com/sigstore/fulcio/pull/686)
+* Bump github.com/prometheus/common from 0.36.0 to 0.37.0 (https://github.com/sigstore/fulcio/pull/687)
+* Bump golang from 1.18.3 to 1.18.4 (https://github.com/sigstore/fulcio/pull/683)
+* Bump github/codeql-action from 2.1.15 to 2.1.16 (https://github.com/sigstore/fulcio/pull/684)
+* Bump github.com/googleapis/api-linter in /hack/tools (#https://github.com/sigstore/fulcio/pull/85)
+* Bump google.golang.org/grpc from 1.47.0 to 1.48.0 (https://github.com/sigstore/fulcio/pull/682)
+* Bump google.golang.org/api from 0.86.0 to 0.87.0 (https://github.com/sigstore/fulcio/pull/680)
+* Bump cloud.google.com/go/security from 1.4.0 to 1.4.1 (https://github.com/sigstore/fulcio/pull/681)
+* Bump github.com/prometheus/common from 0.35.0 to 0.36.0 (https://github.com/sigstore/fulcio/pull/678)
+* Bump actions/setup-go from 3.2.0 to 3.2.1 (https://github.com/sigstore/fulcio/pull/677)
+
+## Contributors
+
+* Bob Callaway (@bobcallaway)
+
 # v0.5.1
 
 ## Enhancements
