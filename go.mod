@@ -29,7 +29,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.1
 	go.step.sm/crypto v0.17.0
 	go.uber.org/zap v1.21.0
-	google.golang.org/api v0.88.0
+	google.golang.org/api v0.89.0
 	google.golang.org/genproto v0.0.0-20220719170305-83ca9fad585f
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
