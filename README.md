@@ -1,3 +1,5 @@
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sigstore/fulcio/badge)](https://api.securityscorecards.dev/projects/github.com/sigstore/fulcio)
+
 <p align="center">
   <img style="max-width: 100%;width: 300px;margin-top: 20px;" src="./docs/img/logo.svg" alt="Fulcio logo"/>
 </p>
