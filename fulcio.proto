@@ -159,9 +159,12 @@ message SigningCertificateDetachedSCT {
      */
     CertificateChain chain = 1;
     /*
-     * The signed certificate timestamp is a promise for including the certificate in
+     * The Signed Certificate Timestamp (SCT) is a promise for including the certificate in
      * a certificate transparency log. It can be "stapled" to verify the inclusion of
      * a certificate in the log in an offline fashion.
+     *
+     * The SCT format is an AddChainResponse struct, defined in
+     * https://github.com/google/certificate-transparency-go
      */
     bytes signed_certificate_timestamp = 2;
 }
@@ -172,6 +175,10 @@ message SigningCertificateEmbeddedSCT {
      * by all intermediate certificates (if present), finishing with the root certificate.
      *
      * All values are PEM-encoded certificates.
+     *
+     * The leaf certificate contains an embedded Signed Certificate Timestamp (SCT) to
+     * verify inclusion of the certificate in a log. The SCT format is a SignedCertificateTimestampList,
+     * as defined in https://datatracker.ietf.org/doc/html/rfc6962#section-3.3
      */
     CertificateChain chain = 1;
 }
