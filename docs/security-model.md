@@ -3,30 +3,34 @@
 Fulcio assumes that a valid OIDC token is a sufficient "proof of ownership" of
 an email address.
 
-To mitigate against this, Fulcio uses a transparency log to help protect
-against OIDC compromise. This means:
+To mitigate against OIDC compromise, Fulcio appends certificates to an immutable,
+append-only cryptographically verifiable transparency log.
 
 - Fulcio MUST publish all certificates to the log.
 - Clients MUST NOT trust certificates that are not in the log.
 
-As a result users can detect any mis-issued certificates.
+As a result users can detect any mis-issued certificates, either due to the CA
+acting maliciously or a compromised OIDC identity provider.
 
-Combined with `rekor's` signature transparency, artifacts signed with
+Combined with [Rekor's](https://github.com/sigstore/rekor) signature transparency, artifacts signed with
 compromised accounts can be identified.
 
 ## Revocation, Rotation and Expiry
 
+Fulcio is designed to avoid the need for revocation of certificates. The Sigstore
+ecosystem is designed to avoid the need for maintainers to frequently re-sign artifacts.
+
 ### Long-term Certificates
 
-These certificates are typically valid for years.  All old code must be
-re-signed with a new cert before an old cert expires.  Typically this works
-with long deprecation periods, dual-signing and planned rotations.
+These certificates are typically valid for years.  All artifacts must be
+re-signed with a new certficate before an old certificate expires. Typically this requires
+long deprecation periods, dual-signing and planned rotations.
 
 There are a couple problems with this approach:
 
-1. It assumes users can keep acess to private keys and keep them secret over
-   long periods of time
-2. Revocation is hard and doesn't work well
+1. It requires that users can maintain access to private keys and keep them secure over
+   long periods of time.
+2. Revocation doesn't scale well.
 
 ### Fulcio's Model
 
@@ -39,13 +43,6 @@ Sigstore accomplishes this with a tranpsarency log called
 inclusion time in the log was during the certificate's validity period.
 
 An entry in Rekor provides a single-party attestation that a piece of data
-existed prior to a certain time.  These timestamps cannot be tampered with
-later, providing long-term trust.  This long-term trust also requires that the
+existed prior to a certain time. These timestamps cannot be tampered with
+later, providing long-term trust. This long-term trust also requires that the
 log is monitored.
-
-Transparency Logs make it hard to forge timestamps long-term, but in short
-time-windows it would be much easier for the Rekor operator to fake or forge
-timestamps.  To mitigate this, Rekor's timestamps and tree head are signed - a
-valid Signed Tree Head (STH) contains a non-repudiadable timestamp.  These
-signed timestamp tokens are saved as evidence in case Rekor's clock changes in
-the future. So, more skeptical parties don't have to trust Rekor at all!
