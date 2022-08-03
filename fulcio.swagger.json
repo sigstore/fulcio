@@ -295,7 +295,7 @@
         "signedCertificateTimestamp": {
           "type": "string",
           "format": "byte",
-          "description": "The signed certificate timestamp is a promise for including the certificate in\na certificate transparency log. It can be \"stapled\" to verify the inclusion of\na certificate in the log in an offline fashion."
+          "description": "The Signed Certificate Timestamp (SCT) is a promise for including the certificate in\na certificate transparency log. It can be \"stapled\" to verify the inclusion of\na certificate in the log in an offline fashion.\n\nThe SCT format is an AddChainResponse struct, defined in\nhttps://github.com/google/certificate-transparency-go"
         }
       },
       "title": "(-- api-linter: core::0142::time-field-type=disabled\n    aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)"
@@ -305,7 +305,7 @@
       "properties": {
         "chain": {
           "$ref": "#/definitions/v2CertificateChain",
-          "description": "The certificate chain serialized with the leaf certificate first, followed\nby all intermediate certificates (if present), finishing with the root certificate.\n\nAll values are PEM-encoded certificates."
+          "description": "The certificate chain serialized with the leaf certificate first, followed\nby all intermediate certificates (if present), finishing with the root certificate.\n\nAll values are PEM-encoded certificates.\n\nThe leaf certificate contains an embedded Signed Certificate Timestamp (SCT) to\nverify inclusion of the certificate in a log. The SCT format is a SignedCertificateTimestampList,\nas defined in https://datatracker.ietf.org/doc/html/rfc6962#section-3.3"
         }
       }
     },
