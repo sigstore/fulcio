@@ -15,7 +15,7 @@ A root certificate MUST:
 * Specify an Issuer with the same values as the Subject
 * Specify Key Usages for Certificate Sign and CRL Sign
 * Specify Basic Constraints to `CA:TRUE`
-* Specify a unique, positive, 160 bit serial number
+* Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
 * Specify a Subject Key Identifier
 * Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
 
@@ -46,7 +46,7 @@ An intermediate certificate MUST:
 * Specify an Extended Key Usage for Code Signing
 * Specify a lifetime that does not exceed the parent certificiate
 * Specify Basic Constraints to `CA:TRUE`
-* Specify a unique, positive, 160 bit serial number
+* Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
 * Specify a Subject Key Identifier
 * Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier 
 * Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
@@ -83,7 +83,7 @@ An issued certificate MUST:
 * Specify a Key Usage for Digital Signature 
 * Specify an Extended Key Usage for Code Signing
 * Specify a lifetime that does not exceed the parent certificiate
-* Specify a unique, positive, 160 bit serial number
+* Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
 * Specify a Subject Key Identifier
 * Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier 
 * Specify an empty Subject
@@ -92,7 +92,7 @@ An issued certificate MUST:
    * ECDSA NIST P-256, NIST P-384, or NIST P-521
    * RSA of key size 2048 to 4096 (inclusive) with size % 8 = 0, E = 65537, and containing no weak primes
    * ED25519
-* Specify the OpenID Connect identity token issuer with OID `1.3.6.1.4.1.57264.1.1`
+* Specify the OpenID Connect identity token issuer with OID [`1.3.6.1.4.1.57264.1.1`](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726411--issuer)
 * Be appended to a Certificate Transparency log. Clients MUST NOT trust certificates that do not present
   either a proof of inclusion or a Signed Certificate Timestamp (SCT)
 
@@ -114,7 +114,8 @@ An issued certificate SHOULD:
 An issued certificate SHOULD NOT:
 
 * Use a different public key scheme (ECDSA vs RSA) than its parent certificate, as some clients do not support this
-* Specify a public key that is stronger than its parent certificate
+* Specify a public key that is stronger than its parent certificate. As weaknesses in keys are found, an issued
+  certificate should be weakened before its parent, since once the parent key is compromised, it can issue new certificates.
 
 An issued certificate MAY:
 
