@@ -43,7 +43,7 @@ var (
 )
 
 // Some of this is just ripped from cosign
-func GetCert(signer *signature.RSAPKCS1v15SignerVerifier, fc fulciopb.CAClient, oidcIssuer string, oidcClientID string) (*fulciopb.SigningCertificate, error) {
+func GetCert(signer *signature.ECDSASignerVerifier, fc fulciopb.CAClient, oidcIssuer string, oidcClientID string) (*fulciopb.SigningCertificate, error) {
 
 	tok, err := oauthflow.OIDConnect(oidcIssuer, oidcClientID, "", "", oauthflow.DefaultIDTokenGetter)
 	if err != nil {
@@ -85,10 +85,13 @@ func NewClient(fulcioURL string) (fulciopb.CAClient, error) {
 		return nil, err
 	}
 	dialOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+	hostWithPort := fmt.Sprintf("%s:80", fulcioServer.Host)
 	if fulcioServer.Scheme == "https" {
 		dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))
+		hostWithPort = fmt.Sprintf("%s:443", fulcioServer.Host)
 	}
-	conn, err := grpc.Dial(fulcioServer.Host, dialOpt)
+
+	conn, err := grpc.Dial(hostWithPort, dialOpt)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +99,7 @@ func NewClient(fulcioURL string) (fulciopb.CAClient, error) {
 }
 
 func main() {
-	signer, _, err := signature.NewDefaultRSAPKCS1v15SignerVerifier()
+	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		log.Fatal(err)
 	}
