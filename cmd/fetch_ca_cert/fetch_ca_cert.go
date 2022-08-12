@@ -78,7 +78,7 @@ func fetchCACertificate(ctx context.Context, parent, kmsKey, tinkKeysetPath, tin
 			return nil, err
 		}
 	} else {
-		primaryKey, err := tinkca.GetPrimaryKey(tinkKmsKey)
+		primaryKey, err := tinkca.GetPrimaryKey(ctx, tinkKmsKey)
 		if err != nil {
 			return nil, err
 		}
