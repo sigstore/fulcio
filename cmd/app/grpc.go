@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -108,6 +109,10 @@ func (g *grpcServer) startTCPListener() {
 
 func (g *grpcServer) startUnixListener() {
 	go func() {
+		if err := os.RemoveAll(LegacyUnixDomainSocket); err != nil {
+			log.Logger.Fatal(err)
+		}
+
 		unixAddr, err := net.ResolveUnixAddr("unix", LegacyUnixDomainSocket)
 		if err != nil {
 			log.Logger.Fatal(err)
