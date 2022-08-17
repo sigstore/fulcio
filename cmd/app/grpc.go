@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 
 	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -109,8 +110,12 @@ func (g *grpcServer) startTCPListener() {
 
 func (g *grpcServer) startUnixListener() {
 	go func() {
-		if err := os.RemoveAll(LegacyUnixDomainSocket); err != nil {
-			log.Logger.Fatal(err)
+		if runtime.GOOS != "linux" {
+			// As MacOS doesn't have abstract unix domain sockets the file
+			// created by a previous run needs to be explicitly removed
+			if err := os.RemoveAll(LegacyUnixDomainSocket); err != nil {
+				log.Logger.Fatal(err)
+			}
 		}
 
 		unixAddr, err := net.ResolveUnixAddr("unix", LegacyUnixDomainSocket)
