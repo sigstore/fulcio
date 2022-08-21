@@ -956,7 +956,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
 			PublicKeyRequest: &protobuf.PublicKeyRequest{
 				PublicKey: &protobuf.PublicKey{
-					Content: string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)),
+					Content: string(cryptoutils.PEMEncode(cryptoutils.PublicKeyPEMType, pubBytes)),
 				},
 				ProofOfPossession: []byte{},
 			},
@@ -1363,7 +1363,7 @@ func generateKeyAndProof(subject string, t *testing.T) (string, []byte) {
 	if err != nil {
 		t.Fatalf("SignASN1() = %v", err)
 	}
-	return string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, pubBytes)), proof
+	return string(cryptoutils.PEMEncode(cryptoutils.PublicKeyPEMType, pubBytes)), proof
 }
 
 // findCustomExtension searches a certificate's non-critical extensions by OID
