@@ -2,8 +2,6 @@ module github.com/sigstore/fulcio
 
 go 1.18
 
-replace github.com/sigstore/sigstore => ../sigstore
-
 require (
 	cloud.google.com/go/security v1.4.1
 	github.com/PaesslerAG/jsonpath v0.1.1
@@ -24,7 +22,6 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.37.0
 	github.com/rs/cors v1.8.2
-	github.com/sigstore/sigstore v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
@@ -154,6 +151,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
+	github.com/sigstore/sigstore v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
