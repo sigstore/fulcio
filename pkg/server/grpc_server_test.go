@@ -962,8 +962,8 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 			},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request could not be parsed") {
-		t.Fatalf("expected request could not be parsed error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request is insecure") {
+		t.Fatalf("expected insecure public key error, got %v", err)
 	}
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
