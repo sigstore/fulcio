@@ -56,6 +56,7 @@ steps:
   - GOOGLE_SERVICE_ACCOUNT_NAME=keyless@${PROJECT_ID}.iam.gserviceaccount.com
   - COSIGN_EXPERIMENTAL=true
   - KO_PREFIX=gcr.io/${PROJECT_ID}
+  - TUF_ROOT=/tmp
   secretEnv:
   - GITHUB_TOKEN
   args:
@@ -80,6 +81,7 @@ steps:
   - COSIGN_EXPERIMENTAL=true
   - GOOGLE_SERVICE_ACCOUNT_NAME=keyless@${PROJECT_ID}.iam.gserviceaccount.com
   - GITHUB_USER=${_GITHUB_USER}
+  - TUF_ROOT=/tmp
   secretEnv:
   - GITHUB_TOKEN
   args:
