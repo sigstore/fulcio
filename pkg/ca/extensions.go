@@ -20,6 +20,15 @@ import (
 	"errors"
 )
 
+var (
+	OIDIssuer                   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	OIDGitHubWorkflowTrigger    = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}
+	OIDGitHubWorkflowSHA        = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3}
+	OIDGitHubWorkflowName       = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4}
+	OIDGithubWorkflowRepository = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5}
+	OIDGithubWorkflowRef        = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}
+)
+
 // Extensions contains all custom x509 extensions defined by Fulcio
 type Extensions struct {
 	// NB: New extensions must be added here and documented
@@ -57,7 +66,7 @@ func (e Extensions) Render() ([]pkix.Extension, error) {
 
 	if e.Issuer != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+			Id:    OIDIssuer,
 			Value: []byte(e.Issuer),
 		})
 	} else {
@@ -65,31 +74,31 @@ func (e Extensions) Render() ([]pkix.Extension, error) {
 	}
 	if e.GithubWorkflowTrigger != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+			Id:    OIDGitHubWorkflowTrigger,
 			Value: []byte(e.GithubWorkflowTrigger),
 		})
 	}
 	if e.GithubWorkflowSHA != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+			Id:    OIDGitHubWorkflowSHA,
 			Value: []byte(e.GithubWorkflowSHA),
 		})
 	}
 	if e.GithubWorkflowName != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4},
+			Id:    OIDGitHubWorkflowName,
 			Value: []byte(e.GithubWorkflowName),
 		})
 	}
 	if e.GithubWorkflowRepository != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5},
+			Id:    OIDGithubWorkflowRepository,
 			Value: []byte(e.GithubWorkflowRepository),
 		})
 	}
 	if e.GithubWorkflowRef != "" {
 		exts = append(exts, pkix.Extension{
-			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6},
+			Id:    OIDGithubWorkflowRef,
 			Value: []byte(e.GithubWorkflowRef),
 		})
 	}
