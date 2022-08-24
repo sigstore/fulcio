@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
-
-import (
-	"github.com/sigstore/fulcio/pkg/certificate"
-)
-
-// Extensions contains all custom x509 extensions defined by Fulcio
-// Deprecated: use certificate.Extensions instead.
-type Extensions = certificate.Extensions
+// Package certificate contains helpers for getting data from Fulcio issued
+// x509 certificates.
+package certificate
