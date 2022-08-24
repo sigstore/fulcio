@@ -45,7 +45,7 @@ To authenticate the token Fulcio must:
 Once the client has been authenticated, the next step is to verify the client
 is in possession of the private key of the public key they’ve submitted. To do
 this, Fulcio verifies the signed challenge or CSR. For a signed challenge, this is
-a signature of the `sub` claim. For challenge and CSR are verified using the provided public key.
+a signature of the `sub` claim. The challenge and CSR are verified using the provided public key.
 
 ![Challenge verification diagram](img/verify-challenge.png)
 
