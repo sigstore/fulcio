@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
+package certificate
 
 import (
-	"bytes"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestRenderExtensions(t *testing.T) {
+func TestExtensions(t *testing.T) {
 	tests := map[string]struct {
 		Extensions Extensions
 		Expect     []pkix.Extension
@@ -45,27 +45,27 @@ func TestRenderExtensions(t *testing.T) {
 			},
 			Expect: []pkix.Extension{
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+					Id:    OIDIssuer,
 					Value: []byte(`1`),
 				},
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2},
+					Id:    OIDGitHubWorkflowTrigger,
 					Value: []byte(`2`),
 				},
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3},
+					Id:    OIDGitHubWorkflowSHA,
 					Value: []byte(`3`),
 				},
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4},
+					Id:    OIDGitHubWorkflowName,
 					Value: []byte(`4`),
 				},
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5},
+					Id:    OIDGitHubWorkflowRepository,
 					Value: []byte(`5`),
 				},
 				{
-					Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6},
+					Id:    OIDGitHubWorkflowRef,
 					Value: []byte(`6`),
 				},
 			},
@@ -75,7 +75,7 @@ func TestRenderExtensions(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := test.Extensions.Render()
+			render, err := test.Extensions.Render()
 			if err != nil {
 				if !test.WantErr {
 					t.Error("Failed to render with unexpected error", err)
@@ -83,17 +83,16 @@ func TestRenderExtensions(t *testing.T) {
 					return
 				}
 			}
-			if len(got) != len(test.Expect) {
-				t.Errorf("Got %d extensions when rendered and expected %d", len(got), len(test.Expect))
-				return
+			if diff := cmp.Diff(test.Expect, render); diff != "" {
+				t.Errorf("Render: %s", diff)
 			}
-			for i, ext := range got {
-				if !ext.Id.Equal(test.Expect[i].Id) {
-					t.Errorf("Got OID %v in extension %d and expected %v", ext.Id, i, test.Expect[i].Id)
-				}
-				if !bytes.Equal(ext.Value, test.Expect[i].Value) {
-					t.Errorf("Expected extension value to be %s but got %s", test.Expect[i].Value, ext.Value)
-				}
+
+			parse, err := ParseExtensions(render)
+			if err != nil {
+				t.Fatalf("ParseExtensions: err = %v", err)
+			}
+			if diff := cmp.Diff(test.Extensions, parse); diff != "" {
+				t.Errorf("ParseExtensions: %s", diff)
 			}
 		})
 	}
