@@ -138,10 +138,7 @@
         "content": {
           "type": "string",
           "format": "byte",
-          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY.",
-          "required": [
-            "content"
-          ]
+          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY."
         }
       },
       "required": [

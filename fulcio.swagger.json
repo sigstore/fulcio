@@ -125,10 +125,7 @@
           "type": "string",
           "format": "byte",
           "description": "Contains the public key to be stored in the requested certificate. All other CSR fields\nare ignored. Since the CSR is self-signed, it also acts as a proof of posession of\nthe private key.",
-          "title": "PKCS#10 PEM-encoded certificate signing request",
-          "required": [
-            "certificateSigningRequest"
-          ]
+          "title": "PKCS#10 PEM-encoded certificate signing request"
         }
       },
       "required": [
@@ -144,10 +141,7 @@
         },
         "content": {
           "type": "string",
-          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY.",
-          "required": [
-            "content"
-          ]
+          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY."
         }
       },
       "required": [
@@ -264,10 +258,7 @@
           "type": "string",
           "format": "byte",
           "description": "This is a currently a signature over the `sub` claim from the OIDC identity token",
-          "title": "Proof that the client possesses the private key; must be verifiable by provided public key",
-          "required": [
-            "proofOfPossession"
-          ]
+          "title": "Proof that the client possesses the private key; must be verifiable by provided public key"
         }
       },
       "required": [
