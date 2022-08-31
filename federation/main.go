@@ -17,7 +17,7 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/sigstore/fulcio/pkg/config"
@@ -79,7 +79,7 @@ func main() {
 		},
 	}
 	for _, m := range matches {
-		b, err := ioutil.ReadFile(m)
+		b, err := os.ReadFile(m)
 		if err != nil {
 			panic(err)
 		}
@@ -106,7 +106,7 @@ func main() {
 	}
 
 	// Update the yaml
-	yb, err := ioutil.ReadFile("config/fulcio-config.yaml")
+	yb, err := os.ReadFile("config/fulcio-config.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +125,7 @@ func main() {
 
 	yamlWithBoilerplate := boilerPlate + string(newYaml)
 
-	if err := ioutil.WriteFile("config/fulcio-config.yaml", []byte(yamlWithBoilerplate), 0600); err != nil {
+	if err := os.WriteFile("config/fulcio-config.yaml", []byte(yamlWithBoilerplate), 0600); err != nil {
 		panic(err)
 	}
 }

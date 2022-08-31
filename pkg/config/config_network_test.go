@@ -19,7 +19,7 @@ package config
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +30,7 @@ import (
 func TestLoad(t *testing.T) {
 	td := t.TempDir()
 	cfgPath := filepath.Join(td, "config.json")
-	if err := ioutil.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(validCfg), 0644); err != nil {
 		t.Fatal(err)
 	}
 
