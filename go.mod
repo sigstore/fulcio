@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/security v1.4.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.2
