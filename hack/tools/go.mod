@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio/hack/tools
 go 1.18
 
 require (
-	github.com/googleapis/api-linter v1.35.1
+	github.com/googleapis/api-linter v1.36.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
@@ -11,9 +11,9 @@ require (
 
 require (
 	bitbucket.org/creachadair/stringset v0.0.10 // indirect
-	github.com/bmatcuk/doublestar/v2 v2.0.4 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/gertd/go-pluralize v0.1.7 // indirect
+	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jhump/protoreflect v1.10.1 // indirect
