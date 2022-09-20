@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.18
 
 require (
-	cloud.google.com/go/security v1.6.0
+	cloud.google.com/go/security v1.7.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/coreos/go-oidc/v3 v3.4.0
@@ -30,7 +30,7 @@ require (
 	go.step.sm/crypto v0.19.0
 	go.uber.org/zap v1.23.0
 	google.golang.org/api v0.96.0
-	google.golang.org/genproto v0.0.0-20220914142337-ca0e39ece12f
+	google.golang.org/genproto v0.0.0-20220916172020-2692e8806bfa
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
