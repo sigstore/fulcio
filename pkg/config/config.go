@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -371,7 +370,7 @@ func Load(configPath string) (*FulcioConfig, error) {
 		}
 		return config, nil
 	}
-	b, err := ioutil.ReadFile(configPath)
+	b, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
@@ -398,7 +397,7 @@ func Read(b []byte) (*FulcioConfig, error) {
 			rootCAs = x509.NewCertPool()
 		}
 		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := ioutil.ReadFile(k8sCA)
+		certs, err := os.ReadFile(k8sCA)
 		if err != nil {
 			return nil, fmt.Errorf("read file: %w", err)
 		}
