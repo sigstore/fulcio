@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
@@ -38,6 +39,11 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	emailRegex := regexp.MustCompile(`^.+@.+\..+$`)
+	if emailRegex.MatchString(uriWithSubject) {
+		return nil, fmt.Errorf("uri subject should not be an email address")
 	}
 
 	// The subject hostname must exactly match the subject domain from the configuration

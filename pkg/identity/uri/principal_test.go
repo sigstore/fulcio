@@ -47,6 +47,10 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			Token:   &oidc.IDToken{Issuer: "https://notaccounts.example.com", Subject: "https://example.com/users/1"},
 			WantErr: true,
 		},
+		`Subject as an email address should error`: {
+			Token:   &oidc.IDToken{Issuer: "https://accounts.example.com", Subject: "user@example.com"},
+			WantErr: true,
+		},
 		`Incorrect subject domain hostname should error`: {
 			Token:   &oidc.IDToken{Issuer: "https://accounts.example.com", Subject: "https://notexample.com/users/1"},
 			WantErr: true,

@@ -18,6 +18,8 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
@@ -38,6 +40,11 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	}
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
+	}
+
+	emailRegex := regexp.MustCompile(`^.+@.+\..+$`)
+	if !emailRegex.MatchString(emailAddress) {
+		return nil, fmt.Errorf("email address is not valid")
 	}
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
