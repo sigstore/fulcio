@@ -68,6 +68,8 @@ func MarshalSANS(name string, critical bool) (*pkix.Extension, error) {
 	}, nil
 }
 
+// UnmarshalSANs extracts a UTF-8 string from the OtherName
+// field in the Subject Alternative Name extension.
 func UnmarshalSANS(exts []pkix.Extension) (string, error) {
 	var otherNames []string
 
