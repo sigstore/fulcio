@@ -163,4 +163,4 @@ Additionally, the configuration must include `SubjectDomain`, for example `examp
 
 * The issuer in the configuration must partially match the domain in the configuration. The top level domain and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
 
-`SubjectDomain` is appended to `sub` to form an email, `sub@SubjectDomain`, and included as a SAN email address.
+`SubjectDomain` is appended to `sub` to form an identity, `sub!SubjectDomain`, and included as an OtherName SAN.
