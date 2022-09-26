@@ -148,7 +148,7 @@ SCTs are recommended, since a client can easily verify proof of inclusion when u
 the certificate for artifact verification, without needing to store the detached SCT
 alongside the certificate.
 
-See [ctlog.md] for more information.
+See [CT Log](ctlog.md) for more information.
 
 ## CA Certificate requirements
 
