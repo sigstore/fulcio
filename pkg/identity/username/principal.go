@@ -20,9 +20,9 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -42,8 +42,7 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 		return nil, errors.New("username cannot contain ! character")
 	}
 
-	emailRegex := regexp.MustCompile(`^.+@.+\..+$`)
-	if emailRegex.MatchString(username) {
+	if govalidator.IsEmail(username) {
 		return nil, fmt.Errorf("uri subject should not be an email address")
 	}
 

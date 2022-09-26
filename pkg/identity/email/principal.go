@@ -19,8 +19,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"regexp"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -42,8 +42,7 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 		return nil, errors.New("email_verified claim was false")
 	}
 
-	emailRegex := regexp.MustCompile(`^.+@.+\..+$`)
-	if !emailRegex.MatchString(emailAddress) {
+	if !govalidator.IsEmail(emailAddress) {
 		return nil, fmt.Errorf("email address is not valid")
 	}
 
