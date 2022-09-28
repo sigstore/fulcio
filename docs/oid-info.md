@@ -52,6 +52,11 @@ This contains the `ref` claim from the GitHub OIDC Identity token that contains
 the git ref that the workflow run was based upon.
 [(docs)][github-oidc-doc]
 
+### 1.3.6.1.4.1.57264.1.7 | OtherName SAN
+
+This specifies the username identity in the OtherName Subject Alternative Name, as
+defined by [RFC5280 4.2.1.6](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6).
+
 <!-- References -->
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
 [oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264

@@ -46,6 +46,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/username"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -312,15 +313,9 @@ type customClaims struct {
 	OtherIssuer   string `json:"other_issuer"`
 }
 
-// Tests API for email and username subject types
+// Tests API for email subject types
 func TestAPIWithEmail(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
-	usernameSigner, usernameIssuer := newOIDCIssuer(t)
-
-	issuerDomain, err := url.Parse(usernameIssuer)
-	if err != nil {
-		t.Fatal("issuer URL could not be parsed", err)
-	}
 
 	// Create a FulcioConfig that supports these issuers.
 	cfg, err := config.Read([]byte(fmt.Sprintf(`{
@@ -329,29 +324,18 @@ func TestAPIWithEmail(t *testing.T) {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
 				"Type": "email"
-			},
-			%q: {
-				"IssuerURL": %q,
-				"ClientID": "sigstore",
-				"SubjectDomain": %q,
-				"Type": "username"
 			}
 		}
-	}`, emailIssuer, emailIssuer, usernameIssuer, usernameIssuer, issuerDomain.Hostname())))
+	}`, emailIssuer, emailIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
 	emailSubject := "foo@example.com"
-	usernameSubject := "foo"
-	expectedUsernamedSubject := fmt.Sprintf("%s@%s", usernameSubject, issuerDomain.Hostname())
 
 	tests := []oidcTestContainer{
 		{
 			Signer: emailSigner, Issuer: emailIssuer, Subject: emailSubject, ExpectedSubject: emailSubject,
-		},
-		{
-			Signer: usernameSigner, Issuer: usernameIssuer, Subject: usernameSubject, ExpectedSubject: expectedUsernamedSubject,
 		},
 	}
 	for _, c := range tests {
@@ -407,6 +391,99 @@ func TestAPIWithEmail(t *testing.T) {
 		}
 		if leafCert.EmailAddresses[0] != c.ExpectedSubject {
 			t.Fatalf("subjects do not match: Expected %v, got %v", c.ExpectedSubject, leafCert.EmailAddresses[0])
+		}
+	}
+}
+
+// Tests API for username subject types
+func TestAPIWithUsername(t *testing.T) {
+	usernameSigner, usernameIssuer := newOIDCIssuer(t)
+
+	issuerDomain, err := url.Parse(usernameIssuer)
+	if err != nil {
+		t.Fatal("issuer URL could not be parsed", err)
+	}
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"SubjectDomain": %q,
+				"Type": "username"
+			}
+		}
+	}`, usernameIssuer, usernameIssuer, issuerDomain.Hostname())))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	usernameSubject := "foo"
+	expectedUsernamedSubject := fmt.Sprintf("%s!%s", usernameSubject, issuerDomain.Hostname())
+
+	tests := []oidcTestContainer{
+		{
+			Signer: usernameSigner, Issuer: usernameIssuer, Subject: usernameSubject, ExpectedSubject: expectedUsernamedSubject,
+		},
+	}
+	for _, c := range tests {
+		// Create an OIDC token using this issuer's signer.
+		tok, err := jwt.Signed(c.Signer).Claims(jwt.Claims{
+			Issuer:   c.Issuer,
+			IssuedAt: jwt.NewNumericDate(time.Now()),
+			Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+			Subject:  c.Subject,
+			Audience: jwt.Audience{"sigstore"},
+		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).CompactSerialize()
+		if err != nil {
+			t.Fatalf("CompactSerialize() = %v", err)
+		}
+
+		ctClient, eca := createCA(cfg, t)
+		ctx := context.Background()
+		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		defer func() {
+			server.Stop()
+			conn.Close()
+		}()
+
+		client := protobuf.NewCAClient(conn)
+
+		pubBytes, proof := generateKeyAndProof(c.Subject, t)
+
+		// Hit the API to have it sign our certificate.
+		resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+			Credentials: &protobuf.Credentials{
+				Credentials: &protobuf.Credentials_OidcIdentityToken{
+					OidcIdentityToken: tok,
+				},
+			},
+			Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+				PublicKeyRequest: &protobuf.PublicKeyRequest{
+					PublicKey: &protobuf.PublicKey{
+						Content: pubBytes,
+					},
+					ProofOfPossession: proof,
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SigningCert() = %v", err)
+		}
+
+		leafCert := verifyResponse(resp, eca, c.Issuer, t)
+
+		// Expect no email subject
+		if len(leafCert.EmailAddresses) != 0 {
+			t.Fatalf("unexpected length of leaf certificate URIs, expected 0, got %d", len(leafCert.URIs))
+		}
+		otherName, err := username.UnmarshalSANS(leafCert.Extensions)
+		if err != nil {
+			t.Fatalf("error unmarshalling SANs: %v", err)
+		}
+		if otherName != c.ExpectedSubject {
+			t.Fatalf("subjects do not match: Expected %v, got %v", c.ExpectedSubject, otherName)
 		}
 	}
 }

@@ -17,10 +17,12 @@ package username
 import (
 	"context"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -28,16 +30,20 @@ import (
 )
 
 type principal struct {
-	issuer       string
-	username     string
-	emailAddress string
+	issuer     string
+	username   string
+	unIdentity string
 }
 
 func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	username := token.Subject
 
-	if strings.Contains(username, "@") {
-		return nil, errors.New("username cannot contain @ character")
+	if strings.Contains(username, "!") {
+		return nil, errors.New("username cannot contain ! character")
+	}
+
+	if govalidator.IsEmail(username) {
+		return nil, fmt.Errorf("uri subject should not be an email address")
 	}
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
@@ -45,12 +51,12 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
-	emailSubject := fmt.Sprintf("%s@%s", username, cfg.SubjectDomain)
+	unIdentity := fmt.Sprintf("%s!%s", username, cfg.SubjectDomain)
 
 	return principal{
-		issuer:       token.Issuer,
-		username:     username,
-		emailAddress: emailSubject,
+		issuer:     token.Issuer,
+		username:   username,
+		unIdentity: unIdentity,
 	}, nil
 }
 
@@ -59,15 +65,22 @@ func (p principal) Name(context.Context) string {
 }
 
 func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
-	cert.EmailAddresses = []string{p.emailAddress}
+	var exts []pkix.Extension
 
-	var err error
-	cert.ExtraExtensions, err = certificate.Extensions{
+	ext, err := MarshalSANS(p.unIdentity, true /*critical*/)
+	if err != nil {
+		return err
+	}
+	exts = append(exts, *ext)
+
+	issuerExt, err := certificate.Extensions{
 		Issuer: p.issuer,
 	}.Render()
 	if err != nil {
 		return err
 	}
+	exts = append(exts, issuerExt...)
 
+	cert.ExtraExtensions = exts
 	return nil
 }

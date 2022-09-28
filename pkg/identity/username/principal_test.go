@@ -37,13 +37,17 @@ func TestPrincipalFromIDToken(t *testing.T) {
 		`Valid token authenticates with correct claims`: {
 			Token: &oidc.IDToken{Issuer: "https://accounts.example.com", Subject: "alice"},
 			Principal: principal{
-				issuer:       "https://accounts.example.com",
-				username:     "alice",
-				emailAddress: "alice@example.com",
+				issuer:     "https://accounts.example.com",
+				username:   "alice",
+				unIdentity: "alice!example.com",
 			},
 			WantErr: false,
 		},
-		`username cannot contain @`: {
+		`username with ! character should error`: {
+			Token:   &oidc.IDToken{Issuer: "https://accounts.example.com", Subject: "alice!"},
+			WantErr: true,
+		},
+		`username as an email address should error`: {
 			Token:   &oidc.IDToken{Issuer: "https://accounts.example.com", Subject: "alice@example.com"},
 			WantErr: true,
 		},
@@ -135,18 +139,22 @@ func TestEmbed(t *testing.T) {
 	}{
 		`Valid uri challenge`: {
 			Principal: principal{
-				issuer:       `https://accounts.example.com`,
-				username:     "alice",
-				emailAddress: "alice@example.com",
+				issuer:     `https://accounts.example.com`,
+				username:   "alice",
+				unIdentity: "alice!example.com",
 			},
 			WantErr: false,
 			WantFacts: map[string]func(x509.Certificate) error{
 				`Issuer	is example.com`: factIssuerIs(`https://accounts.example.com`),
-				`SAN is alice@example.com`: func(cert x509.Certificate) error {
-					if len(cert.EmailAddresses) != 1 {
-						return errors.New("no URI SAN set")
+				`SAN is alice!example.com`: func(cert x509.Certificate) error {
+					otherName, err := UnmarshalSANS(cert.ExtraExtensions)
+					if err != nil {
+						return err
 					}
-					if diff := cmp.Diff(cert.EmailAddresses[0], "alice@example.com"); diff != "" {
+					if len(cert.EmailAddresses) != 0 {
+						return errors.New("unexpected email address SAN")
+					}
+					if diff := cmp.Diff(otherName, "alice!example.com"); diff != "" {
 						return errors.New(diff)
 					}
 					return nil
@@ -155,9 +163,9 @@ func TestEmbed(t *testing.T) {
 		},
 		`Empty issuer url should fail to render extensions`: {
 			Principal: principal{
-				issuer:       "",
-				emailAddress: "alice@example.com",
-				username:     "alice",
+				issuer:     "",
+				unIdentity: "alice!example.com",
+				username:   "alice",
 			},
 			WantErr: true,
 		},
