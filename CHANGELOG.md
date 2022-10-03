@@ -1,7 +1,47 @@
+# v0.6.0
+
+**Note**: Changed username identity format to username!Domain, username now specified in the OtherName SAN. If you have deployed your own instance of Fulcio and are using username issuers, you must update to the latest Cosign release.
+
+## Enhancements
+
+* Change username format, enforce identity format (https://github.com/sigstore/fulcio/pull/802)
+* Export Fulcio extension OIDs (https://github.com/sigstore/fulcio/pull/761)
+
+## Documentation
+
+* Update how-certificate-issuing-works.md (https://github.com/sigstore/fulcio/pull/755)
+
+
+### Bug Fixes
+
+* Fix documentation link (https://github.com/sigstore/fulcio/pull/798)
+
+## Miscellaneous
+
+* upgrade to go1.19 (https://github.com/sigstore/fulcio/pull/767)
+
+
+## Contributors
+
+* Billy Lynch (@wlynch)
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+
+# v0.5.4
+
+### Bug Fixes
+
+* adding tuf root env variable (https://github.com/sigstore/fulcio/pull/751)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+
 # v0.5.3
 
 ## Bug Fixes
 
+* Clean up unix socket (https://github.com/sigstore/fulcio/pull/739)
 * address Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server (https://github.com/sigstore/fulcio/pull/735)
 * fix example to explicitly set port for gRPC call (https://github.com/sigstore/fulcio/pull/732)
 
@@ -49,6 +89,7 @@
 * Bob Callaway (@bobcallaway)
 * Carlos Tadeu Panato Junior (@cpanato)
 * Hayden Blauzvern (@haydentherapper)
+* Paul Thomson (@pauldthomson)
 
 # v0.5.2
 
