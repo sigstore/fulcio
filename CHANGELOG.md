@@ -1,3 +1,22 @@
+# v1.0.0-rc.0
+
+**Notice for Deprecation**: The legacy (V1) API will be deprecated by February
+1, 2023, and no longer supported in the public instance. Please update clients
+to the V2 API, which supports for gRPC and HTTP.
+
+## Enhancements
+
+* use same way to output version and expose build info to prometheus (#815)
+
+## Documentation
+
+* Update swagger doc version for Fulcio 1.0 (#816)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+
 # v0.6.0
 
 **Note**: Changed username identity format to username!Domain, username now specified in the OtherName SAN. If you have deployed your own instance of Fulcio and are using username issuers, you must update to the latest Cosign release.
