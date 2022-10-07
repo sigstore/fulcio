@@ -16,44 +16,9 @@
 package app
 
 import (
-	"fmt"
-
-	"github.com/sigstore/fulcio/pkg/server"
-	"github.com/spf13/cobra"
+	"sigs.k8s.io/release-utils/version"
 )
 
-type versionOptions struct {
-	json bool
-}
-
-var versionOpts = &versionOptions{}
-
-func newVersionCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "version",
-		Short: "print build version",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runVersion(versionOpts)
-		},
-	}
-
-	cmd.Flags().BoolVarP(&versionOpts.json, "json", "j", false, "print JSON instead of text")
-
-	return cmd
-}
-
-func runVersion(opts *versionOptions) error {
-	v := server.VersionInfo()
-	res := v.String()
-
-	if opts.json {
-		j, err := v.JSONString()
-		if err != nil {
-			return fmt.Errorf("unable to generate JSON from version info: %w", err)
-		}
-		res = j
-	}
-
-	fmt.Println(res)
-	return nil
+func init() {
+	rootCmd.AddCommand(version.Version())
 }

@@ -35,19 +35,9 @@ GIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TAG ?= dirty-tag
 DATE_FMT = +%Y-%m-%dT%H:%M:%SZ
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
-ifdef SOURCE_DATE_EPOCH
-    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
-else
-    BUILD_DATE ?= $(shell date "$(DATE_FMT)")
-endif
-GIT_TREESTATE = "clean"
-DIFF = $(shell git diff --quiet >/dev/null 2>&1; if [ $$? -eq 1 ]; then echo "1"; fi)
-ifeq ($(DIFF), 1)
-    GIT_TREESTATE = "dirty"
-endif
 
-FULCIO_VERSION_PKG=github.com/sigstore/fulcio/pkg/server
-LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION) -X $(FULCIO_VERSION_PKG).gitCommit=$(GIT_HASH) -X $(FULCIO_VERSION_PKG).gitTreeState=$(GIT_TREESTATE) -X $(FULCIO_VERSION_PKG).buildDate=$(BUILD_DATE)
+FULCIO_VERSION_PKG=sigs.k8s.io/release-utils/version
+LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION)
 
 KO_PREFIX ?= gcr.io/projectsigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)

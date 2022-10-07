@@ -43,5 +43,4 @@ func Execute(ctx context.Context) {
 func init() {
 	rootCmd.AddCommand(newCreateCACmd())
 	rootCmd.AddCommand(newServeCmd())
-	rootCmd.AddCommand(newVersionCmd())
 }
