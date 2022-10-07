@@ -1,4 +1,4 @@
-# v1.0.0-rc0
+# v1.0.0-rc.0
 
 **Notice for Deprecation**: The legacy (V1) API will be deprecated by February
 1, 2023, and no longer supported in the public instance. Please update clients
