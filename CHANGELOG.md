@@ -1,5 +1,9 @@
 # v1.0.0-rc0
 
+**Notice for Deprecation**: The legacy (V1) API will be deprecated by February
+1, 2023, and no longer supported in the public instance. Please update clients
+to the V2 API, which supports for gRPC and HTTP.
+
 ## Enhancements
 
 * use same way to output version and expose build info to prometheus (#815)
