@@ -18,6 +18,7 @@ package server
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"sigs.k8s.io/release-utils/version"
 )
 
 var (
@@ -35,4 +36,19 @@ var (
 		Name: "http_requests_total",
 		Help: "Count all HTTP requests",
 	}, []string{"code", "method"})
+
+	_ = promauto.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Namespace: "fulcio",
+			Name:      "build_info",
+			Help:      "A metric with a constant '1' value labeled by version, revision, branch, and goversion from which rekor was built.",
+			ConstLabels: prometheus.Labels{
+				"version":    version.GetVersionInfo().GitVersion,
+				"revision":   version.GetVersionInfo().GitCommit,
+				"build_date": version.GetVersionInfo().BuildDate,
+				"goversion":  version.GetVersionInfo().GoVersion,
+			},
+		},
+		func() float64 { return 1 },
+	)
 )
