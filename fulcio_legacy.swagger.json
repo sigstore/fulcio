@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Fulcio Legacy",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "contact": {
       "name": "sigstore Fulcio project",
       "url": "https://github.com/sigstore/fulcio",
