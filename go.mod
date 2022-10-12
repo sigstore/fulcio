@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/common v0.37.0
 	github.com/rs/cors v1.8.2
 	github.com/sigstore/sigstore v1.4.4
-	github.com/spf13/cobra v1.5.0
+	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.13.0
 	github.com/spiffe/go-spiffe/v2 v2.1.1
@@ -125,7 +125,7 @@ require (
 	github.com/hashicorp/vault/api v1.8.0 // indirect
 	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jellydator/ttlcache/v2 v2.11.1 // indirect
 	github.com/jhump/protoreflect v1.13.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
