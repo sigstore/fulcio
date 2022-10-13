@@ -26,8 +26,7 @@ you must verify the chain using Sigstore's [TUF](https://theupdateframework.io/)
 
 To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
 ```
-$ go install github.com/theupdateframework/go-tuf/cmd/tuf@latest
-$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@latest
+$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@06ed59941769f55b7d54158a0be85a16a7475fa7
 ```
 
 Then, obtain trusted root keys for Sigstore. This can be done from a trusted commit in Sigstore's root signing repository
@@ -42,7 +41,7 @@ and get the current Fulcio root certificate `fulcio_v1.crt.pem` and intermediate
 ```
 $ tuf-client init https://sigstore-tuf-root.storage.googleapis.com sigstore-root.json
 
-$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem 
+$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -57,7 +56,7 @@ WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
 TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
 -----END CERTIFICATE-----
 
-$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem 
+$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_intermediate_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
