@@ -41,7 +41,7 @@ var (
 		prometheus.GaugeOpts{
 			Namespace: "fulcio",
 			Name:      "build_info",
-			Help:      "A metric with a constant '1' value labeled by version, revision, branch, and goversion from which rekor was built.",
+			Help:      "A metric with a constant '1' value labeled by version, revision, branch, and goversion from which fulcio was built.",
 			ConstLabels: prometheus.Labels{
 				"version":    version.GetVersionInfo().GitVersion,
 				"revision":   version.GetVersionInfo().GitCommit,
