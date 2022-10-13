@@ -6,36 +6,41 @@
 
 # Fulcio
 
-_A New Kind of Root CA For Code Signing_
+_A Free-to-Use CA For Code Signing_
 
-fulcio is a free Root-CA for code signing certs - issuing certificates based on an OIDC email address.
+Fulcio is a free-to-use certificate authority for issuing code signing certificates
+for an OpenID Connect (OIDC) identity, such as email address.
 
-fulcio only signs short-lived certificates that are valid for under 20 minutes.
+Fulcio only issues short-lived certificates that are valid for 10 minutes.
 
 ## Status
 
-Fulcio is a *work in progress*!
+Fulcio is in General Availability, offering a 99.5 Availability SLO.
 
-We're currently working hard on cutting a 1.0 release and productionizing the public instance.
-We don't have a date yet, but follow along on the [GitHub project](https://github.com/orgs/sigstore/projects/5).
+Fulcio's certificate chain can be obtained from the `TrustBundle` API, for example for the public instance
+([https://fulcio.sigstore.dev](https://fulcio.sigstore.dev/api/v2/trustBundle)). To verify the public instance,
+you must verify the chain using Sigstore's [TUF](https://theupdateframework.io/) root from the
+[sigstore/root-signing](https://github.com/sigstore/root-signing) repository).
 
-The fulcio root certificate running on our public instance (https://fulcio.sigstore.dev) can be obtained and verified against Sigstore's root (at the [sigstore/root-signing](https://github.com/sigstore/root-signing) repository). To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
+To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
 ```
-$ go get github.com/theupdateframework/go-tuf/cmd/tuf
-$ go get github.com/theupdateframework/go-tuf/cmd/tuf-client
-```
-
-Then, obtain trusted root keys for Sigstore. This can be done from a checkout of the Sigstore's root signing repository at a trusted commit (e.g. after the livestreamed root signing ceremony).
-```
-$ git clone https://github.com/sigstore/root-signing
-$ cd root-signing && git checkout 193343461a4d365ac517b5d668e01fbaddd4eba5
-$ tuf -d ceremony/2021-06-18/ root-keys > sigstore-root.json
+$ go install github.com/theupdateframework/go-tuf/cmd/tuf@latest
+$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@latest
 ```
 
-Initialize the TUF client with the previously obtained root keys and get the current Fulcio root certificate `fulcio_v1.crt.pem`.
+Then, obtain trusted root keys for Sigstore. This can be done from a trusted commit in Sigstore's root signing repository
+(e.g. after the [livestreamed root signing ceremony](https://github.com/sigstore/root-signing#initial-root-signing-ceremony)).
 ```
-$ tuf-client init https://raw.githubusercontent.com/sigstore/root-signing/main/repository/repository/ sigstore-root.json
-$ tuf-client get https://raw.githubusercontent.com/sigstore/root-signing/main/repository/repository/ fulcio_v1.crt.pem 
+# Ref 193343461a4d365ac517b5d668e01fbaddd4eba5 is when the root ceremony was completed
+curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/193343461a4d365ac517b5d668e01fbaddd4eba5/ceremony/2021-06-18/repository/root.json
+```
+
+Initialize the TUF client with the previously obtained root and the remote repository, https://sigstore-tuf-root.storage.googleapis.com,
+and get the current Fulcio root certificate `fulcio_v1.crt.pem` and intermediate certificate `fulcio_intermediate_v1.crt.pem`.
+```
+$ tuf-client init https://sigstore-tuf-root.storage.googleapis.com sigstore-root.json
+
+$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem 
 -----BEGIN CERTIFICATE-----
 MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -49,28 +54,44 @@ KsXF+jAKBggqhkjOPQQDAwNpADBmAjEAj1nHeXZp+13NWBNa+EDsDP8G1WWg1tCM
 WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
 TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
 -----END CERTIFICATE-----
-```
 
-We **WILL** change this and add intermediaries in the future.
+$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem 
+-----BEGIN CERTIFICATE-----
+MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
+KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
+MjA0MTMyMDA2MTVaFw0zMTEwMDUxMzU2NThaMDcxFTATBgNVBAoTDHNpZ3N0b3Jl
+LmRldjEeMBwGA1UEAxMVc2lnc3RvcmUtaW50ZXJtZWRpYXRlMHYwEAYHKoZIzj0C
+AQYFK4EEACIDYgAE8RVS/ysH+NOvuDZyPIZtilgUF9NlarYpAd9HP1vBBH1U5CV7
+7LSS7s0ZiH4nE7Hv7ptS6LvvR/STk798LVgMzLlJ4HeIfF3tHSaexLcYpSASr1kS
+0N/RgBJz/9jWCiXno3sweTAOBgNVHQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYB
+BQUHAwMwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU39Ppz1YkEZb5qNjp
+KFWixi4YZD8wHwYDVR0jBBgwFoAUWMAeX5FFpWapesyQoZMi0CrFxfowCgYIKoZI
+zj0EAwMDZwAwZAIwPCsQK4DYiZYDPIaDi5HFKnfxXx6ASSVmERfsynYBiX2X6SJR
+nZU84/9DZdnFvvxmAjBOt6QpBlc4J/0DxvkTCqpclvziL6BCCPnjdlIB3Pu3BxsP
+mygUY7Ii2zbdCdliiow=
+-----END CERTIFICATE-----
+```
 
 ## API
 
-The API is defined [here](./pkg/api/client.go).
+The API is defined [here](./fulcio.proto). The API can be accessed
+over HTTP or gRPC.
 
-## Transparency
+## Certificate Transparency
 
-Fulcio will publish issued certificates to a unique Certificate Transparency log (CT-log).
-That log will be hosted by the sigstore project.
+Fulcio will publish issued certificates to a Certificate Transparency log (CT log).
+The log is hosted at `https://ctfe.sigstore.dev/test`. Each year, the log will be updated
+to a new log ID, for example `https://ctfe.sigstore.dev/2022`.
 
-We encourage auditors to monitor this log, and aim to help people access the data.
+The log provides an API documented in [RFC 6962](https://datatracker.ietf.org/doc/rfc6962/).
 
-A simple example would be a service that emails users (on a different address) when certficates have been issued on their behalf.
-This can then be used to detect bad behavior or possible compromise.
-
+We encourage auditors to monitor this log for both integrity and specific identities.
+For example, auditors can monitor for when a certificate is issued for certain eamil addresses,
+which will detect misconfiguration or potential compromise of the user's identity.
 
 ## Security
 
-Should you discover any security issues, please refer to sigstore's [security
+Please report any vulnerabilities following sigstore's [security
 process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
 
 ## Info
