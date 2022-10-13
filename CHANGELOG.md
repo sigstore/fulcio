@@ -1,3 +1,9 @@
+# v1.0.0
+
+1.0 release!
+
+No changes from the previous release v1.0.0-rc.0.
+
 # v1.0.0-rc.0
 
 **Notice for Deprecation**: The legacy (V1) API will be deprecated by February
