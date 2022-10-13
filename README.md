@@ -17,6 +17,8 @@ Fulcio only issues short-lived certificates that are valid for 10 minutes.
 
 Fulcio is in General Availability, offering a 99.5 Availability SLO.
 
+For uptime data on the Fulcio public instance, see [https://status.sigstore.dev](https://status.sigstore.dev).
+
 Fulcio's certificate chain can be obtained from the `TrustBundle` API, for example for the public instance
 ([https://fulcio.sigstore.dev](https://fulcio.sigstore.dev/api/v2/trustBundle)). To verify the public instance,
 you must verify the chain using Sigstore's [TUF](https://theupdateframework.io/) root from the
