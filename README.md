@@ -13,9 +13,10 @@ for an OpenID Connect (OIDC) identity, such as email address.
 
 Fulcio only issues short-lived certificates that are valid for 10 minutes.
 
-## Status
+## Public Instance
 
-Fulcio is in General Availability, offering a 99.5 Availability SLO.
+Fulcio is in General Availability, offering a 99.5 Availability SLO,
+and follows [semver rules](https://semver.org/) for API stability.
 
 For uptime data on the Fulcio public instance, see [https://status.sigstore.dev](https://status.sigstore.dev).
 
@@ -76,7 +77,7 @@ mygUY7Ii2zbdCdliiow=
 ## API
 
 The API is defined [here](./fulcio.proto). The API can be accessed
-over HTTP or gRPC.
+over [HTTP](https://www.sigstore.dev/swagger/?urls.primaryName=Fulcio) or gRPC.
 
 ## Certificate Transparency
 
