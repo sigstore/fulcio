@@ -39,7 +39,7 @@ type tinkCA struct {
 
 // NewTinkCA creates a signer from an encrypted Tink keyset, encrypted with a GCP KMS key.
 func NewTinkCA(ctx context.Context, kmsKey, tinkKeysetPath, certPath string) (ca.CertificateAuthority, error) {
-	primaryKey, err := GetPrimaryKey(kmsKey)
+	primaryKey, err := GetPrimaryKey(ctx, kmsKey)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +88,10 @@ func NewTinkCAFromHandle(ctx context.Context, tinkKeysetPath, certPath string, p
 
 // GetPrimaryKey returns a Tink AEAD encryption key from KMS
 // Supports GCP and AWS
-func GetPrimaryKey(kmsKey string) (tink.AEAD, error) {
+func GetPrimaryKey(ctx context.Context, kmsKey string) (tink.AEAD, error) {
 	switch {
 	case strings.HasPrefix(kmsKey, "gcp-kms://"):
-		gcpClient, err := gcpkms.NewClient(kmsKey)
+		gcpClient, err := gcpkms.NewClientWithOptions(ctx, kmsKey)
 		if err != nil {
 			return nil, err
 		}

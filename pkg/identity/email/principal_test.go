@@ -144,6 +144,25 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			},
 			WantErr: true,
 		},
+		`Invalid email address should error`: {
+			Claims: map[string]interface{}{
+				"aud":            "sigstore",
+				"iss":            "https://iss.example.com",
+				"sub":            "doesntmatter",
+				"email":          "foo.com",
+				"email_verified": true,
+			},
+			Config: config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"https://iss.example.com": {
+						IssuerURL: "https://iss.example.com",
+						Type:      config.IssuerTypeEmail,
+						ClientID:  "sigstore",
+					},
+				},
+			},
+			WantErr: true,
+		},
 		`No issuer configured for token`: {
 			Claims: map[string]interface{}{
 				"aud":            "sigstore",

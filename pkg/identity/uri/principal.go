@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
@@ -38,6 +39,10 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
 	if !ok {
 		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	if govalidator.IsEmail(uriWithSubject) {
+		return nil, fmt.Errorf("uri subject should not be an email address")
 	}
 
 	// The subject hostname must exactly match the subject domain from the configuration
@@ -73,7 +78,7 @@ func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
 	}
 	cert.URIs = []*url.URL{subjectURI}
 
-	cert.ExtraExtensions, err = ca.Extensions{
+	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer: p.issuer,
 	}.Render()
 	if err != nil {

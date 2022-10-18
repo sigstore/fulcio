@@ -18,9 +18,11 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/oauthflow"
@@ -38,6 +40,10 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	}
 	if !emailVerified {
 		return nil, errors.New("email_verified claim was false")
+	}
+
+	if !govalidator.IsEmail(emailAddress) {
+		return nil, fmt.Errorf("email address is not valid")
 	}
 
 	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
@@ -64,7 +70,7 @@ func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
 	cert.EmailAddresses = []string{p.address}
 
 	var err error
-	cert.ExtraExtensions, err = ca.Extensions{
+	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer: p.issuer,
 	}.Render()
 	if err != nil {

@@ -30,7 +30,7 @@ option java_outer_classname = "FulcioProto";
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   info: {
     title: "Fulcio Legacy";
-    version: "0.0.1";
+    version: "1.0.0";
     contact: {
       name: "sigstore Fulcio project";
       url: "https://github.com/sigstore/fulcio";

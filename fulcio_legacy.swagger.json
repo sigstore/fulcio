@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Fulcio Legacy",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "contact": {
       "name": "sigstore Fulcio project",
       "url": "https://github.com/sigstore/fulcio",
@@ -138,10 +138,7 @@
         "content": {
           "type": "string",
           "format": "byte",
-          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY.",
-          "required": [
-            "content"
-          ]
+          "description": "PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically\nof type PUBLIC KEY."
         }
       },
       "required": [

@@ -27,6 +27,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -92,7 +93,7 @@ func (tp testPrincipal) Name(context.Context) string {
 
 func (tp testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) (err error) {
 	cert.EmailAddresses = []string{"alice@example.com"}
-	cert.ExtraExtensions, err = ca.Extensions{
+	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer: "example.com",
 	}.Render()
 	return

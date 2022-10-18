@@ -80,6 +80,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
+	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -259,12 +260,13 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
 	httpServer.startListener()
 
+	readHeaderTimeout := viper.GetDuration("read-header-timeout")
 	prom := http.Server{
-		Addr:    fmt.Sprintf(":%v", viper.GetString("metrics-port")),
-		Handler: promhttp.Handler(),
+		Addr:              fmt.Sprintf(":%v", viper.GetString("metrics-port")),
+		Handler:           promhttp.Handler(),
+		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	log.Logger.Error(prom.ListenAndServe())
-
 }
 
 func checkServeCmdConfigFile() error {

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -56,7 +57,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	primaryKey, err := tinkca.GetPrimaryKey(*kmsKey)
+	primaryKey, err := tinkca.GetPrimaryKey(context.Background(), *kmsKey)
 	if err != nil {
 		log.Fatal(err)
 	}

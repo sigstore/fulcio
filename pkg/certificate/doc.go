@@ -1,5 +1,4 @@
-//
-// Copyright 2021 The Sigstore Authors.
+// Copyright 2022 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
-
-import (
-	"sigs.k8s.io/release-utils/version"
-)
-
-func init() {
-	rootCmd.AddCommand(version.Version())
-}
+// Package certificate contains helpers for getting data from Fulcio issued
+// x509 certificates.
+package certificate

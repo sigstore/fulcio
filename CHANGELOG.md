@@ -1,3 +1,121 @@
+# v1.0.0
+
+1.0 release!
+
+No changes from the previous release v1.0.0-rc.0.
+
+# v1.0.0-rc.0
+
+**Notice for Deprecation**: The legacy (V1) API will be deprecated by February
+1, 2023, and no longer supported in the public instance. Please update clients
+to the V2 API, which supports for gRPC and HTTP.
+
+## Enhancements
+
+* use same way to output version and expose build info to prometheus (#815)
+
+## Documentation
+
+* Update swagger doc version for Fulcio 1.0 (#816)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+
+# v0.6.0
+
+**Note**: Changed username identity format to username!Domain, username now specified in the OtherName SAN. If you have deployed your own instance of Fulcio and are using username issuers, you must update to the latest Cosign release.
+
+## Enhancements
+
+* Change username format, enforce identity format (https://github.com/sigstore/fulcio/pull/802)
+* Export Fulcio extension OIDs (https://github.com/sigstore/fulcio/pull/761)
+
+## Documentation
+
+* Update how-certificate-issuing-works.md (https://github.com/sigstore/fulcio/pull/755)
+
+
+### Bug Fixes
+
+* Fix documentation link (https://github.com/sigstore/fulcio/pull/798)
+
+## Miscellaneous
+
+* upgrade to go1.19 (https://github.com/sigstore/fulcio/pull/767)
+
+
+## Contributors
+
+* Billy Lynch (@wlynch)
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+
+# v0.5.4
+
+### Bug Fixes
+
+* adding tuf root env variable (https://github.com/sigstore/fulcio/pull/751)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior (@cpanato)
+
+# v0.5.3
+
+## Bug Fixes
+
+* Clean up unix socket (https://github.com/sigstore/fulcio/pull/739)
+* address Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server (https://github.com/sigstore/fulcio/pull/735)
+* fix example to explicitly set port for gRPC call (https://github.com/sigstore/fulcio/pull/732)
+
+## Documentation
+
+* Create certificate specification (https://github.com/sigstore/fulcio/pull/703)
+* Add documentation for SCT formats (https://github.com/sigstore/fulcio/pull/718)
+* Update certificate issuance documentation (https://github.com/sigstore/fulcio/pull/702)
+
+## Miscellaneous
+
+* Bump actions/dependency-review-action from 2.0.4 to 2.1.0 (https://github.com/sigstore/fulcio/pull/744)
+* Update scorecard-action to v2:alpha (https://github.com/sigstore/fulcio/pull/746)
+* update builder and cosign images (https://github.com/sigstore/fulcio/pull/743)
+* Bump google.golang.org/api from 0.92.0 to 0.93.0 (https://github.com/sigstore/fulcio/pull/741)
+* Bump go.step.sm/crypto from 0.17.1 to 0.17.2 (https://github.com/sigstore/fulcio/pull/742)
+* update github.com/google/tink/go to 1.7.0 and fix deprecation (https://github.com/sigstore/fulcio/pull/736)
+* Bump go.step.sm/crypto from 0.17.0 to 0.17.1 (https://github.com/sigstore/fulcio/pull/737)
+* Bump google.golang.org/api from 0.91.0 to 0.92.0 (https://github.com/sigstore/fulcio/pull/733)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/731)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/722)
+* Bump go.uber.org/zap from 1.21.0 to 1.22.0 (https://github.com/sigstore/fulcio/pull/730)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.11.0 to 2.11.2 in /hack/tools (https://github.com/sigstore/fulcio/pull/726)
+* install protobuff 3.20.1 (https://github.com/sigstore/fulcio/pull/728)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.11.1 to 2.11.2 (https://github.com/sigstore/fulcio/pull/724)
+* Bump github.com/prometheus/client_golang from 1.12.2 to 1.13.0 (https://github.com/sigstore/fulcio/pull/725)
+* Bump github/codeql-action from 2.1.17 to 2.1.18 (https://github.com/sigstore/fulcio/pull/721)
+* Bump google.golang.org/api from 0.90.0 to 0.91.0 (https://github.com/sigstore/fulcio/pull/720)
+* Bump golang from 1.18.4 to 1.18.5 (https://github.com/sigstore/fulcio/pull/717)
+* Bump golang from `6e10f44` to `8a62670` (https://github.com/sigstore/fulcio/pull/713)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.11.0 to 2.11.1 (https://github.com/sigstore/fulcio/pull/714)
+* Bump google.golang.org/protobuf from 1.28.0 to 1.28.1 (https://github.com/sigstore/fulcio/pull/710)
+* Bump github/codeql-action from 2.1.16 to 2.1.17 (https://github.com/sigstore/fulcio/pull/709)
+* Bump google.golang.org/api from 0.89.0 to 0.90.0 (https://github.com/sigstore/fulcio/pull/711)
+* Bump golang from `f3d3d69` to `6e10f44` (https://github.com/sigstore/fulcio/pull/708)
+* Bump google.golang.org/protobuf from 1.28.0 to 1.28.1 in /hack/tools (https://github.com/sigstore/fulcio/pull/712)
+* Enable Scorecard badge (https://github.com/sigstore/fulcio/pull/706)
+* Bump golang from `9349ed8` to `f3d3d69` (https://github.com/sigstore/fulcio/pull/707)
+* Bump imjasonh/setup-ko from 0.4 to 0.5 (https://github.com/sigstore/fulcio/pull/704)
+* Bump google.golang.org/api from 0.88.0 to 0.89.0 (https://github.com/sigstore/fulcio/pull/705)
+
+## Contributors
+
+* Azeem Shaikh (@azeemshaikh38)
+* Bob Callaway (@bobcallaway)
+* Carlos Tadeu Panato Junior (@cpanato)
+* Hayden Blauzvern (@haydentherapper)
+* Paul Thomson (@pauldthomson)
+
 # v0.5.2
 
 ## Bug Fixes
@@ -8,14 +126,14 @@
 
 * Bump github.com/grpc-ecosystem/grpc-gateway/v2 in /hack/tools (https://github.com/sigstore/fulcio/pull/696)
 * Bump google.golang.org/api from 0.87.0 to 0.88.0 (https://github.com/sigstore/fulcio/pull/694)
-* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.3 to 2.11.0 (#https://github.com/sigstore/fulcio/pull/695)
+* Bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.10.3 to 2.11.0 (https://github.com/sigstore/fulcio/pull/https://github.com/sigstore/fulcio/pull/695)
 * bump cosign to v1.9.0 (https://github.com/sigstore/fulcio/pull/692)
 * Bump go.step.sm/crypto from 0.16.2 to 0.17.0 (https://github.com/sigstore/fulcio/pull/688)
 * Bump actions/dependency-review-action from 2.0.2 to 2.0.4 (https://github.com/sigstore/fulcio/pull/686)
 * Bump github.com/prometheus/common from 0.36.0 to 0.37.0 (https://github.com/sigstore/fulcio/pull/687)
 * Bump golang from 1.18.3 to 1.18.4 (https://github.com/sigstore/fulcio/pull/683)
 * Bump github/codeql-action from 2.1.15 to 2.1.16 (https://github.com/sigstore/fulcio/pull/684)
-* Bump github.com/googleapis/api-linter in /hack/tools (#https://github.com/sigstore/fulcio/pull/85)
+* Bump github.com/googleapis/api-linter in /hack/tools (https://github.com/sigstore/fulcio/pull/https://github.com/sigstore/fulcio/pull/85)
 * Bump google.golang.org/grpc from 1.47.0 to 1.48.0 (https://github.com/sigstore/fulcio/pull/682)
 * Bump google.golang.org/api from 0.86.0 to 0.87.0 (https://github.com/sigstore/fulcio/pull/680)
 * Bump cloud.google.com/go/security from 1.4.0 to 1.4.1 (https://github.com/sigstore/fulcio/pull/681)

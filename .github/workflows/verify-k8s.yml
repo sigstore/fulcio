@@ -25,10 +25,10 @@ jobs:
     name: k8s manifest check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3
       - name: Extract version of Go to use
         run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
-      - uses: actions/setup-go@84cbf8094393cdc5fe1fe1671ff2647332956b1a # v3.2.0
+      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v3.2.0
         with:
           go-version: ${{ env.GOVERSION }}
       - name: Install kubeval
@@ -63,17 +63,17 @@ jobs:
       GIT_VERSION: test
 
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3
       - name: Extract version of Go to use
         run: echo "GOVERSION=$(cat Dockerfile|grep golang | awk ' { print $2 } ' | cut -d '@' -f 1 | cut -d ':' -f 2 | uniq)" >> $GITHUB_ENV
-      - uses: actions/setup-go@84cbf8094393cdc5fe1fe1671ff2647332956b1a # v3.2.0
+      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v3.2.0
         with:
           go-version: ${{ env.GOVERSION }}
 
-      - uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d # v0.4
+      - uses: imjasonh/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
 
       - name: Setup Cluster
-        uses: chainguard-dev/actions/setup-kind@84c993eaf02da1c325854fb272a4df9184bd80fc # main
+        uses: chainguard-dev/actions/setup-kind@7d1eb557f464d97e5fe5177807a9226141eb9308 # main
         with:
           k8s-version: v1.22.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
@@ -87,7 +87,6 @@ jobs:
               -out "${{ github.run_id }}-cert.pem" \
               -subj "/CN=ed25519" \
               -days 36500 \
-              -addext basicConstraints=critical,CA:TRUE,pathlen:1 \
               -passout pass:"${{ github.run_id }}"
 
       - name: Deploy fulcio-system
@@ -164,7 +163,7 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  image: gcr.io/projectsigstore/cosign:v1.4.1
+                  image: gcr.io/projectsigstore/cosign:v1.12.0
                   args: [
                     "sign",
                     "--fulcio-url=http://fulcio-server.fulcio-system.svc",
