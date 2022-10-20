@@ -38,8 +38,8 @@ github.com/google/go-cmp v0.5.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
-github.com/googleapis/api-linter v1.36.3 h1:WW6F+3K5ErUalQJjZUoaWxXrAa+j/CwwSQ9dFOIrsXo=
-github.com/googleapis/api-linter v1.36.3/go.mod h1:Ab29xZfE8HgVZoX+UKo0qxxFE5Las2jj8Zf75niErIQ=
+github.com/googleapis/api-linter v1.36.4 h1:6zn4gaVlYBRtOvMh34iUdnehpkKs5AAb7T15PHQu0tI=
+github.com/googleapis/api-linter v1.36.4/go.mod h1:Ab29xZfE8HgVZoX+UKo0qxxFE5Las2jj8Zf75niErIQ=
 github.com/gordonklaus/ineffassign v0.0.0-20200309095847-7953dde2c7bf/go.mod h1:cuNKsD1zp2v6XfE/orVX2QE1LC+i254ceGcVeDT3pTU=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 h1:lLT7ZLSzGLI08vc9cpd+tYmNWjdKDqyr/2L+f6U12Fk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3/go.mod h1:o//XUCC/F+yRGJoPO/VU0GSB0f8Nhgmxx0VIRUvaC0w=
