@@ -93,18 +93,18 @@ func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
 }
 
 func (g *grpcServer) startTCPListener() {
+	// lis is closed by g.Server.Serve() upon exit
+	lis, err := net.Listen("tcp", g.grpcServerEndpoint)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+
+	g.grpcServerEndpoint = lis.Addr().String()
+	log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
 	go func() {
-		lis, err := net.Listen("tcp", g.grpcServerEndpoint)
-		if err != nil {
-			log.Logger.Fatal(err)
+		if err := g.Server.Serve(lis); err != nil {
+			log.Logger.Errorf("error shutting down grpcServer: %w", err)
 		}
-		defer lis.Close()
-
-		tcpAddr := lis.Addr().(*net.TCPAddr)
-		g.grpcServerEndpoint = fmt.Sprintf("%v:%d", tcpAddr.IP, tcpAddr.Port)
-		log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
-
-		log.Logger.Fatal(g.Server.Serve(lis))
 	}()
 }
 
