@@ -26,16 +26,21 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/spf13/viper"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func setupHTTPServer(t *testing.T) (httpServer, string) {
 	t.Helper()
-	httpListen, _ := net.Listen("tcp", ":0")
+	httpListen, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Error(err)
+	}
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
@@ -44,23 +49,21 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 		t.Error(err)
 	}
 	grpcServer.startTCPListener()
-	// loop until server starts listening in separate goroutine
-	start := time.Now()
-	for {
-		if grpcServer.grpcServerEndpoint != ":0" {
-			break
+	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer func() {
+		if conn != nil {
+			_ = conn.Close()
 		}
-		if time.Since(start) > 3*time.Second {
-			t.Errorf("timeout waiting for grpcServer to start")
-		}
+	}()
+	if err != nil {
+		t.Error(err)
 	}
-	// set the correct listener value before creating the wrapping http server
-	grpcServer.grpcServerEndpoint = strings.Replace(grpcServer.grpcServerEndpoint, "::", "localhost", 1)
 
-	httpHost := fmt.Sprintf("localhost:%d", httpListen.Addr().(*net.TCPAddr).Port)
-	httpServer := createHTTPServer(context.Background(), httpHost, grpcServer, nil)
+	httpHost := httpListen.Addr().String()
+	httpServer := createHTTPServer(context.Background(), httpListen.Addr().String(), grpcServer, nil)
 	go func() {
 		_ = httpServer.Serve(httpListen)
+		grpcServer.GracefulStop()
 	}()
 
 	return httpServer, fmt.Sprintf("http://%s", httpHost)
