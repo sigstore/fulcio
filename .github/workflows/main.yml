@@ -43,6 +43,10 @@ jobs:
       - name: Build
         run: make -C $GITHUB_WORKSPACE all
       - name: Test
+        # remove these environment variables after issue #840 is resolved
+        env:
+          GRPC_GO_LOG_VERBOSITY_LEVEL: 99
+          GRPC_GO_LOG_SEVERITY_LEVEL: info
         run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload Coverage Report
         uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v3.1.1
