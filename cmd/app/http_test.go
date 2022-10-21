@@ -60,7 +60,7 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	}
 
 	httpHost := httpListen.Addr().String()
-	httpServer := createHTTPServer(context.Background(), httpListen.Addr().String(), grpcServer, nil)
+	httpServer := createHTTPServer(context.Background(), httpHost, grpcServer, nil)
 	go func() {
 		_ = httpServer.Serve(httpListen)
 		grpcServer.GracefulStop()
