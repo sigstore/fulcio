@@ -14,7 +14,7 @@ The certificate request contains the following:
 
 - An OpenID Connect (OIDC) identity token. This is a signed JWT containing information about the
   principal (identity of the client), the issuer (who issued the identity token -
-  Google, Microsoft, GitHub, etc.) and additional metadata such as expiration. The princaipl identity
+  Google, Microsoft, GitHub, etc.) and additional metadata such as expiration. The principal identity
   can either be a maintainer identity in the form of an email, or a workload identity.
 - The public key. This is the public portion of a cryptographic key pair generated
   by the client. The public key will be embedded in the issued X.509 certificate.
