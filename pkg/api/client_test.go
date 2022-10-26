@@ -60,3 +60,32 @@ func TestTimeoutOption(t *testing.T) {
 		t.Error("expected client to specifically have a timeout error")
 	}
 }
+
+func TestRetryCountOption(t *testing.T) {
+	currentCount := 0
+	expectedCount := 2
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			currentCount++
+			file := []byte{}
+
+			if currentCount < expectedCount {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(file)
+			}
+
+		}))
+
+	lc := NewClient(nil, WithRetryCount(2))
+	c, ok := lc.(*client)
+	if !ok {
+		t.Fatal("wrong legacy client implementation")
+	}
+
+	_, err := c.client.Get(ts.URL)
+	if err != nil {
+		t.Error("expected client to retry requestt")
+	}
+}

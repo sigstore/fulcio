@@ -27,6 +27,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type CertificateResponse struct {
@@ -61,8 +63,12 @@ const (
 	rootCertPath    = "/api/v1/rootCert"
 )
 
-// SigstorePublicServerURL is the URL of Sigstore's public Fulcio service.
-const SigstorePublicServerURL = "https://fulcio.sigstore.dev"
+const (
+	// SigstorePublicServerURL is the URL of Sigstore's public Fulcio service.
+	SigstorePublicServerURL = "https://fulcio.sigstore.dev"
+	// DefaultRetryCount is the default number of retries.
+	DefaultRetryCount = 3
+)
 
 // LegacyClient is the interface for accessing the Fulcio API.
 type LegacyClient interface {
@@ -80,13 +86,15 @@ type ClientOption func(*clientOptions)
 func NewClient(url *url.URL, opts ...ClientOption) LegacyClient {
 	o := makeOptions(opts...)
 
+	retryableClient := retryablehttp.NewClient()
+	retryableClient.RetryMax = int(o.RetryCount)
+
+	httpClient := retryableClient.StandardClient()
+	httpClient.Timeout = o.Timeout
+	httpClient.Transport = createRoundTripper(httpClient.Transport, o)
 	return &client{
 		baseURL: url,
-		client: &http.Client{
-			Transport: createRoundTripper(http.DefaultTransport, o),
-			Timeout:   o.Timeout,
-		},
-	}
+		client:  httpClient}
 }
 
 type client struct {
@@ -179,13 +187,15 @@ func (c *client) RootCert() (*RootResponse, error) {
 }
 
 type clientOptions struct {
-	UserAgent string
-	Timeout   time.Duration
+	UserAgent  string
+	Timeout    time.Duration
+	RetryCount uint
 }
 
 func makeOptions(opts ...ClientOption) *clientOptions {
 	o := &clientOptions{
-		UserAgent: "",
+		UserAgent:  "",
+		RetryCount: DefaultRetryCount,
 	}
 
 	for _, opt := range opts {
@@ -206,6 +216,13 @@ func WithTimeout(timeout time.Duration) ClientOption {
 func WithUserAgent(userAgent string) ClientOption {
 	return func(o *clientOptions) {
 		o.UserAgent = userAgent
+	}
+}
+
+// WithRetryCount sets the number of retries.
+func WithRetryCount(retryCount uint) ClientOption {
+	return func(o *clientOptions) {
+		o.RetryCount = retryCount
 	}
 }
 
