@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/proto"
 )
 
