@@ -129,6 +129,8 @@
         }
       },
       "required": [
+        "credentials",
+        "publicKeyRequest",
         "certificateSigningRequest"
       ]
     },
@@ -262,6 +264,7 @@
         }
       },
       "required": [
+        "publicKey",
         "proofOfPossession"
       ]
     },

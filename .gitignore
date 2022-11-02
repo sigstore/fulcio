@@ -35,3 +35,6 @@ hack/tools/bin
 
 # Vim
 *.swp
+
+# vscode
+.vscode/
