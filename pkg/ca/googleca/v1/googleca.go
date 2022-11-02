@@ -29,11 +29,11 @@ import (
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
+	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/api/iterator"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
