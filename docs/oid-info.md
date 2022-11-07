@@ -10,8 +10,9 @@ meaning.
 
 ## Directory
 
-Note that all values begin from the root OID 1.3.6.1.4.1.57264 [registered by
-Dan Lorenc][oid-link].
+Note that all values begin from the root OID 1.3.6.1.4.1.57264 [registered by Sigstore][oid-link].
+
+When adding additional OIDs under the root, please update the above link with the child OID.
 
 ## 1.3.6.1.4.1.57264.1 | Fulcio
 
@@ -56,6 +57,11 @@ the git ref that the workflow run was based upon.
 
 This specifies the username identity in the OtherName Subject Alternative Name, as
 defined by [RFC5280 4.2.1.6](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6).
+
+## 1.3.6.1.4.1.57264.2 | Policy OID for Sigstore Timestamp Authority
+
+Not used by Fulcio. This specifies the policy OID for the [timestamp authority](https://github.com/sigstore/timestamp-authority)
+that Sigstore operates.
 
 <!-- References -->
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
