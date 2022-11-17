@@ -34,6 +34,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -46,8 +47,8 @@ type CertAuthorityService struct {
 	cachedRootsOnce sync.Once
 }
 
-func NewCertAuthorityService(ctx context.Context, parent string) (ca.CertificateAuthority, error) {
-	client, err := privateca.NewCertificateAuthorityClient(ctx)
+func NewCertAuthorityService(ctx context.Context, parent string, opts ...option.ClientOption) (ca.CertificateAuthority, error) {
+	client, err := privateca.NewCertificateAuthorityClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
