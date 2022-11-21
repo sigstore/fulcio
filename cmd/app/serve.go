@@ -60,7 +60,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("log_type", "dev", "logger type to use (dev/prod)")
 	cmd.Flags().String("ca", "", "googleca | tinkca | pkcs11ca | fileca | kmsca | ephemeralca (for testing)")
 	cmd.Flags().String("aws-hsm-root-ca-path", "", "Path to root CA on disk (only used with AWS HSM)")
-	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: /projects/<project>/locations/<location>/<name> (only used with --ca googleca)")
+	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: projects/<project>/locations/<location>/caPools/<caPool>/certificateAuthorities/<certificateAuthority> (only used with --ca googleca)")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	cmd.Flags().String("ct-log-public-key-path", "", "Path to a PEM-encoded public key of the CT log, used to verify SCTs")
