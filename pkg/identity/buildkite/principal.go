@@ -32,7 +32,7 @@ type jobPrincipal struct {
 	subject string
 
 	// OIDC Issuer URL. Matches 'iss' claim from ID token. The real issuer URL is
-	// https://agent.buildkite.com/.well-known/openid-configution
+	// https://agent.buildkite.com/.well-known/openid-configuration
 	issuer string
 
 	// The full URL to the job. This will be the set as SubjectAlternativeName URI in
