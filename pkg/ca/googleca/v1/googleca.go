@@ -33,14 +33,15 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type CertAuthorityService struct {
-	parent       string
-	caPoolParent string
-	client       *privateca.CertificateAuthorityClient
+	certAuthorityParent string
+	caPoolParent        string
+	client              *privateca.CertificateAuthorityClient
 
 	// protected by once
 	cachedRoots     [][]*x509.Certificate
@@ -52,14 +53,19 @@ func NewCertAuthorityService(ctx context.Context, parent string, opts ...option.
 	if err != nil {
 		return nil, err
 	}
-	// parent should be in the form projects/*/locations/*/caPools/*/certificateAuthorities/*
-	// to create a cert, we only want projects/*/locations/*/caPools/*
-	caPoolParent := strings.Split(parent, "/certificateAuthorities")
-	return &CertAuthorityService{
-		parent:       parent,
-		client:       client,
-		caPoolParent: caPoolParent[0],
-	}, nil
+	c := CertAuthorityService{
+		client: client,
+	}
+	if !strings.Contains(parent, "certificateAuthorities") {
+		c.caPoolParent = parent
+	} else {
+		// parent should be in the form projects/*/locations/*/caPools/*/certificateAuthorities/*
+		// to create a cert, we only want projects/*/locations/*/caPools/*
+		caPoolParent := strings.Split(parent, "/certificateAuthorities")
+		c.caPoolParent = caPoolParent[0]
+		c.certAuthorityParent = parent
+	}
+	return &c, nil
 }
 
 // getPubKeyFormat Returns the PublicKey KeyFormat required by gcp privateca.
@@ -147,10 +153,18 @@ func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certi
 		return c.cachedRoots, nil
 	}
 
-	// fetch the latest values for the specified CA
+	// if a specific certificate authority was specified, use that one
+	if c.certAuthorityParent != "" {
+		return c.getCertificateAuthorityTrustBundle(ctx)
+	}
+	// otherwise, get certs from all of the CAs in the pool
+	return c.listCertificateAuthorityTrustBundle(ctx)
+}
+
+func (c *CertAuthorityService) getCertificateAuthorityTrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
 	var roots [][]*x509.Certificate
 	ca, err := c.client.GetCertificateAuthority(ctx, &privatecapb.GetCertificateAuthorityRequest{
-		Name: c.parent,
+		Name: c.certAuthorityParent,
 	})
 	if err != nil {
 		return nil, err
@@ -165,6 +179,37 @@ func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certi
 	}
 	roots = append(roots, caCerts)
 
+	c.cachedRootsOnce.Do(func() {
+		c.cachedRoots = roots
+	})
+
+	return c.cachedRoots, nil
+}
+
+func (c *CertAuthorityService) listCertificateAuthorityTrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
+	// fetch the latest values for the specified CA pool
+	var roots [][]*x509.Certificate
+	cas := c.client.ListCertificateAuthorities(ctx, &privatecapb.ListCertificateAuthoritiesRequest{
+		Parent: c.caPoolParent,
+	})
+	for {
+		ca, done := cas.Next()
+		if done == iterator.Done {
+			break
+		} else if done != nil {
+			// if the iterator returns an issue for some reason, exit
+			return [][]*x509.Certificate{}, done
+		}
+		// if we fail to parse the PEM content, return an error
+		caCerts, err := cryptoutils.LoadCertificatesFromPEM(strings.NewReader(strings.Join(ca.PemCaCertificates, "")))
+		if err != nil {
+			return [][]*x509.Certificate{}, fmt.Errorf("failed parsing PemCACertificates response: %w", err)
+		}
+		if len(caCerts) == 0 {
+			return [][]*x509.Certificate{}, fmt.Errorf("error fetching root certificates")
+		}
+		roots = append(roots, caCerts)
+	}
 	c.cachedRootsOnce.Do(func() {
 		c.cachedRoots = roots
 	})
