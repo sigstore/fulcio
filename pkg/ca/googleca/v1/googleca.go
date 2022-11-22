@@ -39,6 +39,7 @@ import (
 )
 
 type CertAuthorityService struct {
+	certAuthority       string
 	certAuthorityParent string
 	caPoolParent        string
 	client              *privateca.CertificateAuthorityClient
@@ -56,15 +57,22 @@ func NewCertAuthorityService(ctx context.Context, parent string, opts ...option.
 	c := CertAuthorityService{
 		client: client,
 	}
+
 	if !strings.Contains(parent, "certificateAuthorities") {
 		c.caPoolParent = parent
-	} else {
-		// parent should be in the form projects/*/locations/*/caPools/*/certificateAuthorities/*
-		// to create a cert, we only want projects/*/locations/*/caPools/*
-		caPoolParent := strings.Split(parent, "/certificateAuthorities")
-		c.caPoolParent = caPoolParent[0]
-		c.certAuthorityParent = parent
+		return &c, nil
 	}
+	// parent should be in the form projects/*/locations/*/caPools/*/certificateAuthorities/*
+	// to create a cert, we only want projects/*/locations/*/caPools/*
+	caPoolParent := strings.Split(parent, "/certificateAuthorities")
+	c.caPoolParent = caPoolParent[0]
+
+	s := strings.SplitAfter(parent, "certificateAuthorities/")
+	if len(s) != 2 {
+		return nil, fmt.Errorf("certificate authority should be specified in the format projects/*/locations/*/caPools/*/certificateAuthorities/*")
+	}
+	c.certAuthority = s[1]
+	c.certAuthorityParent = parent
 	return &c, nil
 }
 
@@ -92,7 +100,7 @@ func convertID(id asn1.ObjectIdentifier) []int32 {
 	return nid
 }
 
-func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.CreateCertificateRequest, error) {
+func Req(parent, certAuthority string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.CreateCertificateRequest, error) {
 	pubkeyFormat, err := getPubKeyFormat(pemBytes)
 	if err != nil {
 		return nil, err
@@ -119,7 +127,7 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 		})
 	}
 
-	return &privatecapb.CreateCertificateRequest{
+	req := &privatecapb.CreateCertificateRequest{
 		Parent: parent,
 		Certificate: &privatecapb.Certificate{
 			Lifetime: durationpb.New(time.Until(cert.NotAfter)),
@@ -144,7 +152,13 @@ func Req(parent string, pemBytes []byte, cert *x509.Certificate) (*privatecapb.C
 				},
 			},
 		},
-	}, nil
+	}
+
+	if certAuthority != "" {
+		req.IssuingCertificateAuthorityId = certAuthority
+	}
+
+	return req, nil
 }
 
 func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
@@ -228,7 +242,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal 
 		return nil, ca.ValidationError(err)
 	}
 
-	req, err := Req(c.caPoolParent, pubKeyBytes, cert)
+	req, err := Req(c.caPoolParent, c.certAuthority, pubKeyBytes, cert)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}
