@@ -20,7 +20,13 @@ package pkcs11ca
 
 import (
 	"errors"
+
+	"github.com/sigstore/fulcio/pkg/ca/baseca"
 )
+
+type PKCS11CA struct {
+	baseca.BaseCA
+}
 
 type Params struct {
 	ConfigPath string
