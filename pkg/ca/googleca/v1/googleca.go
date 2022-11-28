@@ -39,10 +39,10 @@ import (
 )
 
 type CertAuthorityService struct {
-	certAuthority       string
-	certAuthorityParent string
-	caPoolParent        string
-	client              *privateca.CertificateAuthorityClient
+	certAuthorityID       string
+	certAuthorityResource string
+	caPoolResource        string
+	client                *privateca.CertificateAuthorityClient
 
 	// protected by once
 	cachedRoots     [][]*x509.Certificate
@@ -59,20 +59,20 @@ func NewCertAuthorityService(ctx context.Context, parent string, opts ...option.
 	}
 
 	if !strings.Contains(parent, "certificateAuthorities") {
-		c.caPoolParent = parent
+		c.caPoolResource = parent
 		return &c, nil
 	}
 	// parent should be in the form projects/*/locations/*/caPools/*/certificateAuthorities/*
 	// to create a cert, we only want projects/*/locations/*/caPools/*
 	caPoolParent := strings.Split(parent, "/certificateAuthorities")
-	c.caPoolParent = caPoolParent[0]
+	c.caPoolResource = caPoolParent[0]
 
 	s := strings.SplitAfter(parent, "certificateAuthorities/")
 	if len(s) != 2 {
 		return nil, fmt.Errorf("certificate authority should be specified in the format projects/*/locations/*/caPools/*/certificateAuthorities/*")
 	}
-	c.certAuthority = s[1]
-	c.certAuthorityParent = parent
+	c.certAuthorityID = s[1]
+	c.certAuthorityResource = parent
 	return &c, nil
 }
 
@@ -168,7 +168,7 @@ func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certi
 	}
 
 	// if a specific certificate authority was specified, use that one
-	if c.certAuthorityParent != "" {
+	if c.certAuthorityResource != "" {
 		return c.getCertificateAuthorityTrustBundle(ctx)
 	}
 	// otherwise, get certs from all of the CAs in the pool
@@ -178,7 +178,7 @@ func (c *CertAuthorityService) TrustBundle(ctx context.Context) ([][]*x509.Certi
 func (c *CertAuthorityService) getCertificateAuthorityTrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
 	var roots [][]*x509.Certificate
 	ca, err := c.client.GetCertificateAuthority(ctx, &privatecapb.GetCertificateAuthorityRequest{
-		Name: c.certAuthorityParent,
+		Name: c.certAuthorityResource,
 	})
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func (c *CertAuthorityService) listCertificateAuthorityTrustBundle(ctx context.C
 	// fetch the latest values for the specified CA pool
 	var roots [][]*x509.Certificate
 	cas := c.client.ListCertificateAuthorities(ctx, &privatecapb.ListCertificateAuthoritiesRequest{
-		Parent: c.caPoolParent,
+		Parent: c.caPoolResource,
 	})
 	for {
 		ca, done := cas.Next()
@@ -242,7 +242,7 @@ func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal 
 		return nil, ca.ValidationError(err)
 	}
 
-	req, err := Req(c.caPoolParent, c.certAuthority, pubKeyBytes, cert)
+	req, err := Req(c.caPoolResource, c.certAuthorityID, pubKeyBytes, cert)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}
