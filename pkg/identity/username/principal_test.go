@@ -26,6 +26,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/go-cmp/cmp"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 func TestPrincipalFromIDToken(t *testing.T) {
@@ -147,7 +148,7 @@ func TestEmbed(t *testing.T) {
 			WantFacts: map[string]func(x509.Certificate) error{
 				`Issuer	is example.com`: factIssuerIs(`https://accounts.example.com`),
 				`SAN is alice!example.com`: func(cert x509.Certificate) error {
-					otherName, err := UnmarshalSANS(cert.ExtraExtensions)
+					otherName, err := cryptoutils.UnmarshalOtherNameSAN(cert.ExtraExtensions)
 					if err != nil {
 						return err
 					}

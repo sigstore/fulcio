@@ -27,6 +27,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 type principal struct {
@@ -67,7 +68,7 @@ func (p principal) Name(context.Context) string {
 func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
 	var exts []pkix.Extension
 
-	ext, err := MarshalSANS(p.unIdentity, true /*critical*/)
+	ext, err := cryptoutils.MarshalOtherNameSAN(p.unIdentity, true /*critical*/)
 	if err != nil {
 		return err
 	}
