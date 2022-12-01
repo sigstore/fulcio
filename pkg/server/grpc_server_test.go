@@ -46,7 +46,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
-	"github.com/sigstore/fulcio/pkg/identity/username"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -478,7 +477,7 @@ func TestAPIWithUsername(t *testing.T) {
 		if len(leafCert.EmailAddresses) != 0 {
 			t.Fatalf("unexpected length of leaf certificate URIs, expected 0, got %d", len(leafCert.URIs))
 		}
-		otherName, err := username.UnmarshalSANS(leafCert.Extensions)
+		otherName, err := cryptoutils.UnmarshalOtherNameSAN(leafCert.Extensions)
 		if err != nil {
 			t.Fatalf("error unmarshalling SANs: %v", err)
 		}
