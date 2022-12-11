@@ -31,10 +31,9 @@ type workflowPrincipal struct {
 	subject string
 
 	// OIDC Issuer URL. Matches 'iss' claim from ID token. The real issuer URL is
-	// https://token.actions.githubcontent.com/.well-known/openid-configution
+	// https://token.actions.githubusercontent.com/.well-known/openid-configution
 	issuer string
 
-	// The full URL to the workflow. This will be the set as SubjectAlternativeName URI in
 	// the final certificate.
 	url string
 
