@@ -34,11 +34,11 @@ data:
               "Type": "email",
               "IssuerClaim": "$.federated_claims.connector_id"
             },
-            "https://oidc.dlorenc.dev": {
-              "IssuerURL": "https://oidc.dlorenc.dev",
+            "https://oidc.sigstore.dev": {
+              "IssuerURL": "https://oidc.sigstore.dev",
               "ClientID": "sigstore",
               "Type": "spiffe",
-              "SPIFFETrustDomain": "oidc.dlorenc.dev"
+              "SPIFFETrustDomain": "oidc.sigstore.dev"
             },
             "https://token.actions.githubusercontent.com": {
               "IssuerURL": "https://token.actions.githubusercontent.com",
