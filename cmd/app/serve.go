@@ -18,6 +18,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"net/http"
@@ -213,11 +214,13 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	case "ephemeralca":
 		baseca, err = ephemeralca.NewEphemeralCA()
 	case "kmsca":
-		data, err := os.ReadFile(filepath.Clean(viper.GetString("kms-cert-chain-path")))
+		var data []byte
+		data, err = os.ReadFile(filepath.Clean(viper.GetString("kms-cert-chain-path")))
 		if err != nil {
 			log.Logger.Fatalf("error reading the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
 		}
-		certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
+		var certs []*x509.Certificate
+		certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
 		if err != nil {
 			log.Logger.Fatalf("error loading the PEM certificates from the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
 		}
