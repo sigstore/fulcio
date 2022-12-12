@@ -16,7 +16,9 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"net/http"
@@ -38,6 +40,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -211,7 +214,17 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	case "ephemeralca":
 		baseca, err = ephemeralca.NewEphemeralCA()
 	case "kmsca":
-		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), viper.GetString("kms-cert-chain-path"))
+		var data []byte
+		data, err = os.ReadFile(filepath.Clean(viper.GetString("kms-cert-chain-path")))
+		if err != nil {
+			log.Logger.Fatalf("error reading the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
+		}
+		var certs []*x509.Certificate
+		certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
+		if err != nil {
+			log.Logger.Fatalf("error loading the PEM certificates from the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
+		}
+		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), certs)
 	case "tinkca":
 		baseca, err = tinkca.NewTinkCA(cmd.Context(),
 			viper.GetString("tink-kms-resource"), viper.GetString("tink-keyset-path"), viper.GetString("tink-cert-chain-path"))

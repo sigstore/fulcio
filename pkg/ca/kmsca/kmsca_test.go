@@ -21,8 +21,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -33,23 +31,12 @@ import (
 )
 
 func TestNewKMSCA(t *testing.T) {
-	dir := t.TempDir()
-	certPath := filepath.Join(dir, "cert.pem")
-
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
 
 	chain := []*x509.Certificate{subCert, rootCert}
-	pemChain, err := cryptoutils.MarshalCertificatesToPEM(chain)
-	if err != nil {
-		t.Fatalf("error marshalling cert chain: %v", err)
-	}
-	err = os.WriteFile(certPath, pemChain, 0600)
-	if err != nil {
-		t.Fatalf("error writing pem chain: %v", err)
-	}
 
-	ca, err := NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", certPath)
+	ca, err := NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", chain)
 	if err != nil {
 		t.Fatalf("unexpected error creating KMS CA: %v", err)
 	}
@@ -63,7 +50,7 @@ func TestNewKMSCA(t *testing.T) {
 		t.Fatalf("unexpected number of chains: %d", len(rootChains))
 	}
 	if !reflect.DeepEqual(rootChains[0], chain) {
-		t.Fatal("cert chains do not match")
+		t.Fatalf("cert chains do not match")
 	}
 
 	// Expect signer and certificate's public keys match
@@ -78,22 +65,14 @@ func TestNewKMSCA(t *testing.T) {
 
 	// Failure: Mismatch between signer and certificate key
 	otherPriv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, otherPriv), "fakekms://key", certPath)
+	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, otherPriv), "fakekms://key", chain)
 	if err == nil || !strings.Contains(err.Error(), "ecdsa public keys are not equal") {
 		t.Fatalf("expected error with mismatched public keys, got %v", err)
 	}
 
 	// Failure: Invalid certificate chain
 	otherRootCert, _, _ := test.GenerateRootCA()
-	pemChain, err = cryptoutils.MarshalCertificatesToPEM([]*x509.Certificate{subCert, otherRootCert})
-	if err != nil {
-		t.Fatalf("error marshalling cert chain: %v", err)
-	}
-	err = os.WriteFile(certPath, pemChain, 0600)
-	if err != nil {
-		t.Fatalf("error writing pem chain: %v", err)
-	}
-	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", certPath)
+	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{subCert, otherRootCert})
 	if err == nil || !strings.Contains(err.Error(), "certificate signed by unknown authority") {
 		t.Fatalf("expected error with invalid certificate chain, got %v", err)
 	}

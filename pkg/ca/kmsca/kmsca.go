@@ -16,15 +16,12 @@
 package kmsca
 
 import (
-	"bytes"
 	"context"
 	"crypto"
-	"os"
-	"path/filepath"
+	"crypto/x509"
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 
 	// Register the provider-specific plugins
@@ -38,7 +35,7 @@ type kmsCA struct {
 	baseca.BaseCA
 }
 
-func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAuthority, error) {
+func NewKMSCA(ctx context.Context, kmsKey string, certs []*x509.Certificate) (ca.CertificateAuthority, error) {
 	var ica kmsCA
 
 	kmsSigner, err := kms.Get(ctx, kmsKey, crypto.SHA256)
@@ -54,15 +51,7 @@ func NewKMSCA(ctx context.Context, kmsKey, certPath string) (ca.CertificateAutho
 	ica.SignerWithChain = &sc
 
 	sc.Signer = signer
-
-	data, err := os.ReadFile(filepath.Clean(certPath))
-	if err != nil {
-		return nil, err
-	}
-	sc.Certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
+	sc.Certs = certs
 	if err := ca.VerifyCertChain(sc.Certs, sc.Signer); err != nil {
 		return nil, err
 	}
