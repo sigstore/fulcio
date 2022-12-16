@@ -35,7 +35,7 @@ jobs:
       - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version: ${{ env.GOVERSION }}
-      - uses: trail-of-forks/setup-protoc@4376b5d0df67c8577bda59a086e6a1ac07510537
+      - uses: trail-of-forks/setup-protoc@cc5acfd2af7e8cab1febfbfa833d203f2e0572ea
         name: Install protobuf
         with:
           version: '21.11'
