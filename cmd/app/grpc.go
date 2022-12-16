@@ -49,7 +49,7 @@ type grpcServer struct {
 	caService          gw.CAServer
 }
 
-func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
+func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
@@ -72,7 +72,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			passFulcioConfigThruContext(cfg),
+			PassFulcioConfigThruContext(cfg),
 			grpc_prometheus.UnaryServerInterceptor,
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
@@ -142,7 +142,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*gr
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			passFulcioConfigThruContext(cfg),
+			PassFulcioConfigThruContext(cfg),
 			grpc_prometheus.UnaryServerInterceptor,
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
