@@ -1542,3 +1542,7 @@ func (fca *FailingCertificateAuthority) CreateCertificate(context.Context, ident
 func (fca *FailingCertificateAuthority) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
 	return nil, errors.New("TrustBundle always fails for testing")
 }
+
+func (fca *FailingCertificateAuthority) Close() error {
+	return nil
+}

@@ -76,6 +76,10 @@ func NewCertAuthorityService(ctx context.Context, parent string, opts ...option.
 	return &c, nil
 }
 
+func (c *CertAuthorityService) Close() error {
+	return c.client.Close()
+}
+
 // getPubKeyFormat Returns the PublicKey KeyFormat required by gcp privateca.
 // https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/security/privateca/v1#PublicKey_KeyType
 func getPubKeyFormat(pemBytes []byte) (privatecapb.PublicKey_KeyFormat, error) {

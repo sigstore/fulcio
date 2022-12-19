@@ -143,3 +143,7 @@ func (bca *BaseCA) TrustBundle(ctx context.Context) ([][]*x509.Certificate, erro
 	certs, _ := bca.GetSignerWithChain()
 	return [][]*x509.Certificate{certs}, nil
 }
+
+func (bca *BaseCA) Close() error {
+	return nil
+}
