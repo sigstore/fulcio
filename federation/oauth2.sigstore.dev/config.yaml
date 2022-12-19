@@ -14,6 +14,6 @@
 
 url: https://oauth2.sigstore.dev/auth
 issuerclaim: $.federated_claims.connector_id
-contact: lorenc.d@gmail.com
+contact: tac@sigstore.dev
 description: "dex address for fulcio"
 type: "email"

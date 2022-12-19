@@ -13,6 +13,6 @@
 # limitations under the License.
 
 url: https://accounts.google.com
-contact: lorenc.d@gmail.com
-description: "standard google OIDC auth"
+contact: tac@sigstore.dev 
+description: "Google OIDC auth"
 type: "email"
