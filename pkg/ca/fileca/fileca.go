@@ -60,6 +60,10 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	return &fca, err
 }
 
+func (fca *fileCA) Close() error {
+	return nil
+}
+
 func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, signer crypto.Signer) {
 	scm := fca.SignerWithChain.(*ca.SignerCertsMutex)
 	scm.Lock()

@@ -28,4 +28,5 @@ import (
 type CertificateAuthority interface {
 	CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*CodeSigningCertificate, error)
 	TrustBundle(ctx context.Context) ([][]*x509.Certificate, error)
+	Close() error
 }

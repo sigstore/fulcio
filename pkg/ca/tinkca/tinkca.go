@@ -108,3 +108,7 @@ func GetPrimaryKey(ctx context.Context, kmsKey string) (tink.AEAD, error) {
 		return nil, errors.New("unsupported KMS key type")
 	}
 }
+
+func (t *tinkCA) Close() error {
+	return nil
+}

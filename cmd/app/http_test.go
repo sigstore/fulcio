@@ -119,3 +119,7 @@ func (tca *TrivialCertificateAuthority) CreateCertificate(context.Context, ident
 func (tca *TrivialCertificateAuthority) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
 	return [][]*x509.Certificate{}, nil
 }
+
+func (tca *TrivialCertificateAuthority) Close() error {
+	return nil
+}
