@@ -193,15 +193,19 @@ func main() {
 	}
 	parsedCerts, err := fetchCACertificate(context.Background(), *gcpCaParent, *kmsKey, *tinkKeysetPath, *tinkKmsKey, client)
 	if err != nil {
+		client.Close()
 		log.Fatal(err)
 	}
 	pemCerts, err := cryptoutils.MarshalCertificatesToPEM(parsedCerts)
 	if err != nil {
+		client.Close()
 		log.Fatal(err)
 	}
 
 	err = os.WriteFile(*outputPath, pemCerts, 0600)
 	if err != nil {
+		client.Close()
 		log.Fatal(err)
 	}
+	defer client.Close()
 }
