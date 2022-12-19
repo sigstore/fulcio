@@ -76,7 +76,3 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 
 	return e, nil
 }
-
-func (e *EphemeralCA) Close() error {
-	return nil
-}

@@ -58,7 +58,3 @@ func NewKMSCA(ctx context.Context, kmsKey string, certs []*x509.Certificate) (ca
 
 	return &ica, nil
 }
-
-func (k *kmsCA) Close() error {
-	return nil
-}

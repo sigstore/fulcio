@@ -88,7 +88,3 @@ func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	return pkcs11ca, nil
 
 }
-
-func (p *PKCS11CA) Close() error {
-	return nil
-}
