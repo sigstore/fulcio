@@ -24,13 +24,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"chainguard.dev/go-grpc-kit/pkg/duplex"
+	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sigstore/fulcio/pkg/ca"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
@@ -39,12 +48,18 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
 	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -85,6 +100,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
+	cmd.Flags().Bool("duplex", false, "experimental: serve HTTP and GRPC on the same port instead of on two separate ports")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -116,6 +132,7 @@ func (la logAdaptor) Printf(s string, args ...interface{}) {
 }
 
 func runServeCmd(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	// If a config file is provided, modify the viper config to locate and read it
 	if err := checkServeCmdConfigFile(); err != nil {
 		log.Logger.Fatal(err)
@@ -254,6 +271,22 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	if viper.GetBool("duplex") {
+		p := viper.GetString("port")
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Logger.Fatal("%s is not a valid port", p)
+		}
+		mp := viper.GetString("metrics-port")
+		metricsPort, err := strconv.Atoi(mp)
+		if err != nil {
+			log.Logger.Fatal("%s is not a valid port", mp)
+		}
+		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, port, metricsPort); err != nil {
+			log.Logger.Fatal(err)
+		}
+	}
+
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
 	reg := prometheus.NewRegistry()
@@ -271,7 +304,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	}
 	legacyGRPCServer.startUnixListener()
 
-	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
+	httpServer := createHTTPServer(ctx, httpServerEndpoint, grpcServer, legacyGRPCServer)
 	httpServer.startListener()
 
 	readHeaderTimeout := viper.GetDuration("read-header-timeout")
@@ -311,5 +344,80 @@ func checkServeCmdConfigFile() error {
 			return fmt.Errorf("unable to parse config file provided: %w", err)
 		}
 	}
+	return nil
+}
+
+func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, port, metricsPort int) error {
+	logger, opts := log.SetupGRPCLogging()
+
+	d := duplex.New(
+		port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
+			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+			grpc_zap.UnaryServerInterceptor(logger, opts...),
+			PassFulcioConfigThruContext(cfg),
+			grpc_prometheus.UnaryServerInterceptor,
+		)),
+		grpc.MaxRecvMsgSize(int(maxMsgSize)),
+		runtime.WithForwardResponseOption(HTTPResponseModifier),
+	)
+
+	// GRPC server
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
+	protobuf.RegisterCAServer(d.Server, grpcCAServer)
+	if err := d.RegisterHandler(ctx, protobuf.RegisterCAHandlerFromEndpoint); err != nil {
+		return fmt.Errorf("registering grpc ca handler: %w", err)
+	}
+
+	// Legacy server
+	legacyGRPCCAServer := server.NewLegacyGRPCCAServer(grpcCAServer)
+	legacy.RegisterCAServer(d.Server, legacyGRPCCAServer)
+	if err := d.RegisterHandler(ctx, legacy.RegisterCAHandlerFromEndpoint); err != nil {
+		return fmt.Errorf("registering legacy grpc ca handler: %w", err)
+	}
+
+	// Prometheus
+	reg := prometheus.NewRegistry()
+	grpcMetrics := grpc_prometheus.DefaultServerMetrics
+	grpcMetrics.EnableHandlingTimeHistogram()
+	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
+	grpc_prometheus.Register(d.Server)
+
+	// Register prometheus handle.
+	d.RegisterListenAndServeMetrics(metricsPort, false)
+
+	if err := d.ListenAndServe(ctx); err != nil {
+		return fmt.Errorf("duplex server: %w", err)
+	}
+	return nil
+}
+
+// The fulcio HTTP legacy client requires a 201 response status code to pass
+// However, even though the legacy client sets the 201 code, GRPC will automatically
+// change it to 200, causing the cert request to fail
+// GRPC recommends controlling HTTP status codes with this response modifier
+// https://grpc-ecosystem.github.io/grpc-gateway/docs/mapping/customizing_your_gateway/#controlling-http-response-status-codes
+// This is required to use fulcio with duplex.
+func HTTPResponseModifier(ctx context.Context, w http.ResponseWriter, p proto.Message) error {
+	md, ok := runtime.ServerMetadataFromContext(ctx)
+	if !ok {
+		return nil
+	}
+
+	// set http status code
+	if vals := md.HeaderMD.Get(server.HTTPResponseCodeMetadataKey); len(vals) > 0 {
+		code, err := strconv.Atoi(vals[0])
+		if err != nil {
+			return err
+		}
+		// delete the headers to not expose any grpc-metadata in http response
+		delete(md.HeaderMD, server.HTTPResponseCodeMetadataKey)
+		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
+		w.WriteHeader(code)
+	}
+
 	return nil
 }
