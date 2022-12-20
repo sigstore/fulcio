@@ -96,8 +96,8 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("tink-keyset-path", "", "Path to KMS-encrypted keyset for Tink-backed CA")
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
-	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
-	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
+	cmd.Flags().String("grpc-host", "0.0.0.0", "[DEPRECATED] The host on which to serve requests for GRPC")
+	cmd.Flags().String("grpc-port", "8081", "[DEPRECATED] The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
 	cmd.Flags().Bool("duplex", false, "experimental: serve HTTP and GRPC on the same port instead of on two separate ports")
@@ -285,6 +285,9 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, port, metricsPort); err != nil {
 			log.Logger.Fatal(err)
 		}
+	} else {
+		log.Logger.Warnln("Hosting HTTP and GRPC servers on different ports will soon be deprecated, please set the --duplex flag to serve both on a single port." +
+			"The single port can be set with the --port flag.")
 	}
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
