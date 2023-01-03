@@ -22,6 +22,7 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 
 	// Register the provider-specific plugins
@@ -35,10 +36,10 @@ type kmsCA struct {
 	baseca.BaseCA
 }
 
-func NewKMSCA(ctx context.Context, kmsKey string, certs []*x509.Certificate) (ca.CertificateAuthority, error) {
+func NewKMSCA(ctx context.Context, kmsKey string, certs []*x509.Certificate, opts ...signature.RPCOption) (ca.CertificateAuthority, error) {
 	var ica kmsCA
 
-	kmsSigner, err := kms.Get(ctx, kmsKey, crypto.SHA256)
+	kmsSigner, err := kms.Get(ctx, kmsKey, crypto.SHA256, opts...)
 	if err != nil {
 		return nil, err
 	}

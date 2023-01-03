@@ -44,7 +44,7 @@ mkdir /tmp/tokens
 Export the `config/softhsm2.conf`
 
 ```
-export SOFTHSM2_CONF=`pwd`/config/softhsm2.cfg
+export SOFTHSM2_CONF=`pwd`/config/softhsm2.conf
 ```
 
 ### Start a SoftHSM instance

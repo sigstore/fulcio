@@ -13,6 +13,6 @@
 # limitations under the License.
 
 url: https://token.actions.githubusercontent.com
-contact: support@sigstore.dev
-description: "github actions OIDC auth"
+contact: tac@sigstore.dev
+description: "GitHub Actions OIDC auth"
 type: "github-workflow"
