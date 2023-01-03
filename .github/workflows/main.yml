@@ -39,6 +39,7 @@ jobs:
         name: Install protobuf
         with:
           version: '21.11'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: make -C $GITHUB_WORKSPACE all
