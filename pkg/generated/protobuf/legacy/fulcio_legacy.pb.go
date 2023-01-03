@@ -44,17 +44,14 @@ type CreateSigningCertificateRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	//
 	// The public key to be stored in the requested certificate
 	//
 	// Deprecated: Do not use.
 	PublicKey *PublicKey `protobuf:"bytes,1,opt,name=publicKey,proto3" json:"publicKey,omitempty"`
-	//
 	// Proof that the client possesses the private key
 	//
 	// Deprecated: Do not use.
 	SignedEmailAddress []byte `protobuf:"bytes,2,opt,name=signedEmailAddress,proto3" json:"signedEmailAddress,omitempty"`
-	//
 	// Optional: PKCS#10 PEM-encoded certificate signing request
 	// Contains the public key to be stored in the requested
 	// certificate. All other CSR fields are ignored. Since
@@ -129,12 +126,10 @@ type PublicKey struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	//
 	// The cryptographic algorithm to use with the key material
 	//
 	// Deprecated: Do not use.
 	Algorithm string `protobuf:"bytes,1,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
-	//
 	// PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
 	// of type PUBLIC KEY.
 	//
