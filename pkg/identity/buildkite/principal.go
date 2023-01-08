@@ -35,8 +35,8 @@ type jobPrincipal struct {
 	// https://agent.buildkite.com/.well-known/openid-configuration
 	issuer string
 
-	// The full URL to the job. This will be the set as SubjectAlternativeName URI in
-	// the final certificate.
+	// The URL of the pipeline, the container of many builds. This will be
+	// set as a human-friendly SubjectAlternativeName URI in the certificate.
 	url string
 }
 
@@ -44,8 +44,6 @@ func JobPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity
 	var claims struct {
 		OrganizationSlug string `json:"organization_slug"`
 		PipelineSlug     string `json:"pipeline_slug"`
-		BuildNumber      int    `json:"build_number"`
-		JobID            string `json:"job_id"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
@@ -59,18 +57,10 @@ func JobPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity
 		return nil, errors.New("missing pipeline_slug claim in ID token")
 	}
 
-	if claims.BuildNumber == 0 {
-		return nil, errors.New("missing build_number claim in ID token")
-	}
-
-	if claims.JobID == "" {
-		return nil, errors.New("missing job_id claim in ID token")
-	}
-
 	return &jobPrincipal{
 		subject: token.Subject,
 		issuer:  token.Issuer,
-		url:     fmt.Sprintf("https://buildkite.com/%s/%s/builds/%d#%s", claims.OrganizationSlug, claims.PipelineSlug, claims.BuildNumber, claims.JobID),
+		url:     fmt.Sprintf("https://buildkite.com/%s/%s", claims.OrganizationSlug, claims.PipelineSlug),
 	}, nil
 }
 
@@ -79,7 +69,7 @@ func (p jobPrincipal) Name(ctx context.Context) string {
 }
 
 func (p jobPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
-	// Set job URL to SubjectAlternativeName on certificate
+	// Set SubjectAlternativeName to the pipeline URL on the certificate
 	parsed, err := url.Parse(p.url)
 	if err != nil {
 		return err

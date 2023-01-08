@@ -41,10 +41,8 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 		`Valid token authenticates with correct claims`: {
 			Claims: map[string]interface{}{
 				"aud":               "sigstore",
-				"build_number":      123,
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",
-				"job_id":            "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
 				"organization_slug": "acme-inc",
 				"pipeline_slug":     "bash-example",
 				"sub":               "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
@@ -52,43 +50,15 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ExpectPrincipal: jobPrincipal{
 				issuer:  "https://agent.buildkite.com",
 				subject: "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
-				url:     "https://buildkite.com/acme-inc/bash-example/builds/123#f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+				url:     "https://buildkite.com/acme-inc/bash-example",
 			},
 			WantErr: false,
-		},
-		`Token missing build_number claim should be rejected`: {
-			Claims: map[string]interface{}{
-				"aud":               "sigstore",
-				"exp":               0,
-				"iss":               "https://agent.buildkite.com",
-				"job_id":            "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
-				"organization_slug": "acme-inc",
-				"pipeline_slug":     "bash-example",
-				"sub":               "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
-			},
-			WantErr:     true,
-			ErrContains: "build_number",
-		},
-		`Token missing job_id claim should be rejected`: {
-			Claims: map[string]interface{}{
-				"aud":               "sigstore",
-				"build_number":      123,
-				"exp":               0,
-				"iss":               "https://agent.buildkite.com",
-				"organization_slug": "acme-inc",
-				"pipeline_slug":     "bash-example",
-				"sub":               "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
-			},
-			WantErr:     true,
-			ErrContains: "job_id",
 		},
 		`Token missing organization_slug claim should be rejected`: {
 			Claims: map[string]interface{}{
 				"aud":           "sigstore",
-				"build_number":  123,
 				"exp":           0,
 				"iss":           "https://agent.buildkite.com",
-				"job_id":        "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
 				"pipeline_slug": "bash-example",
 				"sub":           "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
 			},
@@ -98,10 +68,8 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 		`Token missing pipeline_slug claim should be rejected`: {
 			Claims: map[string]interface{}{
 				"aud":               "sigstore",
-				"build_number":      123,
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",
-				"job_id":            "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
 				"organization_slug": "acme-inc",
 				"sub":               "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
 			},
@@ -165,10 +133,8 @@ func TestName(t *testing.T) {
 		`Valid token authenticates with correct claims`: {
 			Claims: map[string]interface{}{
 				"aud":               "sigstore",
-				"build_number":      123,
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",
-				"job_id":            "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
 				"organization_slug": "acme-inc",
 				"pipeline_slug":     "bash-example",
 				"sub":               "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
