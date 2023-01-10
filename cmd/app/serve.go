@@ -251,6 +251,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
+	defer baseca.Close()
 
 	var ctClient *ctclient.LogClient
 	if logURL := viper.GetString("ct-log-url"); logURL != "" {

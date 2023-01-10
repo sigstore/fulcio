@@ -88,7 +88,7 @@ to a new log ID, for example `https://ctfe.sigstore.dev/2022`.
 The log provides an API documented in [RFC 6962](https://datatracker.ietf.org/doc/rfc6962/).
 
 We encourage auditors to monitor this log for both integrity and specific identities.
-For example, auditors can monitor for when a certificate is issued for certain eamil addresses,
+For example, auditors can monitor for when a certificate is issued for certain email addresses,
 which will detect misconfiguration or potential compromise of the user's identity.
 
 ## Security

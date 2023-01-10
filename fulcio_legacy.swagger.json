@@ -124,7 +124,7 @@
         "certificateSigningRequest": {
           "type": "string",
           "format": "byte",
-          "description": "Optional: PKCS#10 PEM-encoded certificate signing request\nContains the public key to be stored in the requested\ncertificate. All other CSR fields are ignored. Since\nthe CSR is self-signed, it also acts as a proof of\nposession of the private key."
+          "description": "Optional: PKCS#10 PEM-encoded certificate signing request\nContains the public key to be stored in the requested\ncertificate. All other CSR fields are ignored. Since\nthe CSR is self-signed, it also acts as a proof of\nposession of the private key.\n\nIn particular, the CSR's subject name is not verified, or tested for\ncompatibility with its specified X.509 name type (e.g. email address)."
         }
       }
     },

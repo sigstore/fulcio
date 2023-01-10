@@ -101,6 +101,9 @@ message CreateSigningCertificateRequest {
      * certificate. All other CSR fields are ignored. Since
      * the CSR is self-signed, it also acts as a proof of
      * posession of the private key.
+     *
+     * In particular, the CSR's subject name is not verified, or tested for
+     * compatibility with its specified X.509 name type (e.g. email address).
      */
     bytes certificateSigningRequest  = 3 [
         deprecated=true,
