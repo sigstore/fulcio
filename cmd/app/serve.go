@@ -96,11 +96,10 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("tink-keyset-path", "", "Path to KMS-encrypted keyset for Tink-backed CA")
 	cmd.Flags().String("host", "0.0.0.0", "The host on which to serve requests for HTTP; --http-host is alias")
 	cmd.Flags().String("port", "8080", "The port on which to serve requests for HTTP; --http-port is alias")
-	cmd.Flags().String("grpc-host", "0.0.0.0", "[DEPRECATED] The host on which to serve requests for GRPC")
-	cmd.Flags().String("grpc-port", "8081", "[DEPRECATED] The port on which to serve requests for GRPC")
+	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
+	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
-	cmd.Flags().Bool("duplex", false, "experimental: serve HTTP and GRPC on the same port instead of on two separate ports")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -272,7 +271,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if viper.GetBool("duplex") {
+	if viper.GetString("port") == viper.GetString("grpc-port") {
 		p := viper.GetString("port")
 		port, err := strconv.Atoi(p)
 		if err != nil {
@@ -286,9 +285,6 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, port, metricsPort); err != nil {
 			log.Logger.Fatal(err)
 		}
-	} else {
-		log.Logger.Warnln("Hosting HTTP and GRPC servers on different ports will soon be deprecated, please set the --duplex flag to serve both on a single port." +
-			"The single port can be set with the --port flag.")
 	}
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
@@ -393,6 +389,7 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	// Register prometheus handle.
 	d.RegisterListenAndServeMetrics(metricsPort, false)
 
+	logger.Info("Starting duplex server...")
 	if err := d.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("duplex server: %w", err)
 	}
