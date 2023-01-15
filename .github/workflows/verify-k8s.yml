@@ -142,7 +142,7 @@ jobs:
           EOF
 
           make ko-apply-ci
-
+          kubectl get po -n fulcio-system
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-system deployment/fulcio-server
 
           kubectl get po -n fulcio-system
@@ -163,7 +163,7 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  image: gcr.io/projectsigstore/cosign:v1.12.0
+                  image: gcr.io/projectsigstore/cosign:v1.13.1
                   args: [
                     "sign",
                     "--fulcio-url=http://fulcio-server.fulcio-system.svc",
