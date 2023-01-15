@@ -142,7 +142,9 @@ jobs:
           EOF
 
           make ko-apply-ci
+
           kubectl get po -n fulcio-system
+
           kubectl wait --for=condition=Available --timeout=5m -n fulcio-system deployment/fulcio-server
 
           kubectl get po -n fulcio-system
@@ -188,6 +190,8 @@ jobs:
                             audience: sigstore
           EOF
 
+          kubectl get po
+
           kubectl wait --for=condition=Complete --timeout=90s job/check-oidc
 
       - name: Validate prometheus metrics exported and look correct
@@ -206,6 +210,8 @@ jobs:
                 - name: check-metrics
                   image: ko://github.com/sigstore/fulcio/test/prometheus/
           EOF
+
+          kubectl get po
 
           kubectl wait --for=condition=Complete --timeout=90s job/check-prometheus-metrics
         env:
