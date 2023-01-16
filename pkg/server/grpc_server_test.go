@@ -711,11 +711,11 @@ func TestAPIWithGitHub(t *testing.T) {
 		JobWorkflowRef: "job/workflow/ref",
 		Sha:            "sha",
 		Trigger:        "trigger",
-		Repository:     "repo",
+		Repository:     "sigstore/fulcio",
 		Workflow:       "workflow",
-		Ref:            "ref",
+		Ref:            "refs/heads/main",
 	}
-	githubSubject := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+	githubSubject := fmt.Sprintf("repo:%s:ref:%s", claims.Repository, claims.Ref)
 
 	// Create an OIDC token using this issuer's signer.
 	tok, err := jwt.Signed(githubSigner).Claims(jwt.Claims{
@@ -767,12 +767,13 @@ func TestAPIWithGitHub(t *testing.T) {
 	if len(leafCert.URIs) != 1 {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
-	uSubject, err := url.Parse(githubSubject)
+	githubURL := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+	githubURI, err := url.Parse(githubURL)
 	if err != nil {
-		t.Fatalf("failed to parse subject URI")
+		t.Fatalf("failed to parse expected url")
 	}
-	if *leafCert.URIs[0] != *uSubject {
-		t.Fatalf("subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
+	if *leafCert.URIs[0] != *githubURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", githubURI, leafCert.URIs[0])
 	}
 	// Verify custom OID values
 	triggerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2})
