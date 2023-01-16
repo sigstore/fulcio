@@ -679,8 +679,8 @@ func TestAPIWithKubernetes(t *testing.T) {
 	}
 }
 
-// gitClaims holds the additional JWT claims for GitHub OIDC tokens
-type gitClaims struct {
+// githubClaims holds the additional JWT claims for GitHub OIDC tokens
+type githubClaims struct {
 	JobWorkflowRef string `json:"job_workflow_ref"`
 	Sha            string `json:"sha"`
 	Trigger        string `json:"event_name"`
@@ -691,7 +691,7 @@ type gitClaims struct {
 
 // Tests API for GitHub subject types
 func TestAPIWithGitHub(t *testing.T) {
-	gitSigner, gitIssuer := newOIDCIssuer(t)
+	githubSigner, githubIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
 	cfg, err := config.Read([]byte(fmt.Sprintf(`{
@@ -702,12 +702,12 @@ func TestAPIWithGitHub(t *testing.T) {
 				"Type": "github-workflow"
 			}
         }
-	}`, gitIssuer, gitIssuer)))
+	}`, githubIssuer, githubIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
-	claims := gitClaims{
+	claims := githubClaims{
 		JobWorkflowRef: "job/workflow/ref",
 		Sha:            "sha",
 		Trigger:        "trigger",
@@ -715,14 +715,14 @@ func TestAPIWithGitHub(t *testing.T) {
 		Workflow:       "workflow",
 		Ref:            "ref",
 	}
-	gitSubject := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+	githubSubject := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
 
 	// Create an OIDC token using this issuer's signer.
-	tok, err := jwt.Signed(gitSigner).Claims(jwt.Claims{
-		Issuer:   gitIssuer,
+	tok, err := jwt.Signed(githubSigner).Claims(jwt.Claims{
+		Issuer:   githubIssuer,
 		IssuedAt: jwt.NewNumericDate(time.Now()),
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
-		Subject:  gitSubject,
+		Subject:  githubSubject,
 		Audience: jwt.Audience{"sigstore"},
 	}).Claims(&claims).CompactSerialize()
 	if err != nil {
@@ -739,7 +739,7 @@ func TestAPIWithGitHub(t *testing.T) {
 
 	client := protobuf.NewCAClient(conn)
 
-	pubBytes, proof := generateKeyAndProof(gitSubject, t)
+	pubBytes, proof := generateKeyAndProof(githubSubject, t)
 
 	// Hit the API to have it sign our certificate.
 	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
@@ -761,13 +761,13 @@ func TestAPIWithGitHub(t *testing.T) {
 		t.Fatalf("SigningCert() = %v", err)
 	}
 
-	leafCert := verifyResponse(resp, eca, gitIssuer, t)
+	leafCert := verifyResponse(resp, eca, githubIssuer, t)
 
 	// Expect URI values
 	if len(leafCert.URIs) != 1 {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
-	uSubject, err := url.Parse(gitSubject)
+	uSubject, err := url.Parse(githubSubject)
 	if err != nil {
 		t.Fatalf("failed to parse subject URI")
 	}
