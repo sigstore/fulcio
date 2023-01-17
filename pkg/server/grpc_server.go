@@ -140,6 +140,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		// currently configured CA doesn't support pre-certificate flow required to embed SCT in final certificate
 		csc, err = g.ca.CreateCertificate(ctx, principal, publicKey)
 		if err != nil {
+			logger.Error("Error creating certificate with CA backend: ", err)
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
 				return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
@@ -190,6 +191,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	} else {
 		precert, err := sctCa.CreatePrecertificate(ctx, principal, publicKey)
 		if err != nil {
+			logger.Error("Error creating a precertificate and chain with CA backend: ", err)
 			// if the error was due to invalid input in the request, return HTTP 400
 			if _, ok := err.(certauth.ValidationError); ok {
 				return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
@@ -204,6 +206,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 		}
 		csc, err = sctCa.IssueFinalCertificate(ctx, precert, sct)
 		if err != nil {
+			logger.Error("Error issuing final certificate using the precertificate with CA backend: ", err)
 			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 		}
 
@@ -237,7 +240,7 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrus
 	trustBundle, err := g.ca.TrustBundle(ctx)
 	if err != nil {
 		logger.Error("Error retrieving trust bundle: ", err)
-		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, retrieveTrustBundleCAError)
 	}
 
 	resp := &fulciogrpc.TrustBundle{
@@ -249,7 +252,8 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrus
 		for _, cert := range chain {
 			certPEM, err := cryptoutils.MarshalCertificateToPEM(cert)
 			if err != nil {
-				return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+				logger.Error("Error marshaling the certificate from the trust bundle: ", err)
+				return nil, handleFulcioGRPCError(ctx, codes.Internal, err, marshalingCertificateChainBundleCAError)
 			}
 			certChain.Certificates = append(certChain.Certificates, string(certPEM))
 		}
@@ -265,7 +269,7 @@ func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetCo
 	if cfg == nil {
 		err := errors.New("configuration not loaded")
 		logger.Error(err)
-		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
+		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, loadingFulcioConfigurationError)
 	}
 
 	return &fulciogrpc.Configuration{
