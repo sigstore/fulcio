@@ -34,8 +34,11 @@ const (
 	//nolint
 	invalidCredentials = "There was an error processing the credentials for this request"
 	// nolint
-	invalidIdentityToken = "There was an error processing the identity token"
-	genericCAError       = "error communicating with CA backend"
+	invalidIdentityToken                    = "There was an error processing the identity token"
+	genericCAError                          = "error communicating with CA backend"
+	retrieveTrustBundleCAError              = "error retrieving trust bundle from CA backend"
+	marshalingCertificateChainBundleCAError = "error marshaling the certificate chain of the bundle"
+	loadingFulcioConfigurationError         = "error loading fulcio configuration"
 )
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {

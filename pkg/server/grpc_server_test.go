@@ -57,8 +57,9 @@ import (
 )
 
 const (
-	expectedNoRootMessage = "rpc error: code = Internal desc = error communicating with CA backend"
-	bufSize               = 1024 * 1024
+	expectedNoRootMessage      = "rpc error: code = Internal desc = error communicating with CA backend"
+	expectedTrustBundleMessage = "rpc error: code = Internal desc = error retrieving trust bundle from CA backend"
+	bufSize                    = 1024 * 1024
 )
 
 var lis *bufconn.Listener
@@ -117,8 +118,8 @@ func TestMissingGetTrustBundleFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("GetTrustBundle did not fail", err)
 	}
-	if err.Error() != expectedNoRootMessage {
-		t.Errorf("got an unexpected error: %q wanted: %q", err, expectedNoRootMessage)
+	if err.Error() != expectedTrustBundleMessage {
+		t.Errorf("got an unexpected error: %q wanted: %q", err, expectedTrustBundleMessage)
 	}
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
