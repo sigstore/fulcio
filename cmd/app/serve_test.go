@@ -49,7 +49,7 @@ func TestDuplex(t *testing.T) {
 	metricsPort := 2114
 
 	go func() {
-		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, port, metricsPort); err != nil {
+		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, "0.0.0.0", port, metricsPort); err != nil {
 			log.Fatalf("error starting duplex server: %v", err)
 		}
 	}()

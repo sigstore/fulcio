@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -271,20 +272,16 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if viper.GetString("port") == viper.GetString("grpc-port") {
-		p := viper.GetString("port")
-		port, err := strconv.Atoi(p)
-		if err != nil {
-			log.Logger.Fatal("%s is not a valid port", p)
-		}
-		mp := viper.GetString("metrics-port")
-		metricsPort, err := strconv.Atoi(mp)
-		if err != nil {
-			log.Logger.Fatal("%s is not a valid port", mp)
-		}
-		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, port, metricsPort); err != nil {
+	portsMatch := viper.GetString("port") == viper.GetString("grpc-port")
+	hostsMatch := viper.GetString("host") == viper.GetString("grpc-host")
+	if portsMatch && hostsMatch {
+		port := viper.GetInt("port")
+		metricsPort := viper.GetInt("metrics-port")
+		// StartDuplexServer will always return an error, log fatally if it's non-nil
+		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, viper.GetString("host"), port, metricsPort); err != http.ErrServerClosed {
 			log.Logger.Fatal(err)
 		}
+		return
 	}
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
@@ -347,7 +344,7 @@ func checkServeCmdConfigFile() error {
 	return nil
 }
 
-func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, port, metricsPort int) error {
+func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, host string, port, metricsPort int) error {
 	logger, opts := log.SetupGRPCLogging()
 
 	d := duplex.New(
@@ -389,8 +386,12 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	// Register prometheus handle.
 	d.RegisterListenAndServeMetrics(metricsPort, false)
 
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return fmt.Errorf("creating listener: %w", err)
+	}
 	logger.Info("Starting duplex server...")
-	if err := d.ListenAndServe(ctx); err != nil {
+	if err := d.Serve(ctx, lis); err != nil {
 		return fmt.Errorf("duplex server: %w", err)
 	}
 	return nil
