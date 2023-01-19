@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +59,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -359,7 +357,7 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 			grpc_prometheus.UnaryServerInterceptor,
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)),
-		runtime.WithForwardResponseOption(HTTPResponseModifier),
+		runtime.WithForwardResponseOption(setResponseCodeModifier),
 	)
 
 	// GRPC server
@@ -394,32 +392,5 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	if err := d.Serve(ctx, lis); err != nil {
 		return fmt.Errorf("duplex server: %w", err)
 	}
-	return nil
-}
-
-// The fulcio HTTP legacy client requires a 201 response status code to pass
-// However, even though the legacy client sets the 201 code, GRPC will automatically
-// change it to 200, causing the cert request to fail
-// GRPC recommends controlling HTTP status codes with this response modifier
-// https://grpc-ecosystem.github.io/grpc-gateway/docs/mapping/customizing_your_gateway/#controlling-http-response-status-codes
-// This is required to use fulcio with duplex.
-func HTTPResponseModifier(ctx context.Context, w http.ResponseWriter, p proto.Message) error {
-	md, ok := runtime.ServerMetadataFromContext(ctx)
-	if !ok {
-		return nil
-	}
-
-	// set http status code
-	if vals := md.HeaderMD.Get(server.HTTPResponseCodeMetadataKey); len(vals) > 0 {
-		code, err := strconv.Atoi(vals[0])
-		if err != nil {
-			return err
-		}
-		// delete the headers to not expose any grpc-metadata in http response
-		delete(md.HeaderMD, server.HTTPResponseCodeMetadataKey)
-		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
-		w.WriteHeader(code)
-	}
-
 	return nil
 }
