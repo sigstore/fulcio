@@ -41,6 +41,10 @@ data:
             }
           },
           "MetaIssuers": {
+            "https://*.oic.prod-aks.azure.com/*": {
+              "ClientID": "sigstore",
+              "Type": "kubernetes"
+            },
             "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
               "ClientID": "sigstore",
               "Type": "kubernetes"
@@ -50,10 +54,6 @@ data:
               "Type": "kubernetes"
             },
             "https://oidc.prod-aks.azure.com/*": {
-              "ClientID": "sigstore",
-              "Type": "kubernetes"
-            },
-            "https://*.oic.prod-aks.azure.com/*": {
               "ClientID": "sigstore",
               "Type": "kubernetes"
             }
