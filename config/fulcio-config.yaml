@@ -22,6 +22,11 @@ data:
               "ClientID": "sigstore",
               "Type": "email"
             },
+            "https://agent.buildkite.com": {
+              "IssuerURL": "https://agent.buildkite.com",
+              "ClientID": "sigstore",
+              "Type": "buildkite-job"
+            },
             "https://allow.pub": {
               "IssuerURL": "https://allow.pub",
               "ClientID": "sigstore",
