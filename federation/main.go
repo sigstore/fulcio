@@ -76,6 +76,10 @@ func main() {
 				ClientID: "sigstore",
 				Type:     "kubernetes",
 			},
+			"https://*.oic.prod-aks.azure.com/*": {
+				ClientID: "sigstore",
+				Type:     "kubernetes",
+			},
 		},
 	}
 	for _, m := range matches {
