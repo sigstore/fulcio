@@ -208,6 +208,7 @@ func (fc *FulcioConfig) prepare() error {
 type IssuerType string
 
 const (
+	IssuerTypeBuildkiteJob   = "buildkite-job"
 	IssuerTypeEmail          = "email"
 	IssuerTypeGithubWorkflow = "github-workflow"
 	IssuerTypeKubernetes     = "kubernetes"
@@ -459,6 +460,8 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 
 func issuerToChallengeClaim(issType IssuerType) string {
 	switch issType {
+	case IssuerTypeBuildkiteJob:
+		return "sub"
 	case IssuerTypeEmail:
 		return "email"
 	case IssuerTypeGithubWorkflow:

@@ -178,6 +178,7 @@ func TestGetConfiguration(t *testing.T) {
 	_, uriIssuer := newOIDCIssuer(t)
 	_, usernameIssuer := newOIDCIssuer(t)
 	_, k8sIssuer := newOIDCIssuer(t)
+	_, buildkiteIssuer := newOIDCIssuer(t)
 	_, gitHubIssuer := newOIDCIssuer(t)
 
 	issuerDomain, err := url.Parse(usernameIssuer)
@@ -213,19 +214,25 @@ func TestGetConfiguration(t *testing.T) {
 			%q: {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
+				"Type": "buildkite-job"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
 				"Type": "github-workflow"
 			}
 		},
-	    "MetaIssuers": {
-          %q: {
-            "ClientID": "sigstore",
-            "Type": "kubernetes"
-          }
-        }
+		"MetaIssuers": {
+			%q: {
+				"ClientID": "sigstore",
+				"Type": "kubernetes"
+			}
+		}
 	}`, spiffeIssuer, spiffeIssuer,
 		uriIssuer, uriIssuer, uriIssuer,
 		emailIssuer, emailIssuer,
 		usernameIssuer, usernameIssuer, issuerDomain.Hostname(),
+		buildkiteIssuer, buildkiteIssuer,
 		gitHubIssuer, gitHubIssuer,
 		k8sIssuer)))
 	if err != nil {
@@ -247,13 +254,14 @@ func TestGetConfiguration(t *testing.T) {
 		t.Fatal("GetConfiguration failed", err)
 	}
 
-	if len(config.Issuers) != 6 {
-		t.Fatalf("expected 6 issuers, got %v", len(config.Issuers))
+	if len(config.Issuers) != 7 {
+		t.Fatalf("expected 7 issuers, got %v", len(config.Issuers))
 	}
 
 	expectedIssuers := map[string]bool{
 		emailIssuer: true, spiffeIssuer: true, uriIssuer: true,
 		usernameIssuer: true, k8sIssuer: true, gitHubIssuer: true,
+		buildkiteIssuer: true,
 	}
 	for _, iss := range config.Issuers {
 		var issURL string
@@ -679,19 +687,15 @@ func TestAPIWithKubernetes(t *testing.T) {
 	}
 }
 
-// gitClaims holds the additional JWT claims for GitHub OIDC tokens
-type gitClaims struct {
-	JobWorkflowRef string `json:"job_workflow_ref"`
-	Sha            string `json:"sha"`
-	Trigger        string `json:"event_name"`
-	Repository     string `json:"repository"`
-	Workflow       string `json:"workflow"`
-	Ref            string `json:"ref"`
+// buildkiteClaims holds the additional JWT claims for Buildkite OIDC tokens
+type buildkiteClaims struct {
+	OrganizationSlug string `json:"organization_slug"`
+	PipelineSlug     string `json:"pipeline_slug"`
 }
 
-// Tests API for GitHub subject types
-func TestAPIWithGitHub(t *testing.T) {
-	gitSigner, gitIssuer := newOIDCIssuer(t)
+// Tests API for Buildkite subject types
+func TestAPIWithBuildkite(t *testing.T) {
+	buildkiteSigner, buildkiteIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
 	cfg, err := config.Read([]byte(fmt.Sprintf(`{
@@ -699,30 +703,26 @@ func TestAPIWithGitHub(t *testing.T) {
 			%q: {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
-				"Type": "github-workflow"
+				"Type": "buildkite-job"
 			}
         }
-	}`, gitIssuer, gitIssuer)))
+	}`, buildkiteIssuer, buildkiteIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
-	claims := gitClaims{
-		JobWorkflowRef: "job/workflow/ref",
-		Sha:            "sha",
-		Trigger:        "trigger",
-		Repository:     "repo",
-		Workflow:       "workflow",
-		Ref:            "ref",
+	claims := buildkiteClaims{
+		OrganizationSlug: "acme-inc",
+		PipelineSlug:     "bash-example",
 	}
-	gitSubject := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+	buildkiteSubject := fmt.Sprintf("organization:%s:pipeline:%s:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build", claims.OrganizationSlug, claims.PipelineSlug)
 
 	// Create an OIDC token using this issuer's signer.
-	tok, err := jwt.Signed(gitSigner).Claims(jwt.Claims{
-		Issuer:   gitIssuer,
+	tok, err := jwt.Signed(buildkiteSigner).Claims(jwt.Claims{
+		Issuer:   buildkiteIssuer,
 		IssuedAt: jwt.NewNumericDate(time.Now()),
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
-		Subject:  gitSubject,
+		Subject:  buildkiteSubject,
 		Audience: jwt.Audience{"sigstore"},
 	}).Claims(&claims).CompactSerialize()
 	if err != nil {
@@ -739,7 +739,7 @@ func TestAPIWithGitHub(t *testing.T) {
 
 	client := protobuf.NewCAClient(conn)
 
-	pubBytes, proof := generateKeyAndProof(gitSubject, t)
+	pubBytes, proof := generateKeyAndProof(buildkiteSubject, t)
 
 	// Hit the API to have it sign our certificate.
 	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
@@ -761,18 +761,117 @@ func TestAPIWithGitHub(t *testing.T) {
 		t.Fatalf("SigningCert() = %v", err)
 	}
 
-	leafCert := verifyResponse(resp, eca, gitIssuer, t)
+	leafCert := verifyResponse(resp, eca, buildkiteIssuer, t)
 
 	// Expect URI values
 	if len(leafCert.URIs) != 1 {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
-	uSubject, err := url.Parse(gitSubject)
+	buildkiteURL := fmt.Sprintf("https://buildkite.com/%s/%s", claims.OrganizationSlug, claims.PipelineSlug)
+	buildkiteURI, err := url.Parse(buildkiteURL)
 	if err != nil {
 		t.Fatalf("failed to parse subject URI")
 	}
-	if *leafCert.URIs[0] != *uSubject {
-		t.Fatalf("subjects do not match: Expected %v, got %v", uSubject, leafCert.URIs[0])
+	if *leafCert.URIs[0] != *buildkiteURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", buildkiteURI, leafCert.URIs[0])
+	}
+}
+
+// githubClaims holds the additional JWT claims for GitHub OIDC tokens
+type githubClaims struct {
+	JobWorkflowRef string `json:"job_workflow_ref"`
+	Sha            string `json:"sha"`
+	Trigger        string `json:"event_name"`
+	Repository     string `json:"repository"`
+	Workflow       string `json:"workflow"`
+	Ref            string `json:"ref"`
+}
+
+// Tests API for GitHub subject types
+func TestAPIWithGitHub(t *testing.T) {
+	githubSigner, githubIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "github-workflow"
+			}
+        }
+	}`, githubIssuer, githubIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	claims := githubClaims{
+		JobWorkflowRef: "job/workflow/ref",
+		Sha:            "sha",
+		Trigger:        "trigger",
+		Repository:     "sigstore/fulcio",
+		Workflow:       "workflow",
+		Ref:            "refs/heads/main",
+	}
+	githubSubject := fmt.Sprintf("repo:%s:ref:%s", claims.Repository, claims.Ref)
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(githubSigner).Claims(jwt.Claims{
+		Issuer:   githubIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  githubSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	pubBytes, proof := generateKeyAndProof(githubSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, githubIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	githubURL := fmt.Sprintf("https://github.com/%s", claims.JobWorkflowRef)
+	githubURI, err := url.Parse(githubURL)
+	if err != nil {
+		t.Fatalf("failed to parse expected url")
+	}
+	if *leafCert.URIs[0] != *githubURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", githubURI, leafCert.URIs[0])
 	}
 	// Verify custom OID values
 	triggerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2})
