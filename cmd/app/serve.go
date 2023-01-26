@@ -21,16 +21,25 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"chainguard.dev/go-grpc-kit/pkg/duplex"
+	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sigstore/fulcio/pkg/ca"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
@@ -39,12 +48,17 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca/pkcs11ca"
 	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -116,6 +130,7 @@ func (la logAdaptor) Printf(s string, args ...interface{}) {
 }
 
 func runServeCmd(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	// If a config file is provided, modify the viper config to locate and read it
 	if err := checkServeCmdConfigFile(); err != nil {
 		log.Logger.Fatal(err)
@@ -255,6 +270,18 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	portsMatch := viper.GetString("port") == viper.GetString("grpc-port")
+	hostsMatch := viper.GetString("host") == viper.GetString("grpc-host")
+	if portsMatch && hostsMatch {
+		port := viper.GetInt("port")
+		metricsPort := viper.GetInt("metrics-port")
+		// StartDuplexServer will always return an error, log fatally if it's non-nil
+		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, viper.GetString("host"), port, metricsPort); err != http.ErrServerClosed {
+			log.Logger.Fatal(err)
+		}
+		return
+	}
+
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
 	reg := prometheus.NewRegistry()
@@ -272,7 +299,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 	}
 	legacyGRPCServer.startUnixListener()
 
-	httpServer := createHTTPServer(context.Background(), httpServerEndpoint, grpcServer, legacyGRPCServer)
+	httpServer := createHTTPServer(ctx, httpServerEndpoint, grpcServer, legacyGRPCServer)
 	httpServer.startListener()
 
 	readHeaderTimeout := viper.GetDuration("read-header-timeout")
@@ -311,6 +338,59 @@ func checkServeCmdConfigFile() error {
 		if err := viper.ReadInConfig(); err != nil {
 			return fmt.Errorf("unable to parse config file provided: %w", err)
 		}
+	}
+	return nil
+}
+
+func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, host string, port, metricsPort int) error {
+	logger, opts := log.SetupGRPCLogging()
+
+	d := duplex.New(
+		port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
+			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+			grpc_zap.UnaryServerInterceptor(logger, opts...),
+			PassFulcioConfigThruContext(cfg),
+			grpc_prometheus.UnaryServerInterceptor,
+		)),
+		grpc.MaxRecvMsgSize(int(maxMsgSize)),
+		runtime.WithForwardResponseOption(setResponseCodeModifier),
+	)
+
+	// GRPC server
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
+	protobuf.RegisterCAServer(d.Server, grpcCAServer)
+	if err := d.RegisterHandler(ctx, protobuf.RegisterCAHandlerFromEndpoint); err != nil {
+		return fmt.Errorf("registering grpc ca handler: %w", err)
+	}
+
+	// Legacy server
+	legacyGRPCCAServer := server.NewLegacyGRPCCAServer(grpcCAServer)
+	legacy.RegisterCAServer(d.Server, legacyGRPCCAServer)
+	if err := d.RegisterHandler(ctx, legacy.RegisterCAHandlerFromEndpoint); err != nil {
+		return fmt.Errorf("registering legacy grpc ca handler: %w", err)
+	}
+
+	// Prometheus
+	reg := prometheus.NewRegistry()
+	grpcMetrics := grpc_prometheus.DefaultServerMetrics
+	grpcMetrics.EnableHandlingTimeHistogram()
+	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
+	grpc_prometheus.Register(d.Server)
+
+	// Register prometheus handle.
+	d.RegisterListenAndServeMetrics(metricsPort, false)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return fmt.Errorf("creating listener: %w", err)
+	}
+	logger.Info("Starting duplex server...")
+	if err := d.Serve(ctx, lis); err != nil {
+		return fmt.Errorf("duplex server: %w", err)
 	}
 	return nil
 }
