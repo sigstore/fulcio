@@ -214,6 +214,7 @@ const (
 	IssuerTypeBuildkiteJob   = "buildkite-job"
 	IssuerTypeEmail          = "email"
 	IssuerTypeGithubWorkflow = "github-workflow"
+	IssuerTypeGitLabPipeline = "gitlab-pipeline"
 	IssuerTypeKubernetes     = "kubernetes"
 	IssuerTypeSpiffe         = "spiffe"
 	IssuerTypeURI            = "uri"
@@ -467,6 +468,8 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	}
 	switch issType {
 	case IssuerTypeBuildkiteJob:
+		return "sub"
+	case IssuerTypeGitLabPipeline:
 		return "sub"
 	case IssuerTypeEmail:
 		return "email"

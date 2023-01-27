@@ -182,7 +182,7 @@ func TestGetConfiguration(t *testing.T) {
 	_, k8sIssuer := newOIDCIssuer(t)
 	_, buildkiteIssuer := newOIDCIssuer(t)
 	_, gitHubIssuer := newOIDCIssuer(t)
-
+	_, gitLabIssuer := newOIDCIssuer(t)
 	issuerDomain, err := url.Parse(usernameIssuer)
 	if err != nil {
 		t.Fatal("issuer URL could not be parsed", err)
@@ -222,6 +222,11 @@ func TestGetConfiguration(t *testing.T) {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
 				"Type": "github-workflow"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "gitlab-pipeline"
 			}
 		},
 		"MetaIssuers": {
@@ -236,6 +241,7 @@ func TestGetConfiguration(t *testing.T) {
 		usernameIssuer, usernameIssuer, issuerDomain.Hostname(),
 		buildkiteIssuer, buildkiteIssuer,
 		gitHubIssuer, gitHubIssuer,
+		gitLabIssuer, gitLabIssuer,
 		k8sIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
@@ -256,14 +262,14 @@ func TestGetConfiguration(t *testing.T) {
 		t.Fatal("GetConfiguration failed", err)
 	}
 
-	if len(config.Issuers) != 7 {
-		t.Fatalf("expected 7 issuers, got %v", len(config.Issuers))
+	if len(config.Issuers) != 8 {
+		t.Fatalf("expected 8 issuers, got %v", len(config.Issuers))
 	}
 
 	expectedIssuers := map[string]bool{
 		emailIssuer: true, spiffeIssuer: true, uriIssuer: true,
 		usernameIssuer: true, k8sIssuer: true, gitHubIssuer: true,
-		buildkiteIssuer: true,
+		buildkiteIssuer: true, gitLabIssuer: true,
 	}
 	for _, iss := range config.Issuers {
 		var issURL string
@@ -924,6 +930,147 @@ func TestAPIWithGitHub(t *testing.T) {
 		19: claims.WorkflowSha,
 		20: claims.EventName,
 		21: url + claims.Repository + "/actions/runs/" + claims.RunID + "/attempts/" + claims.RunAttempt,
+	}
+	for o, value := range expectedExts {
+		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
+		if !found {
+			t.Fatalf("expected extension in custom OID 1.3.6.1.4.1.57264.1.%d", o)
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			t.Fatalf("error unmarshalling extension: :%v", err)
+		}
+		if len(rest) != 0 {
+			t.Fatal("error unmarshalling extension, rest is not 0")
+		}
+		if string(extValue) != value {
+			t.Fatalf("unexpected extension value, expected %s, got %s", value, extValue)
+		}
+	}
+}
+
+// gitlabClaims holds the additional JWT claims for GitLab OIDC tokens
+type gitlabClaims struct {
+	ProjectPath       string `json:"project_path"`
+	ProjectID         string `json:"project_id"`
+	PipelineSource    string `json:"pipeline_source"`
+	PipelineID        string `json:"pipeline_id"`
+	NamespacePath     string `json:"namespace_path"`
+	NamespaceID       string `json:"namespace_id"`
+	JobID             string `json:"job_id"`
+	Ref               string `json:"ref"`
+	RefType           string `json:"ref_type"`
+	Sha               string `json:"sha"`
+	RunnerEnvironment string `json:"runner_environment"`
+	RunnerID          int64  `json:"runner_id"`
+}
+
+// Tests API for GitLab subject types
+func TestAPIWithGitLab(t *testing.T) {
+	gitLabSigner, gitLabIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "gitlab-pipeline"
+			}
+        }
+	}`, gitLabIssuer, gitLabIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	claims := gitlabClaims{
+		ProjectPath:       "cpanato/testing-cosign",
+		ProjectID:         "42831435",
+		PipelineSource:    "push",
+		PipelineID:        "757451528",
+		NamespacePath:     "cpanato",
+		NamespaceID:       "1730270",
+		JobID:             "3659681386",
+		Ref:               "main",
+		RefType:           "branch",
+		Sha:               "714a629c0b401fdce83e847fc9589983fc6f46bc",
+		RunnerID:          1,
+		RunnerEnvironment: "gitlab-hosted",
+	}
+
+	gitLabSubject := fmt.Sprintf("project_path:%s:ref_type:%s:ref:%s", claims.ProjectPath, claims.RefType, claims.Ref)
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(gitLabSigner).Claims(jwt.Claims{
+		Issuer:   gitLabIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  gitLabSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+	pubBytes, proof := generateKeyAndProof(gitLabSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, gitLabIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+
+	gitLabURL := fmt.Sprintf("https://gitlab.com/%s/@/refs/heads/%s", claims.ProjectPath, claims.Ref)
+	gitLabURI, err := url.Parse(gitLabURL)
+	if err != nil {
+		t.Fatalf("failed to parse expected url")
+	}
+	if *leafCert.URIs[0] != *gitLabURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", gitLabURI, leafCert.URIs[0])
+	}
+	url := "https://gitlab.com/"
+	expectedExts := map[int]string{
+		11: claims.RunnerEnvironment,
+		12: url + claims.ProjectPath,
+		13: claims.Sha,
+		14: fmt.Sprintf("refs/heads/%s", claims.Ref),
+		15: claims.ProjectID,
+		16: url + claims.NamespacePath,
+		17: claims.NamespaceID,
+		18: url + claims.ProjectPath + "/-/jobs/" + claims.JobID,
+		20: claims.PipelineSource,
+		21: url + claims.ProjectPath + "/-/pipelines/" + claims.PipelineID,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})

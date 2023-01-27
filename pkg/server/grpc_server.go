@@ -62,6 +62,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	if request.Credentials != nil {
 		token = request.Credentials.GetOidcIdentityToken()
 	}
+
 	if token == "" {
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
 			vals := md.Get(MetadataOIDCTokenKey)
