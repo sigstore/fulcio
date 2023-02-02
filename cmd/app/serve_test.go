@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sigstore/fulcio/pkg/api"
@@ -49,10 +50,13 @@ func TestDuplex(t *testing.T) {
 	metricsPort := 2114
 
 	go func() {
-		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, "0.0.0.0", port, metricsPort); err != nil {
+		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, "localhost", port, metricsPort); err != nil {
 			log.Fatalf("error starting duplex server: %v", err)
 		}
 	}()
+
+	// wait for duplex server to start up
+	time.Sleep(time.Second * 5)
 
 	var rootCert string
 	t.Run("http", func(t *testing.T) {
@@ -68,7 +72,7 @@ func TestDuplex(t *testing.T) {
 	var grpcRootCert string
 	t.Run("grpc", func(t *testing.T) {
 		// Grab the rootcert with the v2 endpoint
-		conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			t.Fatal(err)
 		}
