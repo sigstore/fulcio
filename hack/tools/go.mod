@@ -1,6 +1,6 @@
 module github.com/sigstore/fulcio/hack/tools
 
-go 1.18
+go 1.20
 
 require (
 	github.com/googleapis/api-linter v1.41.0
