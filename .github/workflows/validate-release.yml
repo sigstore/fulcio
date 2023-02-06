@@ -47,6 +47,17 @@ jobs:
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
 
+      # Error: fatal: detected dubious ownership in repository at '/__w/fulcio/fulcio'
+      #      To add an exception for this directory, call:
+      #          git config --system --add safe.directory /__w/fulcio/fulcio
+      # Reason: Recent versions of git require the .git folder to be owned
+      # by the same user (see https://github.blog/2022-04-12-git-security-vulnerability-announced/).
+      # Related
+      # - https://github.com/actions/runner/issues/2033
+      # - https://github.com/actions/checkout/issues/1048
+      # - https://github.com/actions/runner-images/issues/6775
+      - run: git config --system --add safe.directory /__w/fulcio/fulcio
+
       - name: goreleaser snapshot
         run: make snapshot
         env:
