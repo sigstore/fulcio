@@ -1,3 +1,41 @@
+# v1.1.0
+
+Fulcio 1.1.0 adds support for Buildkite, supports running the HTTP and gRPC servers on the same port,
+and fixes a few bugs in the GCP CA Service integration. Fulcio 1.1.0 updates Go to 1.20.
+
+## Enhancements
+
+* Add Buildkite OIDC to Fulcio (https://github.com/sigstore/fulcio/pull/890)
+* Update Fulcio to 1.20 (https://github.com/sigstore/fulcio/pull/989)
+* Add in --duplex flag to run HTTP and GRPC servers on the same port (https://github.com/sigstore/fulcio/pull/931)
+* Expose client options for google ca (https://github.com/sigstore/fulcio/pull/892)
+
+## Bug Fixes
+
+* googleca: close certificate authority client when done (https://github.com/sigstore/fulcio/pull/930)
+* Fix bugs in googleca and update flag description (https://github.com/sigstore/fulcio/pull/897)
+* Fix pkcs11ca with no cgo compilation bug (https://github.com/sigstore/fulcio/pull/898)
+
+## Miscellaneous
+
+* Add custom error logs when communicating with the CA backend (https://github.com/sigstore/fulcio/pull/966)
+* Add new format for AKS OIDC issuer (https://github.com/sigstore/fulcio/pull/971)
+* expose rpc options to add auth creds (https://github.com/sigstore/fulcio/pull/934)
+* Refactor kmsca constructor to accept x509.Certificates (https://github.com/sigstore/fulcio/pull/917)
+
+## Contributors
+
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Harry Marr
+* Hayden B
+* Hector Fernandez
+* Luke Hinds
+* priyawadhwa
+* Samuel Cochran
+* William Woodruff
+* Yoriyasu Yano
+
 # v1.0.0
 
 1.0 release!
