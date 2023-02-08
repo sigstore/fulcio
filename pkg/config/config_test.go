@@ -322,6 +322,20 @@ func TestValidateConfig(t *testing.T) {
 			Config:    nil,
 			WantError: true,
 		},
+		"SkipClientIDCheck must be 'true' when ClientID is empty": {
+			Config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"issuer.example.com": {
+						IssuerURL:         "https://issuer.example.com",
+						ClientID:          "",
+						Type:              IssuerTypeURI,
+						SubjectDomain:     "https://other.example.com",
+						SkipClientIDCheck: false,
+					},
+				},
+			},
+			WantError: true,
+		},
 	}
 
 	for name, test := range tests {

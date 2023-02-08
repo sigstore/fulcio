@@ -309,6 +309,9 @@ func validateConfig(conf *FulcioConfig) error {
 		if issuerToChallengeClaim(issuer.Type) == "" {
 			return errors.New("issuer missing challenge claim")
 		}
+		if issuer.ClientID == "" && !issuer.SkipClientIDCheck {
+			return errors.New("SkipClientIDCheck must be 'true' if ClientID is empty")
+		}
 	}
 
 	for _, metaIssuer := range conf.MetaIssuers {

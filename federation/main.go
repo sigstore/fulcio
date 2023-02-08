@@ -46,6 +46,7 @@ type federationConfig struct {
 	Type              string
 	IssuerClaim       string
 	SpiffeTrustDomain string
+	SkipClientIDCheck bool
 }
 
 func main() {
@@ -93,10 +94,11 @@ func main() {
 		}
 
 		fulcioCfg := config.OIDCIssuer{
-			IssuerURL:   cfg.URL,
-			ClientID:    "sigstore",
-			Type:        config.IssuerType(cfg.Type),
-			IssuerClaim: cfg.IssuerClaim,
+			IssuerURL:         cfg.URL,
+			ClientID:          "sigstore",
+			Type:              config.IssuerType(cfg.Type),
+			IssuerClaim:       cfg.IssuerClaim,
+			SkipClientIDCheck: cfg.SkipClientIDCheck,
 		}
 		if fulcioCfg.Type == config.IssuerTypeSpiffe {
 			fulcioCfg.SPIFFETrustDomain = cfg.SpiffeTrustDomain
