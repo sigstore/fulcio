@@ -76,6 +76,8 @@ type OIDCIssuer struct {
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
 	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
+	// SkipClientIDCheck, if true, no ClientID check performed. Must be true if ClientID field is empty.
+	SkipClientIDCheck bool `json:"SkipClientIDCheck,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -111,11 +113,12 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 			// If it matches, then return a concrete OIDCIssuer
 			// configuration for this issuer URL.
 			return OIDCIssuer{
-				IssuerURL:     issuerURL,
-				ClientID:      iss.ClientID,
-				Type:          iss.Type,
-				IssuerClaim:   iss.IssuerClaim,
-				SubjectDomain: iss.SubjectDomain,
+				IssuerURL:         issuerURL,
+				ClientID:          iss.ClientID,
+				Type:              iss.Type,
+				IssuerClaim:       iss.IssuerClaim,
+				SubjectDomain:     iss.SubjectDomain,
+				SkipClientIDCheck: iss.SkipClientIDCheck,
 			}, true
 		}
 	}
@@ -153,7 +156,7 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
 	}
-	verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+	verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID, SkipClientIDCheck: iss.SkipClientIDCheck})
 	fc.lru.Add(issuerURL, verifier)
 	return verifier, true
 }
@@ -194,7 +197,7 @@ func (fc *FulcioConfig) prepare() error {
 		if err != nil {
 			return fmt.Errorf("provider %s: %w", iss.IssuerURL, err)
 		}
-		fc.verifiers[iss.IssuerURL] = provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+		fc.verifiers[iss.IssuerURL] = provider.Verifier(&oidc.Config{ClientID: iss.ClientID, SkipClientIDCheck: iss.SkipClientIDCheck})
 	}
 
 	cache, err := lru.New2Q(100 /* size */)

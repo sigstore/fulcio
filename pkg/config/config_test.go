@@ -30,7 +30,8 @@ var validCfg = `
 		"https://accounts.google.com": {
 			"IssuerURL": "https://accounts.google.com",
 			"ClientID": "foo",
-			"Type": "email"
+			"Type": "email",
+			"SkipClientIDCheck": true
 		}
 	},
 	"MetaIssuers": {
@@ -107,6 +108,7 @@ func TestValidateConfig(t *testing.T) {
 						ClientID:          "foo",
 						Type:              IssuerTypeSpiffe,
 						SPIFFETrustDomain: "example.com",
+						SkipClientIDCheck: true,
 					},
 				},
 			},

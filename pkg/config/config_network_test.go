@@ -51,6 +51,9 @@ func TestLoad(t *testing.T) {
 	if got := len(cfg.OIDCIssuers); got != 1 {
 		t.Errorf("expected 1 issuer, got %d", got)
 	}
+	if !got.SkipClientIDCheck {
+		t.Errorf("expected SkipClientIDCheck set to true, got %v", got.SkipClientIDCheck)
+	}
 
 	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
 	if !ok {
@@ -62,7 +65,9 @@ func TestLoad(t *testing.T) {
 	if got.IssuerURL != "https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER" {
 		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
 	}
-
+	if got.SkipClientIDCheck {
+		t.Errorf("expected SkipClientIDCheck set to false, got %v", got.SkipClientIDCheck)
+	}
 	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
 		t.Error("no error returned from an unconfigured issuer")
 	}
