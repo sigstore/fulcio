@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.20.0@sha256:fcf0fa972f6ceda8d9222a2500c7692569ae9142f8051bcc736d9c94fe281593 AS builder
+FROM golang:1.20.1@sha256:9911e9376e45de1ba865b16d878c0f7d063391fe4b7cedf39869874126741e62 AS builder
 
 WORKDIR /root/
 
