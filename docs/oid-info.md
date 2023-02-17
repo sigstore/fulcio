@@ -97,63 +97,62 @@ the git ref that the workflow run was based upon.
 This specifies the username identity in the OtherName Subject Alternative Name, as
 defined by [RFC5280 4.2.1.6](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6).
 
-
-### 1.3.6.1.4.1.57264.1.8 | Source Repository URI
-
-Source repository URL that the build was based on. SHOULD be fully qualified. For example: `https://example.com/owner/repository`.
-
-### 1.3.6.1.4.1.57264.1.9 | Source Repository Digest
-
-Immutable reference to a specific version of the source code that the build
-was based upon. For example: `abc123` git commit SHA.
-
-### 1.3.6.1.4.1.57264.1.10 | Source Repository Ref
-
-Source Repository Ref that the build run was based upon. For example: `refs/head/main` git branch or tag.
-
-### 1.3.6.1.4.1.57264.1.11 | Source Repository Identifier
-
-Immutable identifier for the source repository the workflow was based upon. MAY be empty if the Source Repository URI is immutable. For example: `1234` if using a primary key.
-
-### 1.3.6.1.4.1.57264.1.12 | Source Repository Owner URI
-
-Source repository owner URL of the owner of the source repository that the build was based
-on. SHOULD be fully qualified. MAY be empty if there is no Source Repository Owner. For example: `https://example.com/owner`
-
-### 1.3.6.1.4.1.57264.1.13 | Source Repository Owner Identifier
-
-Immutable identifier for the owner of the source repository that the workflow was based upon. MAY be empty if there is no Source Repository Owner or Source Repository Owner URI is immutable. For example: `5678` if using a primary key.
-
-### 1.3.6.1.4.1.57264.1.14 | Build Config URI
-
-Build Config URL to the top-level/initiating build instructions. SHOULD be fully qualified. For example: `https://example.com/owner/repository/build-config.yml`.
-
-### 1.3.6.1.4.1.57264.1.15 | Build Config Digest
-
-Immutable reference to the specific version of the top-level/initiating build
-instructions. For example: `abc123` git commit SHA.
-
-### 1.3.6.1.4.1.57264.1.16 | Build Signer URI
+### 1.3.6.1.4.1.57264.1.8 | Build Signer URI
 
 Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI. Build Signer URI is also included in the Subject Alternative Name.
 
 For example a reusable workflow ref in GitHub Actions or a Circle CI Orb name/version. For example: `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`.
 
-### 1.3.6.1.4.1.57264.1.17 | Build Signer Digest
+### 1.3.6.1.4.1.57264.1.9 | Build Signer Digest
 
 Immutable reference to the specific version of the build instructions that is responsible for signing. For example: `abc123` git commit SHA.
 
-### 1.3.6.1.4.1.57264.1.18 | Build Trigger
+### 1.3.6.1.4.1.57264.1.10 | Runner Environment
+
+Runner Environment specifying whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure. For example: `[platform]-hosted` and `self-hosted`.
+
+### 1.3.6.1.4.1.57264.1.11 | Source Repository URI
+
+Source repository URL that the build was based on. SHOULD be fully qualified. For example: `https://example.com/owner/repository`.
+
+### 1.3.6.1.4.1.57264.1.12 | Source Repository Digest
+
+Immutable reference to a specific version of the source code that the build
+was based upon. For example: `abc123` git commit SHA.
+
+### 1.3.6.1.4.1.57264.1.13 | Source Repository Ref
+
+Source Repository Ref that the build run was based upon. For example: `refs/head/main` git branch or tag.
+
+### 1.3.6.1.4.1.57264.1.14 | Source Repository Identifier
+
+Immutable identifier for the source repository the workflow was based upon. MAY be empty if the Source Repository URI is immutable. For example: `1234` if using a primary key.
+
+### 1.3.6.1.4.1.57264.1.15 | Source Repository Owner URI
+
+Source repository owner URL of the owner of the source repository that the build was based
+on. SHOULD be fully qualified. MAY be empty if there is no Source Repository Owner. For example: `https://example.com/owner`
+
+### 1.3.6.1.4.1.57264.1.16 | Source Repository Owner Identifier
+
+Immutable identifier for the owner of the source repository that the workflow was based upon. MAY be empty if there is no Source Repository Owner or Source Repository Owner URI is immutable. For example: `5678` if using a primary key.
+
+### 1.3.6.1.4.1.57264.1.17 | Build Config URI
+
+Build Config URL to the top-level/initiating build instructions. SHOULD be fully qualified. For example: `https://example.com/owner/repository/build-config.yml`.
+
+### 1.3.6.1.4.1.57264.1.18 | Build Config Digest
+
+Immutable reference to the specific version of the top-level/initiating build
+instructions. For example: `abc123` git commit SHA.
+
+### 1.3.6.1.4.1.57264.1.19 | Build Trigger
 
 Event or action that initiated the build. For example: `push`.
 
-### 1.3.6.1.4.1.57264.1.19 | Run Invocation URI
+### 1.3.6.1.4.1.57264.1.20 | Run Invocation URI
 
 Run Invocation URL to uniquely identify the build execution. SHOULD be fully qualified. For example: `https://github.com/example/repository/actions/runs/1536140711/attempts/1`.
-
-### 1.3.6.1.4.1.57264.1.20 | Runner Environment
-
-Runner Environment specifying whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure. For example: `[platform]-hosted` and `self-hosted`.
 
 ## 1.3.6.1.4.1.57264.2 | Policy OID for Sigstore Timestamp Authority
 
@@ -169,6 +168,9 @@ that Sigstore operates.
 | exp                | exp     | exp       | exp        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
 | nbf                | nbf     | nbf       | nbf        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
 | iat                | iat     | iat       | iat        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
+| server_url + job_workflow_ref   | ??     | ??       | ??        | Build Signer URI             | Reference to specific build instructions that are responsible for signing. Can be the same as Build Config URI. For example a reusable workflow in GitHub Actions or a Circle CI Orbs. |
+| job_workflow_sha   | ??     | ??       | ??        | Build Signer Digest          | An immutable reference to the specific version of the build instructions that is responsible for signing. Should include the digest type followed by the digest, e.g. `sha1:abc123`.   |
+| runner_environment | ??     | ??       | ??        | Runner Environment           | For platforms to specify whether the build took place in platform-hosted cloud infrastructure or customer-hosted infrastructure. For example: `platform-hosted` and `self-hosted`.     |
 | repository         | project_path     | ??       | ??        | Source Repository URI                   | Should include a fully qualified repository URL.                                                                                                                                       |
 | sha                | ??     | ??       | build_commit | Source Repository Digest                | An immutable reference to a specific version of the source code. Should include the digest type followed by the digest, e.g. `sha1:abc123`.                                            |
 | ref                | ref     | ??       | build_branch | Source Repository Ref                   | The source ref that the build run was based upon. For example: refs/head/main.                                                                                                         |
@@ -177,11 +179,8 @@ that Sigstore operates.
 | repository_owner_id         | namespace_id     | ??       | ??        | Source Repository Owner Identifier     | Stable identifier for the owner of the source repository.                                                                                                                                   |
 | workflow_ref       | ??     | ??       | ??        | Build Config URI             | A reference to the initiating build instructions.                                                                                                                                      |
 | workflow_sha       | ??     | ??       | ??        | Build Config Digest          | An immutable reference to the specific version of the top-level build instructions. Should include the digest type followed by the digest, e.g. `sha1:abc123`.                         |
-| server_url + job_workflow_ref   | ??     | ??       | ??        | Build Signer URI             | Reference to specific build instructions that are responsible for signing. Can be the same as Build Config URI. For example a reusable workflow in GitHub Actions or a Circle CI Orbs. |
-| job_workflow_sha   | ??     | ??       | ??        | Build Signer Digest          | An immutable reference to the specific version of the build instructions that is responsible for signing. Should include the digest type followed by the digest, e.g. `sha1:abc123`.   |
 | event_name         | pipeline_source | ??       | ??        | Build Trigger                | The event or action that triggered the build.                                                                                                                                          |
 | server_url + repository + "/actions/runs/" + run_id + "/attempts/" + run_attempt | ??     | ??       | ??        | Run Invocation URI           | An immutable identifier that can uniquely identify the build execution     |
-| runner_environment | ??     | ??       | ??        | Runner Environment           | For platforms to specify whether the build took place in platform-hosted cloud infrastructure or customer-hosted infrastructure. For example: `platform-hosted` and `self-hosted`.     |
 
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
 [oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264
