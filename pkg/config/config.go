@@ -76,6 +76,9 @@ type OIDCIssuer struct {
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
 	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
+	// Optional, the challenge claim expected for the issuer
+	// Set if using a custom issuer
+	ChallengeClaim string `json:"ChallengeClaim,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -167,7 +170,7 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 			Issuer:            &fulciogrpc.OIDCIssuer_IssuerUrl{IssuerUrl: cfgIss.IssuerURL},
 			Audience:          cfgIss.ClientID,
 			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
-			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type),
+			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
 		}
 		issuers = append(issuers, issuer)
 	}
@@ -177,7 +180,7 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 			Issuer:            &fulciogrpc.OIDCIssuer_WildcardIssuerUrl{WildcardIssuerUrl: metaIss},
 			Audience:          cfgIss.ClientID,
 			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
-			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type),
+			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
 		}
 		issuers = append(issuers, issuer)
 	}
@@ -303,7 +306,7 @@ func validateConfig(conf *FulcioConfig) error {
 			}
 		}
 
-		if issuerToChallengeClaim(issuer.Type) == "" {
+		if issuerToChallengeClaim(issuer.Type, issuer.ChallengeClaim) == "" {
 			return errors.New("issuer missing challenge claim")
 		}
 	}
@@ -315,7 +318,7 @@ func validateConfig(conf *FulcioConfig) error {
 			return errors.New("SPIFFE meta issuers not supported")
 		}
 
-		if issuerToChallengeClaim(metaIssuer.Type) == "" {
+		if issuerToChallengeClaim(metaIssuer.Type, metaIssuer.ChallengeClaim) == "" {
 			return errors.New("issuer missing challenge claim")
 		}
 	}
@@ -458,7 +461,10 @@ func validateAllowedDomain(subjectHostname, issuerHostname string) error {
 	return fmt.Errorf("hostname top-level and second-level domains do not match: %s, %s", subjectHostname, issuerHostname)
 }
 
-func issuerToChallengeClaim(issType IssuerType) string {
+func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
+	if challengeClaim != "" {
+		return challengeClaim
+	}
 	switch issType {
 	case IssuerTypeBuildkiteJob:
 		return "sub"
