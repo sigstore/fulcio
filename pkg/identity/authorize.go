@@ -16,39 +16,17 @@ package identity
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/config"
 )
 
-func extractIssuer(token string) (string, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
-	}
-	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return "", fmt.Errorf("oidc: malformed jwt payload: %w", err)
-	}
-	var payload struct {
-		Issuer string `json:"iss"`
-	}
-
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return "", fmt.Errorf("oidc: failed to unmarshal claims: %w", err)
-	}
-	return payload.Issuer, nil
-}
-
 // We do this to bypass needing actual OIDC tokens for unit testing.
 var Authorize = actualAuthorize
 
 func actualAuthorize(ctx context.Context, token string) (*oidc.IDToken, error) {
-	issuer, err := extractIssuer(token)
+	issuer, err := extractIssuerURL(token)
 	if err != nil {
 		return nil, err
 	}
