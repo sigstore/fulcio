@@ -29,7 +29,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
 	github.com/spiffe/go-spiffe/v2 v2.1.2
-	go.step.sm/crypto v0.25.0
+	go.step.sm/crypto v0.25.1
 	go.uber.org/zap v1.24.0
 	google.golang.org/api v0.110.0
 	google.golang.org/genproto v0.0.0-20230209215440-0dfe4f8abfcc
@@ -60,7 +60,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.209 // indirect
+	github.com/aws/aws-sdk-go v1.44.210 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.15 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.15 // indirect
