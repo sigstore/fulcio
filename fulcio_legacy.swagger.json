@@ -102,6 +102,7 @@
         "extensions": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           },
           "description": "Application specific response metadata. Must be set in the first response\nfor streaming APIs."
@@ -169,6 +170,7 @@
         "details": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
         }
