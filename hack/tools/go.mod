@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/googleapis/api-linter v1.42.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.0
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	google.golang.org/protobuf v1.28.1
 )
 
