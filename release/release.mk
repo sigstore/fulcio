@@ -78,7 +78,7 @@ release-images: ko-release push-manifest update-yaml
 
 .PHONY: sign-container-release
 sign-container-release: release-images
-	cosign sign --force --key "gcpkms://projects/${PROJECT_ID}/locations/${KEY_LOCATION}/keyRings/${KEY_RING}/cryptoKeys/${KEY_NAME}/versions/${KEY_VERSION}" -a GIT_HASH=$(GIT_HASH) -a GIT_VERSION=$(GIT_VERSION) ${KO_PREFIX}/fulcio:$(GIT_VERSION)
+	cosign sign --yes --key "gcpkms://projects/${PROJECT_ID}/locations/${KEY_LOCATION}/keyRings/${KEY_RING}/cryptoKeys/${KEY_NAME}/versions/${KEY_VERSION}" -a GIT_HASH=$(GIT_HASH) -a GIT_VERSION=$(GIT_VERSION) ${KO_PREFIX}/fulcio:$(GIT_VERSION)
 
 ######################
 # sign keyless section
@@ -86,7 +86,7 @@ sign-container-release: release-images
 
 .PHONY: sign-keyless-release
 sign-keyless-release:
-	cosign sign --force -a GIT_HASH=$(GIT_HASH) -a GIT_VERSION=$(GIT_VERSION) ${KO_PREFIX}/fulcio:$(GIT_VERSION)
+	cosign sign --yes -a GIT_HASH=$(GIT_HASH) -a GIT_VERSION=$(GIT_VERSION) ${KO_PREFIX}/fulcio:$(GIT_VERSION)
 
 ####################
 # copy image to GHCR

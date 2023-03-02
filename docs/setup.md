@@ -203,7 +203,7 @@ For the intermediate certificate:
 * Lifetime does not exceed the parent certificate
 * CA basic constraints: CA:TRUE, pathlen:0
     * You can choose to add a different path length constraint, but we recommend limiting
-      the intermediate CA to only issue leaf certificates. 
+      the intermediate CA to only issue leaf certificates.
 * Subject public key: We recommend using ECDSA-P384 (secp384r1) or higher, or RSA-4096.
   We don't recommend mixing signing algorithms within the chain.
 
@@ -214,7 +214,7 @@ Cosign to call the local instance of Fulcio. You can configure Cosign to call
 the local instance with `--fulcio-url`, for example:
 
 ```
-COSIGN_EXPERIMENTAL=1 cosign sign --fulcio-url http://localhost:5555 container 
+cosign sign --yes --fulcio-url http://localhost:5555 container
 ```
 
 You will also need to configure Cosign with the local instance's root
