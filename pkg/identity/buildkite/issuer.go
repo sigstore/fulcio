@@ -18,14 +18,15 @@ import (
 	"context"
 
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/base"
 )
 
 type buildkiteIssuer struct {
-	issuerURL string
+	identity.Issuer
 }
 
 func Issuer(issuerURL string) identity.Issuer {
-	return &buildkiteIssuer{issuerURL: issuerURL}
+	return &buildkiteIssuer{base.Issuer(issuerURL)}
 }
 
 func (e *buildkiteIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
@@ -34,9 +35,4 @@ func (e *buildkiteIssuer) Authenticate(ctx context.Context, token string) (ident
 		return nil, err
 	}
 	return JobPrincipalFromIDToken(ctx, idtoken)
-}
-
-// Match checks if this issuer can authenticate tokens from a given issuer URL
-func (e *buildkiteIssuer) Match(ctx context.Context, url string) bool {
-	return url == e.issuerURL
 }
