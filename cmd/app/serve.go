@@ -270,7 +270,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			log.Logger.Fatal(err)
 		}
 	}
-	ip := NewIssuerPool(cfg)
+	ip := server.NewIssuerPool(cfg)
 
 	portsMatch := viper.GetString("port") == viper.GetString("grpc-port")
 	hostsMatch := viper.GetString("host") == viper.GetString("grpc-host")
