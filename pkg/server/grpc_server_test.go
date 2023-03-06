@@ -524,8 +524,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
-	// Give a few seconds for the oidc servers to start up
-	time.Sleep(5 * time.Second)
+	t.Logf("%v", cfg)
 
 	spiffeSubject := "spiffe://foo.com/bar"
 	uriSubject := uriIssuer + "/users/1"
@@ -558,7 +557,6 @@ func TestAPIWithUriSubject(t *testing.T) {
 			server.Stop()
 			conn.Close()
 		}()
-
 		client := protobuf.NewCAClient(conn)
 
 		pubBytes, proof := generateKeyAndProof(c.Subject, t)

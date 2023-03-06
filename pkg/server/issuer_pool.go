@@ -39,7 +39,7 @@ func NewIssuerPool(cfg *config.FulcioConfig) identity.IssuerPool {
 
 func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 	issuerURL := i.IssuerURL
-	if meta == "" {
+	if meta != "" {
 		issuerURL = meta
 	}
 	switch i.Type {
