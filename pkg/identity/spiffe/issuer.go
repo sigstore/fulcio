@@ -18,14 +18,15 @@ import (
 	"context"
 
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/base"
 )
 
 type spiffeIssuer struct {
-	issuerURL string
+	identity.Issuer
 }
 
 func Issuer(issuerURL string) identity.Issuer {
-	return &spiffeIssuer{issuerURL: issuerURL}
+	return &spiffeIssuer{base.Issuer(issuerURL)}
 }
 
 func (e *spiffeIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
@@ -34,9 +35,4 @@ func (e *spiffeIssuer) Authenticate(ctx context.Context, token string) (identity
 		return nil, err
 	}
 	return PrincipalFromIDToken(ctx, idtoken)
-}
-
-// Match checks if this issuer can authenticate tokens from a given issuer URL
-func (e *spiffeIssuer) Match(ctx context.Context, url string) bool {
-	return url == e.issuerURL
 }

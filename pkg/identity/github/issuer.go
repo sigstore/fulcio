@@ -18,14 +18,15 @@ import (
 	"context"
 
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/base"
 )
 
 type githubIssuer struct {
-	issuerURL string
+	identity.Issuer
 }
 
 func Issuer(issuerURL string) identity.Issuer {
-	return &githubIssuer{issuerURL: issuerURL}
+	return &githubIssuer{base.Issuer(issuerURL)}
 }
 
 func (e *githubIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
@@ -34,9 +35,4 @@ func (e *githubIssuer) Authenticate(ctx context.Context, token string) (identity
 		return nil, err
 	}
 	return WorkflowPrincipalFromIDToken(ctx, idtoken)
-}
-
-// Match checks if this issuer can authenticate tokens from a given issuer URL
-func (e *githubIssuer) Match(ctx context.Context, url string) bool {
-	return url == e.issuerURL
 }
