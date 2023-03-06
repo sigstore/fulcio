@@ -39,12 +39,14 @@ type grpcCAServer struct {
 	fulciogrpc.UnimplementedCAServer
 	ct *ctclient.LogClient
 	ca certauth.CertificateAuthority
+	identity.IssuerPool
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority) fulciogrpc.CAServer {
+func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) fulciogrpc.CAServer {
 	return &grpcCAServer{
-		ct: ct,
-		ca: ca,
+		ct:         ct,
+		ca:         ca,
+		IssuerPool: ip,
 	}
 }
 
@@ -70,14 +72,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	}
 
 	// Authenticate OIDC ID token by checking signature
-	idtoken, err := identity.Authorize(ctx, token)
-	if err != nil {
-		return nil, handleFulcioGRPCError(ctx, codes.Unauthenticated, err, invalidCredentials)
-	}
-	// Parse authenticated ID token into principal
-	// TODO:(nsmith5) replace this and authorize call above with
-	// just identity.IssuerPool.Authenticate()
-	principal, err := challenges.PrincipalFromIDToken(ctx, idtoken)
+	principal, err := g.IssuerPool.Authenticate(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
 	}

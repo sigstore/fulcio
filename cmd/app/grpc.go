@@ -33,6 +33,14 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
+	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/buildkite"
+	"github.com/sigstore/fulcio/pkg/identity/email"
+	"github.com/sigstore/fulcio/pkg/identity/github"
+	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
+	"github.com/sigstore/fulcio/pkg/identity/spiffe"
+	"github.com/sigstore/fulcio/pkg/identity/uri"
+	"github.com/sigstore/fulcio/pkg/identity/username"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/spf13/viper"
@@ -64,7 +72,7 @@ func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority) (*grpcServer, error) {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
@@ -77,12 +85,47 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
-	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
 	grpcServerEndpoint := fmt.Sprintf("%s:%s", viper.GetString("grpc-host"), viper.GetString("grpc-port"))
 	return &grpcServer{myServer, grpcServerEndpoint, grpcCAServer}, nil
+}
+
+func NewIssuerPool(cfg *config.FulcioConfig) identity.IssuerPool {
+	var ip identity.IssuerPool
+	for _, i := range cfg.OIDCIssuers {
+		ip = append(ip, getIssuer("", i))
+	}
+	for meta, i := range cfg.MetaIssuers {
+		ip = append(ip, getIssuer(meta, i))
+	}
+	return ip
+}
+
+func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
+	issuerURL := i.IssuerURL
+	if meta == "" {
+		issuerURL = meta
+	}
+	switch i.Type {
+	case config.IssuerTypeEmail:
+		return email.Issuer(issuerURL)
+	case config.IssuerTypeGithubWorkflow:
+		return github.Issuer(issuerURL)
+	case config.IssuerTypeBuildkiteJob:
+		return buildkite.Issuer(issuerURL)
+	case config.IssuerTypeKubernetes:
+		return kubernetes.Issuer(issuerURL)
+	case config.IssuerTypeSpiffe:
+		return spiffe.Issuer(issuerURL)
+	case config.IssuerTypeURI:
+		return uri.Issuer(issuerURL)
+	case config.IssuerTypeUsername:
+		return username.Issuer(issuerURL)
+	}
+	return nil
 }
 
 func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {

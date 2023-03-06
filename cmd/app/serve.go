@@ -50,6 +50,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -269,6 +270,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 			log.Logger.Fatal(err)
 		}
 	}
+	ip := NewIssuerPool(cfg)
 
 	portsMatch := viper.GetString("port") == viper.GetString("grpc-port")
 	hostsMatch := viper.GetString("host") == viper.GetString("grpc-host")
@@ -276,7 +278,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		port := viper.GetInt("port")
 		metricsPort := viper.GetInt("metrics-port")
 		// StartDuplexServer will always return an error, log fatally if it's non-nil
-		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, viper.GetString("host"), port, metricsPort); err != http.ErrServerClosed {
+		if err := StartDuplexServer(ctx, cfg, ctClient, baseca, viper.GetString("host"), port, metricsPort, ip); err != http.ErrServerClosed {
 			log.Logger.Fatal(err)
 		}
 		return
@@ -286,7 +288,7 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 
 	reg := prometheus.NewRegistry()
 
-	grpcServer, err := createGRPCServer(cfg, ctClient, baseca)
+	grpcServer, err := createGRPCServer(cfg, ctClient, baseca, ip)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
@@ -342,7 +344,7 @@ func checkServeCmdConfigFile() error {
 	return nil
 }
 
-func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, host string, port, metricsPort int) error {
+func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, host string, port, metricsPort int, ip identity.IssuerPool) error {
 	logger, opts := log.SetupGRPCLogging()
 
 	d := duplex.New(
@@ -361,7 +363,7 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	)
 
 	// GRPC server
-	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
 	protobuf.RegisterCAServer(d.Server, grpcCAServer)
 	if err := d.RegisterHandler(ctx, protobuf.RegisterCAHandlerFromEndpoint); err != nil {
 		return fmt.Errorf("registering grpc ca handler: %w", err)

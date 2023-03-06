@@ -20,7 +20,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sigstore/fulcio/pkg/identity"
+)
+
+var (
+	// For testing
+	CmpOptions = cmpopts.IgnoreUnexported(baseIssuer{})
 )
 
 type baseIssuer struct {
