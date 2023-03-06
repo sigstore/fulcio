@@ -525,7 +525,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 	}
 
 	// Give a few seconds for the oidc servers to start up
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	spiffeSubject := "spiffe://foo.com/bar"
 	uriSubject := uriIssuer + "/users/1"
