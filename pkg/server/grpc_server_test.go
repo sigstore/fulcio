@@ -524,8 +524,6 @@ func TestAPIWithUriSubject(t *testing.T) {
 		t.Fatalf("config.Read() = %v", err)
 	}
 
-	t.Logf("%v", cfg)
-
 	spiffeSubject := "spiffe://foo.com/bar"
 	uriSubject := uriIssuer + "/users/1"
 
