@@ -44,7 +44,7 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
-	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{})
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, nil)
 	if err != nil {
 		t.Error(err)
 	}

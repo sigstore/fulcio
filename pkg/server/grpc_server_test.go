@@ -83,7 +83,8 @@ func setupGRPCForTest(ctx context.Context, t *testing.T, cfg *config.FulcioConfi
 	t.Helper()
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
-	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca))
+	ip := NewIssuerPool(cfg)
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, ip))
 	go func() {
 		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("Server exited with error: %v", err)
@@ -105,7 +106,8 @@ func bufDialer(ctx context.Context, _ string) (net.Conn, error) {
 
 func TestMissingGetTrustBundleFails(t *testing.T) {
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, nil, nil, &FailingCertificateAuthority{})
+	cfg := &config.FulcioConfig{}
+	server, conn := setupGRPCForTest(ctx, t, cfg, nil, &FailingCertificateAuthority{})
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -553,7 +555,6 @@ func TestAPIWithUriSubject(t *testing.T) {
 			server.Stop()
 			conn.Close()
 		}()
-
 		client := protobuf.NewCAClient(conn)
 
 		pubBytes, proof := generateKeyAndProof(c.Subject, t)

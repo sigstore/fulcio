@@ -33,6 +33,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	gw_legacy "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
+	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/spf13/viper"
@@ -64,7 +65,7 @@ func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority) (*grpcServer, error) {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
@@ -77,7 +78,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
-	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca)
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
