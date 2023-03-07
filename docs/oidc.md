@@ -6,6 +6,20 @@ Fulcio uses OIDC tokens to authenticate requests. Subject-related claims from th
 
 Sigstore runs a federated OIDC identity provider, Dex. Users authenticate to their preferred identity provider and Dex creates an OIDC token with claims from the original OIDC token. Fulcio also supports OIDC tokens from additional configured issuers.
 
+## Adding a new OIDC issuer
+
+* Add a file under the [`federation` folder](https://github.com/sigstore/fulcio/tree/main/federation) with the URL, new issuer type name, and contact ([example](https://github.com/sigstore/fulcio/blob/8975dfd/federation/agent.buildkite.com/config.yaml))
+* Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/fulcio-config.yaml) by running `go run federation/main.go`
+* Add the new issuer to the [`identity` folder](https://github.com/sigstore/fulcio/tree/main/pkg/identity) ([example](https://github.com/sigstore/fulcio/tree/main/pkg/identity/buildkite)). You will define an `Issuer` type and a way to map the token to the certificate extensions.
+* Define a constant with the issuer type name in the [configuration](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L213-L221), add update the [tests](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config_test.go#L473-L503)
+* Map the issuer type to the token claim that will be signed over when requesting a token [here](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L464-L486). You can likely just use `sub`.
+* Add a case statement to map the issuer constant to the issuer type you created [here](https://github.com/sigstore/fulcio/blob/4d9d96a/pkg/server/issuer_pool.go#L40-L62)
+* Update the end-to-end gRPC tests:
+   * Update the [configuration test](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L175)
+   * Add a test for the new issuer ([example](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L331))
+
+See [this example](https://github.com/sigstore/fulcio/pull/890), although it is out of date as you'll now need to create an issuer type.
+
 ## Supported OIDC token issuers
 
 ### Email
@@ -164,3 +178,17 @@ Additionally, the configuration must include `SubjectDomain`, for example `examp
 * The issuer in the configuration must partially match the domain in the configuration. The top level domain and second level domain must match. The user who updates the Fulcio configuration must also have control over both the issuer and domain configuration fields (Verified either manually or through an ACME-style challenge).
 
 `SubjectDomain` is appended to `sub` to form an identity, `sub!SubjectDomain`, and included as an OtherName SAN.
+
+### Buildkite
+
+The token must include the following claims:
+
+```json
+{
+    "sub": "organization:acme-inc:pipeline:super-duper-app:ref:refs/heads/main:commit:9f3182061f1e2cca4702c368cbc039b7dc9d4485:step:",
+    "organization_slug": "acme-inc",
+    "pipeline_slug": "super-duper-app"
+}
+```
+
+These claims are used to form the SAN URI of the certificate: `https://buildkite.com/acme-inc/super-duper-app`.
