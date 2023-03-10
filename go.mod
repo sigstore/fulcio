@@ -11,7 +11,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/goadesign/goa v2.2.5+incompatible
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/google/certificate-transparency-go v1.1.4
 	github.com/google/go-cmp v0.5.9
 	github.com/google/tink/go v1.7.0
