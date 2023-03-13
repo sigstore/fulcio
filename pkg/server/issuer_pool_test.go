@@ -39,6 +39,10 @@ func TestIssuerPool(t *testing.T) {
 				IssuerClaim: "$.federated_claims.connector_id",
 				Type:        config.IssuerTypeEmail,
 			},
+			"https://custom.issuer.type": {
+				IssuerURL: "https://custom.issuer.type",
+				Type:      "custom",
+			},
 		},
 	}
 	// Build the expected issuer pool

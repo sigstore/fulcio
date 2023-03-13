@@ -29,10 +29,16 @@ import (
 func NewIssuerPool(cfg *config.FulcioConfig) identity.IssuerPool {
 	var ip identity.IssuerPool
 	for _, i := range cfg.OIDCIssuers {
-		ip = append(ip, getIssuer("", i))
+		iss := getIssuer("", i)
+		if iss != nil {
+			ip = append(ip, iss)
+		}
 	}
 	for meta, i := range cfg.MetaIssuers {
-		ip = append(ip, getIssuer(meta, i))
+		iss := getIssuer(meta, i)
+		if iss != nil {
+			ip = append(ip, iss)
+		}
 	}
 	return ip
 }
