@@ -34,33 +34,73 @@ type workflowPrincipal struct {
 	// https://token.actions.githubusercontent.com/.well-known/openid-configution
 	issuer string
 
-	// the final certificate.
+	// URL of issuer
 	url string
 
 	// Commit SHA being built
 	sha string
 
-	// Event that triggered this workflow run. E.g "push", "tag" etc
-	trigger string
+	// Event that triggered this workflow run. E.g "push", "tag"
+	eventName string
 
-	// Repository building built
+	// Name of repository being built
 	repository string
 
-	// Workflow that is running
+	// Deprecated
+	// Name of workflow that is running (mutable)
 	workflow string
 
 	// Git ref being built
 	ref string
+
+	// Specific build instructions (i.e. reusable workflow)
+	jobWorkflowRef string
+
+	// Commit SHA to specific build instructions
+	jobWorkflowSha string
+
+	// Whether the build took place in cloud or self-hosted infrastructure
+	runnerEnvironment string
+
+	// ID to the source repo
+	repositoryID string
+
+	// Owner of the source repo (mutable)
+	repositoryOwner string
+
+	// ID of the source repo
+	repositoryOwnerID string
+
+	// Ref of top-level workflow that is running
+	workflowRef string
+
+	// Commit SHA of top-level workflow that is running
+	workflowSha string
+
+	// ID of workflow run
+	runID string
+
+	// Attempt number of workflow run
+	runAttempt string
 }
 
 func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
-		JobWorkflowRef string `json:"job_workflow_ref"`
-		Sha            string `json:"sha"`
-		Trigger        string `json:"event_name"`
-		Repository     string `json:"repository"`
-		Workflow       string `json:"workflow"`
-		Ref            string `json:"ref"`
+		JobWorkflowRef    string `json:"job_workflow_ref"`
+		Sha               string `json:"sha"`
+		EventName         string `json:"event_name"`
+		Repository        string `json:"repository"`
+		Workflow          string `json:"workflow"`
+		Ref               string `json:"ref"`
+		JobWorkflowSha    string `json:"job_workflow_sha"`
+		RunnerEnvironment string `json:"runner_environment"`
+		RepositoryID      string `json:"repository_id"`
+		RepositoryOwner   string `json:"repository_owner"`
+		RepositoryOwnerID string `json:"repository_owner_id"`
+		WorkflowRef       string `json:"workflow_ref"`
+		WorkflowSha       string `json:"workflow_sha"`
+		RunID             string `json:"run_id"`
+		RunAttempt        string `json:"run_attempt"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
@@ -72,7 +112,7 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if claims.Sha == "" {
 		return nil, errors.New("missing sha claim in ID token")
 	}
-	if claims.Trigger == "" {
+	if claims.EventName == "" {
 		return nil, errors.New("missing event_name claim in ID token")
 	}
 	if claims.Repository == "" {
@@ -84,16 +124,53 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if claims.Ref == "" {
 		return nil, errors.New("missing ref claim in ID token")
 	}
+	if claims.JobWorkflowSha == "" {
+		return nil, errors.New("missing job_workflow_sha claim in ID token")
+	}
+	if claims.RunnerEnvironment == "" {
+		return nil, errors.New("missing runner_environment claim in ID token")
+	}
+	if claims.RepositoryID == "" {
+		return nil, errors.New("missing repository_id claim in ID token")
+	}
+	if claims.RepositoryOwner == "" {
+		return nil, errors.New("missing repository_owner claim in ID token")
+	}
+	if claims.RepositoryOwnerID == "" {
+		return nil, errors.New("missing repository_owner_id claim in ID token")
+	}
+	if claims.WorkflowRef == "" {
+		return nil, errors.New("missing workflow_ref claim in ID token")
+	}
+	if claims.WorkflowSha == "" {
+		return nil, errors.New("missing workflow_sha claim in ID token")
+	}
+	if claims.RunID == "" {
+		return nil, errors.New("missing run_id claim in ID token")
+	}
+	if claims.RunAttempt == "" {
+		return nil, errors.New("missing run_attempt claim in ID token")
+	}
 
 	return &workflowPrincipal{
-		subject:    token.Subject,
-		issuer:     token.Issuer,
-		url:        `https://github.com/` + claims.JobWorkflowRef,
-		sha:        claims.Sha,
-		trigger:    claims.Trigger,
-		repository: claims.Repository,
-		workflow:   claims.Workflow,
-		ref:        claims.Ref,
+		subject:           token.Subject,
+		issuer:            token.Issuer,
+		url:               `https://github.com/`,
+		sha:               claims.Sha,
+		eventName:         claims.EventName,
+		repository:        claims.Repository,
+		workflow:          claims.Workflow,
+		ref:               claims.Ref,
+		jobWorkflowRef:    claims.JobWorkflowRef,
+		jobWorkflowSha:    claims.JobWorkflowSha,
+		runnerEnvironment: claims.RunnerEnvironment,
+		repositoryID:      claims.RepositoryID,
+		repositoryOwner:   claims.RepositoryOwner,
+		repositoryOwnerID: claims.RepositoryOwnerID,
+		workflowRef:       claims.WorkflowRef,
+		workflowSha:       claims.WorkflowSha,
+		runID:             claims.RunID,
+		runAttempt:        claims.RunAttempt,
 	}, nil
 }
 
@@ -103,7 +180,7 @@ func (w workflowPrincipal) Name(ctx context.Context) string {
 
 func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
 	// Set workflow URL to SubjectAlternativeName on certificate
-	parsed, err := url.Parse(w.url)
+	parsed, err := url.Parse(w.url + w.jobWorkflowRef)
 	if err != nil {
 		return err
 	}
@@ -111,12 +188,28 @@ func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) er
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer:                   w.issuer,
-		GithubWorkflowTrigger:    w.trigger,
+		Issuer: w.issuer,
+		// BEGIN: Deprecated
+		GithubWorkflowTrigger:    w.eventName,
 		GithubWorkflowSHA:        w.sha,
 		GithubWorkflowName:       w.workflow,
 		GithubWorkflowRepository: w.repository,
 		GithubWorkflowRef:        w.ref,
+		// END: Deprecated
+
+		BuildSignerURI:                  w.url + w.jobWorkflowRef,
+		BuildSignerDigest:               w.jobWorkflowSha,
+		RunnerEnvironment:               w.runnerEnvironment,
+		SourceRepositoryURI:             w.url + w.repository,
+		SourceRepositoryDigest:          w.sha,
+		SourceRepositoryRef:             w.ref,
+		SourceRepositoryIdentifier:      w.repositoryID,
+		SourceRepositoryOwnerURI:        w.url + w.repositoryOwner,
+		SourceRepositoryOwnerIdentifier: w.repositoryOwnerID,
+		BuildConfigURI:                  w.url + w.workflowRef,
+		BuildConfigDigest:               w.workflowSha,
+		BuildTrigger:                    w.eventName,
+		RunInvocationURI:                w.url + w.repository + "/actions/runs/" + w.runID + "/attempts/" + w.runAttempt,
 	}.Render()
 	if err != nil {
 		return err
