@@ -942,13 +942,6 @@ func TestAPIWithGitHub(t *testing.T) {
 			t.Fatalf("unexpected extension value, expected %s, got %s", value, extValue)
 		}
 	}
-	// buildSignerURIExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9})
-	// if !found {
-	// 	t.Fatal("expected ref in custom OID")
-	// }
-	// if string(buildSignerURIExt.Value) != claims.Ref {
-	// 	t.Fatalf("unexpected build signer URI, expected %s, got %s", claims.Ref, string(buildSignerURIExt.Value))
-	// }
 }
 
 // Tests API with issuer claim in different field in the OIDC token
