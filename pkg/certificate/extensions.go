@@ -22,14 +22,18 @@ import (
 )
 
 var (
-	// BEGIN: Deprecated
-	OIDIssuer                   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
-	OIDGitHubWorkflowTrigger    = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}
-	OIDGitHubWorkflowSHA        = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3}
-	OIDGitHubWorkflowName       = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4}
+	// Deprecated: Use OIDIssuerV2
+	OIDIssuer = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	// Deprecated: Use OIDBuildTrigger
+	OIDGitHubWorkflowTrigger = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}
+	// Deprecated: Use OIDSourceRepositoryDigest
+	OIDGitHubWorkflowSHA = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3}
+	// Deprecated: Use OIDBuildConfigURI or OIDBuildConfigDigest
+	OIDGitHubWorkflowName = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4}
+	// Deprecated: Use SourceRepositoryURI
 	OIDGitHubWorkflowRepository = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5}
-	OIDGitHubWorkflowRef        = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}
-	// END: Deprecated
+	// Deprecated: Use OIDSourceRepositoryRef
+	OIDGitHubWorkflowRef = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6}
 
 	OIDOtherName = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 7}
 	OIDIssuerV2  = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}

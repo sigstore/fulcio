@@ -179,12 +179,13 @@ func (w workflowPrincipal) Name(ctx context.Context) string {
 }
 
 func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
-	// Set workflow URL to SubjectAlternativeName on certificate
-	parsed, err := url.Parse(w.url + w.jobWorkflowRef)
+	baseURL, err := url.Parse(w.url)
 	if err != nil {
 		return err
 	}
-	cert.URIs = []*url.URL{parsed}
+
+	// Set workflow ref URL to SubjectAlternativeName on certificate
+	cert.URIs = []*url.URL{baseURL.JoinPath(w.jobWorkflowRef)}
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
@@ -197,19 +198,19 @@ func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) er
 		GithubWorkflowRef:        w.ref,
 		// END: Deprecated
 
-		BuildSignerURI:                  w.url + w.jobWorkflowRef,
+		BuildSignerURI:                  baseURL.JoinPath(w.jobWorkflowRef).String(),
 		BuildSignerDigest:               w.jobWorkflowSha,
 		RunnerEnvironment:               w.runnerEnvironment,
-		SourceRepositoryURI:             w.url + w.repository,
+		SourceRepositoryURI:             baseURL.JoinPath(w.repository).String(),
 		SourceRepositoryDigest:          w.sha,
 		SourceRepositoryRef:             w.ref,
 		SourceRepositoryIdentifier:      w.repositoryID,
-		SourceRepositoryOwnerURI:        w.url + w.repositoryOwner,
+		SourceRepositoryOwnerURI:        baseURL.JoinPath(w.repositoryOwner).String(),
 		SourceRepositoryOwnerIdentifier: w.repositoryOwnerID,
-		BuildConfigURI:                  w.url + w.workflowRef,
+		BuildConfigURI:                  baseURL.JoinPath(w.workflowRef).String(),
 		BuildConfigDigest:               w.workflowSha,
 		BuildTrigger:                    w.eventName,
-		RunInvocationURI:                w.url + w.repository + "/actions/runs/" + w.runID + "/attempts/" + w.runAttempt,
+		RunInvocationURI:                baseURL.JoinPath(w.repository, "actions/runs", w.runID, "attempts", w.runAttempt).String(),
 	}.Render()
 	if err != nil {
 		return err
