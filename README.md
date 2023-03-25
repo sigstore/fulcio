@@ -26,15 +26,16 @@ you must verify the chain using Sigstore's [TUF](https://theupdateframework.io/)
 [sigstore/root-signing](https://github.com/sigstore/root-signing) repository).
 
 To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
+
 ```
-$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@06ed59941769f55b7d54158a0be85a16a7475fa7
+$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@latest
 ```
 
-Then, obtain trusted root keys for Sigstore. This can be done from a trusted commit in Sigstore's root signing repository
-(e.g. after the [livestreamed root signing ceremony](https://github.com/sigstore/root-signing#initial-root-signing-ceremony)).
+Then, obtain trusted root keys for Sigstore. You will use the 5th iteration of Sigstore's TUF root to start the root of trust, due to
+a backwards incompatible change.
+
 ```
-# Ref 193343461a4d365ac517b5d668e01fbaddd4eba5 is when the root ceremony was completed
-curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/193343461a4d365ac517b5d668e01fbaddd4eba5/ceremony/2021-06-18/repository/root.json
+curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/main/ceremony/2022-10-18/repository/5.root.json
 ```
 
 Initialize the TUF client with the previously obtained root and the remote repository, https://sigstore-tuf-root.storage.googleapis.com,
@@ -74,6 +75,22 @@ mygUY7Ii2zbdCdliiow=
 -----END CERTIFICATE-----
 ```
 
+### Verifying releases
+
+You can also verify signed releases (`fulcio-<os>.sig`) using the artifact signing key:
+
+```
+tuf-client get https://sigstore-tuf-root.storage.googleapis.com artifact.pub > artifact.pub
+
+curl -o fulcio-release.sig -L https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>.sig
+base64 -d fulcio-release.sig > fulcio-release.sig.decoded
+
+curl -o fulcio-release -L https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>
+
+openssl dgst -sha256 -verify artifact.pub -signature fulcio-release.sig.decoded fulcio-release
+```
+
+
 ## API
 
 The API is defined [here](./fulcio.proto). The API can be accessed
@@ -98,7 +115,7 @@ process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
 
 ## Info
 
-`Fulcio` is developed as part of the [`sigstore`](https://sigstore.dev) project.
+Fulcio is developed as part of the [`sigstore`](https://sigstore.dev) project.
 
 We also use a [slack channel](https://sigstore.slack.com)!
-Click [here](https://join.slack.com/t/sigstore/shared_invite/zt-mhs55zh0-XmY3bcfWn4XEyMqUUutbUQ) for the invite link.
+Click [here](https://links.sigstore.dev/slack-invite) for the invite link.
