@@ -1,3 +1,41 @@
+# v1.2.0
+
+Fulcio 1.2.0 adds support for additional extensions in certificates issued for
+CI platforms, starting with GitHub Actions.
+
+Deprecation warning: OIDs `1.3.6.1.4.1.57264.1.1` through `1.3.6.1.4.1.57264.1.6` have been deprecated,
+but are still present in the issued certificates. The new extensions `1.3.6.1.4.1.57264.1.8`
+through `1.3.6.1.4.1.57264.1.21` are correctly formatted as DER-encoded strings.
+
+## Enhancements
+
+* Implement standardized CI extensions for GitHub (https://github.com/sigstore/fulcio/pull/1073)
+* Allow specifying ChallengeClaim for an Issuer in the Fulcio config (https://github.com/sigstore/fulcio/pull/1007)
+* Support custom OIDC issuers
+    * Begin implementing Issuer interface for email and github identities (https://github.com/sigstore/fulcio/pull/1005)
+    * Implement Issuer interface for spiffe and kubernetes types (https://github.com/sigstore/fulcio/pull/1033)
+    * Implement Issuer interface for username and uri Issuer types (https://github.com/sigstore/fulcio/pull/1035)
+    * implement Issuer interface for buildkite (https://github.com/sigstore/fulcio/pull/1037)
+    * Create BaseIssuer type to implement Match for all Issuers (https://github.com/sigstore/fulcio/pull/1039)
+    * Use Issuer interface to allow for custom issuers (https://github.com/sigstore/fulcio/pull/1008)
+
+## Bug Fixes
+
+* Don't add nil issuers to issuer pool (https://github.com/sigstore/fulcio/pull/1053)
+
+## Documentation
+
+* Standardizing Fulcio Certificate Extensions (https://github.com/sigstore/fulcio/pull/945)
+* Add documentation for adding a new OIDC issuer (https://github.com/sigstore/fulcio/pull/1042)
+* Update TUF instructions in README (https://github.com/sigstore/fulcio/pull/1079)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior
+* Hayden B
+* Philip Harrison
+* priyawadhwa
+
 # v1.1.0
 
 Fulcio 1.1.0 adds support for Buildkite, supports running the HTTP and gRPC servers on the same port,
