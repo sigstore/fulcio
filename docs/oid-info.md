@@ -45,6 +45,15 @@ Nice-to-haves:
   - Fully qualified URL: Complete URL with protocol.
 - `Digest`: Output of a cryptographic hash function, e.g. git commit SHA
 
+## Extension values
+
+`1.3.6.1.4.1.57264.1.1` through `1.3.6.1.4.1.57264.1.6` are formatted as raw strings without any DER encoding.
+
+`1.3.6.1.4.1.57264.1.7` is formatted as a DER-encoded string in the SubjectAlternativeName extension, as per RFC 5280 4.2.1.6.
+
+`1.3.6.1.4.1.57264.1.8` through `1.3.6.1.4.1.57264.1.21` are formatted as DER-encoded strings; the ASN.1 tag is
+UTF8String (0x0C) and the tag class is universal.
+
 ## Directory
 
 Note that all values begin from the root OID 1.3.6.1.4.1.57264 [registered by Sigstore][oid-link].
@@ -97,60 +106,70 @@ the git ref that the workflow run was based upon.
 This specifies the username identity in the OtherName Subject Alternative Name, as
 defined by [RFC5280 4.2.1.6](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6).
 
-### 1.3.6.1.4.1.57264.1.8 | Build Signer URI
+### 1.3.6.1.4.1.57264.1.8 | Issuer (V2)
+
+This contains the `iss` claim from the OIDC Identity Token that was
+presented at the time the code signing certificate was requested to be created.
+This claim is the URI of the OIDC Identity Provider that digitally signed the
+identity token. For example: `https://oidc-issuer.com`.
+
+The difference between this extension and `1.3.6.1.4.1.57264.1.1` is that the extension value
+is formatted to the RFC 5280 specification as a DER-encoded string.
+
+### 1.3.6.1.4.1.57264.1.9 | Build Signer URI
 
 Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI. Build Signer URI is also included in the Subject Alternative Name.
 
 For example a reusable workflow ref in GitHub Actions or a Circle CI Orb name/version. For example: `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`.
 
-### 1.3.6.1.4.1.57264.1.9 | Build Signer Digest
+### 1.3.6.1.4.1.57264.1.10 | Build Signer Digest
 
 Immutable reference to the specific version of the build instructions that is responsible for signing. For example: `abc123` git commit SHA.
 
-### 1.3.6.1.4.1.57264.1.10 | Runner Environment
+### 1.3.6.1.4.1.57264.1.11 | Runner Environment
 
 Runner Environment specifying whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure. For example: `[platform]-hosted` and `self-hosted`.
 
-### 1.3.6.1.4.1.57264.1.11 | Source Repository URI
+### 1.3.6.1.4.1.57264.1.12 | Source Repository URI
 
 Source repository URL that the build was based on. SHOULD be fully qualified. For example: `https://example.com/owner/repository`.
 
-### 1.3.6.1.4.1.57264.1.12 | Source Repository Digest
+### 1.3.6.1.4.1.57264.1.13 | Source Repository Digest
 
 Immutable reference to a specific version of the source code that the build
 was based upon. For example: `abc123` git commit SHA.
 
-### 1.3.6.1.4.1.57264.1.13 | Source Repository Ref
+### 1.3.6.1.4.1.57264.1.14 | Source Repository Ref
 
 Source Repository Ref that the build run was based upon. For example: `refs/head/main` git branch or tag.
 
-### 1.3.6.1.4.1.57264.1.14 | Source Repository Identifier
+### 1.3.6.1.4.1.57264.1.15 | Source Repository Identifier
 
 Immutable identifier for the source repository the workflow was based upon. MAY be empty if the Source Repository URI is immutable. For example: `1234` if using a primary key.
 
-### 1.3.6.1.4.1.57264.1.15 | Source Repository Owner URI
+### 1.3.6.1.4.1.57264.1.16 | Source Repository Owner URI
 
 Source repository owner URL of the owner of the source repository that the build was based
 on. SHOULD be fully qualified. MAY be empty if there is no Source Repository Owner. For example: `https://example.com/owner`
 
-### 1.3.6.1.4.1.57264.1.16 | Source Repository Owner Identifier
+### 1.3.6.1.4.1.57264.1.17 | Source Repository Owner Identifier
 
 Immutable identifier for the owner of the source repository that the workflow was based upon. MAY be empty if there is no Source Repository Owner or Source Repository Owner URI is immutable. For example: `5678` if using a primary key.
 
-### 1.3.6.1.4.1.57264.1.17 | Build Config URI
+### 1.3.6.1.4.1.57264.1.18 | Build Config URI
 
 Build Config URL to the top-level/initiating build instructions. SHOULD be fully qualified. For example: `https://example.com/owner/repository/build-config.yml`.
 
-### 1.3.6.1.4.1.57264.1.18 | Build Config Digest
+### 1.3.6.1.4.1.57264.1.19 | Build Config Digest
 
 Immutable reference to the specific version of the top-level/initiating build
 instructions. For example: `abc123` git commit SHA.
 
-### 1.3.6.1.4.1.57264.1.19 | Build Trigger
+### 1.3.6.1.4.1.57264.1.20 | Build Trigger
 
 Event or action that initiated the build. For example: `push`.
 
-### 1.3.6.1.4.1.57264.1.20 | Run Invocation URI
+### 1.3.6.1.4.1.57264.1.21 | Run Invocation URI
 
 Run Invocation URL to uniquely identify the build execution. SHOULD be fully qualified. For example: `https://github.com/example/repository/actions/runs/1536140711/attempts/1`.
 

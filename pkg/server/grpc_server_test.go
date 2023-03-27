@@ -780,12 +780,21 @@ func TestAPIWithBuildkite(t *testing.T) {
 
 // githubClaims holds the additional JWT claims for GitHub OIDC tokens
 type githubClaims struct {
-	JobWorkflowRef string `json:"job_workflow_ref"`
-	Sha            string `json:"sha"`
-	Trigger        string `json:"event_name"`
-	Repository     string `json:"repository"`
-	Workflow       string `json:"workflow"`
-	Ref            string `json:"ref"`
+	JobWorkflowRef    string `json:"job_workflow_ref"`
+	Sha               string `json:"sha"`
+	EventName         string `json:"event_name"`
+	Repository        string `json:"repository"`
+	Workflow          string `json:"workflow"`
+	Ref               string `json:"ref"`
+	JobWorkflowSha    string `json:"job_workflow_sha"`
+	RunnerEnvironment string `json:"runner_environment"`
+	RepositoryID      string `json:"repository_id"`
+	RepositoryOwner   string `json:"repository_owner"`
+	RepositoryOwnerID string `json:"repository_owner_id"`
+	WorkflowRef       string `json:"workflow_ref"`
+	WorkflowSha       string `json:"workflow_sha"`
+	RunID             string `json:"run_id"`
+	RunAttempt        string `json:"run_attempt"`
 }
 
 // Tests API for GitHub subject types
@@ -807,12 +816,21 @@ func TestAPIWithGitHub(t *testing.T) {
 	}
 
 	claims := githubClaims{
-		JobWorkflowRef: "job/workflow/ref",
-		Sha:            "sha",
-		Trigger:        "trigger",
-		Repository:     "sigstore/fulcio",
-		Workflow:       "workflow",
-		Ref:            "refs/heads/main",
+		JobWorkflowRef:    "job/workflow/ref",
+		Sha:               "sha",
+		EventName:         "trigger",
+		Repository:        "sigstore/fulcio",
+		Workflow:          "workflow",
+		Ref:               "refs/heads/main",
+		JobWorkflowSha:    "example-sha",
+		RunnerEnvironment: "cloud-hosted",
+		RepositoryID:      "12345",
+		RepositoryOwner:   "username",
+		RepositoryOwnerID: "345",
+		WorkflowRef:       "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
+		WorkflowSha:       "example-sha-other",
+		RunID:             "42",
+		RunAttempt:        "1",
 	}
 	githubSubject := fmt.Sprintf("repo:%s:ref:%s", claims.Repository, claims.Ref)
 
@@ -875,40 +893,54 @@ func TestAPIWithGitHub(t *testing.T) {
 		t.Fatalf("URIs do not match: Expected %v, got %v", githubURI, leafCert.URIs[0])
 	}
 	// Verify custom OID values
-	triggerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2})
-	if !found {
-		t.Fatal("expected trigger in custom OID")
+	deprecatedExpectedExts := map[int]string{
+		2: claims.EventName,
+		3: claims.Sha,
+		4: claims.Workflow,
+		5: claims.Repository,
+		6: claims.Ref,
 	}
-	if string(triggerExt.Value) != claims.Trigger {
-		t.Fatalf("unexpected trigger, expected %s, got %s", claims.Trigger, string(triggerExt.Value))
+	for o, value := range deprecatedExpectedExts {
+		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
+		if !found {
+			t.Fatalf("expected extension in custom OID 1.3.6.1.4.1.57264.1.%d", o)
+		}
+		if string(ext.Value) != value {
+			t.Fatalf("unexpected extension value, expected %s, got %s", value, ext.Value)
+		}
 	}
-	shaExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 3})
-	if !found {
-		t.Fatal("expected sha in custom OID")
+	url := "https://github.com/"
+	expectedExts := map[int]string{
+		9:  url + claims.JobWorkflowRef,
+		10: claims.JobWorkflowSha,
+		11: claims.RunnerEnvironment,
+		12: url + claims.Repository,
+		13: claims.Sha,
+		14: claims.Ref,
+		15: claims.RepositoryID,
+		16: url + claims.RepositoryOwner,
+		17: claims.RepositoryOwnerID,
+		18: url + claims.WorkflowRef,
+		19: claims.WorkflowSha,
+		20: claims.EventName,
+		21: url + claims.Repository + "/actions/runs/" + claims.RunID + "/attempts/" + claims.RunAttempt,
 	}
-	if string(shaExt.Value) != claims.Sha {
-		t.Fatalf("unexpected sha, expected %s, got %s", claims.Sha, string(shaExt.Value))
-	}
-	workflowExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 4})
-	if !found {
-		t.Fatal("expected workflow name in custom OID")
-	}
-	if string(workflowExt.Value) != claims.Workflow {
-		t.Fatalf("unexpected workflow name, expected %s, got %s", claims.Workflow, string(workflowExt.Value))
-	}
-	repoExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 5})
-	if !found {
-		t.Fatal("expected repo in custom OID")
-	}
-	if string(repoExt.Value) != claims.Repository {
-		t.Fatalf("unexpected repo, expected %s, got %s", claims.Repository, string(repoExt.Value))
-	}
-	refExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 6})
-	if !found {
-		t.Fatal("expected ref in custom OID")
-	}
-	if string(refExt.Value) != claims.Ref {
-		t.Fatalf("unexpected ref, expected %s, got %s", claims.Ref, string(refExt.Value))
+	for o, value := range expectedExts {
+		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
+		if !found {
+			t.Fatalf("expected extension in custom OID 1.3.6.1.4.1.57264.1.%d", o)
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			t.Fatalf("error unmarshalling extension: :%v", err)
+		}
+		if len(rest) != 0 {
+			t.Fatal("error unmarshalling extension, rest is not 0")
+		}
+		if string(extValue) != value {
+			t.Fatalf("unexpected extension value, expected %s, got %s", value, extValue)
+		}
 	}
 }
 
@@ -1621,13 +1653,46 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 	if leafCert.ExtKeyUsage[0] != x509.ExtKeyUsageCodeSigning {
 		t.Fatalf("unexpected key usage, expected %v, got %v", x509.ExtKeyUsageCodeSigning, leafCert.ExtKeyUsage[0])
 	}
-	// Check issuer in custom OID
+	// Check issuer in custom OIDs
 	issuerExt, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1})
 	if !found {
-		t.Fatal("expected issuer in custom OID")
+		t.Fatal("expected issuer in custom OID 1.3.6.1.4.1.57264.1.1")
 	}
 	if string(issuerExt.Value) != issuer {
-		t.Fatalf("unexpected issuer, expected %s, got %s", issuer, string(issuerExt.Value))
+		t.Fatalf("unexpected issuer for 1.1, expected %s, got %s", issuer, string(issuerExt.Value))
+	}
+	issuerExt, found = findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8})
+	if !found {
+		t.Fatal("expected issuer in custom OID 1.3.6.1.4.1.57264.1.8")
+	}
+	// verify ASN.1 encoding is correct
+	var raw asn1.RawValue
+	rest, err = asn1.Unmarshal(issuerExt.Value, &raw)
+	if err != nil {
+		t.Fatalf("unexpected error unmarshalling issuer to RawValue: %v", err)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("unexpected trailing bytes in issuer")
+	}
+	// Universal class
+	if raw.Class != 0 {
+		t.Fatalf("expected ASN.1 issuer class to be 0, got %d", raw.Class)
+	}
+	// UTF8String
+	if raw.Tag != 12 {
+		t.Fatalf("expected ASN.1 issuer tag to be 12, got %d", raw.Tag)
+	}
+	// verify issuer unmarshals properly
+	var issuerVal string
+	rest, err = asn1.Unmarshal(issuerExt.Value, &issuerVal)
+	if err != nil {
+		t.Fatalf("unexpected error unmarshalling issuer: %v", err)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("unexpected trailing bytes in issuer")
+	}
+	if string(issuerVal) != issuer {
+		t.Fatalf("unexpected issuer 1.3.6.1.4.1.57264.1.8, expected %s, got %s", issuer, string(issuerExt.Value))
 	}
 
 	return leafCert
