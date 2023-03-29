@@ -80,6 +80,11 @@ func main() {
 				ClientID: "sigstore",
 				Type:     "kubernetes",
 			},
+			// GitHub Actions OIDC unique enterprise issuers
+			"https://token.actions.githubusercontent.com/*": {
+				ClientID: "sigstore",
+				Type:     "github-workflow",
+			},
 		},
 	}
 	for _, m := range matches {

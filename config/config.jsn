@@ -17,9 +17,9 @@
       "Type": "email"
     },
     "https://token.actions.githubusercontent.com": {
-              "IssuerURL": "https://token.actions.githubusercontent.com",
-              "ClientID": "sigstore",
-              "Type": "github-workflow"
-            }
+      "IssuerURL": "https://token.actions.githubusercontent.com",
+      "ClientID": "sigstore",
+      "Type": "github-workflow"
+    }
   }
 }
