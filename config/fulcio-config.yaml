@@ -61,6 +61,10 @@ data:
             "https://oidc.prod-aks.azure.com/*": {
               "ClientID": "sigstore",
               "Type": "kubernetes"
+            },
+            "https://token.actions.githubusercontent.com/*": {
+              "ClientID": "sigstore",
+              "Type": "github-workflow"
             }
           }
         }
