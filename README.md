@@ -1,7 +1,7 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sigstore/fulcio/badge)](https://api.securityscorecards.dev/projects/github.com/sigstore/fulcio)
 
 <p align="center">
-  <img style="max-width: 100%;width: 300px;margin-top: 20px;" src="https://raw.githubusercontent.com/sigstore/community/main/artwork/fulcio/horizontal/color/sigstore_fulcio-horizontal-color.svg" alt="Fulcio logo"/>
+  <img style="max-width: 100%;width: 300px;margin-top: 20px;" src="https://raw.githubusercontent.com/sigstore/community/main/artwork/Fulcio/Horizontal/Color/sigstore_fulcio-horizontal-color.svg" alt="Fulcio logo"/>
 </p>
 
 # Fulcio
