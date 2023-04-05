@@ -31,8 +31,8 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.4
 	go.step.sm/crypto v0.28.0
 	go.uber.org/zap v1.24.0
-	google.golang.org/api v0.114.0
-	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
+	google.golang.org/api v0.115.0
+	google.golang.org/genproto v0.0.0-20230331144136-dcfb400f0633
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -42,9 +42,9 @@ require (
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
-	cloud.google.com/go/compute v1.18.0 // indirect
+	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v0.12.0 // indirect
+	cloud.google.com/go/iam v0.13.0 // indirect
 	cloud.google.com/go/kms v1.10.0 // indirect
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
