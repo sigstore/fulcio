@@ -38,12 +38,12 @@ a backwards incompatible change.
 curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/main/ceremony/2022-10-18/repository/5.root.json
 ```
 
-Initialize the TUF client with the previously obtained root and the remote repository, https://sigstore-tuf-root.storage.googleapis.com,
+Initialize the TUF client with the previously obtained root and the remote repository, https://tuf-repo-cdn.sigstore.dev,
 and get the current Fulcio root certificate `fulcio_v1.crt.pem` and intermediate certificate `fulcio_intermediate_v1.crt.pem`.
 ```
-$ tuf-client init https://sigstore-tuf-root.storage.googleapis.com sigstore-root.json
+$ tuf-client init https://tuf-repo-cdn.sigstore.dev sigstore-root.json
 
-$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_v1.crt.pem
+$ tuf-client get https://tuf-repo-cdn.sigstore.dev fulcio_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -58,7 +58,7 @@ WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
 TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
 -----END CERTIFICATE-----
 
-$ tuf-client get https://sigstore-tuf-root.storage.googleapis.com fulcio_intermediate_v1.crt.pem
+$ tuf-client get https://tuf-repo-cdn.sigstore.dev fulcio_intermediate_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -80,7 +80,7 @@ mygUY7Ii2zbdCdliiow=
 You can also verify signed releases (`fulcio-<os>.sig`) using the artifact signing key:
 
 ```
-tuf-client get https://sigstore-tuf-root.storage.googleapis.com artifact.pub > artifact.pub
+tuf-client get https://tuf-repo-cdn.sigstore.dev artifact.pub > artifact.pub
 
 curl -o fulcio-release.sig -L https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>.sig
 base64 -d fulcio-release.sig > fulcio-release.sig.decoded
