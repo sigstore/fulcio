@@ -175,3 +175,16 @@ func marshalDERString(t *testing.T, val string) []byte {
 	}
 	return derString
 }
+
+func TestParseDERString(t *testing.T) {
+	input := []byte{0x13, 0x0b, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64}
+	expected := "Hello World"
+	var actual string
+	err := ParseDERString(input, &actual)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if actual != expected {
+		t.Errorf("unexpected result: got %q, want %q", actual, expected)
+	}
+}
