@@ -18,12 +18,12 @@ Requirements:
 
 - MUST include `iss` claim for `Issuer` extension.
 - MUST include claim to support: `Build Signer URI` that identifies the specific build instructions that are responsible for signing.
-- MUST include claim to support: `Build Signer Digest` which is an immutable reference to a specific version of the build instructions that are responsible for signing.
 - MUST include claim to support: `Runner Environment` that differentiates between builds that took place in platform-hosted cloud infrastructure or customer-hosted infrastructure.
 
 Recommended:
 
 - SHOULD include `iss` that uniquely identifies ID tokens originating from the CI/CD system, e.g. not shared with OIDC OAuth 2.0 tokens for email/username logins.
+- SHOULD include claim to support: `Build Signer Digest` which is an immutable reference to a specific version of the build instructions that are responsible for signing.
 - SHOULD include claim to support: `Source Repository URI`
 - SHOULD include claim to support: `Source Repository Digest`
 - SHOULD include claim to support: `Source Repository Ref`
