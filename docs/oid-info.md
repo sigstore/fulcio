@@ -18,12 +18,12 @@ Requirements:
 
 - MUST include `iss` claim for `Issuer` extension.
 - MUST include claim to support: `Build Signer URI` that identifies the specific build instructions that are responsible for signing.
-- MUST include claim to support: `Build Signer Digest` which is an immutable reference to a specific version of the build instructions that are responsible for signing.
 - MUST include claim to support: `Runner Environment` that differentiates between builds that took place in platform-hosted cloud infrastructure or customer-hosted infrastructure.
 
 Recommended:
 
 - SHOULD include `iss` that uniquely identifies ID tokens originating from the CI/CD system, e.g. not shared with OIDC OAuth 2.0 tokens for email/username logins.
+- SHOULD include claim to support: `Build Signer Digest` which is an immutable reference to a specific version of the build instructions that are responsible for signing.
 - SHOULD include claim to support: `Source Repository URI`
 - SHOULD include claim to support: `Source Repository Digest`
 - SHOULD include claim to support: `Source Repository Ref`
@@ -118,7 +118,7 @@ is formatted to the RFC 5280 specification as a DER-encoded string.
 
 ### 1.3.6.1.4.1.57264.1.9 | Build Signer URI
 
-Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI. Build Signer URI is also included in the Subject Alternative Name.
+Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI.
 
 For example a reusable workflow ref in GitHub Actions or a Circle CI Orb name/version. For example: `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`.
 
