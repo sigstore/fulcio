@@ -118,7 +118,7 @@ is formatted to the RFC 5280 specification as a DER-encoded string.
 
 ### 1.3.6.1.4.1.57264.1.9 | Build Signer URI
 
-Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI. Build Signer URI is also included in the Subject Alternative Name.
+Reference to specific build instructions that are responsible for signing. SHOULD be fully qualified. MAY be the same as Build Config URI.
 
 For example a reusable workflow ref in GitHub Actions or a Circle CI Orb name/version. For example: `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`.
 
