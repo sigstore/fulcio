@@ -48,7 +48,7 @@ this choice:
 
 - Will the identifier change per-instance?
 
-  Identifiers that are based on UIDs and can change each instance do not make
+  Identifiers that are based on UUIDs and can change each instance do not make
   good SANs. They tend to be too narrow and make it difficult to write a policy
   that will work consistently. If you need to reach for a regex for most
   policies, your SAN is probably too specific.
@@ -66,23 +66,28 @@ this choice:
 
 #### Case study: GitHub Actions
 
-GitHub Actions uses the `job_workflow_ref` as it's SAN. This has a few nice
+GitHub Actions uses the `job_workflow_ref` as its SAN. This has a few nice
 properties when working with GitHub Actions:
 
-- It's tied a class of Job that have a set of permissions.
-- It can identify reusable workflows.
+- It's tied to a particular Job in a workflow.
+- It can identify reusable workflows for common shared behavior, so multiple teams
+  relying on the same reusable workflow can also share policies.
 - The ref included can be used to verify it's coming from the expected location
   and not a branch.
 
-To understand some of the considerations, here some reasons for why values were
+To understand some of the considerations, below are some reasons for why values were
 **not** used as the SAN:
 
 - GitHub Repository
 
+  Example: `https://github.com/foo/bar`
+
   Too broad - this could apply to any GitHub Action in the repo (even
   potentially from pull requests).
 
-- Subject
+- [Subject](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#example-subject-claims)
+
+  Example: `repo:foo/bar:ref:refs/heads/main`
 
   Slightly too broad - the most specific you can get with a GitHub Subject is
   the event type + ref. Users may want to distinguish between different
@@ -90,10 +95,12 @@ To understand some of the considerations, here some reasons for why values were
 
 - GitHub Action Job ID
 
+  Example: `https://github.com/foo/bar/repo/actions/runs/4725056848/jobs/8382992120`
+
   Too narrow.
 
-  Every GitHub Action has a unique job id of the form -
-  `https://github.com/org/repo/actions/runs/4725056848/jobs/8382992120`.
+  Every GitHub Action has a unique job id that it can use to uniquely identify
+  each run of a Job.
 
   While this gives you a specific identifier, it is not stable and changes for
   every run. Most users would likely reach for a policy that matches a broader
@@ -102,10 +109,20 @@ To understand some of the considerations, here some reasons for why values were
 
 - GitHub Workflow Ref
 
-  Slightly too narrow. Workflows may end up using the same reusable workflow
-  with some permissions tweaked. Instead of requiring different policies for
-  each workflow that modify how the same reusable workflow is invoked, the
-  job_workflow_ref is used instead to allow users to centralize these policies.
+  Example: `foo/bar/.github/workflows/my-workflow.yml@refs/heads/main`
+
+  Slightly too narrow.
+
+  [Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows)
+  are the entrypoints to GitHub Actions - they define the trigger conditions and
+  configuration for what will run.
+
+  Workflows may end up using the same underlying job configuration
+  with some minor tweaks (e.g. permissions, inputs, etc) by using
+  [reusable Workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows).
+  Instead of requiring different policies for each workflow that modify how the same
+  reusable workflow is invoked, the job_workflow_ref is used instead to allow users
+  to centralize these policies under the same SAN.
 
 ## Supported OIDC token issuers
 
