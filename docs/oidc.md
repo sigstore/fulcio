@@ -6,7 +6,9 @@ Fulcio uses OIDC tokens to authenticate requests. Subject-related claims from th
 
 Sigstore runs a federated OIDC identity provider, Dex. Users authenticate to their preferred identity provider and Dex creates an OIDC token with claims from the original OIDC token. Fulcio also supports OIDC tokens from additional configured issuers.
 
-## Adding a new OIDC issuer
+## Integration Guide
+
+To add a new OIDC issuer:
 
 * Add a file under the [`federation` folder](https://github.com/sigstore/fulcio/tree/main/federation) with the URL, new issuer type name, and contact ([example](https://github.com/sigstore/fulcio/blob/8975dfd/federation/agent.buildkite.com/config.yaml))
 * Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/fulcio-config.yaml) by running `go run federation/main.go`
@@ -19,6 +21,108 @@ Sigstore runs a federated OIDC identity provider, Dex. Users authenticate to the
    * Add a test for the new issuer ([example](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L331))
 
 See [this example](https://github.com/sigstore/fulcio/pull/890), although it is out of date as you'll now need to create an issuer type.
+
+### How to pick a SAN
+
+SANs are important for users to describe identities across platforms. They are
+used in verification policies as the primary identifier for a workload.
+
+Unfortunately there's no one size fits all answer for how to pick the best SAN
+to use for your service. To help, here are a few things to consider when making
+this choice:
+
+- How will users want to query / write policy for artifacts?
+
+  Consider what resource(s) users will want to query against. How would they
+  distinguish resources between different teams? Production vs staging?
+
+  💡 Litmus test: what value is appropriate for
+  `cosign verify --certificate-identity=<?>`
+
+- What's the most-specific identifier that can describe the workload?
+
+  Choosing a SAN is often similar to figuring out what service account your
+  workloads should have. Too broad, you may give unintended access to workloads
+  that don't need it. Too narrow, and you end up having to manage the same
+  permissions across multiple accounts.
+
+- Will the identifier change per-instance?
+
+  Identifiers that are based on UUIDs and can change each instance do not make
+  good SANs. They tend to be too narrow and make it difficult to write a policy
+  that will work consistently. If you need to reach for a regex for most
+  policies, your SAN is probably too specific.
+
+- Can the identifier collide with other resources?
+
+  SANs should be unique for the issuer. Resources should not have the ability to
+  use or craft a SAN of another resource.
+
+- Is the identifier well-defined?
+
+  All SANs for a provider should be defined and documented. If an issuer has the
+  ability to produce different SANs, differences and conditions for these SANs
+  should be documented.
+
+#### Case study: GitHub Actions
+
+GitHub Actions uses the `job_workflow_ref` as its SAN. This has a few nice
+properties when working with GitHub Actions:
+
+- It's tied to a particular Job in a workflow.
+- It can identify reusable workflows for common shared behavior, so multiple teams
+  relying on the same reusable workflow can also share policies.
+- The ref included can be used to verify it's coming from the expected location
+  and not a branch.
+
+To understand some of the considerations, below are some reasons for why values were
+**not** used as the SAN:
+
+- GitHub Repository
+
+  Example: `https://github.com/foo/bar`
+
+  Too broad - this could apply to any GitHub Action in the repo (even
+  potentially from pull requests).
+
+- [Subject](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#example-subject-claims)
+
+  Example: `repo:foo/bar:ref:refs/heads/main`
+
+  Slightly too broad - the most specific you can get with a GitHub Subject is
+  the event type + ref. Users may want to distinguish between different
+  workflows.
+
+- GitHub Action Job ID
+
+  Example: `https://github.com/foo/bar/repo/actions/runs/4725056848/jobs/8382992120`
+
+  Too narrow.
+
+  Every GitHub Action has a unique job id that it can use to uniquely identify
+  each run of a Job.
+
+  While this gives you a specific identifier, it is not stable and changes for
+  every run. Most users would likely reach for a policy that matches a broader
+  set of jobs `https://github.com/org/repo/.*`, which makes it impractical to
+  use as a specific identifier.
+
+- GitHub Workflow Ref
+
+  Example: `foo/bar/.github/workflows/my-workflow.yml@refs/heads/main`
+
+  Slightly too narrow.
+
+  [Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows)
+  are the entrypoints to GitHub Actions - they define the trigger conditions and
+  configuration for what will run.
+
+  Workflows may end up using the same underlying job configuration
+  with some minor tweaks (e.g. permissions, inputs, etc) by using
+  [reusable Workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows).
+  Instead of requiring different policies for each workflow that modify how the same
+  reusable workflow is invoked, the job_workflow_ref is used instead to allow users
+  to centralize these policies under the same SAN.
 
 ## Supported OIDC token issuers
 
