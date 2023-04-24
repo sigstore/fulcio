@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.42.0
 	github.com/rs/cors v1.9.0
-	github.com/sigstore/sigstore v1.6.2
+	github.com/sigstore/sigstore v1.6.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
@@ -60,7 +60,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.240 // indirect
+	github.com/aws/aws-sdk-go v1.44.248 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.8 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.21 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.20 // indirect
@@ -69,7 +69,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.26 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.33 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.26 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.20.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.20.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.9 // indirect
@@ -102,9 +102,9 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/vault/api v1.9.0 // indirect
+	github.com/hashicorp/vault/api v1.9.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jellydator/ttlcache/v2 v2.11.1 // indirect
+	github.com/jellydator/ttlcache/v3 v3.0.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/letsencrypt/boulder v0.0.0-20221109233200-85aa52084eaf // indirect
