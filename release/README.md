@@ -1,13 +1,10 @@
-# Release
-
-This directory contain the files and scripts to run a cosign release.
-
-# Cutting a Fulcio Release [workflow]
+# Cutting a Fulcio Release
 
 1. Release notes: Create a PR to update and review release notes in CHANGELOG.md.
-  - Check merged pull requests since the last release and make sure enhancements, bug fixes, and authors are reflected in the notes.
 
-  You can get a list of pull requests since the last release by substituting in the date of the last release and running:
+Check merged pull requests since the last release and make sure enhancements, bug fixes, and authors are reflected in the notes.
+
+You can get a list of pull requests since the last release by substituting in the date of the last release and running:
 
 ```
 git log --pretty="* %s" --after="YYYY-MM-DD"
@@ -19,85 +16,41 @@ and a list of authors by running:
 git log --pretty="* %an" --after="YYYY-MM-DD" | sort -u
 ```
 
-2. Run "Cut Release" workflow
-	- Open the "Actions" screen
-	- Select the "Cut Release" workflow under "Workflows" on the left
-	- Click on the "Run workflow" drop down button to the right
-	- Fill in the required fields
-		- release_tag
-		- key_ring
-		- key_name
-	- Click on "Run workflow"
+2. Open a Pull Request to update CHANGELOG.md
 
-3. Publish Release
-	- Find the draft release on the "Releases" page; [link](https://github.com/sigstore/fulcio/releases)
-		- Click on "tags" link on the Code tab.
-	 	- Click on "Releases" toggle.
-	- Click on the edit icon for the draft release
-	- Update release notes
-	- Click "Publish release"
+3. Tag the repository
 
-## OIDC for Github Actions
+**WARNING**: Tags should not be updated to a new ref or deleted/recreated after creation. Go provides a [checksum database](https://sum.golang.org/)
+that persists an immutable mapping between version and ref, and updating the tag will break clients that have already downloaded the release.
 
-One time setup in ./hack/github-oidc-setup.sh. This is to provide GitHub actions access to kick off gcloud builds.
+```shell
+$ export RELEASE_TAG=<release version, eg "v2.0.2">
+$ git tag -s ${RELEASE_TAG} -m "${RELEASE_TAG}"
+$ git push upstream ${RELEASE_TAG}
+```
 
-# Cutting a Fulcio Release [manual]
+Note that `upstream` should be the upstream `sigstore/fulcio` repository. You may have to change this if you've configured remotes.
 
-1. Release notes: Create a PR to update and review release notes in CHANGELOG.md.
-  - Check merged pull requests since the last release and make sure enhancements, bug fixes, and authors are reflected in the notes.
+4. Then go to the `Actions` tab and click on the [Cut Release workflow](https://github.com/sigstore/fulcio/actions/workflows/cut-release.yml). Note you need
+to be in [this list](https://github.com/sigstore/sigstore/blob/main/.github/workflows/reusable-release.yml#L45) to trigger this workflow.
 
-	You can get a list of pull requests since the last release by substituting in the date of the last release and running:
+Click to run a workflow and insert the following parameters ("Cosign" is correct, this just refers to the artifact signing key):
 
-	```
-	git log --pretty="* %s" --after="YYYY-MM-DD"
-	```
+  - `Release tag`: the tag that use pushed for the release
+  - `Key ring for cosign key`: the value is `release-cosign`
+  - `Key name for cosign key`: the value is `cosign`
 
-	and a list of authors by running:
+That will trigger a CloudBuild job and will run the release using `goreleaser`, which will publish images to
+`gcr.io` and `ghcr.io`, and the binaries will be available in the GitHub release.
 
-	```
-	git log --pretty="* %an" --after="YYYY-MM-DD" | sort -u
-	```
+If you have permissions to access the project, you can follow the CloudBuild job in the `projectsigstore`(https://console.cloud.google.com/cloud-build/builds?project=projectsigstore) GCP Project.
 
-2. Tag the repository
+As the last step of the CloudBuild job, `goreleaser` will create a `draft release` in GitHub.
 
-	```shell
-	$ export RELEASE_TAG=<release version, eg "v1.1.0">
-	$ git tag -s ${RELEASE_TAG} -m "${RELEASE_TAG}"
-	$ git push origin ${RELEASE_TAG}
-	```
+5. Navigate to the `Draft Release` in the Github repository. Click the `Publish Release` button to make the Release available.
 
-3. Submit the cloudbuild Job using the following command:
+You might want/need to add any extra notes/breaking changes notices, upgrade paths.
 
-	```shell
-	$ gcloud builds submit --config <PATH_TO_CLOUDBUILD> \
-	   --substitutions _GIT_TAG=<_GIT_TAG>,_TOOL_ORG=sigstore,_TOOL_REPO=fulcio,_STORAGE_LOCATION=fulcio-releases,_KEY_RING=<KEY_RING>,_KEY_NAME=<KEY_NAME>,_GITHUB_USER=<GITHUB_USER> \
-	   --project <GCP_PROJECT>
-	```
+6. Post on the `#general` and `#fulcio` Slack channels.
 
-	Where:
-
-	- `PATH_TO_CLOUDBUILD` is the path where the cloudbuild.yaml can be found.
-	- `GCP_PROJECT` is the GCP project where we will run the job.
-	- `_GIT_TAG` is the release version we are publishing, this will also create the GitHub Tag.
-	- `_TOOL_ORG` is the GitHub Org we will use. Default `sigstore`.
-	- `_TOOL_REPO` is the repository we will use to clone. Default `cosign`.
-	- `_STORAGE_LOCATION` where to push the built artifacts. Default `cosign-releases`.
-	- `_KEY_RING` key ring name of your cosign key.
-	- `_KEY_NAME` key name of your  cosign key.
-	- `_KEY_VERSION` version of the key storaged in KMS. Default `1`.
-	- `_KEY_LOCATION` location in GCP where the key is storaged. Default `global`.
-	- `_GITHUB_USER` GitHub user to authenticate for pushing to GHCR.
-
-4. When the job finish, whithout issues, you should be able to see in GitHub a draft release.
-You now can review the release, make any changes if needed and then publish to make it an official release.
-
-5. Send an annoucement email to `sigstore-dev@googlegroups.com` mailling list
-
-6. Tweet about the new release with a fun new trigonometry pun!
-
-7. Honk!
-
-#### After the release:
-
-* Add a pending new section in CHANGELOG.md to set up for the next release
-* Create a new GitHub Milestone
+7. If it's a significant release, send an announcement email to sigstore-dev@googlegroups.com mailing list.
