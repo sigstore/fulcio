@@ -1,3 +1,7 @@
+# Release
+
+This directory contain the files and scripts to run a Fulcio release.
+
 # Cutting a Fulcio Release
 
 1. Release notes: Create a PR to update and review release notes in CHANGELOG.md.
