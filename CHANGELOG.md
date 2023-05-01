@@ -1,3 +1,24 @@
+# v1.3.0
+
+Fulcio 1.3.0 adds support for GitLab CI.
+
+## Enhancements
+
+* Add GitLab.com OIDC to Fulcio (#983)
+* Change ParseDerString to Public Function (#1119)
+* Support enterprise-unique GitHub Actions OIDC issuer URLs (#1088)
+
+## Documentation
+
+* Map GitLab OIDC token claims to Fulcio OIDs (#1097)
+* Mark GitLab JWT claim fields that are still WIP. (#1139)
+* oidc.md: Add section for how to select SANs. (#1127)
+* oid-info: Drop Build Signer Digest requirement from MUST -> SHOULD (#1126)
+* update docs to use CDN-backed TUF endpoint (#1108)
+
+## Contributors
+
+
 # v1.2.0
 
 Fulcio 1.2.0 adds support for additional extensions in certificates issued for
