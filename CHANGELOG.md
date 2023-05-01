@@ -18,6 +18,15 @@ Fulcio 1.3.0 adds support for GitLab CI.
 
 ## Contributors
 
+* Alishan Ladhani
+* Billy Lynch
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Hayden B
+* James Ma
+* Paul Welch
+* Reed Loden
+* Sandipan Panda
 
 # v1.2.0
 
