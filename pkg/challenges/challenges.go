@@ -29,6 +29,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/buildkite"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
+	"github.com/sigstore/fulcio/pkg/identity/gitlabcom"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 	"github.com/sigstore/fulcio/pkg/identity/uri"
@@ -60,6 +61,8 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	switch iss.Type {
 	case config.IssuerTypeBuildkiteJob:
 		principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeGitLabPipeline:
+		principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeEmail:
 		principal, err = email.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeSpiffe:

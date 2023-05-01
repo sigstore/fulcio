@@ -20,6 +20,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/buildkite"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
+	"github.com/sigstore/fulcio/pkg/identity/gitlabcom"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 	"github.com/sigstore/fulcio/pkg/identity/uri"
@@ -40,6 +41,7 @@ func NewIssuerPool(cfg *config.FulcioConfig) identity.IssuerPool {
 			ip = append(ip, iss)
 		}
 	}
+
 	return ip
 }
 
@@ -53,6 +55,8 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:
 		return github.Issuer(issuerURL)
+	case config.IssuerTypeGitLabPipeline:
+		return gitlabcom.Issuer(issuerURL)
 	case config.IssuerTypeBuildkiteJob:
 		return buildkite.Issuer(issuerURL)
 	case config.IssuerTypeKubernetes:
