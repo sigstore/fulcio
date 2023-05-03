@@ -1,3 +1,13 @@
+# v1.3.1
+
+## Bug Fixes
+
+* fix cert.URIs for GitLab CI (#1144)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior
+
 # v1.3.0
 
 Fulcio 1.3.0 adds support for GitLab CI.
