@@ -1051,7 +1051,7 @@ func TestAPIWithGitLab(t *testing.T) {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
 
-	gitLabURL := fmt.Sprintf("https://gitlab.com/%s/@/refs/heads/%s", claims.ProjectPath, claims.Ref)
+	gitLabURL := fmt.Sprintf("https://gitlab.com/%s@refs/heads/%s", claims.ProjectPath, claims.Ref)
 	gitLabURI, err := url.Parse(gitLabURL)
 	if err != nil {
 		t.Fatalf("failed to parse expected url")

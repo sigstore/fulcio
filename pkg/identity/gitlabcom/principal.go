@@ -179,7 +179,7 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 	}
 
 	// Set workflow ref URL to SubjectAlternativeName on certificate
-	cert.URIs = []*url.URL{baseURL.JoinPath(p.repository, "@", p.ref)}
+	cert.URIs = []*url.URL{baseURL.JoinPath(fmt.Sprintf("%s@%s", p.repository, p.ref))}
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
