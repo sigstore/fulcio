@@ -18,6 +18,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/x509"
 	"flag"
 	"fmt"
@@ -91,6 +92,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
 	cmd.Flags().String("kms-resource", "", "KMS key resource path. Must be prefixed with awskms://, azurekms://, gcpkms://, or hashivault://")
 	cmd.Flags().String("kms-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for KMS-backed CA")
+	cmd.Flags().String("kms-hash-function", "sha256", "Hash function to use for KMS-backed CA. Valid options are [sha256, sha384, sha512]. GCP ignores this setting.")
 	cmd.Flags().String("tink-kms-resource", "", "KMS key resource path for encrypted Tink keyset. Must be prefixed with gcp-kms:// or aws-kms://")
 	cmd.Flags().String("tink-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for Tink-backed CA")
 	cmd.Flags().String("tink-keyset-path", "", "Path to KMS-encrypted keyset for Tink-backed CA")
@@ -240,7 +242,12 @@ func runServeCmd(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Logger.Fatalf("error loading the PEM certificates from the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
 		}
-		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), certs)
+		var hashFunc crypto.Hash
+		hashFunc, err = getHashFunc(viper.GetString("kms-hash-function"))
+		if err != nil {
+			log.Logger.Fatalf("error looking up hash function: %v", err)
+		}
+		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), certs, hashFunc)
 	case "tinkca":
 		baseca, err = tinkca.NewTinkCA(cmd.Context(),
 			viper.GetString("tink-kms-resource"), viper.GetString("tink-keyset-path"), viper.GetString("tink-cert-chain-path"))
@@ -395,4 +402,17 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 		return fmt.Errorf("duplex server: %w", err)
 	}
 	return nil
+}
+
+func getHashFunc(hashFuncStr string) (crypto.Hash, error) {
+	switch hashFuncStr {
+	case "sha256":
+		return crypto.SHA256, nil
+	case "sha384":
+		return crypto.SHA384, nil
+	case "sha512":
+		return crypto.SHA512, nil
+	default:
+		return 0, fmt.Errorf("invalid hash algorithm - must be either sha256, sha384, or sha512")
+	}
 }

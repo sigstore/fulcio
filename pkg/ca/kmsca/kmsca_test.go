@@ -17,6 +17,7 @@ package kmsca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -36,7 +37,7 @@ func TestNewKMSCA(t *testing.T) {
 
 	chain := []*x509.Certificate{subCert, rootCert}
 
-	ca, err := NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", chain)
+	ca, err := NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", chain, crypto.SHA256)
 	if err != nil {
 		t.Fatalf("unexpected error creating KMS CA: %v", err)
 	}
@@ -65,14 +66,14 @@ func TestNewKMSCA(t *testing.T) {
 
 	// Failure: Mismatch between signer and certificate key
 	otherPriv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, otherPriv), "fakekms://key", chain)
+	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, otherPriv), "fakekms://key", chain, crypto.SHA256)
 	if err == nil || !strings.Contains(err.Error(), "ecdsa public keys are not equal") {
 		t.Fatalf("expected error with mismatched public keys, got %v", err)
 	}
 
 	// Failure: Invalid certificate chain
 	otherRootCert, _, _ := test.GenerateRootCA()
-	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{subCert, otherRootCert})
+	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{subCert, otherRootCert}, crypto.SHA256)
 	if err == nil || !strings.Contains(err.Error(), "certificate signed by unknown authority") {
 		t.Fatalf("expected error with invalid certificate chain, got %v", err)
 	}

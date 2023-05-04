@@ -38,3 +38,6 @@ hack/tools/bin
 
 # vscode
 .vscode/
+
+# OS-generated files
+.DS_Store
