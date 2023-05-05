@@ -10,7 +10,7 @@ meaning.
 
 ## Requirements to support signing with CI/CD workload identities
 
-In order to support Sigstore code signing with CI/CD based workfload identities the following claims must be included in the OIDC ID Token. See example claim values for each extension in the detailed [Directory](#directory). 
+In order to support Sigstore code signing with CI/CD based workfload identities the following claims must be included in the OIDC ID Token. See example claim values for each extension in the detailed [Directory](#directory).
 
 Providers MAY choose to emit extension value in other formats to generic examples, and consumers MUST NOT assume the generic example format.
 
@@ -68,8 +68,10 @@ The `.1` is added to the root OID for sigstore for all OIDs set by Fulcio.
 
 ### 1.3.6.1.4.1.57264.1.1 | Issuer
 
-This contains the `iss` claim from the OIDC Identity Token that was
+This contains the issuer of the OpenID Connect Token that was
 presented at the time the code signing certificate was requested to be created.
+This corresponds to the `iss` claim for non-federated tokens.
+
 This claim is the URI of the OIDC Identity Provider that digitally signed the
 identity token. For example: `https://oidc-issuer.com`.
 
@@ -108,8 +110,10 @@ defined by [RFC5280 4.2.1.6](https://datatracker.ietf.org/doc/html/rfc5280#secti
 
 ### 1.3.6.1.4.1.57264.1.8 | Issuer (V2)
 
-This contains the `iss` claim from the OIDC Identity Token that was
+This contains the issuer of the OpenID Connect Token that was
 presented at the time the code signing certificate was requested to be created.
+This corresponds to the `iss` claim for non-federated tokens.
+
 This claim is the URI of the OIDC Identity Provider that digitally signed the
 identity token. For example: `https://oidc-issuer.com`.
 
