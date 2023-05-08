@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio
 go 1.20
 
 require (
-	chainguard.dev/go-grpc-kit v0.16.0
+	chainguard.dev/go-grpc-kit v0.16.1
 	cloud.google.com/go/security v1.14.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
