@@ -22,7 +22,7 @@ require (
 	github.com/magiconair/properties v1.8.7
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
-	github.com/prometheus/common v0.42.0
+	github.com/prometheus/common v0.43.0
 	github.com/rs/cors v1.9.0
 	github.com/sigstore/sigstore v1.6.4
 	github.com/spf13/cobra v1.7.0
