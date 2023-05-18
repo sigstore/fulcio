@@ -3,7 +3,7 @@ module github.com/sigstore/fulcio/hack/tools
 go 1.20
 
 require (
-	github.com/googleapis/api-linter v1.46.1
+	github.com/googleapis/api-linter v1.47.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	google.golang.org/protobuf v1.30.0
