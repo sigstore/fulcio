@@ -13,6 +13,6 @@
 # limitations under the License.
 
 url: https://api.gitpod.io/idp
-contact: tbd
+contact: support@gitpod.io
 description: "Gitpod OIDC auth"
 type: "email"

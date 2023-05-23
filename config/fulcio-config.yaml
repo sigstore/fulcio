@@ -53,6 +53,11 @@ data:
               "ClientID": "sigstore",
               "Type": "gitlab-pipeline"
             },
+            "https://api.gitpod.io/idp": {
+              "IssuerURL": "https://api.gitpod.io/idp",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
             "https://gitlab.com": {
               "IssuerURL": "https://gitlab.com",
               "ClientID": "sigstore",
@@ -73,11 +78,6 @@ data:
               "IssuerURL": "https://token.actions.githubusercontent.com",
               "ClientID": "sigstore",
               "Type": "github-workflow"
-            },
-            "https://api.gitpod.io/idp": {
-              "IssuerURL": "https://api.gitpod.io/idp",
-              "ClientID": "sigstore",
-              "Type": "email"
             }
           },
           "MetaIssuers": {
