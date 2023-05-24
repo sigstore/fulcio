@@ -44,7 +44,7 @@ An intermediate certificate MUST:
 * Specify an Issuer equal to the parent certificate's Subject
 * Specify Key Usages for Certificate Sign and CRL Sign
 * Specify an Extended Key Usage for Code Signing
-* Specify a lifetime that does not exceed the parent certificiate
+* Specify a lifetime that does not exceed the parent certificate
 * Specify Basic Constraints to `CA:TRUE`
 * Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
 * Specify a Subject Key Identifier
@@ -82,7 +82,7 @@ An issued certificate MUST:
 * Specify an Issuer equal to the parent certificate's Subject
 * Specify a Key Usage for Digital Signature 
 * Specify an Extended Key Usage for Code Signing
-* Specify a lifetime that does not exceed the parent certificiate
+* Specify a lifetime that does not exceed the parent certificate
 * Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
 * Specify a Subject Key Identifier
 * Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier 
