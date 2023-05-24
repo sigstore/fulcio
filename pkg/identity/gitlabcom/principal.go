@@ -192,7 +192,6 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 		SourceRepositoryIdentifier:      p.repositoryID,
 		SourceRepositoryOwnerURI:        baseURL.JoinPath(p.repositoryOwner).String(),
 		SourceRepositoryOwnerIdentifier: p.repositoryOwnerID,
-		BuildConfigURI:                  baseURL.JoinPath(p.repository, "/-/jobs/", p.jobID).String(),
 		BuildTrigger:                    p.eventName,
 		RunInvocationURI:                baseURL.JoinPath(p.repository, "/-/pipelines/", p.pipelineID).String(),
 	}.Render()

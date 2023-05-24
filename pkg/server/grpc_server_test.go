@@ -1061,6 +1061,7 @@ func TestAPIWithGitLab(t *testing.T) {
 	}
 	url := "https://gitlab.com/"
 	expectedExts := map[int]string{
+		9:  url + claims.ProjectPath + "/-/jobs/" + claims.JobID,
 		11: claims.RunnerEnvironment,
 		12: url + claims.ProjectPath,
 		13: claims.Sha,
@@ -1068,7 +1069,6 @@ func TestAPIWithGitLab(t *testing.T) {
 		15: claims.ProjectID,
 		16: url + claims.NamespacePath,
 		17: claims.NamespaceID,
-		18: url + claims.ProjectPath + "/-/jobs/" + claims.JobID,
 		20: claims.PipelineSource,
 		21: url + claims.ProjectPath + "/-/pipelines/" + claims.PipelineID,
 	}
