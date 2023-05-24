@@ -38,7 +38,7 @@ jobs:
       - uses: trail-of-forks/setup-protoc@a97892a429d98fae78d26f40334ab7eb616d08b9
         name: Install protobuf
         with:
-          version: '22.3'
+          version: '23.1'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
