@@ -10,7 +10,7 @@ meaning.
 
 ## Requirements to support signing with CI/CD workload identities
 
-In order to support Sigstore code signing with CI/CD based workfload identities the following claims must be included in the OIDC ID Token. See example claim values for each extension in the detailed [Directory](#directory).
+In order to support Sigstore code signing with CI/CD based workflow identities the following claims must be included in the OIDC ID Token. See example claim values for each extension in the detailed [Directory](#directory).
 
 Providers MAY choose to emit extension value in other formats to generic examples, and consumers MUST NOT assume the generic example format.
 
@@ -189,7 +189,7 @@ that Sigstore operates.
 | aud                | aud     | aud       | aud        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
 | iss                | iss     | iss       | iss        | Issuer                       | This already exists. For example: https://token.actions.githubusercontent.com                                                                                                          |
 | exp                | exp     | exp       | exp        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
-| nbf                | nbf     | nbf       | nbf        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
+| nbf                | nbf     | nbf       | nbf        | N/A                          | Only used to validate the JWT. Optional, as per the OIDC spec                                                                                                                         |
 | iat                | iat     | iat       | iat        | N/A                          | Only used to validate the JWT.                                                                                                                                                         |
 | server_url + job_workflow_ref   | server_url + project_path + /-/jobs/ + job_id | ??       | ??        | Build Signer URI             | Reference to specific build instructions that are responsible for signing. Can be the same as Build Config URI. For example a reusable workflow in GitHub Actions or a Circle CI Orbs. |
 | job_workflow_sha   | N/A | ??       | ??        | Build Signer Digest          | An immutable reference to the specific version of the build instructions that is responsible for signing. Should include the digest type followed by the digest, e.g. `sha1:abc123`.   |
