@@ -44,6 +44,13 @@ type jobPrincipal struct {
 	// Pipeline ID
 	pipelineID string
 
+	// Ref of top-level pipeline definition. E.g. gitlab.com/my-group/my-project/.gitlab-ci.yml@refs/heads/main
+	pipelineRef string
+
+	// Commit sha of top-level pipeline definition, and is
+	// only populated when `pipelineRef` is local to the GitLab instance
+	pipelineSha string
+
 	// Repository building built
 	repository string
 
@@ -78,6 +85,8 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 		ProjectID         string `json:"project_id"`
 		PipelineSource    string `json:"pipeline_source"`
 		PipelineID        string `json:"pipeline_id"`
+		PipelineRef       string `json:"pipeline_ref"`
+		PipelineSha       string `json:"pipeline_sha"`
 		NamespacePath     string `json:"namespace_path"`
 		NamespaceID       string `json:"namespace_id"`
 		JobID             string `json:"job_id"`
@@ -102,6 +111,10 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 
 	if claims.PipelineID == "" {
 		return nil, errors.New("missing pipeline_id claim in ID token")
+	}
+
+	if claims.PipelineRef == "" {
+		return nil, errors.New("missing pipeline_ref claim in ID token")
 	}
 
 	if claims.JobID == "" {
@@ -156,6 +169,8 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 		url:               `https://gitlab.com/`,
 		eventName:         claims.PipelineSource,
 		pipelineID:        claims.PipelineID,
+		pipelineRef:       claims.PipelineRef,
+		pipelineSha:       claims.PipelineSha,
 		repository:        claims.ProjectPath,
 		ref:               ref,
 		repositoryID:      claims.ProjectID,
@@ -178,13 +193,30 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 		return err
 	}
 
+	// pipeline_ref claim is a URI that does not include protocol scheme so we need to normalize it
+	pipelineRefURL, err := url.Parse(p.pipelineRef)
+	if err != nil {
+		return err
+	}
+
+	// default to https
+	pipelineRefURL.Scheme = "https"
+
+	// or use scheme from issuer if from the same host
+	if baseURL.Host == pipelineRefURL.Host {
+		pipelineRefURL.Scheme = baseURL.Scheme
+	}
+
 	// Set workflow ref URL to SubjectAlternativeName on certificate
-	cert.URIs = []*url.URL{baseURL.JoinPath(fmt.Sprintf("%s@%s", p.repository, p.ref))}
+	cert.URIs = []*url.URL{pipelineRefURL}
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer:                          p.issuer,
-		BuildSignerURI:                  baseURL.JoinPath(p.repository, "/-/jobs/", p.jobID).String(),
+		BuildConfigURI:                  pipelineRefURL.String(),
+		BuildConfigDigest:               p.pipelineSha,
+		BuildSignerURI:                  pipelineRefURL.String(),
+		BuildSignerDigest:               p.pipelineSha,
 		RunnerEnvironment:               p.runnerEnvironment,
 		SourceRepositoryURI:             baseURL.JoinPath(p.repository).String(),
 		SourceRepositoryDigest:          p.sha,
@@ -193,7 +225,7 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 		SourceRepositoryOwnerURI:        baseURL.JoinPath(p.repositoryOwner).String(),
 		SourceRepositoryOwnerIdentifier: p.repositoryOwnerID,
 		BuildTrigger:                    p.eventName,
-		RunInvocationURI:                baseURL.JoinPath(p.repository, "/-/pipelines/", p.pipelineID).String(),
+		RunInvocationURI:                baseURL.JoinPath(p.repository, "/-/jobs/", p.jobID).String(),
 	}.Render()
 	if err != nil {
 		return err
