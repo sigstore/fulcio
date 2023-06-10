@@ -33,6 +33,11 @@ data:
               "Type": "spiffe",
               "SPIFFETrustDomain": "allow.pub"
             },
+            "https://gitlab.archlinux.org": {
+              "IssuerURL": "https://gitlab.archlinux.org",
+              "ClientID": "sigstore",
+              "Type": "gitlab-pipeline"
+            },
             "https://gitlab.com": {
               "IssuerURL": "https://gitlab.com",
               "ClientID": "sigstore",
