@@ -48,7 +48,7 @@ func NewTinkCA(ctx context.Context, kmsKey, tinkKeysetPath, certPath string) (ca
 }
 
 // NewTinkCAFromHandle creates a signer from an encrypted Tink keyset, encrypted with an AEAD key.
-func NewTinkCAFromHandle(ctx context.Context, tinkKeysetPath, certPath string, primaryKey tink.AEAD) (ca.CertificateAuthority, error) {
+func NewTinkCAFromHandle(_ context.Context, tinkKeysetPath, certPath string, primaryKey tink.AEAD) (ca.CertificateAuthority, error) {
 	var tca tinkCA
 
 	f, err := os.Open(filepath.Clean(tinkKeysetPath))

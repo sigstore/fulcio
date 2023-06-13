@@ -130,7 +130,7 @@ func (la logAdaptor) Printf(s string, args ...interface{}) {
 	la.logger.Infof(s, args...)
 }
 
-func runServeCmd(cmd *cobra.Command, args []string) {
+func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	ctx := cmd.Context()
 	// If a config file is provided, modify the viper config to locate and read it
 	if err := checkServeCmdConfigFile(); err != nil {

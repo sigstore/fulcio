@@ -56,7 +56,7 @@ jobs:
         timeout-minutes: 5
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v1.51.0
+          version: v1.53
 
   oidc-config:
     name: oidc-config

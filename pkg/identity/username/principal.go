@@ -65,7 +65,7 @@ func (p principal) Name(context.Context) string {
 	return p.username
 }
 
-func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 	var exts []pkix.Extension
 
 	ext, err := cryptoutils.MarshalOtherNameSAN(p.unIdentity, true /*critical*/)

@@ -71,11 +71,11 @@ func validSpiffeID(id, trustDomain string) error {
 	return nil
 }
 
-func (p principal) Name(context.Context) string {
+func (p principal) Name(_ context.Context) string {
 	return p.id
 }
 
-func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 	parsed, err := url.Parse(p.id)
 	if err != nil {
 		return err

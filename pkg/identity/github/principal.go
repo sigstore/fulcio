@@ -84,7 +84,7 @@ type workflowPrincipal struct {
 	runAttempt string
 }
 
-func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
 		JobWorkflowRef    string `json:"job_workflow_ref"`
 		Sha               string `json:"sha"`
@@ -174,11 +174,11 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	}, nil
 }
 
-func (w workflowPrincipal) Name(ctx context.Context) string {
+func (w workflowPrincipal) Name(_ context.Context) string {
 	return w.subject
 }
 
-func (w workflowPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 	baseURL, err := url.Parse(w.url)
 	if err != nil {
 		return err

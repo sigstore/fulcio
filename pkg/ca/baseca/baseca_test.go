@@ -91,7 +91,7 @@ func (tp testPrincipal) Name(context.Context) string {
 	return "doesntmatter"
 }
 
-func (tp testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) (err error) {
+func (tp testPrincipal) Embed(_ context.Context, cert *x509.Certificate) (err error) {
 	cert.EmailAddresses = []string{"alice@example.com"}
 	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer: "example.com",

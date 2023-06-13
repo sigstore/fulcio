@@ -68,7 +68,7 @@ certificate authority for an instance of sigstore fulcio`,
 	return cmd
 }
 
-func runCreateCACmd(cmd *cobra.Command, args []string) {
+func runCreateCACmd(cmd *cobra.Command, args []string) { //nolint: revive
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
 		log.Logger.Fatal(err)
 	}

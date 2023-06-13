@@ -36,7 +36,7 @@ type principal struct {
 	uri string
 }
 
-func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+func PrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	k8sURI, err := kubernetesToken(token)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (p principal) Name(context.Context) string {
 	return p.subject
 }
 
-func (p principal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 	parsed, err := url.Parse(p.uri)
 	if err != nil {
 		return err

@@ -40,7 +40,7 @@ type jobPrincipal struct {
 	url string
 }
 
-func JobPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
 		OrganizationSlug string `json:"organization_slug"`
 		PipelineSlug     string `json:"pipeline_slug"`
@@ -64,11 +64,11 @@ func JobPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity
 	}, nil
 }
 
-func (p jobPrincipal) Name(ctx context.Context) string {
+func (p jobPrincipal) Name(_ context.Context) string {
 	return p.subject
 }
 
-func (p jobPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 	// Set SubjectAlternativeName to the pipeline URL on the certificate
 	parsed, err := url.Parse(p.url)
 	if err != nil {
