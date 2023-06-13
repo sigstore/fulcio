@@ -38,12 +38,12 @@ func Issuer(issuerURL string) identity.Issuer {
 }
 
 // This is unimplemented for the base issuer, and should be implemented unique to each issuer
-func (e *baseIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
+func (e *baseIssuer) Authenticate(_ context.Context, token string) (identity.Principal, error) { //nolint: revive
 	return nil, fmt.Errorf("unimplemented")
 }
 
 // Match is the same across issuers, so it doesn't need to be implemented anywhere else
-func (e *baseIssuer) Match(ctx context.Context, url string) bool {
+func (e *baseIssuer) Match(_ context.Context, url string) bool {
 	if url == e.issuerURL {
 		return true
 	}

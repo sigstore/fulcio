@@ -25,11 +25,11 @@ type testPrincipal struct {
 	name string
 }
 
-func (p testPrincipal) Name(ctx context.Context) string {
+func (p testPrincipal) Name(_ context.Context) string {
 	return p.name
 }
 
-func (p testPrincipal) Embed(ctx context.Context, cert *x509.Certificate) error {
+func (p testPrincipal) Embed(_ context.Context, _ *x509.Certificate) error {
 	return nil
 }
 

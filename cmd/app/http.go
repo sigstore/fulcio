@@ -42,7 +42,7 @@ type httpServer struct {
 	httpServerEndpoint string
 }
 
-func extractOIDCTokenFromAuthHeader(ctx context.Context, req *http.Request) metadata.MD {
+func extractOIDCTokenFromAuthHeader(_ context.Context, req *http.Request) metadata.MD {
 	token := strings.Replace(req.Header.Get("Authorization"), "Bearer ", "", 1)
 	return metadata.Pairs(server.MetadataOIDCTokenKey, token)
 }

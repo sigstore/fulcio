@@ -98,7 +98,7 @@ func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, e
 	}, nil
 }
 
-func (bca *BaseCA) IssueFinalCertificate(ctx context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
+func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
 	// remove poison extension from precertificate.
 	var exts []pkix.Extension
 	for _, ext := range precert.PreCert.Extensions {
@@ -139,7 +139,7 @@ func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Pri
 	return ca.CreateCSCFromDER(finalCertBytes, certChain)
 }
 
-func (bca *BaseCA) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
+func (bca *BaseCA) TrustBundle(_ context.Context) ([][]*x509.Certificate, error) {
 	certs, _ := bca.GetSignerWithChain()
 	return [][]*x509.Certificate{certs}, nil
 }

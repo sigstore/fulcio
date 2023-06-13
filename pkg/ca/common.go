@@ -103,9 +103,5 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 		return err
 	}
 
-	if err := cryptoutils.ValidatePubKey(signer.Public()); err != nil {
-		return err
-	}
-
-	return nil
+	return cryptoutils.ValidatePubKey(signer.Public())
 }

@@ -1666,7 +1666,7 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 	return signer, *testIssuer
 }
 
-func fakeCTLogServer(t *testing.T) *httptest.Server {
+func fakeCTLogServer(_ *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		addJSONResp := `{
@@ -1681,7 +1681,7 @@ func fakeCTLogServer(t *testing.T) *httptest.Server {
 }
 
 // createCA initializes an ephemeral CA server and CT log server
-func createCA(cfg *config.FulcioConfig, t *testing.T) (*ctclient.LogClient, *ephemeralca.EphemeralCA) {
+func createCA(_ *config.FulcioConfig, t *testing.T) (*ctclient.LogClient, *ephemeralca.EphemeralCA) {
 	// Stand up an ephemeral CA we can use for signing certificate requests.
 	eca, err := ephemeralca.NewEphemeralCA()
 	if err != nil {
@@ -1852,7 +1852,7 @@ type FailingCertificateAuthority struct {
 func (fca *FailingCertificateAuthority) CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	return nil, errors.New("CreateCertificate always fails for testing")
 }
-func (fca *FailingCertificateAuthority) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
+func (fca *FailingCertificateAuthority) TrustBundle(_ context.Context) ([][]*x509.Certificate, error) {
 	return nil, errors.New("TrustBundle always fails for testing")
 }
 

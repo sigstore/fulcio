@@ -116,7 +116,7 @@ type TrivialCertificateAuthority struct {
 func (tca *TrivialCertificateAuthority) CreateCertificate(context.Context, identity.Principal, crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
 	return nil, errors.New("CreateCertificate always fails for testing")
 }
-func (tca *TrivialCertificateAuthority) TrustBundle(ctx context.Context) ([][]*x509.Certificate, error) {
+func (tca *TrivialCertificateAuthority) TrustBundle(_ context.Context) ([][]*x509.Certificate, error) {
 	return [][]*x509.Certificate{}, nil
 }
 
