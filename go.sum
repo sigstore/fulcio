@@ -299,8 +299,8 @@ github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+l
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/hashicorp/vault/api v1.9.1 h1:LtY/I16+5jVGU8rufyyAkwopgq/HpUnxFBg+QLOAV38=
-github.com/hashicorp/vault/api v1.9.1/go.mod h1:78kktNcQYbBGSrOjQfHjXN32OhhxXnbYl3zxpd2uPUs=
+github.com/hashicorp/vault/api v1.9.2 h1:YjkZLJ7K3inKgMZ0wzCU9OHqc+UqMQyXsPXnf3Cl2as=
+github.com/hashicorp/vault/api v1.9.2/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
 github.com/honeycombio/beeline-go v1.10.0 h1:cUDe555oqvw8oD76BQJ8alk7FP0JZ/M/zXpNvOEDLDc=
 github.com/honeycombio/libhoney-go v1.16.0 h1:kPpqoz6vbOzgp7jC6SR7SkNj7rua7rgxvznI6M3KdHc=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
@@ -403,8 +403,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/azure v1.6.5 h1:Eq7FRpCmtWgqO0W8P
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.6.5/go.mod h1:dmXaolTdykiQwqCb4WIGjEQWWz0V9NQ+OI2HeeWETRk=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5 h1:ayZpTdJReIyvS1LrXlTFo+cP7WUJalQAs3Bc2PWf6Zk=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5/go.mod h1:xFrqobvdK11t7uvLovNwTcH8ht7/aqR+KIF93oTw+LQ=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.6.5 h1:mddEhD42KiPm3ZCW8gNa0bI6gcAYzTEPgqykweE6uGM=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.6.5/go.mod h1:uvKjzkw4TdbyAwQLxDdGD/Q2CKqiZGzgEb/0T3SZG5I=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0 h1:mKNyQ5b/G0KgwJ9HSYpGvkXmpeuC/2DYFKsp/mKmtXs=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0/go.mod h1:SN4QZHHDs2VqXh5bRXrIi8vqLbOijIp2XoSlmV/WJ/c=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 h1:JIAuq3EEf9cgbU6AtGPK4CTG3Zf6CKMNqf0MHTggAUA=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
