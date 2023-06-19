@@ -26,7 +26,7 @@ require (
 	github.com/rs/cors v1.9.0
 	github.com/sigstore/sigstore v1.7.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.6.5
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.6.5
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.0
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0
 	github.com/spf13/cobra v1.7.0
@@ -52,7 +52,7 @@ require (
 	cloud.google.com/go/kms v1.11.0 // indirect
 	cloud.google.com/go/longrunning v0.4.2 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0 // indirect
