@@ -33,10 +33,10 @@ cloud.google.com/go/compute/metadata v0.2.3 h1:mg4jlk7mCAj6xXp9UJ4fjI9VUI5rubuGB
 cloud.google.com/go/compute/metadata v0.2.3/go.mod h1:VAV5nSsACxMJvgaAuX6Pk2AawlZn8kiOGuCv6gTkwuA=
 cloud.google.com/go/datastore v1.0.0/go.mod h1:LXYbyblFSglQ5pkeyhO+Qmw7ukd3C+pD7TKLgZqpHYE=
 cloud.google.com/go/datastore v1.1.0/go.mod h1:umbIZjpQpHh4hmRpGhH4tLFup+FVzqBi1b3c64qFpCk=
-cloud.google.com/go/iam v1.0.1 h1:lyeCAU6jpnVNrE9zGQkTl3WgNgK/X+uWwaw0kynZJMU=
-cloud.google.com/go/iam v1.0.1/go.mod h1:yR3tmSL8BcZB4bxByRv2jkSIahVmCtfKZwLYGBalRE8=
-cloud.google.com/go/kms v1.11.0 h1:0LPJPKamw3xsVpkel1bDtK0vVJec3EyqdQOLitiD030=
-cloud.google.com/go/kms v1.11.0/go.mod h1:hwdiYC0xjnWsKQQCQQmIQnS9asjYVSK6jtXm+zFqXLM=
+cloud.google.com/go/iam v1.1.0 h1:67gSqaPukx7O8WLLHMa0PNs3EBGd2eE4d+psbO/CO94=
+cloud.google.com/go/iam v1.1.0/go.mod h1:nxdHjaKfCr7fNYx/HJMM8LgiMugmveWlkatear5gVyk=
+cloud.google.com/go/kms v1.12.0 h1:IEYV44WsGc6yVO1PlvnRlYzsHM2ImpB598Cglh/3uGw=
+cloud.google.com/go/kms v1.12.0/go.mod h1:syfpIBSOqQ/ZqK48RLPkwUhFhvbsA1SyGAq/vPohd20=
 cloud.google.com/go/longrunning v0.4.2 h1:WDKiiNXFTaQ6qz/G8FCOkuY9kJmOJGY67wPUC1M2RbE=
 cloud.google.com/go/longrunning v0.4.2/go.mod h1:OHrnaYyLUV6oqwh0xiS7e5sLQhP1m0QU9R+WhGDMgIQ=
 cloud.google.com/go/pubsub v1.0.1/go.mod h1:R0Gpsv3s54REJCy4fxDixWD93lHJMoZTyQ2kNxGRt3I=
@@ -401,8 +401,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.0 h1:fRv9grFx22NsmXTkfhF
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.0/go.mod h1:IgMwzsYgwhi0eB37GTylJxHPUVRtYXDBtL6/wOTvMKU=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.0 h1:ST1G207w73d1t4nXHyXGM9LvRDjSQUtnANbkoGRaBi4=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.0/go.mod h1:VFU3ghlvBSAExeyzrGPn8LHz7CASkma49/uzN4OJObo=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5 h1:ayZpTdJReIyvS1LrXlTFo+cP7WUJalQAs3Bc2PWf6Zk=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5/go.mod h1:xFrqobvdK11t7uvLovNwTcH8ht7/aqR+KIF93oTw+LQ=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.0 h1:rYJ7+nRDGxSneFcawUzYyVcRKvGrqqdMUbjZMLI6iCc=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.0/go.mod h1:pJD5JoV/1i61LwGFMgQ/xfpEX8QlSk90sfYFGMnxQX0=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0 h1:mKNyQ5b/G0KgwJ9HSYpGvkXmpeuC/2DYFKsp/mKmtXs=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0/go.mod h1:SN4QZHHDs2VqXh5bRXrIi8vqLbOijIp2XoSlmV/WJ/c=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
