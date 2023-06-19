@@ -27,7 +27,7 @@ require (
 	github.com/sigstore/sigstore v1.7.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.0
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.0
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.6.5
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.0
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -48,8 +48,8 @@ require (
 	cloud.google.com/go v0.110.2 // indirect
 	cloud.google.com/go/compute v1.20.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v1.0.1 // indirect
-	cloud.google.com/go/kms v1.11.0 // indirect
+	cloud.google.com/go/iam v1.1.0 // indirect
+	cloud.google.com/go/kms v1.12.0 // indirect
 	cloud.google.com/go/longrunning v0.4.2 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.1 // indirect
