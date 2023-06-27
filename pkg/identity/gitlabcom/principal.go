@@ -193,7 +193,7 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 		return err
 	}
 
-	// pipeline_ref claim is a URI that does not include protocol scheme so we need to normalize it
+	// ci_config_ref_uri claim is a URI that does not include protocol scheme so we need to normalize it
 	ciConfigRefURL, err := url.Parse(p.ciConfigRefURI)
 	if err != nil {
 		return err

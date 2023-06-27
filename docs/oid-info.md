@@ -203,7 +203,7 @@ that Sigstore operates.
 | server_url + workflow_ref       |  ci_config_ref_uri ([WIP][gitlab-wip-cliams]) | ??       | ??        | Build Config URI             | A reference to the initiating build instructions.                                                                                                                                      |
 | workflow_sha       |  ci_config_sha ([WIP][gitlab-wip-cliams]) | ??       | ??        | Build Config Digest          | An immutable reference to the specific version of the top-level build instructions. Should include the digest type followed by the digest, e.g. `sha1:abc123`.                         |
 | event_name         | pipeline_source | ??       | ??        | Build Trigger                | The event or action that triggered the build.                                                                                                                                          |
-| server_url + repository + "/actions/runs/" + run_id + "/attempts/" + run_attempt | server_url + project_path + /-/jobs/ + pipeline_id | ??       | ??        | Run Invocation URI           | An immutable identifier that can uniquely identify the build execution     |
+| server_url + repository + "/actions/runs/" + run_id + "/attempts/" + run_attempt | server_url + project_path + /-/jobs/ + job_id | ??       | ??        | Run Invocation URI           | An immutable identifier that can uniquely identify the build execution     |
 
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
 [oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264
