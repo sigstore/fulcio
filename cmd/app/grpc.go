@@ -75,6 +75,7 @@ func createGRPCCreds(certPath, keyPath string) (grpc.ServerOption, error) {
 
 	return grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS13,
 	})), nil
 }
 
