@@ -17,6 +17,7 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -38,6 +39,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -65,18 +67,41 @@ func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
+func createGRPCCreds(certPath, keyPath string) (grpc.ServerOption, error) {
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading GRPC tls certificate and key file: %w", err)
+	}
+
+	return grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})), nil
+}
+
 func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
-	myServer := grpc.NewServer(grpc.UnaryInterceptor(
-		grpcmw.ChainUnaryServer(
-			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
-			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
-			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			PassFulcioConfigThruContext(cfg),
-			grpc_prometheus.UnaryServerInterceptor,
-		)),
-		grpc.MaxRecvMsgSize(int(maxMsgSize)))
+	serverOpts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(
+			grpcmw.ChainUnaryServer(
+				grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
+				middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+				grpc_zap.UnaryServerInterceptor(logger, opts...),
+				PassFulcioConfigThruContext(cfg),
+				grpc_prometheus.UnaryServerInterceptor,
+			)),
+		grpc.MaxRecvMsgSize(int(maxMsgSize)),
+	}
+
+	if viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key") {
+		creds, err := createGRPCCreds(viper.GetString("grpc-tls-certificate"), viper.GetString("grpc-tls-key"))
+		if err != nil {
+			return nil, err
+		}
+		serverOpts = append(serverOpts, creds)
+	}
+
+	myServer := grpc.NewServer(serverOpts...)
 
 	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
 	// Register your gRPC service implementations.
