@@ -100,6 +100,8 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
+	cmd.Flags().String("grpc-tls-certificate", "", "the certificate file to use for secure connections - only applies to grpc-port")
+	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
