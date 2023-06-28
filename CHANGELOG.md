@@ -1,3 +1,28 @@
+# v1.3.2
+
+## Features
+
+* configure server-side TLS on grpc listener (#1252)
+
+## Bug fixes
+
+* gitlab: remove build config URI. (#1183)
+
+## Documentation
+
+* Update OID info (#1188)
+* Fix spellings, update protoc (#1184)
+* docs/oid-info: clarify source of issuer extensions (#1158)
+
+## Contributors
+
+* Billy Lynch
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Hayden B
+* Kristian Klausen
+* William Woodruff
+
 # v1.3.1
 
 ## Bug Fixes
