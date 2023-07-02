@@ -22,7 +22,9 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -50,6 +52,7 @@ type grpcServer struct {
 	*grpc.Server
 	grpcServerEndpoint string
 	caService          gw.CAServer
+	tlsCertWatcher     *fsnotify.Watcher
 }
 
 func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
@@ -67,16 +70,85 @@ func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func createGRPCCreds(certPath, keyPath string) (grpc.ServerOption, error) {
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+type cachedTLSCert struct {
+	sync.RWMutex
+	certPath string
+	keyPath  string
+	cert     *tls.Certificate
+	Watcher  *fsnotify.Watcher
+}
+
+func newCachedTLSCert(certPath, keyPath string) (*cachedTLSCert, error) {
+	cachedTLSCert := &cachedTLSCert{
+		certPath: certPath,
+		keyPath:  keyPath,
+	}
+	if err := cachedTLSCert.UpdateCertificate(); err != nil {
+		return nil, err
+	}
+	var err error
+	cachedTLSCert.Watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		return nil, fmt.Errorf("loading GRPC tls certificate and key file: %w", err)
+		return nil, err
 	}
 
+	go func() {
+		for {
+			select {
+			case event, ok := <-cachedTLSCert.Watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Write) {
+					log.Logger.Info("fsnotify grpc-tls-certificate write event detected")
+					if err := cachedTLSCert.UpdateCertificate(); err != nil {
+						log.Logger.Error(err)
+					}
+				}
+			case err, ok := <-cachedTLSCert.Watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Logger.Error("fsnotify grpc-tls-certificate error:", err)
+			}
+		}
+	}()
+
+	// Add a path.
+	if err = cachedTLSCert.Watcher.Add(certPath); err != nil {
+		return nil, err
+	}
+	return cachedTLSCert, nil
+}
+
+func (c *cachedTLSCert) GetCertificate() *tls.Certificate {
+	// get reader lock
+	c.RLock()
+	defer c.RUnlock()
+	return c.cert
+}
+
+func (c *cachedTLSCert) UpdateCertificate() error {
+	// get writer lock
+	c.Lock()
+	defer c.Unlock()
+
+	cert, err := tls.LoadX509KeyPair(c.certPath, c.keyPath)
+	if err != nil {
+		return fmt.Errorf("loading GRPC tls certificate and key file: %w", err)
+	}
+
+	c.cert = &cert
+	return nil
+}
+
+func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS13,
-	})), nil
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return c.GetCertificate(), nil
+		},
+		MinVersion: tls.VersionTLS13,
+	}))
 }
 
 func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
@@ -94,12 +166,15 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 		grpc.MaxRecvMsgSize(int(maxMsgSize)),
 	}
 
+	var tlsCertWatcher *fsnotify.Watcher
 	if viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key") {
-		creds, err := createGRPCCreds(viper.GetString("grpc-tls-certificate"), viper.GetString("grpc-tls-key"))
+		cachedTLSCert, err := newCachedTLSCert(viper.GetString("grpc-tls-certificate"), viper.GetString("grpc-tls-key"))
 		if err != nil {
 			return nil, err
 		}
-		serverOpts = append(serverOpts, creds)
+
+		tlsCertWatcher = cachedTLSCert.Watcher
+		serverOpts = append(serverOpts, cachedTLSCert.GRPCCreds())
 	}
 
 	myServer := grpc.NewServer(serverOpts...)
@@ -109,7 +184,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
 	grpcServerEndpoint := fmt.Sprintf("%s:%s", viper.GetString("grpc-host"), viper.GetString("grpc-port"))
-	return &grpcServer{myServer, grpcServerEndpoint, grpcCAServer}, nil
+	return &grpcServer{myServer, grpcServerEndpoint, grpcCAServer, tlsCertWatcher}, nil
 }
 
 func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
@@ -129,6 +204,9 @@ func (g *grpcServer) startTCPListener() {
 	g.grpcServerEndpoint = lis.Addr().String()
 	log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
 	go func() {
+		if g.tlsCertWatcher != nil {
+			defer g.tlsCertWatcher.Close()
+		}
 		if err := g.Server.Serve(lis); err != nil {
 			log.Logger.Errorf("error shutting down grpcServer: %w", err)
 		}
@@ -179,7 +257,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*gr
 	// Register your gRPC service implementations.
 	gw_legacy.RegisterCAServer(myServer, legacyGRPCCAServer)
 
-	return &grpcServer{myServer, LegacyUnixDomainSocket, v2Server}, nil
+	return &grpcServer{myServer, LegacyUnixDomainSocket, v2Server, nil}, nil
 }
 
 func panicRecoveryHandler(ctx context.Context, p interface{}) error {

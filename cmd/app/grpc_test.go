@@ -16,9 +16,11 @@
 package app
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 const keyPEM = `-----BEGIN PRIVATE KEY-----
@@ -108,7 +110,41 @@ tSLmTWsb+j/Oxljalf+rAlItYk297HN0xMvlkHkB80O5Un6OMCHAjJmfOVZal2Y5
 o4ZDR+PzKEbU8eUQbooS
 -----END CERTIFICATE-----`
 
-func TestCreateGRPCCreds(t *testing.T) {
+const renewedCertPEM = `-----BEGIN CERTIFICATE-----
+MIIFqzCCA5OgAwIBAgIUYKKd201v0q4S0FVSdKvRvrC9JQIwDQYJKoZIhvcNAQEL
+BQAwZTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMREwDwYDVQQHDAhLaXJrbGFu
+ZDERMA8GA1UECgwIU2lnc3RvcmUxDzANBgNVBAsMBkZ1bGNpbzESMBAGA1UEAwwJ
+bG9jYWxob3N0MB4XDTIzMDcwMTE4NTUzM1oXDTMzMDYyODE4NTUzM1owZTELMAkG
+A1UEBhMCVVMxCzAJBgNVBAgMAldBMREwDwYDVQQHDAhLaXJrbGFuZDERMA8GA1UE
+CgwIU2lnc3RvcmUxDzANBgNVBAsMBkZ1bGNpbzESMBAGA1UEAwwJbG9jYWxob3N0
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvc3MNQYRO5ytG+8FsPn5
+0Z8koUG4sYPf6ZLTMP78+sRYfz2ggZaP46Hl3f571AB8nXSBRbIc9byDgOVpOs9t
+zRnYA6tyv9cgtOCtgFfuctHFdeWpJXQr4wWhB0oUspmu66cmFKYfdwrfnrjvRkZ2
++33fGK0hC6EXtNIX7sg+Y98jT1iW0AIiBZxMBf8p5d5fTEfodVN/NZ0FN58/TOPO
+jmkStqta+fZrPL02TVZ/IdDx7RSWVqD+KcqOJdSneuCt5qniQgcLwBMIk5ymyMLP
++yKl1GQXHfagxh3e84HlE93XgVCThk9XK8HSQerUmH0oklIx2PgcSS0FPjsz49Us
+Kd7QweZAzcaaaoapK0QkXRvUZLSwPgOjriJtd6Pi5S7xN91DnGmyDHA7BGgCtew7
+1BUgW2AzWXJq3EX0kHjMaEgHCL59SUw/pOlMiNXMC6hnUSH5lnY2isNs9+DUU+Xa
+/Z9ME+B0SiRCaRGq7ZUdXiHuaN+DiRj3hX1VO96wVjvZAh0JklI6pVB7cz6HvOwx
+iAtSiXxqIQZkyac3lP939tAFzLVvpqSqaHzUF8bqBSkWxy8iZVW9EJiIb8wAVE8R
+Sl4WssnUrneMfXjxsyQ271H6DIDLWP4BHtorqcN0vGnOE37N6DjrOJaaTyaThn2q
+Kjmt6ghqvTY0CRVpyQz3szUCAwEAAaNTMFEwHQYDVR0OBBYEFGgoph9DIwXUHUT0
+8y7CtcviGmPhMB8GA1UdIwQYMBaAFGgoph9DIwXUHUT08y7CtcviGmPhMA8GA1Ud
+EwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggIBAJp6m3a6nMlpzZ9doLh9WOmj
+dCz68oStA0HMflHGkGgtZ9BDNWQI5EL8rnsdj4l5h4nte7s4AQrtoHGdT/QkIwUu
+1Zv3XBypubeof2iUJ+UhIz2Lm9vqt1hOT1HM3U7/4HCf/730y7LqwWIm580PLw1v
+73C4kizrzg4T7C/4Jy5/lF5PzmJOVPWd0LDomWzbpw0pM2h8cYUY02HVEaeVOfHP
+lCoTW7cL36q3I/0RAyjGmK8nNGNpJTB4xjdTT4TJRotkhcKEsTVfIrVJFGlVMDoT
+Fe9T6rAnYQ2TlnPRhp9tDqiRb3Y027nJouddjulgGTRudUAzNkg7lVWJSDc4PwO2
+7gm7I5/mbil6bI1r4djV0FPJZZI7EHgOM8OmKKqo5sLN0WQigZ8GSH1KHOuR1d2j
+m6GJOdUJ7+ZQ+tej0pwNERMSl0+OY+FtsFMusLXoIUUTyaOs1cpFO0ifqZSp9eUP
+50QDoeDGYS0T/0RicNDXMTltE24G3L7mHiPa5rr4tlYvVHYeoez7qFtG5LvDvBH8
+OVZzfoJGB4MbgrFxymai/9i+hdYadt2UHL9BfnUUInDhi/2l0MB1a45DYOzf5Zf0
+IYjZh058kDhlL7WOkAhPdvm2wD9KAm4FDInw49PYxpasmDKaOTf1WeWfNa5CVOYp
+wpLmyTovgQl/NcXO7caU
+-----END CERTIFICATE-----`
+
+func TestCachedTLSCert(t *testing.T) {
 	dir := t.TempDir()
 
 	// not PKI material
@@ -166,9 +202,30 @@ func TestCreateGRPCCreds(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := createGRPCCreds(tc.certPath, tc.keyPath)
+			cachedCert, err := newCachedTLSCert(tc.certPath, tc.keyPath)
 			if tc.success != (err == nil) {
 				t.Errorf("unexpected result: %v", err)
+			}
+			if tc.success {
+				cert := cachedCert.GetCertificate()
+				if cert == nil {
+					t.Fatal("unexpected error reading tls.Certificate object")
+				}
+
+				// update the cert on disk to a renewed value (representing same public/private keypair)
+				os.WriteFile(tc.certPath, []byte(renewedCertPEM), 0644)
+
+				// sleep for a second to let goroutine fire for fsnotify event
+				time.Sleep(1 * time.Second)
+
+				renewedCert := cachedCert.GetCertificate()
+				if renewedCert == nil {
+					t.Fatal("unexpected error reading renewed tls.Certificate object")
+				}
+
+				if bytes.Equal(cert.Certificate[0], renewedCert.Certificate[0]) {
+					t.Fatal("got same certificate after overwriting renewed cert to same file")
+				}
 			}
 		})
 	}
