@@ -40,6 +40,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 const (
@@ -105,6 +106,8 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 	myServer := grpc.NewServer(serverOpts...)
 
 	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
+
+	health.RegisterHealthServer(myServer, grpcCAServer)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
 
@@ -159,6 +162,10 @@ func (g *grpcServer) startUnixListener() {
 
 		log.Logger.Fatal(g.Server.Serve(lis))
 	}()
+}
+
+func (g *grpcServer) ExposesGRPCTLS() bool {
+	return viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key")
 }
 
 func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*grpcServer, error) {

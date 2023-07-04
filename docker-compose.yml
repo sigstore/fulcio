@@ -39,7 +39,7 @@ services:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
       - ./config/config.jsn:/etc/fulcio-config/config.json:z
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5555/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -62,7 +62,7 @@ services:
     volumes:
       - ./config/dex:/etc/config/:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/auth/healthz"]
+      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:8888/auth/healthz"]
       interval: 10s
       timeout: 3s
       retries: 3

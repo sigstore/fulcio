@@ -32,17 +32,20 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc/codes"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type grpcCAServer struct {
 	fulciogrpc.UnimplementedCAServer
+	health.HealthServer
 	ct *ctclient.LogClient
 	ca certauth.CertificateAuthority
 	identity.IssuerPool
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) fulciogrpc.CAServer {
+func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) *grpcCAServer {
 	return &grpcCAServer{
 		ct:         ct,
 		ca:         ca,
@@ -262,4 +265,12 @@ func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetCo
 	return &fulciogrpc.Configuration{
 		Issuers: cfg.ToIssuers(),
 	}, nil
+}
+
+func (g *grpcCAServer) Check(_ context.Context, _ *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
+	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
+}
+
+func (g *grpcCAServer) Watch(_ *health.HealthCheckRequest, _ health.Health_WatchServer) error {
+	return status.Error(codes.Unimplemented, "unimplemented")
 }
