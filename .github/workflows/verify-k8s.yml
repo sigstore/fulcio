@@ -47,10 +47,10 @@ jobs:
         include:
         - issuer: "OIDC Issuer"
           issuer-config: |
-            "OIDCIssuers": {"https://kubernetes.default.svc": {"IssuerURL": "https://kubernetes.default.svc","ClientID": "sigstore","Type": "kubernetes"}}
+            "OIDCIssuers": {"https://kubernetes.default.svc.cluster.local": {"IssuerURL": "https://kubernetes.default.svc.cluster.local","ClientID": "sigstore","Type": "kubernetes"}}
         - issuer: "Meta Issuer"
           issuer-config: |
-            "MetaIssuers": {"https://kubernetes.*.svc": {"ClientID": "sigstore","Type": "kubernetes"}}
+            "MetaIssuers": {"https://kubernetes.*.svc.cluster.local": {"ClientID": "sigstore","Type": "kubernetes"}}
 
     env:
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
@@ -121,6 +121,7 @@ jobs:
             server.yaml: |-
               host: 0.0.0.0
               port: 5555
+              grpc-port: 5554
               ca: fileca
               fileca-cert: /etc/fulcio-secret/cert.pem
               fileca-key: /etc/fulcio-secret/key.pem
