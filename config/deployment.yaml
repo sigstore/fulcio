@@ -70,6 +70,10 @@ spec:
             path: /healthz
             port: 5555
           initialDelaySeconds: 5
+        readinessProbe:
+          grpc:
+            port: 5554
+          initialDelaySeconds: 5
         resources:
           requests:
             memory: "1G"

@@ -75,31 +75,27 @@ func checkLatency(latency *dto.MetricFamily) error {
 	if *latency.Type != *dto.MetricType_HISTOGRAM.Enum() {
 		return fmt.Errorf("Wrong type, wanted %+v, got: %+v", dto.MetricType_HISTOGRAM.Enum(), latency.Type)
 	}
-	if len(latency.Metric) != 1 {
-		return fmt.Errorf("Got multiple entries, or none for metric, wanted one, got: %+v", latency.Metric)
-	}
-	// Make sure there's a 'post' and it's a 201.
-	var code string
-	var method string
-	for _, value := range latency.Metric[0].Label {
-		if *value.Name == "code" {
-			code = *value.Value
+
+	for _, metric := range latency.Metric {
+		var code string
+		var method string
+		for _, value := range metric.Label {
+			if *value.Name == "code" {
+				code = *value.Value
+			}
+			if *value.Name == "method" {
+				method = *value.Value
+			}
 		}
-		if *value.Name == "method" {
-			method = *value.Value
+		if code == "201" && method == "post" {
+			if *metric.Histogram.SampleCount != 1 {
+				return fmt.Errorf("Unexpected samplecount, wanted 1, got %d", *metric.Histogram.SampleCount)
+			}
+			return nil
 		}
-	}
-	if code != "201" {
-		return fmt.Errorf("unexpected code, wanted 201, got %s", code)
-	}
-	if method != "post" {
-		return fmt.Errorf("unexpected method, wanted post, got %s", method)
 	}
 
-	if *latency.Metric[0].Histogram.SampleCount != 1 {
-		return fmt.Errorf("Unexpected samplecount, wanted 1, got %d", *latency.Metric[0].Histogram.SampleCount)
-	}
-	return nil
+	return fmt.Errorf("Got multiple entries, or none for metric, wanted one, got: %+v", latency.Metric)
 }
 
 func checkCertCount(certCount *dto.MetricFamily) error {

@@ -53,6 +53,7 @@ func extractOIDCTokenFromAuthHeader(_ context.Context, req *http.Request) metada
 func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, legacyGRPCServer *grpcServer) httpServer {
 	opts := []grpc.DialOption{}
 	if grpcServer.ExposesGRPCTLS() {
+		/* #nosec G402 */ // InsecureSkipVerify is only used for the HTTP server to call the TLS-enabled grpc endpoint.
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
