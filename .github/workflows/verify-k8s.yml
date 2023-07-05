@@ -75,7 +75,7 @@ jobs:
       - name: Setup Cluster
         uses: chainguard-dev/actions/setup-kind@7d1eb557f464d97e5fe5177807a9226141eb9308 # main
         with:
-          k8s-version: v1.22.x
+          k8s-version: v1.24.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
 
       - name: Generate temporary CA files
