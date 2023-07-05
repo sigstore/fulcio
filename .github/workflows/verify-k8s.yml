@@ -47,10 +47,10 @@ jobs:
         include:
         - issuer: "OIDC Issuer"
           issuer-config: |
-            "OIDCIssuers": {"https://kubernetes.default.svc.cluster.local": {"IssuerURL": "https://kubernetes.default.svc.cluster.local","ClientID": "sigstore","Type": "kubernetes"}}
+            "OIDCIssuers": {"https://kubernetes.default.svc": {"IssuerURL": "https://kubernetes.default.svc","ClientID": "sigstore","Type": "kubernetes"}}
         - issuer: "Meta Issuer"
           issuer-config: |
-            "MetaIssuers": {"https://kubernetes.*.svc.cluster.local": {"ClientID": "sigstore","Type": "kubernetes"}}
+            "MetaIssuers": {"https://kubernetes.*.svc": {"ClientID": "sigstore","Type": "kubernetes"}}
 
     env:
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
@@ -73,9 +73,9 @@ jobs:
       - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
 
       - name: Setup Cluster
-        uses: chainguard-dev/actions/setup-kind@7d1eb557f464d97e5fe5177807a9226141eb9308 # main
+        uses: chainguard-dev/actions/setup-kind@f5a6616ce43b6ffabeddb87480a13721fffb3588 # main
         with:
-          k8s-version: v1.24.x
+          k8s-version: 1.24.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
 
       - name: Generate temporary CA files
