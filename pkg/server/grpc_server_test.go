@@ -956,6 +956,8 @@ type gitlabClaims struct {
 	ProjectID         string `json:"project_id"`
 	PipelineSource    string `json:"pipeline_source"`
 	PipelineID        string `json:"pipeline_id"`
+	CiConfigRefURI    string `json:"ci_config_ref_uri"`
+	CiConfigSha       string `json:"ci_config_sha"`
 	NamespacePath     string `json:"namespace_path"`
 	NamespaceID       string `json:"namespace_id"`
 	JobID             string `json:"job_id"`
@@ -989,6 +991,8 @@ func TestAPIWithGitLab(t *testing.T) {
 		ProjectID:         "42831435",
 		PipelineSource:    "push",
 		PipelineID:        "757451528",
+		CiConfigRefURI:    "gitlab.com/cpanato/testing-cosign//.gitlab-ci.yml@refs/heads/main",
+		CiConfigSha:       "714a629c0b401fdce83e847fc9589983fc6f46bc",
 		NamespacePath:     "cpanato",
 		NamespaceID:       "1730270",
 		JobID:             "3659681386",
@@ -1051,7 +1055,8 @@ func TestAPIWithGitLab(t *testing.T) {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
 
-	gitLabURL := fmt.Sprintf("https://gitlab.com/%s@refs/heads/%s", claims.ProjectPath, claims.Ref)
+	baseUrl := "https://gitlab.com/"
+	gitLabURL := baseUrl + fmt.Sprintf("%s//.gitlab-ci.yml@refs/heads/%s", claims.ProjectPath, claims.Ref)
 	gitLabURI, err := url.Parse(gitLabURL)
 	if err != nil {
 		t.Fatalf("failed to parse expected url")
@@ -1059,18 +1064,20 @@ func TestAPIWithGitLab(t *testing.T) {
 	if *leafCert.URIs[0] != *gitLabURI {
 		t.Fatalf("URIs do not match: Expected %v, got %v", gitLabURI, leafCert.URIs[0])
 	}
-	url := "https://gitlab.com/"
 	expectedExts := map[int]string{
-		9:  url + claims.ProjectPath + "/-/jobs/" + claims.JobID,
+		9:  gitLabURL,
+		10: claims.CiConfigSha,
 		11: claims.RunnerEnvironment,
-		12: url + claims.ProjectPath,
+		12: baseUrl + claims.ProjectPath,
 		13: claims.Sha,
 		14: fmt.Sprintf("refs/heads/%s", claims.Ref),
 		15: claims.ProjectID,
-		16: url + claims.NamespacePath,
+		16: baseUrl + claims.NamespacePath,
 		17: claims.NamespaceID,
+		18: gitLabURL,
+		19: claims.CiConfigSha,
 		20: claims.PipelineSource,
-		21: url + claims.ProjectPath + "/-/pipelines/" + claims.PipelineID,
+		21: baseUrl + claims.ProjectPath + "/-/jobs/" + claims.JobID,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
