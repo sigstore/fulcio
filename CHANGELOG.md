@@ -1,3 +1,15 @@
+# v1.3.3
+
+## Features
+
+* add HTTP and GRPC health check endpoints (#1258)
+* add fsnotify-backed cache for reading TLS PKI material (#1256)
+
+## Contributors
+
+* Bob Callaway
+* Hayden B
+
 # v1.3.2
 
 ## Features
