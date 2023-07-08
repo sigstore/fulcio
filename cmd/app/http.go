@@ -17,6 +17,7 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -32,7 +33,9 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
@@ -48,10 +51,22 @@ func extractOIDCTokenFromAuthHeader(_ context.Context, req *http.Request) metada
 }
 
 func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, legacyGRPCServer *grpcServer) httpServer {
-	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
-		runtime.WithForwardResponseOption(setResponseCodeModifier))
+	opts := []grpc.DialOption{}
+	if grpcServer.ExposesGRPCTLS() {
+		/* #nosec G402 */ // InsecureSkipVerify is only used for the HTTP server to call the TLS-enabled grpc endpoint.
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	cc, err := grpc.Dial(grpcServer.grpcServerEndpoint, opts...)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
 
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	mux := runtime.NewServeMux(runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
+		runtime.WithForwardResponseOption(setResponseCodeModifier),
+		runtime.WithHealthzEndpoint(health.NewHealthClient(cc)))
+
 	if err := gw.RegisterCAHandlerFromEndpoint(ctx, mux, grpcServer.grpcServerEndpoint, opts); err != nil {
 		log.Logger.Fatal(err)
 	}

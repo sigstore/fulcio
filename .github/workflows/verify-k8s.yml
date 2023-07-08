@@ -73,9 +73,9 @@ jobs:
       - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
 
       - name: Setup Cluster
-        uses: chainguard-dev/actions/setup-kind@7d1eb557f464d97e5fe5177807a9226141eb9308 # main
+        uses: chainguard-dev/actions/setup-kind@f5a6616ce43b6ffabeddb87480a13721fffb3588 # main
         with:
-          k8s-version: v1.22.x
+          k8s-version: 1.24.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
 
       - name: Generate temporary CA files
@@ -121,6 +121,7 @@ jobs:
             server.yaml: |-
               host: 0.0.0.0
               port: 5555
+              grpc-port: 5554
               ca: fileca
               fileca-cert: /etc/fulcio-secret/cert.pem
               fileca-key: /etc/fulcio-secret/key.pem

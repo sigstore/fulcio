@@ -32,18 +32,21 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc/codes"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
-type grpcCAServer struct {
+type GRPCCAServer struct {
 	fulciogrpc.UnimplementedCAServer
+	health.HealthServer
 	ct *ctclient.LogClient
 	ca certauth.CertificateAuthority
 	identity.IssuerPool
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) fulciogrpc.CAServer {
-	return &grpcCAServer{
+func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) *GRPCCAServer {
+	return &GRPCCAServer{
 		ct:         ct,
 		ca:         ca,
 		IssuerPool: ip,
@@ -54,7 +57,7 @@ const (
 	MetadataOIDCTokenKey = "oidcidentitytoken"
 )
 
-func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fulciogrpc.CreateSigningCertificateRequest) (*fulciogrpc.SigningCertificate, error) {
+func (g *GRPCCAServer) CreateSigningCertificate(ctx context.Context, request *fulciogrpc.CreateSigningCertificateRequest) (*fulciogrpc.SigningCertificate, error) {
 	logger := log.ContextLogger(ctx)
 
 	// OIDC token either is passed in gRPC field or was extracted from HTTP headers
@@ -228,7 +231,7 @@ func (g *grpcCAServer) CreateSigningCertificate(ctx context.Context, request *fu
 	return result, nil
 }
 
-func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrustBundleRequest) (*fulciogrpc.TrustBundle, error) {
+func (g *GRPCCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrustBundleRequest) (*fulciogrpc.TrustBundle, error) {
 	trustBundle, err := g.ca.TrustBundle(ctx)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.Internal, err, retrieveTrustBundleCAError)
@@ -252,7 +255,7 @@ func (g *grpcCAServer) GetTrustBundle(ctx context.Context, _ *fulciogrpc.GetTrus
 	return resp, nil
 }
 
-func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetConfigurationRequest) (*fulciogrpc.Configuration, error) {
+func (g *GRPCCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetConfigurationRequest) (*fulciogrpc.Configuration, error) {
 	cfg := config.FromContext(ctx)
 	if cfg == nil {
 		err := errors.New("configuration not loaded")
@@ -262,4 +265,12 @@ func (g *grpcCAServer) GetConfiguration(ctx context.Context, _ *fulciogrpc.GetCo
 	return &fulciogrpc.Configuration{
 		Issuers: cfg.ToIssuers(),
 	}, nil
+}
+
+func (g *GRPCCAServer) Check(_ context.Context, _ *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
+	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
+}
+
+func (g *GRPCCAServer) Watch(_ *health.HealthCheckRequest, _ health.Health_WatchServer) error {
+	return status.Error(codes.Unimplemented, "unimplemented")
 }
