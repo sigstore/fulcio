@@ -24,6 +24,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -70,6 +72,56 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 
 }
 
+// setup with GRPC TLS enabled
+func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
+	t.Helper()
+	httpListen, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Error(err)
+	}
+
+	tlsPKIDir := t.TempDir()
+	certPath := filepath.Join(tlsPKIDir, "cert.pem")
+	os.WriteFile(certPath, []byte(certPEM), 0644)
+	keyPath := filepath.Join(tlsPKIDir, "key.pem")
+	os.WriteFile(keyPath, []byte(keyPEM), 0644)
+
+	viper.Set("grpc-tls-certificate", certPath)
+	viper.Set("grpc-tls-key", keyPath)
+
+	viper.Set("grpc-host", "")
+	viper.Set("grpc-port", 0)
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	grpcServer.startTCPListener()
+	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer func() {
+		if conn != nil {
+			_ = conn.Close()
+		}
+	}()
+	if err != nil {
+		t.Error(err)
+	}
+	legacyGRPCServer, err := createLegacyGRPCServer(nil, grpcServer.caService)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyGRPCServer.startUnixListener()
+
+	httpHost := httpListen.Addr().String()
+	httpServer := createHTTPServer(context.Background(), httpHost, grpcServer, legacyGRPCServer)
+	go func() {
+		_ = httpServer.Serve(httpListen)
+		grpcServer.GracefulStop()
+	}()
+
+	return httpServer, fmt.Sprintf("http://%s", httpHost)
+
+}
+
 func TestHTTPCORSSupport(t *testing.T) {
 	httpServer, host := setupHTTPServer(t)
 	defer httpServer.Close()
@@ -107,6 +159,23 @@ func TestHTTPDoesntLeakGRPCHeaders(t *testing.T) {
 			t.Errorf("found leaked Grpc response header %s", headerKey)
 		}
 	}
+}
+
+func TestIssue1267(t *testing.T) {
+	httpServer, host := setupHTTPServerWithGRPCTLS(t)
+	defer httpServer.Close()
+
+	url, _ := url.Parse(host + "/api/v1/rootCert")
+	req := http.Request{
+		Method: "GET",
+		URL:    url,
+	}
+
+	resp, err := http.DefaultClient.Do(&req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected response: %v, %v", resp, err)
+	}
+	defer resp.Body.Close()
 }
 
 // Trivial CA service that returns junk

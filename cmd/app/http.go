@@ -73,7 +73,9 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 
 	if legacyGRPCServer != nil {
 		endpoint := fmt.Sprintf("unix:%v", legacyGRPCServer.grpcServerEndpoint)
-		if err := legacy_gw.RegisterCAHandlerFromEndpoint(ctx, mux, endpoint, opts); err != nil {
+		// we are connecting over a unix domain socket, therefore we won't ever need TLS
+		unixDomainSocketOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		if err := legacy_gw.RegisterCAHandlerFromEndpoint(ctx, mux, endpoint, unixDomainSocketOpts); err != nil {
 			log.Logger.Fatal(err)
 		}
 	}
