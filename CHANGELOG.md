@@ -1,3 +1,19 @@
+# v1.3.4
+
+## Features
+
+* Update GitLab claim mappings for build configs (#1206)
+* add container builds for each push to main (#1269)
+
+## Bug fixes
+
+* always use non-TLS credentials to connect over unix domain socket (#1268)
+
+## Contributors
+
+* Marshall Cottrell
+* Bob Callaway
+
 # v1.3.3
 
 ## Features
