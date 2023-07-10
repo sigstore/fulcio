@@ -15,7 +15,6 @@
 package gitlabcom
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/asn1"
@@ -50,6 +49,8 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 				"namespace_id":       "1730270",
 				"pipeline_id":        "757451528",
 				"pipeline_source":    "push",
+				"ci_config_ref_uri":  "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
+				"ci_config_sha":      "714a629c0b401fdce83e847fc9589983fc6f46bc",
 				"job_id":             "3659681386",
 				"ref":                "main",
 				"ref_type":           "branch",
@@ -63,6 +64,8 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 				url:               "https://gitlab.com/",
 				eventName:         "push",
 				pipelineID:        "757451528",
+				ciConfigRefURI:    "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
+				ciConfigSha:       "714a629c0b401fdce83e847fc9589983fc6f46bc",
 				repository:        "cpanato/testing-cosign",
 				repositoryID:      "42831435",
 				repositoryOwner:   "cpanato",
@@ -77,29 +80,52 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 		},
 		`Token missing pipeline_source claim should be rejected`: {
 			Claims: map[string]interface{}{
-				"aud":            "sigstore",
-				"exp":            0,
-				"iss":            "https://gitlab.com",
-				"sub":            "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
-				"project_id":     "42831435",
-				"project_path":   "cpanato/testing-cosign",
-				"namespace_path": "cpanato",
-				"namespace_id":   "1730270",
-				"pipeline_id":    "757451528",
-				"job_id":         "3659681386",
-				"ref":            "main",
-				"ref_type":       "branch",
+				"aud":               "sigstore",
+				"exp":               0,
+				"iss":               "https://gitlab.com",
+				"sub":               "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
+				"ci_config_ref_uri": "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
+				"ci_config_sha":     "714a629c0b401fdce83e847fc9589983fc6f46bc",
+				"project_id":        "42831435",
+				"project_path":      "cpanato/testing-cosign",
+				"namespace_path":    "cpanato",
+				"namespace_id":      "1730270",
+				"pipeline_id":       "757451528",
+				"job_id":            "3659681386",
+				"ref":               "main",
+				"ref_type":          "branch",
 			},
 			WantErr:     true,
 			ErrContains: "pipeline_source",
 		},
 		`Token missing project_path claim should be rejected`: {
 			Claims: map[string]interface{}{
+				"aud":               "sigstore",
+				"exp":               0,
+				"iss":               "https://gitlab.com",
+				"sub":               "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
+				"ci_config_ref_uri": "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
+				"ci_config_sha":     "714a629c0b401fdce83e847fc9589983fc6f46bc",
+				"project_id":        "42831435",
+				"pipeline_id":       "757451528",
+				"namespace_id":      "1730270",
+				"pipeline_source":   "push",
+				"namespace_path":    "cpanato",
+				"job_id":            "3659681386",
+				"ref":               "main",
+				"ref_type":          "branch",
+			},
+			WantErr:     true,
+			ErrContains: "project_path",
+		},
+		`Token missing ci_config_ref_uri claim should be rejected`: {
+			Claims: map[string]interface{}{
 				"aud":             "sigstore",
 				"exp":             0,
 				"iss":             "https://gitlab.com",
 				"sub":             "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
 				"project_id":      "42831435",
+				"project_path":    "cpanato/testing-cosign",
 				"pipeline_id":     "757451528",
 				"namespace_id":    "1730270",
 				"pipeline_source": "push",
@@ -109,7 +135,46 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 				"ref_type":        "branch",
 			},
 			WantErr:     true,
-			ErrContains: "project_path",
+			ErrContains: "ci_config_ref_uri",
+		},
+		`Token missing ci_config_sha claim is ok`: {
+			Claims: map[string]interface{}{
+				"aud":                "sigstore",
+				"exp":                0,
+				"iss":                "https://gitlab.com",
+				"sub":                "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
+				"project_id":         "42831435",
+				"project_path":       "cpanato/testing-cosign",
+				"namespace_path":     "cpanato",
+				"namespace_id":       "1730270",
+				"pipeline_id":        "757451528",
+				"pipeline_source":    "push",
+				"ci_config_ref_uri":  "example.com/ci/config.yml",
+				"job_id":             "3659681386",
+				"ref":                "main",
+				"ref_type":           "branch",
+				"sha":                "714a629c0b401fdce83e847fc9589983fc6f46bc",
+				"runner_id":          1,
+				"runner_environment": "gitlab-hosted",
+			},
+			ExpectPrincipal: jobPrincipal{
+				issuer:            "https://gitlab.com",
+				subject:           "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
+				url:               "https://gitlab.com/",
+				eventName:         "push",
+				pipelineID:        "757451528",
+				ciConfigRefURI:    "example.com/ci/config.yml",
+				repository:        "cpanato/testing-cosign",
+				repositoryID:      "42831435",
+				repositoryOwner:   "cpanato",
+				repositoryOwnerID: "1730270",
+				jobID:             "3659681386",
+				ref:               "refs/heads/main",
+				runnerID:          1,
+				runnerEnvironment: "gitlab-hosted",
+				sha:               "714a629c0b401fdce83e847fc9589983fc6f46bc",
+			},
+			WantErr: false,
 		},
 	}
 
@@ -174,6 +239,7 @@ func TestName(t *testing.T) {
 				"project_id":         "42831435",
 				"project_path":       "cpanato/testing-cosign",
 				"pipeline_id":        "757451528",
+				"ci_config_ref_uri":  "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
 				"pipeline_source":    "push",
 				"namespace_path":     "cpanato",
 				"namespace_id":       "1730270",
@@ -222,13 +288,39 @@ func TestEmbed(t *testing.T) {
 	}{
 		`GitLab job challenge should have issue, subject and url embedded`: {
 			Principal: &jobPrincipal{
-				issuer:  "https://gitlab.com",
-				subject: "doesntmatter",
-				url:     `https://gitlab.com/honk/honk-repo/-/job/123456`,
+				issuer:            "https://gitlab.com",
+				subject:           "project_path:cpanato/testing-cosign:ref_type:branch:ref:main",
+				url:               "https://gitlab.com/",
+				eventName:         "push",
+				pipelineID:        "757451528",
+				ciConfigRefURI:    "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
+				ciConfigSha:       "714a629c0b401fdce83e847fc9589983fc6f46bc",
+				repository:        "cpanato/testing-cosign",
+				repositoryID:      "42831435",
+				repositoryOwner:   "cpanato",
+				repositoryOwnerID: "1730270",
+				jobID:             "3659681386",
+				ref:               "ref",
+				runnerID:          1,
+				runnerEnvironment: "gitlab-hosted",
+				sha:               "sha",
 			},
 			WantErr: false,
 			WantFacts: map[string]func(x509.Certificate) error{
-				`Certifificate should have correct issuer`: factIssuerIs(`https://gitlab.com`),
+				`Certificate has correct issuer (v2) extension`:           factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "https://gitlab.com"),
+				`Certificate has correct builder signer URI extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}, "https://gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main"),
+				`Certificate has correct builder signer digest extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 10}, "714a629c0b401fdce83e847fc9589983fc6f46bc"),
+				`Certificate has correct runner environment extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "gitlab-hosted"),
+				`Certificate has correct source repo URI extension`:       factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 12}, "https://gitlab.com/cpanato/testing-cosign"),
+				`Certificate has correct source repo digest extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 13}, "sha"),
+				`Certificate has correct source repo ref extension`:       factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14}, "ref"),
+				`Certificate has correct source repo ID extension`:        factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 15}, "42831435"),
+				`Certificate has correct source repo owner URI extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 16}, "https://gitlab.com/cpanato"),
+				`Certificate has correct source repo owner ID extension`:  factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 17}, "1730270"),
+				`Certificate has correct build config URI extension`:      factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "https://gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main"),
+				`Certificate has correct build config digest extension`:   factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 19}, "714a629c0b401fdce83e847fc9589983fc6f46bc"),
+				`Certificate has correct build trigger extension`:         factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 20}, "push"),
+				`Certificate has correct run invocation ID extension`:     factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "https://gitlab.com/cpanato/testing-cosign/-/jobs/3659681386"),
 			},
 		},
 		`GitLab job principal with bad URL fails`: {
@@ -263,16 +355,14 @@ func TestEmbed(t *testing.T) {
 	}
 }
 
-func factIssuerIs(issuer string) func(x509.Certificate) error {
-	return factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, issuer)
-}
-
 func factExtensionIs(oid asn1.ObjectIdentifier, value string) func(x509.Certificate) error {
 	return func(cert x509.Certificate) error {
 		for _, ext := range cert.ExtraExtensions {
 			if ext.Id.Equal(oid) {
-				if !bytes.Equal(ext.Value, []byte(value)) {
-					return fmt.Errorf("expected oid %v to be %s, but got %s", oid, value, ext.Value)
+				var strVal string
+				_, _ = asn1.Unmarshal(ext.Value, &strVal)
+				if value != strVal {
+					return fmt.Errorf("expected oid %v to be %s, but got %s", oid, value, strVal)
 				}
 				return nil
 			}

@@ -53,6 +53,7 @@ func TestIssuer(t *testing.T) {
 			"user_email":         "cpanato@example.com",
 			"pipeline_id":        "757451528",
 			"pipeline_source":    "push",
+			"ci_config_ref_uri":  "gitlab.com/cpanto/testing-cosign//.gitlab-ci.yml@refs/head/main",
 			"job_id":             "3659681386",
 			"sha":                "714a629c0b401fdce83e847fc9589983fc6f46bc",
 			"runner_id":          1,
