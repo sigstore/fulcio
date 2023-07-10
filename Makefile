@@ -118,6 +118,14 @@ $(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
 ## Images with ko
 ## --------------------------------------
 
+.PHONY: ko
+ko:
+	# fulcio
+	LDFLAGS="$(SERVER_LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
+	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare \
+		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
+		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
+
 .PHONY: ko-local
 ko-local:
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
@@ -136,6 +144,10 @@ ko-apply-ci: ko-apply
 .PHONY: ko-publish
 ko-publish:
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish .
+
+.PHONY: sign-keyless-ci
+sign-keyless-ci: ko
+	cosign sign --yes -a GIT_HASH=$(GIT_HASH) $(KO_DOCKER_REPO)/fulcio:$(GIT_HASH)
 
 ## --------------------------------------
 ## Modules
