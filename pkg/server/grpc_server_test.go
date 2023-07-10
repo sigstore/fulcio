@@ -1055,8 +1055,8 @@ func TestAPIWithGitLab(t *testing.T) {
 		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
 	}
 
-	baseUrl := "https://gitlab.com/"
-	gitLabURL := baseUrl + fmt.Sprintf("%s//.gitlab-ci.yml@refs/heads/%s", claims.ProjectPath, claims.Ref)
+	baseURL := "https://gitlab.com/"
+	gitLabURL := baseURL + fmt.Sprintf("%s//.gitlab-ci.yml@refs/heads/%s", claims.ProjectPath, claims.Ref)
 	gitLabURI, err := url.Parse(gitLabURL)
 	if err != nil {
 		t.Fatalf("failed to parse expected url")
@@ -1068,16 +1068,16 @@ func TestAPIWithGitLab(t *testing.T) {
 		9:  gitLabURL,
 		10: claims.CiConfigSha,
 		11: claims.RunnerEnvironment,
-		12: baseUrl + claims.ProjectPath,
+		12: baseURL + claims.ProjectPath,
 		13: claims.Sha,
 		14: fmt.Sprintf("refs/heads/%s", claims.Ref),
 		15: claims.ProjectID,
-		16: baseUrl + claims.NamespacePath,
+		16: baseURL + claims.NamespacePath,
 		17: claims.NamespaceID,
 		18: gitLabURL,
 		19: claims.CiConfigSha,
 		20: claims.PipelineSource,
-		21: baseUrl + claims.ProjectPath + "/-/jobs/" + claims.JobID,
+		21: baseURL + claims.ProjectPath + "/-/jobs/" + claims.JobID,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
