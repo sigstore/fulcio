@@ -16,11 +16,14 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"reflect"
 	"testing"
 
+	"github.com/coreos/go-oidc/v3/oidc"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 )
 
@@ -547,4 +550,79 @@ func TestToIssuers(t *testing.T) {
 	if !reflect.DeepEqual(issuers[1], iss) {
 		t.Fatalf("expected issuer %v, got %v", iss, issuers[1])
 	}
+}
+
+func TestVerifierCache(t *testing.T) {
+	cache, err := lru.New2Q(100 /* size */)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			"issuer.dev": {
+				IssuerURL: "issuer.dev",
+				ClientID:  "sigstore",
+			},
+		},
+		verifiers: map[string][]*verifierWithConfig{},
+		lru:       cache,
+	}
+
+	// create a cache hit
+	cfg := &oidc.Config{ClientID: "sigstore"}
+	verifier := oidc.NewVerifier("issuer.dev", &mockKeySet{}, cfg)
+	fc.verifiers = map[string][]*verifierWithConfig{
+		"issuer.dev": {
+			{
+				Config:          cfg,
+				IDTokenVerifier: verifier,
+			},
+		},
+	}
+
+	// make sure we get a hit
+	v, ok := fc.GetVerifier("issuer.dev")
+	if !ok {
+		t.Fatal("unable to verifier")
+	}
+	if !reflect.DeepEqual(v, verifier) {
+		t.Fatal("got unexpected verifier")
+	}
+
+	// get verifier with SkipExpiryCheck set, should fail on cache miss
+	_, ok = fc.GetVerifier("issuer.dev", WithSkipExpiryCheck())
+	if ok {
+		t.Fatal("expected cache miss")
+	}
+
+	// create a cache hit with SkipExpiryCheck set
+	withExpiryCfg := &oidc.Config{ClientID: "sigstore", SkipExpiryCheck: true}
+	expiryVerifier := oidc.NewVerifier("issuer.dev", &mockKeySet{}, cfg)
+	fc.verifiers = map[string][]*verifierWithConfig{
+		"issuer.dev": {
+			{
+				Config:          cfg,
+				IDTokenVerifier: verifier,
+			}, {
+				Config:          withExpiryCfg,
+				IDTokenVerifier: expiryVerifier,
+			},
+		},
+	}
+	// make sure we get a hit and the correct verifier is returned
+	v, ok = fc.GetVerifier("issuer.dev", WithSkipExpiryCheck())
+	if !ok {
+		t.Fatal("unable to verifier")
+	}
+	if !reflect.DeepEqual(v, expiryVerifier) {
+		t.Fatal("got unexpected verifier")
+	}
+}
+
+type mockKeySet struct {
+}
+
+func (m *mockKeySet) VerifySignature(_ context.Context, _ string) (payload []byte, err error) {
+	return nil, nil
 }

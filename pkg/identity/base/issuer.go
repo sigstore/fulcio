@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
@@ -38,7 +39,7 @@ func Issuer(issuerURL string) identity.Issuer {
 }
 
 // This is unimplemented for the base issuer, and should be implemented unique to each issuer
-func (e *baseIssuer) Authenticate(_ context.Context, token string) (identity.Principal, error) { //nolint: revive
+func (e *baseIssuer) Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (identity.Principal, error) { //nolint: revive
 	return nil, fmt.Errorf("unimplemented")
 }
 

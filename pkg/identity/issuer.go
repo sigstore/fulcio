@@ -14,7 +14,11 @@
 
 package identity
 
-import "context"
+import (
+	"context"
+
+	"github.com/sigstore/fulcio/pkg/config"
+)
 
 type Issuer interface {
 	// Match checks if this issuer can authenticate tokens from a given issuer URL
@@ -22,5 +26,5 @@ type Issuer interface {
 
 	// Authenticate ID token and return Principal on success. The ID token's signature
 	// is verified in the call -- invalid signature must result in an error.
-	Authenticate(ctx context.Context, token string) (Principal, error)
+	Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (Principal, error)
 }

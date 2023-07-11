@@ -56,7 +56,7 @@ func TestIssuer(t *testing.T) {
 		}
 		ctx := config.With(context.Background(), cfg)
 
-		identity.Authorize = func(_ context.Context, _ string) (*oidc.IDToken, error) {
+		identity.Authorize = func(_ context.Context, _ string, _ ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
 			return token, nil
 		}
 		principal, err := issuer.Authenticate(ctx, "token")

@@ -16,7 +16,9 @@ package github
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/base"
 )
@@ -29,10 +31,10 @@ func Issuer(issuerURL string) identity.Issuer {
 	return &githubIssuer{base.Issuer(issuerURL)}
 }
 
-func (e *githubIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
-	idtoken, err := identity.Authorize(ctx, token)
+func (e *githubIssuer) Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (identity.Principal, error) {
+	idtoken, err := identity.Authorize(ctx, token, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authorizing github issuer: %w", err)
 	}
 	return WorkflowPrincipalFromIDToken(ctx, idtoken)
 }

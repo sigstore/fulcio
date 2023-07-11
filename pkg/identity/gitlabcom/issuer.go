@@ -17,6 +17,7 @@ package gitlabcom
 import (
 	"context"
 
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/base"
 )
@@ -29,8 +30,8 @@ func Issuer(issuerURL string) identity.Issuer {
 	return &gitlabIssuer{base.Issuer(issuerURL)}
 }
 
-func (e *gitlabIssuer) Authenticate(ctx context.Context, token string) (identity.Principal, error) {
-	idtoken, err := identity.Authorize(ctx, token)
+func (e *gitlabIssuer) Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (identity.Principal, error) {
+	idtoken, err := identity.Authorize(ctx, token, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -41,6 +41,7 @@ require (
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
+	gotest.tools v2.2.0+incompatible
 	sigs.k8s.io/release-utils v0.7.4
 )
 
