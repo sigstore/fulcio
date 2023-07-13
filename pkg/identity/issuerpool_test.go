@@ -19,6 +19,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"testing"
+
+	"github.com/sigstore/fulcio/pkg/config"
 )
 
 type testPrincipal struct {
@@ -42,7 +44,7 @@ func (i testIssuer) Match(ctx context.Context, url string) bool {
 	return i.match(ctx, url)
 }
 
-func (i testIssuer) Authenticate(ctx context.Context, token string) (Principal, error) {
+func (i testIssuer) Authenticate(ctx context.Context, token string, _ ...config.InsecureOIDCConfigOption) (Principal, error) {
 	return i.auth(ctx, token)
 }
 

@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -41,6 +42,11 @@ const defaultOIDCDiscoveryTimeout = 10 * time.Second
 // top-level and second-level domain
 const minimumHostnameLength = 2
 
+type verifierWithConfig struct {
+	*oidc.IDTokenVerifier
+	*oidc.Config
+}
+
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
 
@@ -54,7 +60,7 @@ type FulcioConfig struct {
 	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
 
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
-	verifiers map[string]*oidc.IDTokenVerifier
+	verifiers map[string][]*verifierWithConfig
 	// lru is an LRU cache of recently used verifiers for our meta issuers.
 	lru *lru.TwoQueueCache
 }
@@ -129,25 +135,38 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 // GetVerifier fetches a token verifier for the given `issuerURL`
 // coming from an incoming OIDC token.  If no matching configuration
 // is found, then it returns `false`.
-func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bool) {
+func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfigOption) (*oidc.IDTokenVerifier, bool) {
+	iss, ok := fc.GetIssuer(issuerURL)
+	if !ok {
+		return nil, false
+	}
+	cfg := &oidc.Config{ClientID: iss.ClientID}
+	for _, o := range opts {
+		o(cfg)
+	}
 	// Look up our fixed issuer verifiers
 	v, ok := fc.verifiers[issuerURL]
 	if ok {
-		return v, true
+		for _, c := range v {
+			if reflect.DeepEqual(c.Config, cfg) {
+				return c.IDTokenVerifier, true
+			}
+		}
 	}
 
 	// Look in the LRU cache for a verifier
 	untyped, ok := fc.lru.Get(issuerURL)
 	if ok {
-		return untyped.(*oidc.IDTokenVerifier), true
+		v := untyped.([]*verifierWithConfig)
+		for _, c := range v {
+			if reflect.DeepEqual(c.Config, cfg) {
+				return c.IDTokenVerifier, true
+			}
+		}
 	}
-	// If this issuer hasn't been recently used, then create a new verifier
-	// and add it to the LRU cache.
 
-	iss, ok := fc.GetIssuer(issuerURL)
-	if !ok {
-		return nil, false
-	}
+	// If this issuer hasn't been recently used, or we have special config options, then create a new verifier
+	// and add it to the LRU cache.
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 	defer cancel()
@@ -156,9 +175,24 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string) (*oidc.IDTokenVerifier, bo
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
 	}
-	verifier := provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
-	fc.lru.Add(issuerURL, verifier)
-	return verifier, true
+
+	vwf := &verifierWithConfig{provider.Verifier(cfg), cfg}
+	if untyped == nil {
+		v = []*verifierWithConfig{vwf}
+	} else {
+		v = append(v, vwf)
+	}
+
+	fc.lru.Add(issuerURL, v)
+	return vwf.IDTokenVerifier, true
+}
+
+type InsecureOIDCConfigOption func(opt *oidc.Config)
+
+func WithSkipExpiryCheck() InsecureOIDCConfigOption {
+	return func(c *oidc.Config) {
+		c.SkipExpiryCheck = true
+	}
 }
 
 // ToIssuers returns a proto representation of the OIDC issuer configuration.
@@ -189,7 +223,7 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 }
 
 func (fc *FulcioConfig) prepare() error {
-	fc.verifiers = make(map[string]*oidc.IDTokenVerifier, len(fc.OIDCIssuers))
+	fc.verifiers = make(map[string][]*verifierWithConfig, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
 		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 		defer cancel()
@@ -197,7 +231,8 @@ func (fc *FulcioConfig) prepare() error {
 		if err != nil {
 			return fmt.Errorf("provider %s: %w", iss.IssuerURL, err)
 		}
-		fc.verifiers[iss.IssuerURL] = provider.Verifier(&oidc.Config{ClientID: iss.ClientID})
+		cfg := &oidc.Config{ClientID: iss.ClientID}
+		fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
 	}
 
 	cache, err := lru.New2Q(100 /* size */)

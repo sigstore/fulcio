@@ -25,13 +25,13 @@ import (
 // We do this to bypass needing actual OIDC tokens for unit testing.
 var Authorize = actualAuthorize
 
-func actualAuthorize(ctx context.Context, token string) (*oidc.IDToken, error) {
+func actualAuthorize(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
 	issuer, err := extractIssuerURL(token)
 	if err != nil {
 		return nil, err
 	}
 
-	verifier, ok := config.FromContext(ctx).GetVerifier(issuer)
+	verifier, ok := config.FromContext(ctx).GetVerifier(issuer, opts...)
 	if !ok {
 		return nil, fmt.Errorf("unsupported issuer: %s", issuer)
 	}

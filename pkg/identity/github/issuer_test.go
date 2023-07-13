@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
@@ -69,7 +70,7 @@ func TestIssuer(t *testing.T) {
 		}
 		withClaims(token, claims)
 
-		identity.Authorize = func(_ context.Context, _ string) (*oidc.IDToken, error) {
+		identity.Authorize = func(_ context.Context, _ string, _ ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
 			return token, nil
 		}
 		principal, err := issuer.Authenticate(ctx, "token")

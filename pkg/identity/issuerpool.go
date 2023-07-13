@@ -20,11 +20,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/sigstore/fulcio/pkg/config"
 )
 
 type IssuerPool []Issuer
 
-func (p IssuerPool) Authenticate(ctx context.Context, token string) (Principal, error) {
+func (p IssuerPool) Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (Principal, error) {
 	url, err := extractIssuerURL(token)
 	if err != nil {
 		return nil, err
@@ -32,7 +34,7 @@ func (p IssuerPool) Authenticate(ctx context.Context, token string) (Principal, 
 
 	for _, issuer := range p {
 		if issuer.Match(ctx, url) {
-			return issuer.Authenticate(ctx, token)
+			return issuer.Authenticate(ctx, token, opts...)
 		}
 	}
 	return nil, fmt.Errorf("failed to match issuer URL %s from token with any configured providers", url)
