@@ -209,7 +209,7 @@ that Sigstore operates.
 | workflow_sha       |  ci_config_sha ([WIP][gitlab-wip-cliams]) | ??       | ??        | Build Config Digest          | An immutable reference to the specific version of the top-level build instructions. Should include the digest type followed by the digest, e.g. `sha1:abc123`.                         |
 | event_name         | pipeline_source | ??       | ??        | Build Trigger                | The event or action that triggered the build.                                                                                                                                          |
 | server_url + repository + "/actions/runs/" + run_id + "/attempts/" + run_attempt | server_url + project_path + /-/jobs/ + job_id | ??       | ??        | Run Invocation URI           | An immutable identifier that can uniquely identify the build execution     |
-| repository_visibility | ??       | ??       | ??        | Source Repository Visibility At Signing | Source repository visibility at the time of signing the certificate |
+| repository_visibility | project_visibility | ??       | ??        | Source Repository Visibility At Signing | Source repository visibility at the time of signing the certificate |
 
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
 [oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264

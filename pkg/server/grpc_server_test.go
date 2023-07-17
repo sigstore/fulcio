@@ -969,6 +969,7 @@ type gitlabClaims struct {
 	Sha               string `json:"sha"`
 	RunnerEnvironment string `json:"runner_environment"`
 	RunnerID          int64  `json:"runner_id"`
+	ProjectVisibility string `json:"project_visibility"`
 }
 
 // Tests API for GitLab subject types
@@ -1004,6 +1005,7 @@ func TestAPIWithGitLab(t *testing.T) {
 		Sha:               "714a629c0b401fdce83e847fc9589983fc6f46bc",
 		RunnerID:          1,
 		RunnerEnvironment: "gitlab-hosted",
+		ProjectVisibility: "public",
 	}
 
 	gitLabSubject := fmt.Sprintf("project_path:%s:ref_type:%s:ref:%s", claims.ProjectPath, claims.RefType, claims.Ref)
@@ -1081,6 +1083,7 @@ func TestAPIWithGitLab(t *testing.T) {
 		19: claims.CiConfigSha,
 		20: claims.PipelineSource,
 		21: baseURL + claims.ProjectPath + "/-/jobs/" + claims.JobID,
+		22: claims.ProjectVisibility,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})

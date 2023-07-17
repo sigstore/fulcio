@@ -77,6 +77,9 @@ type jobPrincipal struct {
 
 	// The type of runner used by the job. May be one of gitlab-hosted or self-hosted.
 	runnerEnvironment string
+
+	// Visibility of the source project
+	projectVisibility string
 }
 
 func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
@@ -95,6 +98,7 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 		Sha               string `json:"sha"`
 		RunnerEnvironment string `json:"runner_environment"`
 		RunnerID          int64  `json:"runner_id"`
+		ProjectVisibility string `json:"project_visibility"`
 	}
 
 	if err := token.Claims(&claims); err != nil {
@@ -180,6 +184,7 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 		sha:               claims.Sha,
 		runnerID:          claims.RunnerID,
 		runnerEnvironment: claims.RunnerEnvironment,
+		projectVisibility: claims.ProjectVisibility,
 	}, nil
 }
 
@@ -212,20 +217,21 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer:                          p.issuer,
-		BuildConfigURI:                  ciConfigRefURL.String(),
-		BuildConfigDigest:               p.ciConfigSha,
-		BuildSignerURI:                  ciConfigRefURL.String(),
-		BuildSignerDigest:               p.ciConfigSha,
-		RunnerEnvironment:               p.runnerEnvironment,
-		SourceRepositoryURI:             baseURL.JoinPath(p.repository).String(),
-		SourceRepositoryDigest:          p.sha,
-		SourceRepositoryRef:             p.ref,
-		SourceRepositoryIdentifier:      p.repositoryID,
-		SourceRepositoryOwnerURI:        baseURL.JoinPath(p.repositoryOwner).String(),
-		SourceRepositoryOwnerIdentifier: p.repositoryOwnerID,
-		BuildTrigger:                    p.eventName,
-		RunInvocationURI:                baseURL.JoinPath(p.repository, "/-/jobs/", p.jobID).String(),
+		Issuer:                              p.issuer,
+		BuildConfigURI:                      ciConfigRefURL.String(),
+		BuildConfigDigest:                   p.ciConfigSha,
+		BuildSignerURI:                      ciConfigRefURL.String(),
+		BuildSignerDigest:                   p.ciConfigSha,
+		RunnerEnvironment:                   p.runnerEnvironment,
+		SourceRepositoryURI:                 baseURL.JoinPath(p.repository).String(),
+		SourceRepositoryDigest:              p.sha,
+		SourceRepositoryRef:                 p.ref,
+		SourceRepositoryIdentifier:          p.repositoryID,
+		SourceRepositoryOwnerURI:            baseURL.JoinPath(p.repositoryOwner).String(),
+		SourceRepositoryOwnerIdentifier:     p.repositoryOwnerID,
+		BuildTrigger:                        p.eventName,
+		RunInvocationURI:                    baseURL.JoinPath(p.repository, "/-/jobs/", p.jobID).String(),
+		SourceRepositoryVisibilityAtSigning: p.projectVisibility,
 	}.Render()
 	if err != nil {
 		return err
