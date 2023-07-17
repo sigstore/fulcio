@@ -786,21 +786,22 @@ func TestAPIWithBuildkite(t *testing.T) {
 
 // githubClaims holds the additional JWT claims for GitHub OIDC tokens
 type githubClaims struct {
-	JobWorkflowRef    string `json:"job_workflow_ref"`
-	Sha               string `json:"sha"`
-	EventName         string `json:"event_name"`
-	Repository        string `json:"repository"`
-	Workflow          string `json:"workflow"`
-	Ref               string `json:"ref"`
-	JobWorkflowSha    string `json:"job_workflow_sha"`
-	RunnerEnvironment string `json:"runner_environment"`
-	RepositoryID      string `json:"repository_id"`
-	RepositoryOwner   string `json:"repository_owner"`
-	RepositoryOwnerID string `json:"repository_owner_id"`
-	WorkflowRef       string `json:"workflow_ref"`
-	WorkflowSha       string `json:"workflow_sha"`
-	RunID             string `json:"run_id"`
-	RunAttempt        string `json:"run_attempt"`
+	JobWorkflowRef       string `json:"job_workflow_ref"`
+	Sha                  string `json:"sha"`
+	EventName            string `json:"event_name"`
+	Repository           string `json:"repository"`
+	Workflow             string `json:"workflow"`
+	Ref                  string `json:"ref"`
+	JobWorkflowSha       string `json:"job_workflow_sha"`
+	RunnerEnvironment    string `json:"runner_environment"`
+	RepositoryID         string `json:"repository_id"`
+	RepositoryOwner      string `json:"repository_owner"`
+	RepositoryOwnerID    string `json:"repository_owner_id"`
+	RepositoryVisibility string `json:"repository_visibility"`
+	WorkflowRef          string `json:"workflow_ref"`
+	WorkflowSha          string `json:"workflow_sha"`
+	RunID                string `json:"run_id"`
+	RunAttempt           string `json:"run_attempt"`
 }
 
 // Tests API for GitHub subject types
@@ -822,21 +823,22 @@ func TestAPIWithGitHub(t *testing.T) {
 	}
 
 	claims := githubClaims{
-		JobWorkflowRef:    "job/workflow/ref",
-		Sha:               "sha",
-		EventName:         "trigger",
-		Repository:        "sigstore/fulcio",
-		Workflow:          "workflow",
-		Ref:               "refs/heads/main",
-		JobWorkflowSha:    "example-sha",
-		RunnerEnvironment: "cloud-hosted",
-		RepositoryID:      "12345",
-		RepositoryOwner:   "username",
-		RepositoryOwnerID: "345",
-		WorkflowRef:       "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
-		WorkflowSha:       "example-sha-other",
-		RunID:             "42",
-		RunAttempt:        "1",
+		JobWorkflowRef:       "job/workflow/ref",
+		Sha:                  "sha",
+		EventName:            "trigger",
+		Repository:           "sigstore/fulcio",
+		Workflow:             "workflow",
+		Ref:                  "refs/heads/main",
+		JobWorkflowSha:       "example-sha",
+		RunnerEnvironment:    "cloud-hosted",
+		RepositoryID:         "12345",
+		RepositoryOwner:      "username",
+		RepositoryOwnerID:    "345",
+		RepositoryVisibility: "public",
+		WorkflowRef:          "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
+		WorkflowSha:          "example-sha-other",
+		RunID:                "42",
+		RunAttempt:           "1",
 	}
 	githubSubject := fmt.Sprintf("repo:%s:ref:%s", claims.Repository, claims.Ref)
 
@@ -930,6 +932,7 @@ func TestAPIWithGitHub(t *testing.T) {
 		19: claims.WorkflowSha,
 		20: claims.EventName,
 		21: url + claims.Repository + "/actions/runs/" + claims.RunID + "/attempts/" + claims.RunAttempt,
+		22: claims.RepositoryVisibility,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})

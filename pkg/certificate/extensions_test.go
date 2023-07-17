@@ -37,25 +37,26 @@ func TestExtensions(t *testing.T) {
 		},
 		`complete extensions list should create all extensions with correct OIDs`: {
 			Extensions: Extensions{
-				Issuer:                          "issuer", // OID 1.3.6.1.4.1.57264.1.1 and 1.3.6.1.4.1.57264.1.8
-				GithubWorkflowTrigger:           "2",      // OID 1.3.6.1.4.1.57264.1.2
-				GithubWorkflowSHA:               "3",      // OID 1.3.6.1.4.1.57264.1.3
-				GithubWorkflowName:              "4",      // OID 1.3.6.1.4.1.57264.1.4
-				GithubWorkflowRepository:        "5",      // OID 1.3.6.1.4.1.57264.1.5
-				GithubWorkflowRef:               "6",      // 1.3.6.1.4.1.57264.1.6
-				BuildSignerURI:                  "9",      // 1.3.6.1.4.1.57264.1.9
-				BuildSignerDigest:               "10",     // 1.3.6.1.4.1.57264.1.10
-				RunnerEnvironment:               "11",     // 1.3.6.1.4.1.57264.1.11
-				SourceRepositoryURI:             "12",     // 1.3.6.1.4.1.57264.1.12
-				SourceRepositoryDigest:          "13",     // 1.3.6.1.4.1.57264.1.13
-				SourceRepositoryRef:             "14",     // 1.3.6.1.4.1.57264.1.14
-				SourceRepositoryIdentifier:      "15",     // 1.3.6.1.4.1.57264.1.15
-				SourceRepositoryOwnerURI:        "16",     // 1.3.6.1.4.1.57264.1.16
-				SourceRepositoryOwnerIdentifier: "17",     // 1.3.6.1.4.1.57264.1.17
-				BuildConfigURI:                  "18",     // 1.3.6.1.4.1.57264.1.18
-				BuildConfigDigest:               "19",     // 1.3.6.1.4.1.57264.1.19
-				BuildTrigger:                    "20",     // 1.3.6.1.4.1.57264.1.20
-				RunInvocationURI:                "21",     // 1.3.6.1.4.1.57264.1.21
+				Issuer:                              "issuer", // OID 1.3.6.1.4.1.57264.1.1 and 1.3.6.1.4.1.57264.1.8
+				GithubWorkflowTrigger:               "2",      // OID 1.3.6.1.4.1.57264.1.2
+				GithubWorkflowSHA:                   "3",      // OID 1.3.6.1.4.1.57264.1.3
+				GithubWorkflowName:                  "4",      // OID 1.3.6.1.4.1.57264.1.4
+				GithubWorkflowRepository:            "5",      // OID 1.3.6.1.4.1.57264.1.5
+				GithubWorkflowRef:                   "6",      // 1.3.6.1.4.1.57264.1.6
+				BuildSignerURI:                      "9",      // 1.3.6.1.4.1.57264.1.9
+				BuildSignerDigest:                   "10",     // 1.3.6.1.4.1.57264.1.10
+				RunnerEnvironment:                   "11",     // 1.3.6.1.4.1.57264.1.11
+				SourceRepositoryURI:                 "12",     // 1.3.6.1.4.1.57264.1.12
+				SourceRepositoryDigest:              "13",     // 1.3.6.1.4.1.57264.1.13
+				SourceRepositoryRef:                 "14",     // 1.3.6.1.4.1.57264.1.14
+				SourceRepositoryIdentifier:          "15",     // 1.3.6.1.4.1.57264.1.15
+				SourceRepositoryOwnerURI:            "16",     // 1.3.6.1.4.1.57264.1.16
+				SourceRepositoryOwnerIdentifier:     "17",     // 1.3.6.1.4.1.57264.1.17
+				BuildConfigURI:                      "18",     // 1.3.6.1.4.1.57264.1.18
+				BuildConfigDigest:                   "19",     // 1.3.6.1.4.1.57264.1.19
+				BuildTrigger:                        "20",     // 1.3.6.1.4.1.57264.1.20
+				RunInvocationURI:                    "21",     // 1.3.6.1.4.1.57264.1.21
+				SourceRepositoryVisibilityAtSigning: "22",     // 1.3.6.1.4.1.57264.1.22
 			},
 			Expect: []pkix.Extension{
 				{
@@ -137,6 +138,10 @@ func TestExtensions(t *testing.T) {
 				{
 					Id:    OIDRunInvocationURI,
 					Value: marshalDERString(t, "21"),
+				},
+				{
+					Id:    OIDSourceRepositoryVisibilityAtSigning,
+					Value: marshalDERString(t, "22"),
 				},
 			},
 			WantErr: false,
