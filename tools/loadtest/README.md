@@ -43,7 +43,7 @@ From within the directory with `locustfile.py`, run the command `locust`. Open `
 From the browser, set the following:
 * Number of users. Each will run at a maximum QPS based on maximum QPS set below.
 * Spawn rate, how often users are created per second
-* Host, either `localhost:port` if you're running a local instance of Fulcio or `https://v1.fulcio.sigstore.dev`
+* Host, e.g. `localhost:port`. Please do not run against production or staging.
 * Token - The identity token from `gcloud auth`
 * Max QPS per user
 
