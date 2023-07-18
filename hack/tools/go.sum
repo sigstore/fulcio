@@ -19,8 +19,8 @@ github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg
 github.com/golang/protobuf v1.5.3/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
-github.com/googleapis/api-linter v1.53.0 h1:T5pkxmPL+f3A8eAmzsBNqWE27ultLTf+DSJaD6cGp0g=
-github.com/googleapis/api-linter v1.53.0/go.mod h1:WKXJlMy9cqmrhxGi6Zq0idFS/w28VymkJXj7sZIuhfk=
+github.com/googleapis/api-linter v1.54.0 h1:R8odNEL8nWepMRk8sf5LWFgrjw4uzhnEvKVXGfy136o=
+github.com/googleapis/api-linter v1.54.0/go.mod h1:WKXJlMy9cqmrhxGi6Zq0idFS/w28VymkJXj7sZIuhfk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 h1:YBftPWNWd4WwGqtY2yeZL2ef8rHAxPBD8KFhJpmcqms=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0/go.mod h1:YN5jB8ie0yfIUg6VvR9Kz84aCaG7AsGZnLjhHbUqwPg=
 github.com/jhump/protoreflect v1.15.1 h1:HUMERORf3I3ZdX05WaQ6MIpd/NJ434hTp5YiKgfCL6c=
