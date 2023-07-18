@@ -33,7 +33,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/spiffe/go-spiffe/v2 v2.1.6
-	go.step.sm/crypto v0.32.3
+	go.step.sm/crypto v0.32.4
 	go.uber.org/zap v1.24.0
 	google.golang.org/api v0.131.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529
