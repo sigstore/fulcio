@@ -71,6 +71,9 @@ type workflowPrincipal struct {
 	// ID of the source repo
 	repositoryOwnerID string
 
+	// Visibility of the source repo
+	repositoryVisibility string
+
 	// Ref of top-level workflow that is running
 	workflowRef string
 
@@ -86,21 +89,22 @@ type workflowPrincipal struct {
 
 func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
-		JobWorkflowRef    string `json:"job_workflow_ref"`
-		Sha               string `json:"sha"`
-		EventName         string `json:"event_name"`
-		Repository        string `json:"repository"`
-		Workflow          string `json:"workflow"`
-		Ref               string `json:"ref"`
-		JobWorkflowSha    string `json:"job_workflow_sha"`
-		RunnerEnvironment string `json:"runner_environment"`
-		RepositoryID      string `json:"repository_id"`
-		RepositoryOwner   string `json:"repository_owner"`
-		RepositoryOwnerID string `json:"repository_owner_id"`
-		WorkflowRef       string `json:"workflow_ref"`
-		WorkflowSha       string `json:"workflow_sha"`
-		RunID             string `json:"run_id"`
-		RunAttempt        string `json:"run_attempt"`
+		JobWorkflowRef       string `json:"job_workflow_ref"`
+		Sha                  string `json:"sha"`
+		EventName            string `json:"event_name"`
+		Repository           string `json:"repository"`
+		Workflow             string `json:"workflow"`
+		Ref                  string `json:"ref"`
+		JobWorkflowSha       string `json:"job_workflow_sha"`
+		RunnerEnvironment    string `json:"runner_environment"`
+		RepositoryID         string `json:"repository_id"`
+		RepositoryOwner      string `json:"repository_owner"`
+		RepositoryOwnerID    string `json:"repository_owner_id"`
+		RepositoryVisibility string `json:"repository_visibility"`
+		WorkflowRef          string `json:"workflow_ref"`
+		WorkflowSha          string `json:"workflow_sha"`
+		RunID                string `json:"run_id"`
+		RunAttempt           string `json:"run_attempt"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
@@ -139,6 +143,9 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 	if claims.RepositoryOwnerID == "" {
 		return nil, errors.New("missing repository_owner_id claim in ID token")
 	}
+	if claims.RepositoryVisibility == "" {
+		return nil, errors.New("missing repository_visibility claim in ID token")
+	}
 	if claims.WorkflowRef == "" {
 		return nil, errors.New("missing workflow_ref claim in ID token")
 	}
@@ -153,24 +160,25 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 	}
 
 	return &workflowPrincipal{
-		subject:           token.Subject,
-		issuer:            token.Issuer,
-		url:               `https://github.com/`,
-		sha:               claims.Sha,
-		eventName:         claims.EventName,
-		repository:        claims.Repository,
-		workflow:          claims.Workflow,
-		ref:               claims.Ref,
-		jobWorkflowRef:    claims.JobWorkflowRef,
-		jobWorkflowSha:    claims.JobWorkflowSha,
-		runnerEnvironment: claims.RunnerEnvironment,
-		repositoryID:      claims.RepositoryID,
-		repositoryOwner:   claims.RepositoryOwner,
-		repositoryOwnerID: claims.RepositoryOwnerID,
-		workflowRef:       claims.WorkflowRef,
-		workflowSha:       claims.WorkflowSha,
-		runID:             claims.RunID,
-		runAttempt:        claims.RunAttempt,
+		subject:              token.Subject,
+		issuer:               token.Issuer,
+		url:                  `https://github.com/`,
+		sha:                  claims.Sha,
+		eventName:            claims.EventName,
+		repository:           claims.Repository,
+		workflow:             claims.Workflow,
+		ref:                  claims.Ref,
+		jobWorkflowRef:       claims.JobWorkflowRef,
+		jobWorkflowSha:       claims.JobWorkflowSha,
+		runnerEnvironment:    claims.RunnerEnvironment,
+		repositoryID:         claims.RepositoryID,
+		repositoryOwner:      claims.RepositoryOwner,
+		repositoryOwnerID:    claims.RepositoryOwnerID,
+		repositoryVisibility: claims.RepositoryVisibility,
+		workflowRef:          claims.WorkflowRef,
+		workflowSha:          claims.WorkflowSha,
+		runID:                claims.RunID,
+		runAttempt:           claims.RunAttempt,
 	}, nil
 }
 
@@ -198,19 +206,20 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 		GithubWorkflowRef:        w.ref,
 		// END: Deprecated
 
-		BuildSignerURI:                  baseURL.JoinPath(w.jobWorkflowRef).String(),
-		BuildSignerDigest:               w.jobWorkflowSha,
-		RunnerEnvironment:               w.runnerEnvironment,
-		SourceRepositoryURI:             baseURL.JoinPath(w.repository).String(),
-		SourceRepositoryDigest:          w.sha,
-		SourceRepositoryRef:             w.ref,
-		SourceRepositoryIdentifier:      w.repositoryID,
-		SourceRepositoryOwnerURI:        baseURL.JoinPath(w.repositoryOwner).String(),
-		SourceRepositoryOwnerIdentifier: w.repositoryOwnerID,
-		BuildConfigURI:                  baseURL.JoinPath(w.workflowRef).String(),
-		BuildConfigDigest:               w.workflowSha,
-		BuildTrigger:                    w.eventName,
-		RunInvocationURI:                baseURL.JoinPath(w.repository, "actions/runs", w.runID, "attempts", w.runAttempt).String(),
+		BuildSignerURI:                      baseURL.JoinPath(w.jobWorkflowRef).String(),
+		BuildSignerDigest:                   w.jobWorkflowSha,
+		RunnerEnvironment:                   w.runnerEnvironment,
+		SourceRepositoryURI:                 baseURL.JoinPath(w.repository).String(),
+		SourceRepositoryDigest:              w.sha,
+		SourceRepositoryRef:                 w.ref,
+		SourceRepositoryIdentifier:          w.repositoryID,
+		SourceRepositoryOwnerURI:            baseURL.JoinPath(w.repositoryOwner).String(),
+		SourceRepositoryOwnerIdentifier:     w.repositoryOwnerID,
+		BuildConfigURI:                      baseURL.JoinPath(w.workflowRef).String(),
+		BuildConfigDigest:                   w.workflowSha,
+		BuildTrigger:                        w.eventName,
+		RunInvocationURI:                    baseURL.JoinPath(w.repository, "actions/runs", w.runID, "attempts", w.runAttempt).String(),
+		SourceRepositoryVisibilityAtSigning: w.repositoryVisibility,
 	}.Render()
 	if err != nil {
 		return err

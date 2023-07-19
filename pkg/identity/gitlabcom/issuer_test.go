@@ -62,6 +62,7 @@ func TestIssuer(t *testing.T) {
 			"ref":                "main",
 			"ref_type":           "branch",
 			"ref_protected":      "true",
+			"project_visibility": "public",
 			"jti":                "914910cc-09f6-4217-8091-a1d3231a37db",
 			"iss":                "https://gitlab.com",
 			"iat":                1674658264,

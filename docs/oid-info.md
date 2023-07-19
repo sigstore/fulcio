@@ -37,6 +37,7 @@ Nice-to-haves:
 - MAY include claim to support: `Build Config Digest`
 - MAY include claim to support: `Build Trigger`
 - MAY include claim to support: `Run Invocation URI`
+- MAY include claim to support: `Source Repository Visibility At Signing`
 
 ## Terminology
 
@@ -177,6 +178,10 @@ Event or action that initiated the build. For example: `push`.
 
 Run Invocation URL to uniquely identify the build execution. SHOULD be fully qualified. For example: `https://github.com/example/repository/actions/runs/1536140711/attempts/1`.
 
+### 1.3.6.1.4.1.57264.1.22 | Source Repository Visibility At Signing
+
+Source repository visibility at the time of signing the certificate. MAY be empty if there is no Source Repository Visibility information available. For example: `private` or `public`.
+
 ## 1.3.6.1.4.1.57264.2 | Policy OID for Sigstore Timestamp Authority
 
 Not used by Fulcio. This specifies the policy OID for the [timestamp authority](https://github.com/sigstore/timestamp-authority)
@@ -204,6 +209,7 @@ that Sigstore operates.
 | workflow_sha       |  ci_config_sha ([WIP][gitlab-wip-cliams]) | ??       | ??        | Build Config Digest          | An immutable reference to the specific version of the top-level build instructions. Should include the digest type followed by the digest, e.g. `sha1:abc123`.                         |
 | event_name         | pipeline_source | ??       | ??        | Build Trigger                | The event or action that triggered the build.                                                                                                                                          |
 | server_url + repository + "/actions/runs/" + run_id + "/attempts/" + run_attempt | server_url + project_path + /-/jobs/ + job_id | ??       | ??        | Run Invocation URI           | An immutable identifier that can uniquely identify the build execution     |
+| repository_visibility | project_visibility | ??       | ??        | Source Repository Visibility At Signing | Source repository visibility at the time of signing the certificate |
 
 [github-oidc-doc]: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#understanding-the-oidc-token
 [oid-link]: http://oid-info.com/get/1.3.6.1.4.1.57264
