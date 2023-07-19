@@ -1,3 +1,20 @@
+# v1.4.0
+
+## Features
+
+* Add "Source Repository Visibility At Signing" ext (#1279)
+* Expose SkipExpiryCheck OIDC Config Option in Verifier (#1271)
+
+## Documentation
+
+* Update loadtest instructions (#1284)
+
+## Contributors
+
+* Hayden B
+* Philip Harrison
+* Priya Wadhwa
+
 # v1.3.4
 
 ## Features
