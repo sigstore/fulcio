@@ -383,8 +383,6 @@ var DefaultConfig = &FulcioConfig{
 	},
 }
 
-var originalTransport = http.DefaultTransport
-
 type configKey struct{}
 
 func With(ctx context.Context, cfg *FulcioConfig) context.Context {
@@ -429,30 +427,32 @@ func Read(b []byte) (*FulcioConfig, error) {
 		return nil, fmt.Errorf("validate: %w", err)
 	}
 
-	if _, ok := config.GetIssuer("https://kubernetes.default.svc"); ok {
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := os.ReadFile(k8sCA)
-		if err != nil {
-			return nil, fmt.Errorf("read file: %w", err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return nil, fmt.Errorf("unable to append certs")
-		}
+	for _, iss := range []string{
+		// Sometime we see these represented differently - these are functionally equivalent.
+		// See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
+		"https://kubernetes.default.svc",
+		"https://kubernetes.default.svc.cluster.local",
+	} {
+		if _, ok := config.GetIssuer(iss); ok {
+			// Add the Kubernetes cluster's CA to the system CA pool, and to
+			// the default transport.
+			rootCAs, _ := x509.SystemCertPool()
+			if rootCAs == nil {
+				rootCAs = x509.NewCertPool()
+			}
+			const k8sCA = "/var/run/fulcio/ca.crt"
+			certs, err := os.ReadFile(k8sCA)
+			if err != nil {
+				return nil, fmt.Errorf("read file: %w", err)
+			}
+			if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+				return nil, fmt.Errorf("unable to append certs")
+			}
 
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	} else {
-		// If we parse a config that doesn't include a cluster issuer
-		// signed with the cluster'sCA, then restore the original transport
-		// (in case we overwrote it)
-		http.DefaultTransport = originalTransport
+			t := http.DefaultTransport.(*http.Transport).Clone()
+			t.TLSClientConfig.RootCAs = rootCAs
+			http.DefaultTransport = t
+		}
 	}
 
 	if err := config.prepare(); err != nil {
