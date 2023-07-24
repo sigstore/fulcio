@@ -67,7 +67,7 @@ GitHub Workflow specific OID extensions have been deprecated in favor of provide
 
 The `.1` is added to the root OID for sigstore for all OIDs set by Fulcio.
 
-### 1.3.6.1.4.1.57264.1.1 | Issuer
+### 1.3.6.1.4.1.57264.1.1 | Issuer (deprecated)
 
 This contains the issuer of the OpenID Connect Token that was
 presented at the time the code signing certificate was requested to be created.
