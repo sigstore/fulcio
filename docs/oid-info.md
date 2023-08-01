@@ -52,7 +52,7 @@ Nice-to-haves:
 
 `1.3.6.1.4.1.57264.1.7` is formatted as a DER-encoded string in the SubjectAlternativeName extension, as per RFC 5280 4.2.1.6.
 
-`1.3.6.1.4.1.57264.1.8` through `1.3.6.1.4.1.57264.1.21` are formatted as DER-encoded strings; the ASN.1 tag is
+`1.3.6.1.4.1.57264.1.8` through `1.3.6.1.4.1.57264.1.22` are formatted as DER-encoded strings; the ASN.1 tag is
 UTF8String (0x0C) and the tag class is universal.
 
 ## Directory
