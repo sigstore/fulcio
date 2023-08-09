@@ -21,4 +21,6 @@ permissions:
 jobs:
   dependency-review:
     name: License and Vulnerability Scan
-    uses: sigstore/community/.github/workflows/reusable-dependency-review.yml@9b1b5aca605f92ec5b1bf3681b1e61b3dbc420cc
+    uses: sigstore/community/.github/workflows/reusable-dependency-review.yml@f57b2d1c73f8595fe268259720efb21388db2a27
+    with:
+      allow-deps: pkg:githubactions/arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
