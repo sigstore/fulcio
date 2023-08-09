@@ -35,10 +35,10 @@ jobs:
       - uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           go-version: ${{ env.GOVERSION }}
-      - uses: trail-of-forks/setup-protoc@a97892a429d98fae78d26f40334ab7eb616d08b9
+      - uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
         name: Install protobuf
         with:
-          version: '23.1'
+          version: '24.0'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
