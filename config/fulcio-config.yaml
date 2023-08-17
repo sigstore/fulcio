@@ -38,6 +38,11 @@ data:
               "ClientID": "sigstore",
               "Type": "email"
             },
+            "https://dev.gitlab.org": {
+              "IssuerURL": "https://dev.gitlab.org",
+              "ClientID": "sigstore",
+              "Type": "gitlab-pipeline"
+            },
             "https://gitlab.archlinux.org": {
               "IssuerURL": "https://gitlab.archlinux.org",
               "ClientID": "sigstore",
@@ -53,6 +58,11 @@ data:
               "ClientID": "sigstore",
               "Type": "email",
               "IssuerClaim": "$.federated_claims.connector_id"
+            },
+            "https://ops.gitlab.net": {
+              "IssuerURL": "https://ops.gitlab.net",
+              "ClientID": "sigstore",
+              "Type": "gitlab-pipeline"
             },
             "https://token.actions.githubusercontent.com": {
               "IssuerURL": "https://token.actions.githubusercontent.com",
