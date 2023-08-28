@@ -21,8 +21,8 @@ github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
 github.com/googleapis/api-linter v1.56.1 h1:bxA1SNXfBl5gERSm/ED5m9eqOfDY1YlNmfNiEBJgIS4=
 github.com/googleapis/api-linter v1.56.1/go.mod h1:zKhUtzO+U44FQ+qKUURbKHL7WpiikvCZ7Q7hhvmZ/mE=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.17.0 h1:Rme6CE1aUTyV9WmrEPyGf1V+7W3iQzZ1DZkKnT6z9B0=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.17.0/go.mod h1:Hbb13e3/WtqQ8U5hLGkek9gJvBLasHuPFI0UEGfnQ10=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.17.1 h1:LSsiG61v9IzzxMkqEr6nrix4miJI62xlRjwT7BYD2SM=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.17.1/go.mod h1:Hbb13e3/WtqQ8U5hLGkek9gJvBLasHuPFI0UEGfnQ10=
 github.com/jhump/protoreflect v1.15.1 h1:HUMERORf3I3ZdX05WaQ6MIpd/NJ434hTp5YiKgfCL6c=
 github.com/jhump/protoreflect v1.15.1/go.mod h1:jD/2GMKKE6OqX8qTjhADU1e6DShO+gavG9e0Q693nKo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
