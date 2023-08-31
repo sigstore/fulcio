@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sigstore/fulcio/pkg/ca"
@@ -50,7 +51,8 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	if err != nil {
 		t.Error(err)
 	}
-	grpcServer.startTCPListener()
+	var wg sync.WaitGroup
+	grpcServer.startTCPListener(&wg)
 	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer func() {
 		if conn != nil {
@@ -95,7 +97,9 @@ func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
 	if err != nil {
 		t.Error(err)
 	}
-	grpcServer.startTCPListener()
+
+	var wg sync.WaitGroup
+	grpcServer.startTCPListener(&wg)
 	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer func() {
 		if conn != nil {

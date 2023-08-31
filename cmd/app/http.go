@@ -21,8 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -102,12 +106,32 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	return httpServer{&api, serverEndpoint}
 }
 
-func (h httpServer) startListener() {
+func (h httpServer) startListener(wg *sync.WaitGroup) {
 	log.Logger.Infof("listening on http at %s", h.httpServerEndpoint)
+
+	idleConnsClosed := make(chan struct{})
 	go func() {
-		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Logger.Fatal(err)
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
+		<-sigint
+
+		// received an interrupt signal, shut down
+		if err := h.Shutdown(context.Background()); err != nil {
+			// error from closing listeners, or context timeout
+			log.Logger.Errorf("HTTP server Shutdown: %v", err)
 		}
+		close(idleConnsClosed)
+		log.Logger.Info("stopped http server")
+	}()
+
+	go func() {
+		wg.Add(1)
+		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Logger.Error(err)
+		}
+		<-idleConnsClosed
+		wg.Done()
+		log.Logger.Info("http server shutdown")
 	}()
 }
 

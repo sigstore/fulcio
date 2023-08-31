@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/goadesign/goa/grpc/middleware"
@@ -197,7 +199,7 @@ func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
 	grpc_prometheus.Register(g.Server)
 }
 
-func (g *grpcServer) startTCPListener() {
+func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
 	// lis is closed by g.Server.Serve() upon exit
 	lis, err := net.Listen("tcp", g.grpcServerEndpoint)
 	if err != nil {
@@ -206,13 +208,30 @@ func (g *grpcServer) startTCPListener() {
 
 	g.grpcServerEndpoint = lis.Addr().String()
 	log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
+
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
+		<-sigint
+
+		// received an interrupt signal, shut down
+		g.Server.GracefulStop()
+		close(idleConnsClosed)
+		log.Logger.Info("stopped grpc server")
+	}()
+
 	go func() {
 		if g.tlsCertWatcher != nil {
 			defer g.tlsCertWatcher.Close()
 		}
+		wg.Add(1)
 		if err := g.Server.Serve(lis); err != nil {
 			log.Logger.Errorf("error shutting down grpcServer: %w", err)
 		}
+		<-idleConnsClosed
+		wg.Done()
+		log.Logger.Info("grpc server shutdown")
 	}()
 }
 
