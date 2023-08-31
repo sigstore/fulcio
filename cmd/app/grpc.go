@@ -221,11 +221,11 @@ func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
 		log.Logger.Info("stopped grpc server")
 	}()
 
+	wg.Add(1)
 	go func() {
 		if g.tlsCertWatcher != nil {
 			defer g.tlsCertWatcher.Close()
 		}
-		wg.Add(1)
 		if err := g.Server.Serve(lis); err != nil {
 			log.Logger.Errorf("error shutting down grpcServer: %w", err)
 		}

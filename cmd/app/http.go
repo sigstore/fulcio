@@ -124,8 +124,8 @@ func (h httpServer) startListener(wg *sync.WaitGroup) {
 		log.Logger.Info("stopped http server")
 	}()
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Logger.Error(err)
 		}
