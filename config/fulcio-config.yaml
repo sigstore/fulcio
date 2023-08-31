@@ -33,6 +33,11 @@ data:
               "Type": "spiffe",
               "SPIFFETrustDomain": "allow.pub"
             },
+            "https://auth-staging.eclipse.org/realms/sigstore": {
+              "IssuerURL": "https://auth-staging.eclipse.org/realms/sigstore",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
             "https://gitlab.archlinux.org": {
               "IssuerURL": "https://gitlab.archlinux.org",
               "ClientID": "sigstore",
