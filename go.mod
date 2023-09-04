@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.44.0
 	github.com/rs/cors v1.9.0
-	github.com/sigstore/sigstore v1.7.2
+	github.com/sigstore/sigstore v1.7.3
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.3
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.3
