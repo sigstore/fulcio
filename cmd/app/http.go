@@ -127,7 +127,7 @@ func (h httpServer) startListener(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Logger.Error(err)
+			log.Logger.Fatal(err)
 		}
 		<-idleConnsClosed
 		wg.Done()
