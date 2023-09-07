@@ -1,7 +1,7 @@
 # Deprecations
 
 This doc lists deprecated features in `fulcio`.
-You can read more about Sigstore's deprecation policy [here](https://docs.sigstore.dev/api-stability)!
+You can read more about Sigstore's deprecation policy [here](https://docs.sigstore.dev/about/api-stability/)!
 
 | **Feature Being Deprecated** | **API Stability Level** | **Earliest Date of Removal** |
 |------------------------------|-------------------------|------------------------------|
