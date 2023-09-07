@@ -19,13 +19,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"chainguard.dev/go-grpc-kit/pkg/duplex"
@@ -99,6 +103,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-host", "0.0.0.0", "The host on which to serve requests for GRPC")
 	cmd.Flags().String("grpc-port", "8081", "The port on which to serve requests for GRPC")
 	cmd.Flags().String("metrics-port", "2112", "The port on which to serve prometheus metrics endpoint")
+	cmd.Flags().String("legacy-unix-domain-socket", LegacyUnixDomainSocket, "The Unix domain socket used for the legacy gRPC server")
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
 	cmd.Flags().String("grpc-tls-certificate", "", "the certificate file to use for secure connections - only applies to grpc-port")
 	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
@@ -286,6 +291,9 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		return
 	}
 
+	// waiting for http and grpc servers to shutdown gracefully
+	var wg sync.WaitGroup
+
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
 	reg := prometheus.NewRegistry()
@@ -295,16 +303,16 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		log.Logger.Fatal(err)
 	}
 	grpcServer.setupPrometheus(reg)
-	grpcServer.startTCPListener()
+	grpcServer.startTCPListener(&wg)
 
-	legacyGRPCServer, err := createLegacyGRPCServer(cfg, grpcServer.caService)
+	legacyGRPCServer, err := createLegacyGRPCServer(cfg, viper.GetString("legacy-unix-domain-socket"), grpcServer.caService)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
 	legacyGRPCServer.startUnixListener()
 
 	httpServer := createHTTPServer(ctx, httpServerEndpoint, grpcServer, legacyGRPCServer)
-	httpServer.startListener()
+	httpServer.startListener(&wg)
 
 	readHeaderTimeout := viper.GetDuration("read-header-timeout")
 	prom := http.Server{
@@ -312,7 +320,29 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		Handler:           promhttp.Handler(),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
-	log.Logger.Error(prom.ListenAndServe())
+
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
+		<-sigint
+
+		// received an interrupt signal, shut down
+		if err := prom.Shutdown(context.Background()); err != nil {
+			// error from closing listeners, or context timeout
+			log.Logger.Errorf("HTTP server Shutdown: %v", err)
+		}
+		close(idleConnsClosed)
+		log.Logger.Info("stopped prom server")
+	}()
+	if err := prom.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Logger.Fatal(err)
+	}
+	<-idleConnsClosed
+	log.Logger.Info("prom server shutdown")
+
+	// wait for http and grpc servers to shutdown
+	wg.Wait()
 }
 
 func checkServeCmdConfigFile() error {

@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/goadesign/goa/grpc/middleware"
@@ -197,7 +199,7 @@ func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
 	grpc_prometheus.Register(g.Server)
 }
 
-func (g *grpcServer) startTCPListener() {
+func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
 	// lis is closed by g.Server.Serve() upon exit
 	lis, err := net.Listen("tcp", g.grpcServerEndpoint)
 	if err != nil {
@@ -206,13 +208,30 @@ func (g *grpcServer) startTCPListener() {
 
 	g.grpcServerEndpoint = lis.Addr().String()
 	log.Logger.Infof("listening on grpc at %s", g.grpcServerEndpoint)
+
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
+		<-sigint
+
+		// received an interrupt signal, shut down
+		g.Server.GracefulStop()
+		close(idleConnsClosed)
+		log.Logger.Info("stopped grpc server")
+	}()
+
+	wg.Add(1)
 	go func() {
 		if g.tlsCertWatcher != nil {
 			defer g.tlsCertWatcher.Close()
 		}
 		if err := g.Server.Serve(lis); err != nil {
-			log.Logger.Errorf("error shutting down grpcServer: %w", err)
+			log.Logger.Fatalf("error shutting down grpcServer: %w", err)
 		}
+		<-idleConnsClosed
+		wg.Done()
+		log.Logger.Info("grpc server shutdown")
 	}()
 }
 
@@ -221,12 +240,12 @@ func (g *grpcServer) startUnixListener() {
 		if runtime.GOOS != "linux" {
 			// As MacOS doesn't have abstract unix domain sockets the file
 			// created by a previous run needs to be explicitly removed
-			if err := os.RemoveAll(LegacyUnixDomainSocket); err != nil {
+			if err := os.RemoveAll(g.grpcServerEndpoint); err != nil {
 				log.Logger.Fatal(err)
 			}
 		}
 
-		unixAddr, err := net.ResolveUnixAddr("unix", LegacyUnixDomainSocket)
+		unixAddr, err := net.ResolveUnixAddr("unix", g.grpcServerEndpoint)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
@@ -246,7 +265,7 @@ func (g *grpcServer) ExposesGRPCTLS() bool {
 	return viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key")
 }
 
-func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*grpcServer, error) {
+func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v2Server gw.CAServer) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
@@ -264,7 +283,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, v2Server gw.CAServer) (*gr
 	// Register your gRPC service implementations.
 	gw_legacy.RegisterCAServer(myServer, legacyGRPCCAServer)
 
-	return &grpcServer{myServer, LegacyUnixDomainSocket, v2Server, nil}, nil
+	return &grpcServer{myServer, unixDomainSocket, v2Server, nil}, nil
 }
 
 func panicRecoveryHandler(ctx context.Context, p interface{}) error {
