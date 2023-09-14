@@ -1,12 +1,11 @@
-defaultBaseImage: gcr.io/distroless/base-debian10
+defaultBaseImage: gcr.io/distroless/static-debian12
 builds:
 - main: .
   env:
-  - CGO_ENABLED=1
-# If you are deploying from M1, you can use this (uncomment below, and
-# comment out above), though it does remove the support for the "createca" command.
-# But at least you can deploy it from M1 using this.
-#  - CGO_ENABLED=0
+  - CGO_ENABLED=0
+# If you need support for the the "createca" command, you must enable
+# CGO and use a base image with gblic (base instead of static)
+#  - CGO_ENABLED=1
   flags:
   - -trimpath
   - -tags
