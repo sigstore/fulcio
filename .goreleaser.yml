@@ -2,9 +2,10 @@ project_name: fulcio
 
 env:
   - GO111MODULE=on
-  - CGO_ENABLED=1
   - DOCKER_CLI_EXPERIMENTAL=enabled
   - COSIGN_YES=true
+# If you need support for the the "createca" command, you must enable CGO
+  - CGO_ENABLED=0
 
 # Prevents parallel builds from stepping on eachothers toes downloading modules
 before:
