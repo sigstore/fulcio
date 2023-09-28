@@ -119,3 +119,18 @@ Fulcio is developed as part of the [`sigstore`](https://sigstore.dev) project.
 
 We also use a [slack channel](https://sigstore.slack.com)!
 Click [here](https://links.sigstore.dev/slack-invite) for the invite link.
+
+## Additional Documentation
+
+In addition to this README file, the docs folder contains the additional documentation:
+
+- **certificate-specification.md**. This file includes the requirements for root, intermediate, and issued certificates.   The document applies to all instances of Fulcio, including the production instance and all private instances.
+- **ctlog.md**. Certificate transparency log information, including information on signed certificate timestamps and a sharding strategy for the  CT log.
+- **how-certifcate-issuing-works.md**. This document walks through the process of issuing a code signing certificate.  
+- **hsm-support.md**. Using Fulcio with a pkcs11 capable device such as SoftHSM.
+- **oid-info.md**. Sigstore OID information.  
+- **security-model.md**. Fulcio’s security model and a discussion of short-lived certificates.
+- **setup.md**. Setting up a local Fulcio instance
+
+If you are making changes to any of these subjects, make sure you also edit the appropriate file listed above.
+
