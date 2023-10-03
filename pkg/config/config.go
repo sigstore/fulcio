@@ -229,10 +229,11 @@ func (fc *FulcioConfig) prepare() error {
 		defer cancel()
 		provider, err := oidc.NewProvider(ctx, iss.IssuerURL)
 		if err != nil {
-			return fmt.Errorf("provider %s: %w", iss.IssuerURL, err)
+			log.Logger.Errorf("error creating provider for issuer URL %q: %v", iss.IssuerURL, err)
+		} else {
+			cfg := &oidc.Config{ClientID: iss.ClientID}
+			fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
 		}
-		cfg := &oidc.Config{ClientID: iss.ClientID}
-		fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
 	}
 
 	cache, err := lru.New2Q(100 /* size */)
