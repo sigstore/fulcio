@@ -1,3 +1,31 @@
+# v1.4.1
+
+v1.4.1 disables CGO for released binaries and containers. If you need support
+for an HSM-backed CA, compile Fulcio with CGO\_ENABLED=1.
+
+The Distroless base image of the released containers has been updated to Debian 12,
+`gcr.io/distroless/static-debian12:nonroot`.
+
+## Features
+
+* Do not block startup if OIDC provider cannot be created (#1389)
+* Gracefully shutdown HTTP, gRPC, and Prom servers (#1342)
+* Create interface for GRPC server which encompasses the GRPC HealthServer (#1334)
+
+## Release
+
+* update builder image to use go1.21.2 (#1397)
+* Disable CGO on release builds (#1368)
+
+## Contributors
+
+* Appu
+* Hayden B
+* Jon Johnson
+* Jussi Kukkonen
+* Priya Wadhwa
+* William Woodruff
+
 # v1.4.0
 
 ## Features
