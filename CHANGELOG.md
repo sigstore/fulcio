@@ -1,3 +1,19 @@
+# v1.4.2
+
+* move to go 1.21.3 to pick up fixes for CVE-2023-39325
+
+## Bug Fixes
+* update builder image to use go1.21.3 (#1407)
+* Bump github.com/google/go-cmp from 0.5.9 to 0.6.0 (#1405)
+* Bump google.golang.org/grpc from 1.58.2 to 1.58.3 (#1404)
+* Bump golang from 1.21.2 to 1.21.3 (#1406)
+* Bump go.step.sm/crypto from 0.35.1 to 0.36.0 (#1403)
+* Bump google.golang.org/api from 0.145.0 to 0.146.0 (#1402)
+* Bump sigs.k8s.io/release-utils from 0.7.4 to 0.7.5 (#1401)
+
+## Contributors
+* Carlos Tadeu Panato Junior
+
 # v1.4.1
 
 v1.4.1 disables CGO for released binaries and containers. If you need support
