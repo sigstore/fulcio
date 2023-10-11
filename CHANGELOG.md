@@ -1,3 +1,12 @@
+# v1.4.3
+
+## Bug Fixes
+* Bump golang.org/x/net from 0.15.0 to 0.17.0 in /hack/tools (#1409)
+* Bump golang.org/x/net from 0.15.0 to 0.17.0 (#1410)
+
+## Contributors
+* dependabot
+
 # v1.4.2
 
 * move to go 1.21.3 to pick up fixes for CVE-2023-39325
