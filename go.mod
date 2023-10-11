@@ -13,7 +13,7 @@ require (
 	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.3
 	github.com/google/certificate-transparency-go v1.1.6
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99
