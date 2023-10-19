@@ -33,7 +33,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/spiffe/go-spiffe/v2 v2.1.6
-	go.step.sm/crypto v0.36.0
+	go.step.sm/crypto v0.36.1
 	go.uber.org/zap v1.26.0
 	google.golang.org/api v0.147.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97
@@ -49,7 +49,7 @@ require (
 	cloud.google.com/go/compute v1.23.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.2 // indirect
-	cloud.google.com/go/kms v1.15.2 // indirect
+	cloud.google.com/go/kms v1.15.3 // indirect
 	cloud.google.com/go/longrunning v0.5.1 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.8.0 // indirect
@@ -59,7 +59,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.1 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.45.25 // indirect
+	github.com/aws/aws-sdk-go v1.45.26 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.21.2 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.45 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.43 // indirect
