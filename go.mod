@@ -14,7 +14,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.3
-	github.com/google/certificate-transparency-go v1.1.6
+	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/go-cmp v0.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -61,7 +61,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.1 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.46.3 // indirect
+	github.com/aws/aws-sdk-go v1.46.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.21.2 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.19.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.43 // indirect
@@ -119,7 +119,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/procfs v0.11.1 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
