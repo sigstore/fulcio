@@ -31,7 +31,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.5
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.5
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/spiffe/go-spiffe/v2 v2.1.6
