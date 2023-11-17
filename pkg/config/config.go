@@ -223,6 +223,32 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 }
 
 func (fc *FulcioConfig) prepare() error {
+	if _, ok := fc.GetIssuer("https://kubernetes.default.svc"); ok {
+		// Add the Kubernetes cluster's CA to the system CA pool, and to
+		// the default transport.
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		const k8sCA = "/var/run/fulcio/ca.crt"
+		certs, err := os.ReadFile(k8sCA)
+		if err != nil {
+			return fmt.Errorf("read file: %w", err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return fmt.Errorf("unable to append certs")
+		}
+
+		t := originalTransport.(*http.Transport).Clone()
+		t.TLSClientConfig.RootCAs = rootCAs
+		http.DefaultTransport = t
+	} else {
+		// If we parse a config that doesn't include a cluster issuer
+		// signed with the cluster'sCA, then restore the original transport
+		// (in case we overwrote it)
+		http.DefaultTransport = originalTransport
+	}
+
 	fc.verifiers = make(map[string][]*verifierWithConfig, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
 		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
@@ -428,32 +454,6 @@ func Read(b []byte) (*FulcioConfig, error) {
 	err = validateConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("validate: %w", err)
-	}
-
-	if _, ok := config.GetIssuer("https://kubernetes.default.svc"); ok {
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := os.ReadFile(k8sCA)
-		if err != nil {
-			return nil, fmt.Errorf("read file: %w", err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return nil, fmt.Errorf("unable to append certs")
-		}
-
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	} else {
-		// If we parse a config that doesn't include a cluster issuer
-		// signed with the cluster'sCA, then restore the original transport
-		// (in case we overwrote it)
-		http.DefaultTransport = originalTransport
 	}
 
 	if err := config.prepare(); err != nil {
