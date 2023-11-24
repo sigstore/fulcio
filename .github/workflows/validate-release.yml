@@ -35,7 +35,7 @@ jobs:
         run: |
           cosign verify ghcr.io/gythialy/golang-cross:v1.21.4-0@sha256:d18679c199db258cac9876a80abf9aff69485cf8a324bf547521f3de4cf3a366 \
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-          --certificate-identity "https://github.com/gythialy/golang-cross/.github/workflows/release-golang-cross.yml@refs/tags/v1.21.3-0"
+          --certificate-identity "https://github.com/gythialy/golang-cross/.github/workflows/release-golang-cross.yml@refs/tags/v1.21.4-0"
         env:
           TUF_ROOT: /tmp
 
