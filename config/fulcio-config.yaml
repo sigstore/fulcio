@@ -38,6 +38,11 @@ data:
               "ClientID": "sigstore",
               "Type": "email"
             },
+            "https://auth.eclipse.org/auth/realms/sigstore": {
+              "IssuerURL": "https://auth.eclipse.org/auth/realms/sigstore",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
             "https://dev.gitlab.org": {
               "IssuerURL": "https://dev.gitlab.org",
               "ClientID": "sigstore",
