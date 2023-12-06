@@ -42,6 +42,6 @@ const (
 )
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {
-	log.ContextLogger(ctx).Errorw("returning with error", append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)
+	log.ContextLogger(ctx).Errorw(err.Error(), append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)
 	return status.Error(code, message)
 }
