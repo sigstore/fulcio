@@ -35,7 +35,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/spiffe/go-spiffe/v2 v2.1.6
-	go.step.sm/crypto v0.38.0
+	go.step.sm/crypto v0.39.0
 	go.uber.org/zap v1.26.0
 	google.golang.org/api v0.153.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17
@@ -61,7 +61,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.1 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.48.11 // indirect
+	github.com/aws/aws-sdk-go v1.48.12 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.25.11 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.9 // indirect
