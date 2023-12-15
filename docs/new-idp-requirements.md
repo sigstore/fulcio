@@ -4,12 +4,12 @@
 
 This document describes the minimum requirements for adding a new IDP (Identity Provider) to the Sigstore Public Good Deployment.
 
-Adding a new IDP option to Fulcio helps drive adoption of signing and verification for software artifacts using Sigstore Public Good. Because identity is a critical component of the system, it's important that new IDPs meet the minimum set of requirements to ensure the security and reliability of the system.
+Adding a new IDP option to Fulcio helps drive adoption of signing and verification for software artifacts using Sigstore Public Good. Because identity is a critical component of the system, it's important that new IDPs meet the minimum set of requirements to ensure the security and reliability of the ecosystem and users.
 
 You should also reference the [Fulcio - ODIC.md](https://github.com/sigstore/fulcio/blob/main/docs/oidc.md) documentation for additional requirements for the type of IDP you're looking to integrate. The current two likely types of IDPs are:
 
-- `Email`    - Email-based OIDC providers use the user’s email as the subject of the certificate.
-- `Workflow` - Workflow-based OIDC providers are used with systems such as CI/CD pipelines. These providers will require more onboarding and you should [file an issue](https://github.com/sigstore/fulcio/issues) to discuss the requirements for a specific system.
+- `Email` - Email-based OIDC providers use the user's email or the machine identity for service accounts as the subject of the certificate.
+- `Workflow` - Workflow-based OIDC providers are used with systems such as CI/CD pipelines, such as GitHub Actions or GitLab CI. These providers will require more onboarding and you should [file an issue](https://github.com/sigstore/fulcio/issues) to discuss the requirements for a specific system.
 
 ## Requirements
 
@@ -21,10 +21,10 @@ to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.tx
 A new IDP must meet the following requirements:
 
 - MUST host a `/.well-known/openid-configuration` file that conforms to the OpenID standard for this file.
+- MUST have a secure signing key.
 - SHOULD have a documented key rotation policy.
 - SHOULD have a plan in place for key rotation in the case of compromise.
 - SHOULD have a documented signing key storage policy.
-- MUST have a secure signing key.
 - MUST maintain good uptime.
 - SHOULD maintain an uptime requirement of `99.9%+`.
 - MUST challenge the email address as an OIDC provider for email IDPs.
