@@ -112,4 +112,6 @@ See [Certificate Transparency Log Information](ctlog.md) for more details.
 
 ## 7 | Return certificate to client
 
+Finally, the certificate and SCT are both returned to the client.
+
 ![Return certificate diagram](img/return-cert.png)
