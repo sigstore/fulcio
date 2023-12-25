@@ -212,8 +212,8 @@ github.com/hashicorp/vault/api v1.10.0 h1:/US7sIjWN6Imp4o/Rj1Ce2Nr5bki/AXi9vAW3p
 github.com/hashicorp/vault/api v1.10.0/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/jellydator/ttlcache/v3 v3.1.0 h1:0gPFG0IHHP6xyUyXq+JaD8fwkDCqgqwohXNJBcYE71g=
-github.com/jellydator/ttlcache/v3 v3.1.0/go.mod h1:hi7MGFdMAwZna5n2tuvh63DvFLzVKySzCVW6+0gA2n4=
+github.com/jellydator/ttlcache/v3 v3.1.1 h1:RCgYJqo3jgvhl+fEWvjNW8thxGWsgxi+TPhRir1Y9y8=
+github.com/jellydator/ttlcache/v3 v3.1.1/go.mod h1:hi7MGFdMAwZna5n2tuvh63DvFLzVKySzCVW6+0gA2n4=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=
@@ -310,8 +310,8 @@ github.com/sigstore/sigstore v1.8.0 h1:sSRWXv1JiDsK4T2wNWVYcvKCgxcSrhQ/QUJxsfCO4
 github.com/sigstore/sigstore v1.8.0/go.mod h1:l12B1gFlLIpBIVeqk/q1Lb+6YSOGNuN3xLExIjYH+qc=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6 h1:WzZExOcFanrFfCi7SUgkBtJicWnSNziBD9nSSQIrqhc=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.7.6/go.mod h1:3zOHOLHnCE6EXyVH+6Z/lC9O1RDsbmR045NQ1DogiHw=
-github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.6 h1:wsPt9kNXF1ZZyae2wO35NLsK+cjWqPGpuPaDdXzRe0g=
-github.com/sigstore/sigstore/pkg/signature/kms/azure v1.7.6/go.mod h1:LH+ct6D77J8Ks6PXijMYYhmlQ1mbqKHbmy7+Sw5/Woc=
+github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.0 h1:Txd7Fjei2NVb/sjBNYybrl+FcZGptO6FXXH4pVNBQMs=
+github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.0/go.mod h1:mZjoLdfxFzo61abWNQisk8BcUbGshTO5HCpPRjzuPUs=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6 h1:aMVT9XXFQEnBtJ6szzanyAdKT5gFK4emN+jLSlFlOso=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.7.6/go.mod h1:Hwhlx8JSZJF1R27JlwW/Bl2h40reG3MfKANREtBI0L8=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.7.6 h1:TdSHzcFtPJxbk4B+huWC6GDq7OpgHmLg18inRo9u70I=
