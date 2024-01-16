@@ -34,7 +34,7 @@ services:
     ports:
       - "5555:5555"
       - "5554:5554"
-      - "2112:2112"
+      - "${FULCIO_METRICS_PORT:-2112}:2112"
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
       - ./config/config.jsn:/etc/fulcio-config/config.json:z

@@ -12,6 +12,14 @@ Simply run:
 docker-compose up
 ```
 
+If you need to change the docker port on which the metrics port is bound, use
+the `FULCIO_METRICS_PORT` variable:
+
+```
+export FULCIO_METRICS_PORT=2113
+docker-compose up
+```
+
 The other way is running the Fulcio binary:
 
 ```
