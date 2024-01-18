@@ -19,7 +19,7 @@ services:
     build:
       context: .
       target: "debug"
-    command: [
+    entrypoint: [
       "dlv",
       "exec",
       "--listen=:2345",
@@ -30,10 +30,13 @@ services:
       "/usr/local/bin/fulcio-server",
       "serve",
       "--host=0.0.0.0",
-      "--port=3000",
+      "--port=5555",
+      "--grpc-port=5554",
+      "--ca=ephemeralca",
       ]
     restart: always # keep the server running
     ports:
-      - "3000:3000"
+      - "5555:5555"
+      - "5554:5554"
       - "2345:2345"
-      - "2112:2112"
+      - "${FULCIO_METRICS_PORT:-2112}:2112"
