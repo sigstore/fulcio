@@ -318,8 +318,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.0 h1:Txd7Fjei2NVb/sjBN
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.0/go.mod h1:mZjoLdfxFzo61abWNQisk8BcUbGshTO5HCpPRjzuPUs=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.1 h1:lwdRsJv1UbBemuk7w5YfXAQilQxMoFevrzamdPbG0wY=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.1/go.mod h1:2OaSQ80EcdyVRSQ3T4d1lsc6Scopblsiq8U2AEk5K1A=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.0 h1:PspwJqJtD4bo0Aboo2UBrvznNUK7ETjD270GD9WLI88=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.0/go.mod h1:8ta2z6+ZsN8o3EdxGgpSn6VCAkTqLztV0L4YnLCwrwU=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.1 h1:9Ki0qudKpc1FQdef7xHO2bkLyTuw+qNUpWRzjBEmF4c=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.1/go.mod h1:nhIgyu4YwwNgalIwTGsoAzam16jjAn3ADRSWKbWPwGI=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 h1:JIAuq3EEf9cgbU6AtGPK4CTG3Zf6CKMNqf0MHTggAUA=
 github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
