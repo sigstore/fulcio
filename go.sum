@@ -310,8 +310,8 @@ github.com/secure-systems-lab/go-securesystemslib v0.8.0 h1:mr5An6X45Kb2nddcFlbm
 github.com/secure-systems-lab/go-securesystemslib v0.8.0/go.mod h1:UH2VZVuJfCYR8WgMlCU1uFsOUU+KeyrTWcSS73NBOzU=
 github.com/segmentio/ksuid v1.0.4 h1:sBo2BdShXjmcugAMwjugoGUdUV0pcxY5mW4xKRn3v4c=
 github.com/segmentio/ksuid v1.0.4/go.mod h1:/XUiZBD3kVx5SmUOl55voK5yeAbBNNIed+2O73XgrPE=
-github.com/sigstore/sigstore v1.8.0 h1:sSRWXv1JiDsK4T2wNWVYcvKCgxcSrhQ/QUJxsfCO4OM=
-github.com/sigstore/sigstore v1.8.0/go.mod h1:l12B1gFlLIpBIVeqk/q1Lb+6YSOGNuN3xLExIjYH+qc=
+github.com/sigstore/sigstore v1.8.1 h1:mAVposMb14oplk2h/bayPmIVdzbq2IhCgy4g6R0ZSjo=
+github.com/sigstore/sigstore v1.8.1/go.mod h1:02SL1158BSj15bZyOFz7m+/nJzLZfFd9A8ab3Kz7w/E=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.0 h1:nLaaOX85YjBKQOQHWY2UlDkbx+je8ozTEM+t1ySAb78=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.0/go.mod h1:fLxrKqPP9lIz/B3UBD4ZK6j6984eX2czu/0zxm99fkE=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.1 h1:DvRWG99QGWZC5mp42SEde2Xke/Q384Idnj2da7yB+Mk=
