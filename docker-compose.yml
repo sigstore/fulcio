@@ -46,7 +46,6 @@ services:
       start_period: 5s
     depends_on:
       - dex-idp
-      - ct_server
     read_only: true
   dex-idp:
     image: dexidp/dex:v2.30.0
@@ -73,6 +72,7 @@ services:
       dockerfile: Dockerfile.ctfe_init
     depends_on:
       - trillian-log-server
+      - fulcio-server
     volumes:
       - ctfeConfig:/etc/config/:rw
   ct_server:
@@ -87,9 +87,12 @@ services:
     ]
     restart: always # retry while ctfe_init is running
     depends_on:
-      - trillian-log-server
-      - trillian-log-signer
-      - ctfe_init
+      trillian-log-server:
+        condition: service_started
+      trillian-log-signer:
+        condition: service_started
+      ctfe_init:
+        condition: service_completed_successfully
     ports:
       - "6962:6962"
   mysql:
