@@ -18,9 +18,13 @@ package server
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/sigstore/sigstore/pkg/signature"
 
 	health "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -43,11 +47,12 @@ type GRPCCAServer interface {
 	health.HealthServer
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, ip identity.IssuerPool) GRPCCAServer {
+func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) GRPCCAServer {
 	return &grpcaCAServer{
-		ct:         ct,
-		ca:         ca,
-		IssuerPool: ip,
+		ct:                ct,
+		ca:                ca,
+		algorithmRegistry: algorithmRegistry,
+		IssuerPool:        ip,
 	}
 }
 
@@ -57,8 +62,9 @@ const (
 
 type grpcaCAServer struct {
 	fulciogrpc.UnimplementedCAServer
-	ct *ctclient.LogClient
-	ca certauth.CertificateAuthority
+	ct                *ctclient.LogClient
+	ca                certauth.CertificateAuthority
+	algorithmRegistry *signature.AlgorithmRegistryConfig
 	identity.IssuerPool
 }
 
@@ -87,6 +93,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 	}
 
 	var publicKey crypto.PublicKey
+	var hashFunc crypto.Hash
 	// Verify caller is in possession of their private key and extract
 	// public key from request.
 	if len(request.GetCertificateSigningRequest()) > 0 {
@@ -104,6 +111,11 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 
 		if err := csr.CheckSignature(); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		}
+
+		hashFunc, err = getHashFuncForSignatureAlgorithm(csr.SignatureAlgorithm)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 		}
 	} else {
 		// Option 2: Check the signature for proof of possession of a private key
@@ -132,6 +144,22 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 		if err := challenges.CheckSignature(publicKey, proofOfPossession, principal.Name(ctx)); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 		}
+
+		// The proof of possession signature always uses SHA-256, unless the key algorithm is ED25519
+		hashFunc = crypto.SHA256
+		if _, ok := publicKey.(*ed25519.PublicKey); ok {
+			hashFunc = crypto.Hash(0)
+		}
+	}
+
+	// Check whether the public-key/hash algorithm combination is allowed
+	isPermitted, err := g.algorithmRegistry.IsAlgorithmPermitted(publicKey, hashFunc)
+	if err != nil {
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
+	}
+	if !isPermitted {
+		err = fmt.Errorf("Signing algorithm not permitted: %T, %s", publicKey, hashFunc)
+		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 	}
 
 	var csc *certauth.CodeSigningCertificate
@@ -278,4 +306,24 @@ func (g *grpcaCAServer) Check(_ context.Context, _ *health.HealthCheckRequest) (
 
 func (g *grpcaCAServer) Watch(_ *health.HealthCheckRequest, _ health.Health_WatchServer) error {
 	return status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func getHashFuncForSignatureAlgorithm(signatureAlgorithm x509.SignatureAlgorithm) (crypto.Hash, error) {
+	switch signatureAlgorithm {
+	case x509.ECDSAWithSHA256:
+		return crypto.SHA256, nil
+	case x509.ECDSAWithSHA384:
+		return crypto.SHA384, nil
+	case x509.ECDSAWithSHA512:
+		return crypto.SHA512, nil
+	case x509.SHA256WithRSA:
+		return crypto.SHA256, nil
+	case x509.SHA384WithRSA:
+		return crypto.SHA384, nil
+	case x509.SHA512WithRSA:
+		return crypto.SHA512, nil
+	case x509.PureEd25519:
+		return crypto.Hash(0), nil
+	}
+	return crypto.Hash(0), fmt.Errorf("unrecognized signature algorithm: %s", signatureAlgorithm)
 }
