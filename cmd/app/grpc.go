@@ -45,6 +45,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	health "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 )
 
 const (
@@ -166,6 +167,9 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 				PassFulcioConfigThruContext(cfg),
 				grpc_prometheus.UnaryServerInterceptor,
 			)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: viper.GetDuration("idle-connection-timeout"),
+		}),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)),
 	}
 
