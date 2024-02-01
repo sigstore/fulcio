@@ -36,6 +36,7 @@ import (
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -101,7 +102,7 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 		ReadTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 60 * time.Second,
 		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		IdleTimeout:       viper.GetDuration("idle-connection-timeout"),
 	}
 	return httpServer{&api, serverEndpoint}
 }

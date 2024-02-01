@@ -63,6 +63,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 const serveCmdEnvPrefix = "FULCIO_SERVE"
@@ -106,6 +107,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
 	cmd.Flags().String("grpc-tls-certificate", "", "the certificate file to use for secure connections - only applies to grpc-port")
 	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
+	cmd.Flags().Duration("idle-connection-timeout", 30*time.Second, "The time allowed for connections (HTTP or gRPC) to go idle before being closed by the server")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -381,6 +383,9 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	d := duplex.New(
 		port,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: viper.GetDuration("idle-connection-timeout"),
+		}),
 		runtime.WithMetadata(extractOIDCTokenFromAuthHeader),
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
