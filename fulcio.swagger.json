@@ -293,8 +293,7 @@
           "format": "byte",
           "description": "The Signed Certificate Timestamp (SCT) is a promise for including the certificate in\na certificate transparency log. It can be \"stapled\" to verify the inclusion of\na certificate in the log in an offline fashion.\n\nThe SCT format is an AddChainResponse struct, defined in\nhttps://github.com/google/certificate-transparency-go"
         }
-      },
-      "title": "(-- api-linter: core::0142::time-field-type=disabled\n    aip.dev/not-precedent: SCT is defined in RFC6962 and we keep the name consistent for easier understanding. --)"
+      }
     },
     "v2SigningCertificateEmbeddedSCT": {
       "type": "object",
