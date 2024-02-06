@@ -109,6 +109,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    volumes:
+      - mysql:/var/lib/mysql
   trillian-log-server:
     image: gcr.io/trillian-opensource-ci/log_server
     command: [
@@ -141,3 +143,4 @@ services:
       - mysql
 volumes:
   ctfeConfig: {}
+  mysql: {}
