@@ -37,7 +37,7 @@ services:
       - "${FULCIO_METRICS_PORT:-2112}:2112"
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
-      - ./config/config.jsn:/etc/fulcio-config/config.json:z
+      - ${FULCIO_CONFIG:-./config/config.jsn}:/etc/fulcio-config/config.json:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
@@ -109,6 +109,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    volumes:
+      - mysql:/var/lib/mysql
   trillian-log-server:
     image: gcr.io/trillian-opensource-ci/log_server
     command: [
@@ -141,3 +143,4 @@ services:
       - mysql
 volumes:
   ctfeConfig: {}
+  mysql: {}
