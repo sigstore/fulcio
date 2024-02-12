@@ -37,7 +37,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.7
 	go.step.sm/crypto v0.43.0
 	go.uber.org/zap v1.26.0
-	google.golang.org/api v0.161.0
+	google.golang.org/api v0.163.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240125205218-1f4bbc51befe
 	google.golang.org/grpc v1.61.0
 	google.golang.org/protobuf v1.32.0
@@ -92,7 +92,7 @@ require (
 	github.com/google/go-containerregistry v0.17.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
-	github.com/google/uuid v1.5.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
