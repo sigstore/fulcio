@@ -212,6 +212,34 @@ The token must include the following claims:
 
 All other required claims are extracted and included in custom OID fields, as documented in [OID Information](oid-info.md).
 
+### GitLab
+
+The token must include the following claims:
+
+```json
+{
+    "namespace_id": "72",
+    "namespace_path": "my-group",
+    "project_id": "20",
+    "project_path": "my-group/my-project",
+    "pipeline_id": "574",
+    "pipeline_source": "push",
+    "job_id": "302",
+    "ref": "main",
+    "ref_type": "branch",
+    "runner_id": 1,
+    "runner_environment": "gitlab-hosted",
+    "sha": "714a629c0b401fdce83e847fc9589983fc6f46bc",
+    "project_visibility": "public",
+    "ci_config_ref_uri": "gitlab.com/my-group/my-project//.gitlab-ci.yml@refs/heads/main"
+}
+```
+
+`ci_config_ref_uri` is included as a SAN URI: `https://{ci_config_ref_uri}`
+
+All other required claims are extracted and included in custom OID fields, as documented in [OID Information](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#mapping-oidc-token-claims-to-fulcio-oids).
+
+
 ### SPIFFE
 
 The token must include the following claims:
