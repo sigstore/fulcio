@@ -36,7 +36,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/spiffe/go-spiffe/v2 v2.1.7
 	go.step.sm/crypto v0.43.1
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.167.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240205150955-31a09d347014
 	google.golang.org/grpc v1.61.1
