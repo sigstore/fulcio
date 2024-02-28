@@ -1,3 +1,41 @@
+# v1.4.4
+
+## Features
+
+* Add production OIDC provider for Eclipse (#1472)
+* Change parseExtension function to be public (#1584)
+* Allow exposed metrics port to be overridden (#1518)
+* add configurable idle timeout
+
+## Bug Fixes
+
+* Fix docker-compose service order (#1537)
+* Fix debug docker-compose setup (#1529)
+* Fix docker-compose file (#1560)
+
+## Documentation
+
+* Create new-idp-requirements.md (#1447)
+* docs: Add back descriptive content on cert issuing (#1494)
+* Added GitLab OIDC documentation to the /docs/oidc.md file that was missing. (#1574)
+
+## Misc
+
+* update builder to use go1.21.6
+* Move kubernetes CA processing in config.prepare (#1454)
+* Lots of dependabot updates
+
+## Contributors
+
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Colleen Murphy
+* Cyril Cordoui
+* Hayden B
+* John Kjell
+* Paul Welch
+* Tanner Jones
+
 # v1.4.3
 
 ## Bug Fixes
