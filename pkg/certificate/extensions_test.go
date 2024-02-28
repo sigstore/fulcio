@@ -162,7 +162,7 @@ func TestExtensions(t *testing.T) {
 				t.Errorf("Render: %s", diff)
 			}
 
-			parse, err := parseExtensions(render)
+			parse, err := ParseExtensions(render)
 			if err != nil {
 				t.Fatalf("ParseExtensions: err = %v", err)
 			}
