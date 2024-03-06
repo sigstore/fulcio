@@ -21,6 +21,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/sigstore/fulcio/pkg/identity/gitlabcom"
+	"github.com/sigstore/fulcio/pkg/identity/codefresh"
 	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
 	"github.com/sigstore/fulcio/pkg/identity/spiffe"
 	"github.com/sigstore/fulcio/pkg/identity/uri"
@@ -59,6 +60,8 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 		return gitlabcom.Issuer(issuerURL)
 	case config.IssuerTypeBuildkiteJob:
 		return buildkite.Issuer(issuerURL)
+	case config.IssuerTypeCodefreshWorkflow:
+		return codefresh.Issuer(issuerURL)
 	case config.IssuerTypeKubernetes:
 		return kubernetes.Issuer(issuerURL)
 	case config.IssuerTypeSpiffe:

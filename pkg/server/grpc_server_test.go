@@ -183,6 +183,8 @@ func TestGetConfiguration(t *testing.T) {
 	_, buildkiteIssuer := newOIDCIssuer(t)
 	_, gitHubIssuer := newOIDCIssuer(t)
 	_, gitLabIssuer := newOIDCIssuer(t)
+	_, codefreshIssuer := newOIDCIssuer(t)
+
 	issuerDomain, err := url.Parse(usernameIssuer)
 	if err != nil {
 		t.Fatal("issuer URL could not be parsed", err)
@@ -227,6 +229,11 @@ func TestGetConfiguration(t *testing.T) {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
 				"Type": "gitlab-pipeline"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "codefresh-workflow"
 			}
 		},
 		"MetaIssuers": {
@@ -242,6 +249,7 @@ func TestGetConfiguration(t *testing.T) {
 		buildkiteIssuer, buildkiteIssuer,
 		gitHubIssuer, gitHubIssuer,
 		gitLabIssuer, gitLabIssuer,
+		codefreshIssuer, codefreshIssuer,
 		k8sIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
@@ -262,14 +270,14 @@ func TestGetConfiguration(t *testing.T) {
 		t.Fatal("GetConfiguration failed", err)
 	}
 
-	if len(config.Issuers) != 8 {
-		t.Fatalf("expected 8 issuers, got %v", len(config.Issuers))
+	if len(config.Issuers) != 9 {
+		t.Fatalf("expected 9 issuers, got %v", len(config.Issuers))
 	}
 
 	expectedIssuers := map[string]bool{
 		emailIssuer: true, spiffeIssuer: true, uriIssuer: true,
 		usernameIssuer: true, k8sIssuer: true, gitHubIssuer: true,
-		buildkiteIssuer: true, gitLabIssuer: true,
+		buildkiteIssuer: true, gitLabIssuer: true, codefreshIssuer: true,
 	}
 	for _, iss := range config.Issuers {
 		var issURL string
@@ -1084,6 +1092,141 @@ func TestAPIWithGitLab(t *testing.T) {
 		20: claims.PipelineSource,
 		21: baseURL + claims.ProjectPath + "/-/jobs/" + claims.JobID,
 		22: claims.ProjectVisibility,
+	}
+	for o, value := range expectedExts {
+		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
+		if !found {
+			t.Fatalf("expected extension in custom OID 1.3.6.1.4.1.57264.1.%d", o)
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			t.Fatalf("error unmarshalling extension: :%v", err)
+		}
+		if len(rest) != 0 {
+			t.Fatal("error unmarshalling extension, rest is not 0")
+		}
+		if string(extValue) != value {
+			t.Fatalf("unexpected extension value, expected %s, got %s", value, extValue)
+		}
+	}
+}
+
+// codefreshClaims holds the additional JWT claims for Codefresh OIDC tokens
+type codefreshClaims struct {
+	AccountID       	 string `json:"account_id"`
+	AccountName          string `json:"account_name"`
+	PipelineID           string `json:"pipeline_id"`
+	PipelineName         string `json:"pipeline_name"`
+	WorkflowID           string `json:"workflow_id"`
+	Initiator            string `json:"initiator"`
+	SCMRepoUrl           string `json:"scm_repo_url"`
+	SCMUsername          string `json:"scm_user_name"`
+	SCMRef               string `json:"scm_ref"`
+	SCMPullRequestRef    string `json:"scm_pull_request_target_branch"`
+	RunnerEnvironment    string `json:"runner_environment"`
+	PlatformURL			 string `json:"platform_url"`
+}
+
+// Tests API for Codefresh subject types
+func TestAPIWithCodefresh(t *testing.T) {
+	codefreshSigner, codefreshIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "codefresh-workflow"
+			}
+        }
+	}`, codefreshIssuer, codefreshIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	claims := codefreshClaims{
+		AccountID: 		  "628a80b693a15c0f9c13ab75",
+		AccountName: 	  "test-codefresh",
+		PipelineID: 	  "65e6d5551e47e5bc243ca93f",
+		PipelineName: 	  "oidc-test/oidc-test-2",
+		WorkflowID: 	  "65e6ebe0bfbfa1782876165e",
+		SCMUsername: 	   "test-codefresh",
+		SCMRepoUrl: 	   "https://github.com/test-codefresh/fulcio",
+		SCMRef: 		   "feat/codefresh-issuer",
+		SCMPullRequestRef: "main",
+		RunnerEnvironment: "hybrid",
+		PlatformURL: 	   "https://g.codefresh.io",
+	}
+	codefreshSubject := "account:628a80b693a15c0f9c13ab75:pipeline:65e6d5551e47e5bc243ca93f:scm_repo_url:https://github.com/test-codefresh/fulcio:scm_user_name:test-codefresh:scm_ref:feat/codefresh-issuer:scm_pull_request_target_branch:main"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(codefreshSigner).Claims(jwt.Claims{
+		Issuer:   codefreshIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  codefreshSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	pubBytes, proof := generateKeyAndProof(codefreshSubject, t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, codefreshIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	codefreshURL := fmt.Sprintf("%s/%s/%s:%s/%s", claims.PlatformURL, claims.AccountName, claims.PipelineName, claims.AccountID, claims.PipelineID)
+	codefreshURI, err := url.Parse(codefreshURL)
+	if err != nil {
+		t.Fatalf("failed to parse expected url")
+	}
+	if *leafCert.URIs[0] != *codefreshURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", codefreshURI, leafCert.URIs[0])
+	}
+
+	expectedExts := map[int]string{
+		9:  claims.PlatformURL + "/build/" + claims.WorkflowID,
+		11: claims.RunnerEnvironment,
+		12: claims.SCMRepoUrl,
+		14: claims.SCMRef,
+		18: claims.PlatformURL + "/build/" + claims.WorkflowID,
+		21: claims.PlatformURL + "/build/" + claims.WorkflowID,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})

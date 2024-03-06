@@ -20,6 +20,11 @@
       "IssuerURL": "https://token.actions.githubusercontent.com",
       "ClientID": "sigstore",
       "Type": "github-workflow"
+    },
+    "https://oidc.codefresh.io": {
+      "IssuerURL": "https://oidc.codefresh.io",
+      "ClientID": "sigstore",
+      "Type": "codefresh-workflow"
     }
   }
 }
