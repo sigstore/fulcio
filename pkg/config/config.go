@@ -273,14 +273,15 @@ func (fc *FulcioConfig) prepare() error {
 type IssuerType string
 
 const (
-	IssuerTypeBuildkiteJob   = "buildkite-job"
-	IssuerTypeEmail          = "email"
-	IssuerTypeGithubWorkflow = "github-workflow"
-	IssuerTypeGitLabPipeline = "gitlab-pipeline"
-	IssuerTypeKubernetes     = "kubernetes"
-	IssuerTypeSpiffe         = "spiffe"
-	IssuerTypeURI            = "uri"
-	IssuerTypeUsername       = "username"
+	IssuerTypeBuildkiteJob   	= "buildkite-job"
+	IssuerTypeEmail          	= "email"
+	IssuerTypeGithubWorkflow 	= "github-workflow"
+	IssuerTypeCodefreshWorkflow = "codefresh-workflow" 
+	IssuerTypeGitLabPipeline 	= "gitlab-pipeline"
+	IssuerTypeKubernetes     	= "kubernetes"
+	IssuerTypeSpiffe         	= "spiffe"
+	IssuerTypeURI            	= "uri"
+	IssuerTypeUsername       	= "username"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
@@ -510,6 +511,8 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	case IssuerTypeEmail:
 		return "email"
 	case IssuerTypeGithubWorkflow:
+		return "sub"
+	case IssuerTypeCodefreshWorkflow:
 		return "sub"
 	case IssuerTypeKubernetes:
 		return "sub"
