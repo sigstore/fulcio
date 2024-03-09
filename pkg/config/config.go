@@ -273,15 +273,15 @@ func (fc *FulcioConfig) prepare() error {
 type IssuerType string
 
 const (
-	IssuerTypeBuildkiteJob   	= "buildkite-job"
-	IssuerTypeEmail          	= "email"
-	IssuerTypeGithubWorkflow 	= "github-workflow"
-	IssuerTypeCodefreshWorkflow = "codefresh-workflow" 
-	IssuerTypeGitLabPipeline 	= "gitlab-pipeline"
-	IssuerTypeKubernetes     	= "kubernetes"
-	IssuerTypeSpiffe         	= "spiffe"
-	IssuerTypeURI            	= "uri"
-	IssuerTypeUsername       	= "username"
+	IssuerTypeBuildkiteJob      = "buildkite-job"
+	IssuerTypeEmail             = "email"
+	IssuerTypeGithubWorkflow    = "github-workflow"
+	IssuerTypeCodefreshWorkflow = "codefresh-workflow"
+	IssuerTypeGitLabPipeline    = "gitlab-pipeline"
+	IssuerTypeKubernetes        = "kubernetes"
+	IssuerTypeSpiffe            = "spiffe"
+	IssuerTypeURI               = "uri"
+	IssuerTypeUsername          = "username"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {

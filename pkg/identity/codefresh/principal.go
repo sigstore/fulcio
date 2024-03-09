@@ -1,3 +1,4 @@
+// Copyright 2022 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,18 +81,18 @@ func (w workflowPrincipal) Name(_ context.Context) string {
 
 func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
-		AccountID       	 string `json:"account_id"`
-		AccountName          string `json:"account_name"`
-		PipelineID           string `json:"pipeline_id"`
-		PipelineName         string `json:"pipeline_name"`
-		WorkflowID           string `json:"workflow_id"`
-		Initiator            string `json:"initiator"`
-		SCMRepoUrl           string `json:"scm_repo_url"`
-		SCMUsername          string `json:"scm_user_name"`
-		SCMRef               string `json:"scm_ref"`
-		SCMPullRequestRef    string `json:"scm_pull_request_target_branch"`
-		RunnerEnvironment    string `json:"runner_environment"`
-		PlatformURL			 string `json:"platform_url"`
+		AccountID         string `json:"account_id"`
+		AccountName       string `json:"account_name"`
+		PipelineID        string `json:"pipeline_id"`
+		PipelineName      string `json:"pipeline_name"`
+		WorkflowID        string `json:"workflow_id"`
+		Initiator         string `json:"initiator"`
+		SCMRepoUrl        string `json:"scm_repo_url"`
+		SCMUsername       string `json:"scm_user_name"`
+		SCMRef            string `json:"scm_ref"`
+		SCMPullRequestRef string `json:"scm_pull_request_target_branch"`
+		RunnerEnvironment string `json:"runner_environment"`
+		PlatformURL       string `json:"platform_url"`
 	}
 
 	if err := token.Claims(&claims); err != nil {
@@ -116,18 +117,18 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 	}
 
 	return &workflowPrincipal{
-		subject:              		token.Subject,
-		issuer:               		token.Issuer,
-		accountID: 			  		claims.AccountID,
-		accountName:          		claims.AccountName,
-		pipelineID:           		claims.PipelineID,
-		pipelineName:         		claims.PipelineName,
-		workflowID:           		claims.WorkflowID,
-		initiator: 			  		claims.Initiator,
-		scmUsername:          		claims.SCMUsername,
+		subject:                    token.Subject,
+		issuer:                     token.Issuer,
+		accountID:                  claims.AccountID,
+		accountName:                claims.AccountName,
+		pipelineID:                 claims.PipelineID,
+		pipelineName:               claims.PipelineName,
+		workflowID:                 claims.WorkflowID,
+		initiator:                  claims.Initiator,
+		scmUsername:                claims.SCMUsername,
 		scmRepoUrl:                 claims.SCMRepoUrl,
-		scmRef:               		claims.SCMRef,
-		scmPullRequestTargetBranch:	claims.SCMPullRequestRef,
+		scmRef:                     claims.SCMRef,
+		scmPullRequestTargetBranch: claims.SCMPullRequestRef,
 		runnerEnvironment:          claims.RunnerEnvironment,
 		platformURL:                claims.PlatformURL,
 	}, nil
@@ -142,19 +143,19 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 	}
 
 	// Set SAN to the <platform url>/<account name>/<pipeline name>:<account id>/<pipeline id> - for example https://g.codefresh.io/codefresh-account/oidc-test/get-token:628a80b693a15c0f9c13ab75/65e5a53e52853dc51a5b0cc1
-	// In Codefresh account names and pipeline names may be changed where as IDs do not. 
-	// This pattern will give users the possibility to verify the signature using various forms of `cosign verify --certificate-identity-regexp` i.e https://g.codefresh.io/codefresh-account/oidc-test/get-token:* or https://g.codefresh.io/*:628a80b693a15c0f9c13ab75/65e5a53e52853dc51a5b0cc1 
-	cert.URIs = []*url.URL{baseURL.JoinPath(w.accountName,fmt.Sprintf("%s:%s/%s", w.pipelineName, w.accountID,w.pipelineID))}
+	// In Codefresh account names and pipeline names may be changed where as IDs do not.
+	// This pattern will give users the possibility to verify the signature using various forms of `cosign verify --certificate-identity-regexp` i.e https://g.codefresh.io/codefresh-account/oidc-test/get-token:* or https://g.codefresh.io/*:628a80b693a15c0f9c13ab75/65e5a53e52853dc51a5b0cc1
+	cert.URIs = []*url.URL{baseURL.JoinPath(w.accountName, fmt.Sprintf("%s:%s/%s", w.pipelineName, w.accountID, w.pipelineID))}
 
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: 							 w.issuer,
+		Issuer: w.issuer,
 		// URL of the build in Codefresh
-		BuildSignerURI:                      baseURL.JoinPath("build",w.workflowID).String(),
-		RunnerEnvironment:                   w.runnerEnvironment,
-		SourceRepositoryURI:                 w.scmRepoUrl,
-		SourceRepositoryRef:                 w.scmRef,
-		BuildConfigURI:                      baseURL.JoinPath("build",w.workflowID).String(),
-		RunInvocationURI: 					 baseURL.JoinPath("build",w.workflowID).String(),
+		BuildSignerURI:      baseURL.JoinPath("build", w.workflowID).String(),
+		RunnerEnvironment:   w.runnerEnvironment,
+		SourceRepositoryURI: w.scmRepoUrl,
+		SourceRepositoryRef: w.scmRef,
+		BuildConfigURI:      baseURL.JoinPath("build", w.workflowID).String(),
+		RunInvocationURI:    baseURL.JoinPath("build", w.workflowID).String(),
 	}.Render()
 
 	if err != nil {
