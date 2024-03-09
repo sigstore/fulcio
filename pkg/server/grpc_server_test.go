@@ -1114,18 +1114,18 @@ func TestAPIWithGitLab(t *testing.T) {
 
 // codefreshClaims holds the additional JWT claims for Codefresh OIDC tokens
 type codefreshClaims struct {
-	AccountID       	 string `json:"account_id"`
-	AccountName          string `json:"account_name"`
-	PipelineID           string `json:"pipeline_id"`
-	PipelineName         string `json:"pipeline_name"`
-	WorkflowID           string `json:"workflow_id"`
-	Initiator            string `json:"initiator"`
-	SCMRepoUrl           string `json:"scm_repo_url"`
-	SCMUsername          string `json:"scm_user_name"`
-	SCMRef               string `json:"scm_ref"`
-	SCMPullRequestRef    string `json:"scm_pull_request_target_branch"`
-	RunnerEnvironment    string `json:"runner_environment"`
-	PlatformURL			 string `json:"platform_url"`
+	AccountID         string `json:"account_id"`
+	AccountName       string `json:"account_name"`
+	PipelineID        string `json:"pipeline_id"`
+	PipelineName      string `json:"pipeline_name"`
+	WorkflowID        string `json:"workflow_id"`
+	Initiator         string `json:"initiator"`
+	SCMRepoUrl        string `json:"scm_repo_url"`
+	SCMUsername       string `json:"scm_user_name"`
+	SCMRef            string `json:"scm_ref"`
+	SCMPullRequestRef string `json:"scm_pull_request_target_branch"`
+	RunnerEnvironment string `json:"runner_environment"`
+	PlatformURL       string `json:"platform_url"`
 }
 
 // Tests API for Codefresh subject types
@@ -1147,17 +1147,17 @@ func TestAPIWithCodefresh(t *testing.T) {
 	}
 
 	claims := codefreshClaims{
-		AccountID: 		  "628a80b693a15c0f9c13ab75",
-		AccountName: 	  "test-codefresh",
-		PipelineID: 	  "65e6d5551e47e5bc243ca93f",
-		PipelineName: 	  "oidc-test/oidc-test-2",
-		WorkflowID: 	  "65e6ebe0bfbfa1782876165e",
-		SCMUsername: 	   "test-codefresh",
-		SCMRepoUrl: 	   "https://github.com/test-codefresh/fulcio",
-		SCMRef: 		   "feat/codefresh-issuer",
+		AccountID:         "628a80b693a15c0f9c13ab75",
+		AccountName:       "test-codefresh",
+		PipelineID:        "65e6d5551e47e5bc243ca93f",
+		PipelineName:      "oidc-test/oidc-test-2",
+		WorkflowID:        "65e6ebe0bfbfa1782876165e",
+		SCMUsername:       "test-codefresh",
+		SCMRepoUrl:        "https://github.com/test-codefresh/fulcio",
+		SCMRef:            "feat/codefresh-issuer",
 		SCMPullRequestRef: "main",
 		RunnerEnvironment: "hybrid",
-		PlatformURL: 	   "https://g.codefresh.io",
+		PlatformURL:       "https://g.codefresh.io",
 	}
 	codefreshSubject := "account:628a80b693a15c0f9c13ab75:pipeline:65e6d5551e47e5bc243ca93f:scm_repo_url:https://github.com/test-codefresh/fulcio:scm_user_name:test-codefresh:scm_ref:feat/codefresh-issuer:scm_pull_request_target_branch:main"
 
