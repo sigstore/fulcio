@@ -60,7 +60,7 @@ type workflowPrincipal struct {
 	scmUsername string
 
 	// Applies to Git push, PR, and manual Git trigger types. The SCM URL specifying the Git repository’s location. For example, https://github.com/codefresh-user/oidc-test
-	scmRepoUrl string
+	scmRepoURL string
 
 	// Applies to Git push, PR, and manual Git trigger types. The SCM name of the branch or tag within the Git repository for which the workflow should execute. For example, main or v1.0.0.
 	scmRef string
@@ -126,7 +126,7 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		workflowID:                 claims.WorkflowID,
 		initiator:                  claims.Initiator,
 		scmUsername:                claims.SCMUsername,
-		scmRepoUrl:                 claims.SCMRepoUrl,
+		scmRepoURL:                 claims.SCMRepoUrl,
 		scmRef:                     claims.SCMRef,
 		scmPullRequestTargetBranch: claims.SCMPullRequestRef,
 		runnerEnvironment:          claims.RunnerEnvironment,
@@ -152,7 +152,7 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 		// URL of the build in Codefresh
 		BuildSignerURI:      baseURL.JoinPath("build", w.workflowID).String(),
 		RunnerEnvironment:   w.runnerEnvironment,
-		SourceRepositoryURI: w.scmRepoUrl,
+		SourceRepositoryURI: w.scmRepoURL,
 		SourceRepositoryRef: w.scmRef,
 		BuildConfigURI:      baseURL.JoinPath("build", w.workflowID).String(),
 		RunInvocationURI:    baseURL.JoinPath("build", w.workflowID).String(),
