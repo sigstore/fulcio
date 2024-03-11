@@ -9,8 +9,8 @@ cloud.google.com/go/compute/metadata v0.2.3 h1:mg4jlk7mCAj6xXp9UJ4fjI9VUI5rubuGB
 cloud.google.com/go/compute/metadata v0.2.3/go.mod h1:VAV5nSsACxMJvgaAuX6Pk2AawlZn8kiOGuCv6gTkwuA=
 cloud.google.com/go/iam v1.1.6 h1:bEa06k05IO4f4uJonbB5iAgKTPpABy1ayxaIZV/GHVc=
 cloud.google.com/go/iam v1.1.6/go.mod h1:O0zxdPeGBoFdWW3HWmBxJsk0pfvNM/p/qa82rWOGTwI=
-cloud.google.com/go/kms v1.15.6 h1:ktpEMQmsOAYj3VZwH020FcQlm23BVYg8T8O1woG2GcE=
-cloud.google.com/go/kms v1.15.6/go.mod h1:yF75jttnIdHfGBoE51AKsD/Yqf+/jICzB9v1s1acsms=
+cloud.google.com/go/kms v1.15.7 h1:7caV9K3yIxvlQPAcaFffhlT7d1qpxjB1wHBtjWa13SM=
+cloud.google.com/go/kms v1.15.7/go.mod h1:ub54lbsa6tDkUwnu4W7Yt1aAIFLnspgh0kPGToDukeI=
 cloud.google.com/go/longrunning v0.5.5 h1:GOE6pZFdSrTb4KAiKnXsJBtlE6mEyaW44oKyMILWnOg=
 cloud.google.com/go/longrunning v0.5.5/go.mod h1:WV2LAxD8/rg5Z1cNW6FJ/ZpX4E4VnDnoTk0yawPBB7s=
 cloud.google.com/go/security v1.15.5 h1:wTKJQ10j8EYgvE8Y+KhovxDRVDk2iv/OsxZ6GrLP3kE=
@@ -317,8 +317,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.2 h1:e0EtUcE7cqWBxxME7h6
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.2/go.mod h1:07qBxPjI9bsgdQRiBz27Ai+gl6hgr//vwXMZzTX87Us=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.2 h1:Fgt4dC9OozkLEtMO6JYfFgqNdSDG1y1uAdiJgrtZYN4=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.2/go.mod h1:BT+jh/GK55djPRHqTYu937eq29Zzusf1t0qVbrcn4Aw=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.1 h1:lwdRsJv1UbBemuk7w5YfXAQilQxMoFevrzamdPbG0wY=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.1/go.mod h1:2OaSQ80EcdyVRSQ3T4d1lsc6Scopblsiq8U2AEk5K1A=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.2 h1:aX6hLH5v3JdOQJJ6+uCMmeDjcwyfQMLmXKJVl6HtzAg=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.2/go.mod h1:OEFPub6XKsX6Fl/PpeIpQTsukG3I0CFWb9saHINV72U=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.2 h1:hRC8sGPQtnTcoOqWbCNAvLpW1pHL4CQl7FT55IrEof8=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.2/go.mod h1:frWJBbYRRHnbLE9h1fH349Mde84NZh6hDrnKqhPgMNU=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
