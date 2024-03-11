@@ -87,7 +87,7 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		PipelineName      string `json:"pipeline_name"`
 		WorkflowID        string `json:"workflow_id"`
 		Initiator         string `json:"initiator"`
-		SCMRepoUrl        string `json:"scm_repo_url"`
+		SCMRepoURL        string `json:"scm_repo_url"`
 		SCMUsername       string `json:"scm_user_name"`
 		SCMRef            string `json:"scm_ref"`
 		SCMPullRequestRef string `json:"scm_pull_request_target_branch"`
@@ -126,7 +126,7 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		workflowID:                 claims.WorkflowID,
 		initiator:                  claims.Initiator,
 		scmUsername:                claims.SCMUsername,
-		scmRepoURL:                 claims.SCMRepoUrl,
+		scmRepoURL:                 claims.SCMRepoURL,
 		scmRef:                     claims.SCMRef,
 		scmPullRequestTargetBranch: claims.SCMPullRequestRef,
 		runnerEnvironment:          claims.RunnerEnvironment,
