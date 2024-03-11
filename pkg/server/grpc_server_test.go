@@ -1120,7 +1120,7 @@ type codefreshClaims struct {
 	PipelineName      string `json:"pipeline_name"`
 	WorkflowID        string `json:"workflow_id"`
 	Initiator         string `json:"initiator"`
-	SCMRepoUrl        string `json:"scm_repo_url"`
+	SCMRepoURL        string `json:"scm_repo_url"`
 	SCMUsername       string `json:"scm_user_name"`
 	SCMRef            string `json:"scm_ref"`
 	SCMPullRequestRef string `json:"scm_pull_request_target_branch"`
@@ -1153,7 +1153,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 		PipelineName:      "oidc-test/oidc-test-2",
 		WorkflowID:        "65e6ebe0bfbfa1782876165e",
 		SCMUsername:       "test-codefresh",
-		SCMRepoUrl:        "https://github.com/test-codefresh/fulcio",
+		SCMRepoURL:        "https://github.com/test-codefresh/fulcio",
 		SCMRef:            "feat/codefresh-issuer",
 		SCMPullRequestRef: "main",
 		RunnerEnvironment: "hybrid",
@@ -1223,7 +1223,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 	expectedExts := map[int]string{
 		9:  claims.PlatformURL + "/build/" + claims.WorkflowID,
 		11: claims.RunnerEnvironment,
-		12: claims.SCMRepoUrl,
+		12: claims.SCMRepoURL,
 		14: claims.SCMRef,
 		18: claims.PlatformURL + "/build/" + claims.WorkflowID,
 		21: claims.PlatformURL + "/build/" + claims.WorkflowID,
