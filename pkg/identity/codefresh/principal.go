@@ -154,7 +154,7 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 		RunnerEnvironment:   w.runnerEnvironment,
 		SourceRepositoryURI: w.scmRepoURL,
 		SourceRepositoryRef: w.scmRef,
-		BuildConfigURI:      baseURL.JoinPath("build", w.workflowID).String(),
+		BuildConfigURI:      baseURL.JoinPath("api", "pipelines", w.pipelineID).String(),
 		RunInvocationURI:    baseURL.JoinPath("build", w.workflowID).String(),
 	}.Render()
 
