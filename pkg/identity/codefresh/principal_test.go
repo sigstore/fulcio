@@ -264,7 +264,7 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct runner environment extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "hybrid"),
 				`Certificate has correct source repo URI extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 12}, "https://github.com/codefresh-io/fulcio-oidc"),
 				`Certificate has correct source repo ref extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14}, "main"),
-				`Certificate has correct build config URI extension`:   factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "https://g.codefresh.io/build/65e6bcf7c2af1f228fa97f80"),
+				`Certificate has correct build config URI extension`:   factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "https://g.codefresh.io/api/pipelines/65e5a53e52853dc51a5b0cc1"),
 				`Certificate has correct run invocation URI extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "https://g.codefresh.io/build/65e6bcf7c2af1f228fa97f80"),
 			},
 		},

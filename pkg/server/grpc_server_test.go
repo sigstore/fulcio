@@ -1225,7 +1225,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 		11: claims.RunnerEnvironment,
 		12: claims.SCMRepoURL,
 		14: claims.SCMRef,
-		18: claims.PlatformURL + "/build/" + claims.WorkflowID,
+		18: claims.PlatformURL + "/api/pipelines/" + claims.PipelineID,
 		21: claims.PlatformURL + "/build/" + claims.WorkflowID,
 	}
 	for o, value := range expectedExts {
