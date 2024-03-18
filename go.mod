@@ -14,7 +14,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.4
-	github.com/google/certificate-transparency-go v1.1.7
+	github.com/google/certificate-transparency-go v1.1.8
 	github.com/google/go-cmp v0.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -138,7 +138,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.22.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.19.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.22.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
@@ -163,7 +163,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.26.5 // indirect
 	k8s.io/apimachinery v0.26.5 // indirect
-	k8s.io/klog/v2 v2.100.1 // indirect
+	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106 // indirect
 	knative.dev/pkg v0.0.0-20230612155445-74c4be5e935e // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
