@@ -64,6 +64,11 @@ data:
               "Type": "email",
               "IssuerClaim": "$.federated_claims.connector_id"
             },
+            "https://oidc.codefresh.io": {
+              "IssuerURL": "https://oidc.codefresh.io",
+              "ClientID": "sigstore",
+              "Type": "codefresh-workflow"
+            },
             "https://ops.gitlab.net": {
               "IssuerURL": "https://ops.gitlab.net",
               "ClientID": "sigstore",
