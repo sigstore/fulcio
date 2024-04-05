@@ -149,9 +149,9 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 
 	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer: w.issuer,
-		// URL of the build in Codefresh. 
+		// URL of the build in Codefresh.
 		// The workflow url is used for build signer in Codefresh because for public builds unauthenticated users only have access to the workflow, not the pipeline definition.
-		// Also, the workflow contains the definition of the pipeline that was used at the time of the build, making it ideal to be used as the signer url. 
+		// Also, the workflow contains the definition of the pipeline that was used at the time of the build, making it ideal to be used as the signer url.
 		BuildSignerURI:      baseURL.JoinPath("build", w.workflowID).String(),
 		RunnerEnvironment:   w.runnerEnvironment,
 		SourceRepositoryURI: w.scmRepoURL,
