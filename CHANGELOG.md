@@ -1,3 +1,13 @@
+# v1.4.5
+
+## Features
+
+* Add Codefresh OIDC provider (#1593)
+
+## Contributors
+
+* ilia-medvedev-codefresh
+
 # v1.4.4
 
 ## Features
