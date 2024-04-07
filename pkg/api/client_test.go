@@ -23,7 +23,7 @@ import (
 )
 
 func TestUserAgentOption(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") != "foo" {
 			t.Error(`expected user-agent to be set to "foo"`)
 		}
@@ -42,7 +42,7 @@ func TestUserAgentOption(t *testing.T) {
 }
 
 func TestTimeoutOption(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(10 * time.Second)
 	}))
 

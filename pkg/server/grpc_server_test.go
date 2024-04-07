@@ -65,7 +65,7 @@ const (
 var lis *bufconn.Listener
 
 func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
 		// from disk, so that we don't need to cycle pods to pick up config updates.
@@ -1790,7 +1790,7 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 
 	oidcMux := http.NewServeMux()
 
-	oidcMux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+	oidcMux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
 		t.Log("Handling request for openid-configuration.")
 		if err := json.NewEncoder(w).Encode(struct {
 			Issuer  string `json:"issuer"`
@@ -1803,7 +1803,7 @@ func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 		}
 	})
 
-	oidcMux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
+	oidcMux.HandleFunc("/keys", func(w http.ResponseWriter, _ *http.Request) {
 		t.Log("Handling request for jwks.")
 		if err := json.NewEncoder(w).Encode(jose.JSONWebKeySet{
 			Keys: []jose.JSONWebKey{
