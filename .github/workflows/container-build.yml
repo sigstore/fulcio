@@ -26,6 +26,8 @@ jobs:
     name: build
     runs-on: ubuntu-latest
 
+    if: github.repository == 'sigstore/fulcio'
+
     permissions:
       id-token: write
       contents: read

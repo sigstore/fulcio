@@ -11,7 +11,7 @@ jobs:
 
   dependabot_hack:
     name: Ensure dependabot version checks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
 
       # update the version in these places manually when Dependabot proposes a change to it here:
