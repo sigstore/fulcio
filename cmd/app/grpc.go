@@ -60,7 +60,7 @@ type grpcServer struct {
 }
 
 func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
 		// from disk, so that we don't need to cycle pods to pick up config updates.

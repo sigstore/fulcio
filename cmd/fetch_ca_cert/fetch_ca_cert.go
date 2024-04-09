@@ -73,7 +73,7 @@ func fetchCACertificate(ctx context.Context, parent, kmsKey, tinkKeysetPath, tin
 		if err != nil {
 			return nil, err
 		}
-		signer, _, err = kmsSigner.CryptoSigner(ctx, func(err error) {})
+		signer, _, err = kmsSigner.CryptoSigner(ctx, func(_ error) {})
 		if err != nil {
 			return nil, err
 		}

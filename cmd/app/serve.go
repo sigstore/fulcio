@@ -110,7 +110,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Duration("idle-connection-timeout", 30*time.Second, "The time allowed for connections (HTTP or gRPC) to go idle before being closed by the server")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
-	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
 		switch name {
 		case "http-port":
 			name = "port"

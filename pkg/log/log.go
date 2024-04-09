@@ -90,12 +90,12 @@ func ContextLogger(ctx context.Context) *zap.SugaredLogger {
 
 func SetupGRPCLogging() (*zap.Logger, []grpc_zap.Option) {
 	var options []grpc_zap.Option
-	options = append(options, grpc_zap.WithDecider(func(methodName string, err error) bool {
+	options = append(options, grpc_zap.WithDecider(func(_ string, _ error) bool {
 		// TODO: implement filters to eliminate health check log statements
 		return true
 	}))
 	options = append(options, grpc_zap.WithMessageProducer(
-		func(ctx context.Context, msg string, level zapcore.Level, code codes.Code, err error, duration zapcore.Field) {
+		func(ctx context.Context, msg string, _ zapcore.Level, code codes.Code, err error, duration zapcore.Field) {
 			var requestID zap.Field
 			if md, ok := metadata.FromIncomingContext(ctx); ok {
 				val := md.Get(string(requestIDMetadataKey))
