@@ -4,7 +4,7 @@ go 1.21.9
 
 require (
 	chainguard.dev/go-grpc-kit v0.17.3
-	cloud.google.com/go/security v1.16.1
+	cloud.google.com/go/security v1.17.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
@@ -36,7 +36,7 @@ require (
 	go.step.sm/crypto v0.45.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.181.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae
+	google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/square/go-jose.v2 v2.6.0
