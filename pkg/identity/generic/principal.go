@@ -26,6 +26,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"gopkg.in/yaml.v3"
 )
@@ -57,16 +58,19 @@ func readYaml() RootYaml {
 	return obj
 }
 
-func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
+func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+	iss, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
+	if !ok {
+		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
+	}
+
 	var claims map[string]string
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
 	}
 
 	yaml := readYaml()
-
-	// It probably doesn't work
-	provider := yaml.Providers[token.Subject]
+	provider := yaml.Providers[string(iss.Type)]
 	e := provider.Extensions
 	defaults := provider.Defaults
 	finalExtensions := certificate.Extensions{

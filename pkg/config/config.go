@@ -271,6 +271,8 @@ func (fc *FulcioConfig) prepare() error {
 	return nil
 }
 
+// I would like to remove this completely, to be able to add or remove
+// oidc providers only by the config.yaml file.
 type IssuerType string
 
 const (
