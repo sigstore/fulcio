@@ -58,6 +58,11 @@ data:
               "ClientID": "sigstore",
               "Type": "gitlab-pipeline"
             },
+            "https://issuer.hello.coop": {
+              "IssuerURL": "https://issuer.hello.coop",
+              "ClientID": "sigstore",
+              "Type": "email"
+            },
             "https://oauth2.sigstore.dev/auth": {
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
               "ClientID": "sigstore",
