@@ -17,9 +17,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"gopkg.in/yaml.v3"
 )
@@ -46,6 +48,33 @@ type federationConfig struct {
 	Type              string
 	IssuerClaim       string
 	SpiffeTrustDomain string
+}
+
+type RootYaml struct {
+	Providers map[string]Provider
+}
+
+type Provider struct {
+	Subject     string
+	Extensions  certificate.Extensions
+	Uris        []string
+	Defaults    map[string]string
+	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
+}
+
+func readYaml() RootYaml {
+	var obj RootYaml
+
+	yamlFile, err := os.ReadFile("../../config/config.yaml")
+	if err != nil {
+		fmt.Printf("yamlFile.Get err #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &obj)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	return obj
 }
 
 func main() {
