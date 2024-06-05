@@ -339,7 +339,7 @@ func TestGetConfigurationFromYaml(t *testing.T) {
 		t.Fatal("issuer URL could not be parsed", err)
 	}
 
-	yaml_bytes := []byte(fmt.Sprintf(`
+	yamlBytes := []byte(fmt.Sprintf(`
     oidc-issuers:
       %v:
         issuer-url: %q
@@ -390,7 +390,7 @@ func TestGetConfigurationFromYaml(t *testing.T) {
 		codefreshIssuer, codefreshIssuer,
 		k8sIssuer))
 
-	cfg, err := config.Read(yaml_bytes)
+	cfg, err := config.Read(yamlBytes)
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
