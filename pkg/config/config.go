@@ -34,6 +34,7 @@ import (
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"gopkg.in/yaml.v3"
 )
 
 const defaultOIDCDiscoveryTimeout = 10 * time.Second
@@ -48,7 +49,7 @@ type verifierWithConfig struct {
 }
 
 type FulcioConfig struct {
-	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
+	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
@@ -57,7 +58,7 @@ type FulcioConfig struct {
 	// other special characters)  Some examples we want to match:
 	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
-	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
+	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
@@ -67,24 +68,24 @@ type FulcioConfig struct {
 
 type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
-	IssuerURL string `json:"IssuerURL,omitempty"`
+	IssuerURL string `json:"IssuerURL,omitempty" yaml:"issuer-url,omitempty"`
 	// The expected client ID of the OIDC token
-	ClientID string `json:"ClientID"`
+	ClientID string `json:"ClientID" yaml:"client-id,omitempty"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
-	Type IssuerType `json:"Type"`
+	Type IssuerType `json:"Type" yaml:"type,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
-	IssuerClaim string `json:"IssuerClaim,omitempty"`
+	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
 	// Also used to create an email for 'username' issuer types
-	SubjectDomain string `json:"SubjectDomain,omitempty"`
+	SubjectDomain string `json:"SubjectDomain,omitempty" yaml:"subject-domain,omitempty"`
 	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
-	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
+	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty" yaml:"spiffe-trust-domain,omitempty"`
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
-	ChallengeClaim string `json:"ChallengeClaim,omitempty"`
+	ChallengeClaim string `json:"ChallengeClaim,omitempty" yaml:"challenge-claim,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -287,7 +288,9 @@ const (
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
 	cfg = &FulcioConfig{}
 	if err := json.Unmarshal(b, cfg); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		if err = yaml.Unmarshal(b, cfg); err != nil {
+			return nil, fmt.Errorf("unmarshal: %w", err)
+		}
 	}
 
 	return cfg, nil
