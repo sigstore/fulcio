@@ -18,6 +18,7 @@ import (
 	"testing"
 )
 
+// TO BE IMPLEMENTED. Just keeped as a guide
 func TestIssuer(t *testing.T) {
 
 }
