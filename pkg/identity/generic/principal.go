@@ -34,12 +34,12 @@ type Provider struct {
 }
 
 // TO BE IMPLEMENTED. Just keeped as a guide
-func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+func WorkflowPrincipalFromIDToken(_ context.Context, _ *oidc.IDToken) (identity.Principal, error) {
 	return nil, nil
 }
 
 // TO BE IMPLEMENTED. Just keeped as a guide
-func (p Provider) Name(_ context.Context) string {
+func (Provider) Name(_ context.Context) string {
 	return ""
 }
 

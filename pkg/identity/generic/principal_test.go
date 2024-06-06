@@ -19,14 +19,14 @@ import (
 )
 
 // TO BE IMPLEMENTED. Just keeped as a guide
-func TestWorkflowPrincipalFromIDToken(t *testing.T) {
+func TestWorkflowPrincipalFromIDToken(_ *testing.T) {
 
 }
 
-func TestName(t *testing.T) {
+func TestName(_ *testing.T) {
 
 }
 
-func TestEmbed(t *testing.T) {
+func TestEmbed(_ *testing.T) {
 
 }
