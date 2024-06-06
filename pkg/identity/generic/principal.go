@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"text/template"
 
@@ -27,9 +28,37 @@ import (
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"gopkg.in/yaml.v3"
 )
 
-func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken, yaml RootYaml) (identity.Principal, error) {
+type RootYaml struct {
+	Providers map[string]Provider
+}
+
+type Provider struct {
+	Subject     string
+	Extensions  certificate.Extensions
+	Uris        []string
+	Defaults    map[string]string
+	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
+}
+
+func readYaml() RootYaml {
+	var obj RootYaml
+
+	yamlFile, err := os.ReadFile("../../config/config.yaml")
+	if err != nil {
+		fmt.Printf("yamlFile.Get err #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &obj)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	return obj
+}
+
+func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
@@ -40,7 +69,9 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken, yaml
 		return nil, err
 	}
 
-	provider := yaml.Providers[string(iss.Type)]
+	configYaml := readYaml()
+
+	provider := configYaml.Providers[string(iss.Type)]
 	e := provider.Extensions
 	defaults := provider.Defaults
 	finalExtensions := certificate.Extensions{

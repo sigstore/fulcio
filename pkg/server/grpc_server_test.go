@@ -243,7 +243,8 @@ func TestGetConfiguration(t *testing.T) {
 			%q: {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
-				"Type": "gitlab-pipeline"
+				"Type": "gitlab-pipeline",
+				"IsCiProvider": true
 			},
 			%q: {
 				"IssuerURL": %q,

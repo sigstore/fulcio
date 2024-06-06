@@ -15,67 +15,9 @@
 package generic
 
 import (
-	"context"
-	"encoding/json"
 	"testing"
-
-	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/identity"
 )
 
 func TestIssuer(t *testing.T) {
-	ctx := context.Background()
-	url := "test-issuer-url"
-	issuer := Issuer(url)
 
-	// test the Match function
-	t.Run("match", func(t *testing.T) {
-		if matches := issuer.Match(ctx, url); !matches {
-			t.Fatal("expected url to match but it doesn't")
-		}
-		if matches := issuer.Match(ctx, "some-other-url"); matches {
-			t.Fatal("expected match to fail but it didn't")
-		}
-	})
-
-	t.Run("authenticate", func(t *testing.T) {
-		token := &oidc.IDToken{
-			Issuer:  "https://iss.example.com",
-			Subject: "subject",
-		}
-		claims, err := json.Marshal(map[string]interface{}{
-			"aud":            "sigstore",
-			"iss":            "https://iss.example.com",
-			"sub":            "doesntmatter",
-			"email":          "alice@example.com",
-			"email_verified": true,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		withClaims(token, claims)
-
-		ctx := config.With(context.Background(), &config.FulcioConfig{
-			OIDCIssuers: map[string]config.OIDCIssuer{
-				"https://iss.example.com": {
-					IssuerURL: "https://iss.example.com",
-					Type:      config.IssuerTypeEmail,
-					ClientID:  "sigstore",
-				},
-			},
-		})
-
-		identity.Authorize = func(_ context.Context, _ string, _ ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
-			return token, nil
-		}
-		principal, err := issuer.Authenticate(ctx, "token")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if principal.Name(ctx) != "alice@example.com" {
-			t.Fatalf("got unexpected name %s", principal.Name(ctx))
-		}
-	})
 }

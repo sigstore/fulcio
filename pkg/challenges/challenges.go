@@ -21,10 +21,20 @@ import (
 	"crypto"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"strings"
 
+	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/identity/buildkite"
+	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/generic"
+	"github.com/sigstore/fulcio/pkg/identity/github"
+	"github.com/sigstore/fulcio/pkg/identity/gitlabcom"
+	"github.com/sigstore/fulcio/pkg/identity/kubernetes"
+	"github.com/sigstore/fulcio/pkg/identity/spiffe"
+	"github.com/sigstore/fulcio/pkg/identity/uri"
+	"github.com/sigstore/fulcio/pkg/identity/username"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -43,31 +53,36 @@ func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
 }
 
 func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Principal, error) {
+	iss, ok := config.FromContext(ctx).GetIssuer(tok.Issuer)
+	if !ok {
+		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", tok.Issuer)
+	}
 	var principal identity.Principal
 	var err error
-
-	principal, err = generic.WorkflowPrincipalFromIDToken(ctx, tok)
-
-	// switch iss.Type {
-	// case config.IssuerTypeBuildkiteJob:
-	// 	principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeGitLabPipeline:
-	// 	principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeEmail:
-	// 	principal, err = email.PrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeSpiffe:
-	// 	principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeGithubWorkflow:
-	// 	principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeKubernetes:
-	// 	principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeURI:
-	// 	principal, err = uri.PrincipalFromIDToken(ctx, tok)
-	// case config.IssuerTypeUsername:
-	// 	principal, err = username.PrincipalFromIDToken(ctx, tok)
-	// default:
-	// 	return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
-	// }
+	if iss.IsCiProvider {
+		principal, err = generic.WorkflowPrincipalFromIDToken(ctx, tok)
+	} else {
+		switch iss.Type {
+		case config.IssuerTypeBuildkiteJob:
+			principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeGitLabPipeline:
+			principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeEmail:
+			principal, err = email.PrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeSpiffe:
+			principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeGithubWorkflow:
+			principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeKubernetes:
+			principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeURI:
+			principal, err = uri.PrincipalFromIDToken(ctx, tok)
+		case config.IssuerTypeUsername:
+			principal, err = username.PrincipalFromIDToken(ctx, tok)
+		default:
+			return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
