@@ -15,9 +15,13 @@
 package ciprovider
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
+	"fmt"
+	"html/template"
 	"net/url"
+	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
@@ -25,22 +29,94 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
-type Provider struct {
-	Subject     string
-	Extensions  certificate.Extensions
-	Uris        []string
-	Defaults    map[string]string
-	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
+func ApplyTemplate(path string, data map[string]string, defaultData map[string]string) string {
+
+	// Here we merge the data from was claimed by the id token with the
+	// default data provided by the yaml file.
+	// The order here matter because we want to override the default data
+	// with the claimed data.
+	mergedData := make(map[string]string)
+	for k, v := range defaultData {
+		mergedData[k] = v
+	}
+	for k, v := range data {
+		mergedData[k] = v
+	}
+
+	// It checks it is a path or a raw field by
+	// checking exists template syntax into the string
+	// TODO: Check if it is a best way to check that we should apply the template
+	if strings.Contains(path, "{{") {
+		var doc bytes.Buffer
+		t := template.New("")
+		p, err := t.Parse(path)
+		if err != nil {
+			panic(err)
+		}
+		err = p.Execute(&doc, mergedData)
+		if err != nil {
+			panic(err)
+		}
+		return doc.String()
+	} else {
+		return mergedData[path]
+	}
 }
 
-// TO BE IMPLEMENTED. Just kept as a guide
-func WorkflowPrincipalFromIDToken(_ context.Context, _ *oidc.IDToken) (identity.Principal, error) {
-	return nil, nil
+// TO BE IMPLEMENTED. Just keeped as a guide
+func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
+	iss, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
+	if !ok {
+		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
+	}
+	var claims map[string]string
+	if err := token.Claims(&claims); err != nil {
+		return nil, err
+	}
+
+	configYaml := readYaml()
+	provider := configYaml.Providers[iss.Type]
+	e := provider.Extensions
+	defaults := provider.Defaults
+
+	finalExtensions := certificate.Extensions{
+		Issuer:                              ApplyTemplate(e.Issuer, claims, defaults),
+		GithubWorkflowTrigger:               ApplyTemplate(e.GithubWorkflowTrigger, claims, defaults),
+		GithubWorkflowSHA:                   ApplyTemplate(e.GithubWorkflowSHA, claims, defaults),
+		GithubWorkflowName:                  ApplyTemplate(e.GithubWorkflowName, claims, defaults),
+		GithubWorkflowRepository:            ApplyTemplate(e.GithubWorkflowRepository, claims, defaults),
+		GithubWorkflowRef:                   ApplyTemplate(e.GithubWorkflowRef, claims, defaults),
+		BuildSignerURI:                      ApplyTemplate(e.BuildSignerURI, claims, defaults),
+		BuildConfigDigest:                   ApplyTemplate(e.BuildConfigDigest, claims, defaults),
+		RunnerEnvironment:                   ApplyTemplate(e.RunnerEnvironment, claims, defaults),
+		SourceRepositoryURI:                 ApplyTemplate(e.SourceRepositoryURI, claims, defaults),
+		SourceRepositoryDigest:              ApplyTemplate(e.SourceRepositoryDigest, claims, defaults),
+		SourceRepositoryRef:                 ApplyTemplate(e.SourceRepositoryRef, claims, defaults),
+		SourceRepositoryIdentifier:          ApplyTemplate(e.SourceRepositoryIdentifier, claims, defaults),
+		SourceRepositoryOwnerURI:            ApplyTemplate(e.SourceRepositoryOwnerURI, claims, defaults),
+		SourceRepositoryOwnerIdentifier:     ApplyTemplate(e.SourceRepositoryOwnerIdentifier, claims, defaults),
+		BuildConfigURI:                      ApplyTemplate(e.BuildConfigURI, claims, defaults),
+		BuildSignerDigest:                   ApplyTemplate(e.BuildSignerDigest, claims, defaults),
+		BuildTrigger:                        ApplyTemplate(e.BuildTrigger, claims, defaults),
+		RunInvocationURI:                    ApplyTemplate(e.RunInvocationURI, claims, defaults),
+		SourceRepositoryVisibilityAtSigning: ApplyTemplate(e.SourceRepositoryVisibilityAtSigning, claims, defaults),
+	}
+	finalUris := make([]string, len(provider.Uris)-1)
+	for _, val := range provider.Uris {
+		finalUris = append(finalUris, ApplyTemplate(val, claims, defaults))
+	}
+
+	return &Provider{
+		Subject:     token.Subject,
+		Extensions:  finalExtensions,
+		Uris:        finalUris,
+		OIDCIssuers: provider.OIDCIssuers,
+	}, nil
+
 }
 
-// TO BE IMPLEMENTED. Just kept as a guide
-func (Provider) Name(_ context.Context) string {
-	return ""
+func (p Provider) Name(_ context.Context) string {
+	return p.Subject
 }
 
 func (p Provider) Embed(_ context.Context, cert *x509.Certificate) error {
