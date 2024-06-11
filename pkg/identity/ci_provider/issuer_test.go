@@ -12,21 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package generic
+package ci_provider
 
 import (
 	"testing"
 )
 
 // TO BE IMPLEMENTED. Just kept as a guide
-func TestWorkflowPrincipalFromIDToken(_ *testing.T) {
-
-}
-
-func TestName(_ *testing.T) {
-
-}
-
-func TestEmbed(_ *testing.T) {
+func TestIssuer(_ *testing.T) {
 
 }
