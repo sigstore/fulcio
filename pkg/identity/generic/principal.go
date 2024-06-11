@@ -33,12 +33,12 @@ type Provider struct {
 	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
 }
 
-// TO BE IMPLEMENTED. Just keeped as a guide
+// TO BE IMPLEMENTED. Just kept as a guide
 func WorkflowPrincipalFromIDToken(_ context.Context, _ *oidc.IDToken) (identity.Principal, error) {
 	return nil, nil
 }
 
-// TO BE IMPLEMENTED. Just keeped as a guide
+// TO BE IMPLEMENTED. Just kept as a guide
 func (Provider) Name(_ context.Context) string {
 	return ""
 }

@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-// TO BE IMPLEMENTED. Just keeped as a guide
+// TO BE IMPLEMENTED. Just kept as a guide
 func TestIssuer(_ *testing.T) {
 
 }

@@ -80,7 +80,6 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 		principal, err = username.PrincipalFromIDToken(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
-
 	}
 	if err != nil {
 		return nil, err

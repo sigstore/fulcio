@@ -474,37 +474,28 @@ func Test_validateAllowedDomain(t *testing.T) {
 }
 
 func Test_issuerToChallengeClaim(t *testing.T) {
-	issuer := OIDCIssuer{}
-	issuer.Type = IssuerTypeEmail
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "email" {
+	if claim := issuerToChallengeClaim(IssuerTypeEmail, ""); claim != "email" {
 		t.Fatalf("expected email subject claim for email issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeSpiffe
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeSpiffe, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for SPIFFE issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeUsername
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeUsername, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for username issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeURI
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeURI, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for URI issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeBuildkiteJob
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeBuildkiteJob, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for Buildkite issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeGithubWorkflow
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeGithubWorkflow, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for GitHub issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeGitLabPipeline
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeGitLabPipeline, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for GitLab issuer, got %s", claim)
 	}
-	issuer.Type = IssuerTypeCodefreshWorkflow
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "sub" {
+	if claim := issuerToChallengeClaim(IssuerTypeCodefreshWorkflow, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for Codefresh issuer, got %s", claim)
 	}
 	if claim := issuerToChallengeClaim(IssuerTypeChainguard, ""); claim != "sub" {
@@ -513,14 +504,12 @@ func Test_issuerToChallengeClaim(t *testing.T) {
 	if claim := issuerToChallengeClaim(IssuerTypeKubernetes, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for K8S issuer, got %s", claim)
 	}
-	issuer.Type = "invalid"
 	// unexpected issuer has empty claim and no claim was provided
-	if claim := issuerToChallengeClaim(issuer, ""); claim != "" {
+	if claim := issuerToChallengeClaim("invalid", ""); claim != "" {
 		t.Fatalf("expected no claim for invalid issuer, got %s", claim)
 	}
 	// custom issuer provides a claim
-	issuer.Type = "custom"
-	if claim := issuerToChallengeClaim(issuer, "email"); claim != "email" {
+	if claim := issuerToChallengeClaim("custom", "email"); claim != "email" {
 		t.Fatalf("expected email subject claim for custom issuer, got %s", claim)
 	}
 }
