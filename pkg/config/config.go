@@ -126,7 +126,6 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 				Type:          iss.Type,
 				IssuerClaim:   iss.IssuerClaim,
 				SubjectDomain: iss.SubjectDomain,
-				IsCiProvider:  iss.IsCiProvider,
 			}, true
 		}
 	}
@@ -285,6 +284,7 @@ const (
 	IssuerTypeSpiffe            = "spiffe"
 	IssuerTypeURI               = "uri"
 	IssuerTypeUsername          = "username"
+	IssuerTypeCiProvider        = "ci-provider"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {

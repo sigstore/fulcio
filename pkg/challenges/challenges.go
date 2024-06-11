@@ -59,29 +59,28 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	}
 	var principal identity.Principal
 	var err error
-	if iss.IsCiProvider {
+	switch iss.Type {
+	case config.IssuerTypeCiProvider:
 		principal, err = generic.WorkflowPrincipalFromIDToken(ctx, tok)
-	} else {
-		switch iss.Type {
-		case config.IssuerTypeBuildkiteJob:
-			principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeGitLabPipeline:
-			principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeEmail:
-			principal, err = email.PrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeSpiffe:
-			principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeGithubWorkflow:
-			principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeKubernetes:
-			principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeURI:
-			principal, err = uri.PrincipalFromIDToken(ctx, tok)
-		case config.IssuerTypeUsername:
-			principal, err = username.PrincipalFromIDToken(ctx, tok)
-		default:
-			return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
-		}
+	case config.IssuerTypeBuildkiteJob:
+		principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeGitLabPipeline:
+		principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeEmail:
+		principal, err = email.PrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeSpiffe:
+		principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeGithubWorkflow:
+		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeKubernetes:
+		principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeURI:
+		principal, err = uri.PrincipalFromIDToken(ctx, tok)
+	case config.IssuerTypeUsername:
+		principal, err = username.PrincipalFromIDToken(ctx, tok)
+	default:
+		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)
+
 	}
 	if err != nil {
 		return nil, err
