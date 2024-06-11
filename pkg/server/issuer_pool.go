@@ -19,7 +19,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/buildkite"
 	"github.com/sigstore/fulcio/pkg/identity/chainguard"
-	"github.com/sigstore/fulcio/pkg/identity/ci_provider"
 	"github.com/sigstore/fulcio/pkg/identity/codefresh"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
@@ -55,7 +54,7 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 	}
 	switch i.Type {
 	case config.IssuerTypeCiProvider:
-		return ci_provider.Issuer(issuerURL)
+		return ciprovider.Issuer(issuerURL)
 	case config.IssuerTypeEmail:
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:

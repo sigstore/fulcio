@@ -27,7 +27,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/buildkite"
-	"github.com/sigstore/fulcio/pkg/identity/ci_provider"
+	"github.com/sigstore/fulcio/pkg/identity/ciprovider"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
 	"github.com/sigstore/fulcio/pkg/identity/gitlabcom"
@@ -61,7 +61,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	var err error
 	switch iss.Type {
 	case config.IssuerTypeCiProvider:
-		principal, err = ci_provider.WorkflowPrincipalFromIDToken(ctx, tok)
+		principal, err = ciprovider.WorkflowPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeBuildkiteJob:
 		principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeGitLabPipeline:

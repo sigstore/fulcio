@@ -12,28 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ci_provider
+package ciprovider
 
 import (
-	"context"
-
-	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/identity"
-	"github.com/sigstore/fulcio/pkg/identity/base"
+	"testing"
 )
 
-type ciProviderIssuer struct {
-	identity.Issuer
+// TO BE IMPLEMENTED. Just kept as a guide
+func TestWorkflowPrincipalFromIDToken(_ *testing.T) {
+
 }
 
-func Issuer(issuerURL string) identity.Issuer {
-	return &ciProviderIssuer{base.Issuer(issuerURL)}
+func TestName(_ *testing.T) {
+
 }
 
-func (e *ciProviderIssuer) Authenticate(ctx context.Context, token string, opts ...config.InsecureOIDCConfigOption) (identity.Principal, error) {
-	idtoken, err := identity.Authorize(ctx, token, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return WorkflowPrincipalFromIDToken(ctx, idtoken)
+func TestEmbed(_ *testing.T) {
+
 }
