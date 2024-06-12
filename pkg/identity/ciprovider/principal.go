@@ -21,13 +21,42 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"gopkg.in/yaml.v3"
 )
+
+type RootYaml struct {
+	Providers map[config.IssuerType]Provider
+}
+type Provider struct {
+	Subject     string
+	Extensions  certificate.Extensions
+	Uris        []string
+	Defaults    map[string]string
+	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
+	MetaIssuers []config.OIDCIssuer `yaml:"meta-issuers,omitempty"`
+}
+
+func readYaml() RootYaml {
+	var obj RootYaml
+
+	yamlFile, err := os.ReadFile("config.yaml")
+	if err != nil {
+		fmt.Printf("yamlFile.Get err #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &obj)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	return obj
+}
 
 func ApplyTemplate(path string, data map[string]string, defaultData map[string]string) string {
 
@@ -43,9 +72,6 @@ func ApplyTemplate(path string, data map[string]string, defaultData map[string]s
 		mergedData[k] = v
 	}
 
-	// It checks it is a path or a raw field by
-	// checking exists template syntax into the string
-	// TODO: Check if it is a best way to check that we should apply the template
 	if strings.Contains(path, "{{") {
 		var doc bytes.Buffer
 		t := template.New("")
@@ -58,12 +84,10 @@ func ApplyTemplate(path string, data map[string]string, defaultData map[string]s
 			panic(err)
 		}
 		return doc.String()
-	} else {
-		return mergedData[path]
 	}
+	return mergedData[path]
 }
 
-// TO BE IMPLEMENTED. Just keeped as a guide
 func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	iss, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
 	if !ok {
@@ -73,7 +97,6 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
 	}
-
 	configYaml := readYaml()
 	provider := configYaml.Providers[iss.Type]
 	e := provider.Extensions
@@ -111,6 +134,7 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 		Extensions:  finalExtensions,
 		Uris:        finalUris,
 		OIDCIssuers: provider.OIDCIssuers,
+		MetaIssuers: provider.MetaIssuers,
 	}, nil
 
 }
