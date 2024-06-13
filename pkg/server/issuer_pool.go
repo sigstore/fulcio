@@ -53,8 +53,6 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 		issuerURL = meta
 	}
 	switch i.Type {
-	case config.IssuerTypeCiProvider:
-		return ciprovider.Issuer(issuerURL)
 	case config.IssuerTypeEmail:
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:

@@ -31,7 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type RootYaml struct {
+type Config struct {
 	Providers map[config.IssuerType]Provider
 }
 type Provider struct {
@@ -41,21 +41,30 @@ type Provider struct {
 	Defaults    map[string]string
 	OIDCIssuers []config.OIDCIssuer `yaml:"oidc-issuers,omitempty"`
 	MetaIssuers []config.OIDCIssuer `yaml:"meta-issuers,omitempty"`
+	Claims      map[string]interface{}
 }
 
-func readYaml() RootYaml {
-	var obj RootYaml
+func readConfig() Config {
+	var obj Config
 
-	yamlFile, err := os.ReadFile("config.yaml")
+	configFile, err := os.ReadFile("config.yaml")
 	if err != nil {
 		fmt.Printf("yamlFile.Get err #%v ", err)
 	}
-	err = yaml.Unmarshal(yamlFile, &obj)
+	err = yaml.Unmarshal(configFile, &obj)
 	if err != nil {
 		fmt.Printf("Unmarshal: %v", err)
 	}
 
 	return obj
+}
+
+func claimsToString(claims map[string]interface{}) map[string]string {
+	stringClaims := make(map[string]string)
+	for k, v := range claims {
+		stringClaims[k] = v.(string)
+	}
+	return stringClaims
 }
 
 func ApplyTemplate(path string, data map[string]string, defaultData map[string]string) string {
@@ -93,16 +102,40 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
 	}
-	var claims map[string]string
+	var claims map[string]interface{}
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
 	}
-	configYaml := readYaml()
+	configYaml := readConfig()
 	provider := configYaml.Providers[iss.Type]
-	e := provider.Extensions
-	defaults := provider.Defaults
+	provider.Claims = claims
+	provider.Subject = token.Subject
+	return provider, nil
+}
 
-	finalExtensions := certificate.Extensions{
+func (p Provider) Name(_ context.Context) string {
+	return p.Subject
+}
+
+func (p Provider) Embed(_ context.Context, cert *x509.Certificate) error {
+
+	e := p.Extensions
+	defaults := p.Defaults
+	claims := claimsToString(p.Claims)
+	uris := make([]*url.URL, len(p.Uris))
+	for _, value := range p.Uris {
+		url, err := url.Parse(ApplyTemplate(value, claims, defaults))
+		if err != nil {
+			panic(err)
+		}
+		uris = append(uris, url)
+	}
+	// Set workflow ref URL to SubjectAlternativeName on certificate
+	cert.URIs = uris
+
+	var err error
+	// Embed additional information into custom extensions
+	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer:                              ApplyTemplate(e.Issuer, claims, defaults),
 		GithubWorkflowTrigger:               ApplyTemplate(e.GithubWorkflowTrigger, claims, defaults),
 		GithubWorkflowSHA:                   ApplyTemplate(e.GithubWorkflowSHA, claims, defaults),
@@ -123,42 +156,7 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 		BuildTrigger:                        ApplyTemplate(e.BuildTrigger, claims, defaults),
 		RunInvocationURI:                    ApplyTemplate(e.RunInvocationURI, claims, defaults),
 		SourceRepositoryVisibilityAtSigning: ApplyTemplate(e.SourceRepositoryVisibilityAtSigning, claims, defaults),
-	}
-	finalUris := make([]string, len(provider.Uris)-1)
-	for _, val := range provider.Uris {
-		finalUris = append(finalUris, ApplyTemplate(val, claims, defaults))
-	}
-
-	return &Provider{
-		Subject:     token.Subject,
-		Extensions:  finalExtensions,
-		Uris:        finalUris,
-		OIDCIssuers: provider.OIDCIssuers,
-		MetaIssuers: provider.MetaIssuers,
-	}, nil
-
-}
-
-func (p Provider) Name(_ context.Context) string {
-	return p.Subject
-}
-
-func (p Provider) Embed(_ context.Context, cert *x509.Certificate) error {
-
-	uris := make([]*url.URL, len(p.Uris))
-	for _, value := range p.Uris {
-		url, err := url.Parse(value)
-		if err != nil {
-			panic(err)
-		}
-		uris = append(uris, url)
-	}
-	// Set workflow ref URL to SubjectAlternativeName on certificate
-	cert.URIs = uris
-
-	var err error
-	// Embed additional information into custom extensions
-	cert.ExtraExtensions, err = p.Extensions.Render()
+	}.Render()
 	if err != nil {
 		return err
 	}
