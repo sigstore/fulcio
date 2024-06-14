@@ -47,7 +47,7 @@ type Provider struct {
 func readConfig() Config {
 	var obj Config
 
-	configFile, err := os.ReadFile("config.yaml")
+	configFile, err := os.ReadFile("providers_config.yaml")
 	if err != nil {
 		fmt.Printf("yamlFile.Get err #%v ", err)
 	}
