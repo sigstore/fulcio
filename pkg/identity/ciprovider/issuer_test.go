@@ -15,10 +15,85 @@
 package ciprovider
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/identity"
 )
 
-// TO BE IMPLEMENTED. Just kept as a guide
-func TestIssuer(_ *testing.T) {
+func TestIssuer(t *testing.T) {
+	ctx := context.Background()
+	url := "test-issuer-url"
+	issuer := Issuer(url)
 
+	// test the Match function
+	t.Run("match", func(t *testing.T) {
+		if matches := issuer.Match(ctx, url); !matches {
+			t.Fatal("expected url to match but it doesn't")
+		}
+		if matches := issuer.Match(ctx, "some-other-url"); matches {
+			t.Fatal("expected match to fail but it didn't")
+		}
+	})
+
+	t.Run("authenticate", func(t *testing.T) {
+		token := &oidc.IDToken{
+			Issuer:  "https://iss.example.com",
+			Subject: "repo:sigstore/fulcio:ref:refs/heads/main",
+		}
+		claims, err := json.Marshal(map[string]interface{}{
+			"aud":                   "sigstore",
+			"event_name":            "push",
+			"exp":                   0,
+			"iss":                   "https://token.actions.githubusercontent.com",
+			"job_workflow_ref":      "sigstore/fulcio/.github/workflows/foo.yaml@refs/heads/main",
+			"job_workflow_sha":      "example-sha",
+			"ref":                   "refs/heads/main",
+			"repository":            "sigstore/fulcio",
+			"repository_id":         "12345",
+			"repository_owner":      "username",
+			"repository_owner_id":   "345",
+			"repository_visibility": "public",
+			"run_attempt":           "1",
+			"run_id":                "42",
+			"runner_environment":    "cloud-hosted",
+			"sha":                   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"sub":                   "repo:sigstore/fulcio:ref:refs/heads/main",
+			"workflow":              "foo",
+			"workflow_ref":          "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
+			"workflow_sha":          "example-sha-other",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		withClaims(token, claims)
+		ctx := context.TODO()
+		OIDCIssuers :=
+			map[string]config.OIDCIssuer{
+				token.Issuer: {
+					IssuerURL: token.Issuer,
+					Type:      config.IssuerTypeGithubWorkflow,
+					ClientID:  "sigstore",
+				},
+			}
+		cfg := &config.FulcioConfig{
+			OIDCIssuers: OIDCIssuers,
+		}
+		ctx = config.With(ctx, cfg)
+		identity.Authorize = func(_ context.Context, _ string, _ ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
+			return token, nil
+		}
+		principal, err := issuer.Authenticate(ctx, "token")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if principal.Name(ctx) != "repo:sigstore/fulcio:ref:refs/heads/main" {
+			t.Fatalf("got unexpected name %s", principal.Name(ctx))
+		}
+	})
 }
