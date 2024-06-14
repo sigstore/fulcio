@@ -32,9 +32,113 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
-// TO BE IMPLEMENTED. Just kept as a guide
-func TestWorkflowPrincipalFromIDToken(_ *testing.T) {
+func TestWorkflowPrincipalFromIDToken(t *testing.T) {
+	tests := map[string]struct {
+		Claims            map[string]interface{}
+		ExpectedPrincipal Provider
+	}{
+		`Valid token authenticates with correct claims`: {
+			Claims: map[string]interface{}{
+				"issuer":                "https://token.actions.githubusercontent.com",
+				"event_name":            "trigger",
+				"sha":                   "sha",
+				"workflow":              "workflowname",
+				"repository":            "repository",
+				"ref":                   "ref",
+				"job_workflow_sha":      "jobWorkflowSha",
+				"job_workflow_ref":      "jobWorkflowRef",
+				"runner_environment":    "runnerEnv",
+				"repository_id":         "repoID",
+				"repository_owner":      "repoOwner",
+				"repository_owner_id":   "repoOwnerID",
+				"workflow_ref":          "workflowRef",
+				"workflow_sha":          "workflowSHA",
+				"run_id":                "runID",
+				"run_attempt":           "runAttempt",
+				"repository_visibility": "public",
+			},
+			ExpectedPrincipal: Provider{
+				Subject: "subject-test",
+				Extensions: certificate.Extensions{
+					BuildSignerDigest:          "job_workflow_sha",
+					SourceRepositoryDigest:     "sha",
+					SourceRepositoryRef:        "ref",
+					SourceRepositoryIdentifier: "repository_id",
+					RunInvocationURI:           "{{.url}}/{{.repository}}/actions/runs/{{.run_id}}/",
+				},
+				Uris: []string{
+					"{{.url}}/{{.job_workflow_ref}}",
+				},
+				Defaults: map[string]string{
+					"url": "https://github.com",
+				},
+				OIDCIssuers: []config.OIDCIssuer{
+					{
+						IssuerURL: "https://token.actions.githubusercontent.com",
+					},
+				},
+				MetaIssuers: []config.OIDCIssuer{
+					{
+						IssuerURL: "https://token.actions.githubusercontent.com/*",
+						ClientID:  "sigstore",
+					},
+				},
+				Claims: map[string]interface{}{
+					"event_name":            "trigger",
+					"issuer":                "https://token.actions.githubusercontent.com",
+					"job_workflow_ref":      "jobWorkflowRef",
+					"job_workflow_sha":      "jobWorkflowSha",
+					"ref":                   "ref",
+					"repository":            "repository",
+					"repository_id":         "repoID",
+					"repository_owner":      "repoOwner",
+					"repository_owner_id":   "repoOwnerID",
+					"repository_visibility": "public",
+					"run_attempt":           "runAttempt",
+					"run_id":                "runID",
+					"runner_environment":    "runnerEnv",
+					"sha":                   "sha",
+					"workflow":              "workflowname",
+					"workflow_ref":          "workflowRef",
+					"workflow_sha":          "workflowSHA",
+				},
+			},
+		},
+	}
 
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			token := &oidc.IDToken{
+				Subject: "subject-test",
+			}
+			claims, err := json.Marshal(test.Claims)
+			if err != nil {
+				t.Fatal(err)
+			}
+			withClaims(token, claims)
+			ctx := context.TODO()
+			OIDCIssuers :=
+				map[string]config.OIDCIssuer{
+					token.Issuer: {
+						IssuerURL: token.Issuer,
+						Type:      config.IssuerTypeGithubWorkflow,
+						ClientID:  "sigstore",
+					},
+				}
+			cfg := &config.FulcioConfig{
+				OIDCIssuers: OIDCIssuers,
+			}
+			ctx = config.With(ctx, cfg)
+			principal, err := WorkflowPrincipalFromIDToken(ctx, token)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(principal, test.ExpectedPrincipal) {
+				t.Error("Principals should be equals")
+			}
+		})
+	}
 }
 
 // reflect hack because "claims" field is unexported by oidc IDToken
