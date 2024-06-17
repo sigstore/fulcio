@@ -47,7 +47,7 @@ jobs:
       image: ghcr.io/gythialy/golang-cross:v1.22.3-0@sha256:3217c1e30a7081d73500e620987947d1539cfebc99064ba0f7d5d6eef399475e
 
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       # Error: fatal: detected dubious ownership in repository at '/__w/fulcio/fulcio'
       #      To add an exception for this directory, call:
