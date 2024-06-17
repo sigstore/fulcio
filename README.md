@@ -118,7 +118,7 @@ process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
 Fulcio is developed as part of the [`sigstore`](https://sigstore.dev) project.
 
 We also use a [slack channel](https://sigstore.slack.com)!
-Click [here](https://links.sigstore.dev/slack-invite) for the invite link.
+To check more information about Slack and other communication channels please check the [community repository](https://github.com/sigstore/community?tab=readme-ov-file#slack)
 
 ## Additional Documentation
 
