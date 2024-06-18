@@ -50,6 +50,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"gopkg.in/square/go-jose.v2"
@@ -61,6 +62,10 @@ const (
 	expectedTrustBundleMessage = "rpc error: code = Internal desc = error retrieving trust bundle from CA backend"
 	bufSize                    = 1024 * 1024
 )
+
+func init() {
+	resolver.SetDefaultScheme("passthrough")
+}
 
 var lis *bufconn.Listener
 
@@ -79,7 +84,7 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func setupGRPCForTest(ctx context.Context, t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
+func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
@@ -91,8 +96,14 @@ func setupGRPCForTest(ctx context.Context, t *testing.T, cfg *config.FulcioConfi
 		}
 	}()
 
-	conn, err := grpc.DialContext(ctx, "bufnet",
-		grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Create a dial option using a custom dialer
+	dialOptions := []grpc.DialOption{
+		grpc.WithContextDialer(bufDialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	// Use grpc.NewClient to create the client connection
+	conn, err := grpc.NewClient("passthrough", dialOptions...)
 	if err != nil {
 		t.Fatal("could not create grpc connection", err)
 	}
@@ -107,7 +118,7 @@ func bufDialer(ctx context.Context, _ string) (net.Conn, error) {
 func TestMissingGetTrustBundleFails(t *testing.T) {
 	ctx := context.Background()
 	cfg := &config.FulcioConfig{}
-	server, conn := setupGRPCForTest(ctx, t, cfg, nil, &FailingCertificateAuthority{})
+	server, conn := setupGRPCForTest(t, cfg, nil, &FailingCertificateAuthority{})
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -132,7 +143,7 @@ func TestGetTrustBundleSuccess(t *testing.T) {
 	cfg := &config.FulcioConfig{}
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -257,7 +268,7 @@ func TestGetConfiguration(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -397,7 +408,7 @@ func TestGetConfigurationFromYaml(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -517,7 +528,7 @@ func TestAPIWithEmail(t *testing.T) {
 
 		ctClient, eca := createCA(cfg, t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -606,7 +617,7 @@ func TestAPIWithUsername(t *testing.T) {
 
 		ctClient, eca := createCA(cfg, t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -704,7 +715,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 
 		ctClient, eca := createCA(cfg, t)
 		ctx := context.Background()
-		server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+		server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 		defer func() {
 			server.Stop()
 			conn.Close()
@@ -797,7 +808,7 @@ func TestAPIWithKubernetes(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -886,7 +897,7 @@ func TestAPIWithBuildkite(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1004,7 +1015,7 @@ func TestAPIWithGitHub(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1172,7 +1183,7 @@ func TestAPIWithGitLab(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1315,7 +1326,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1423,7 +1434,7 @@ func TestAPIWithIssuerClaimConfig(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1499,7 +1510,7 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1581,7 +1592,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1656,7 +1667,7 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1732,7 +1743,7 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1800,7 +1811,7 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1861,7 +1872,7 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
