@@ -53,7 +53,7 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 	}
 	var wg sync.WaitGroup
 	grpcServer.startTCPListener(&wg)
-	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer func() {
 		if conn != nil {
 			_ = conn.Close()
@@ -100,7 +100,7 @@ func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
 
 	var wg sync.WaitGroup
 	grpcServer.startTCPListener(&wg)
-	conn, err := grpc.Dial(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(grpcServer.grpcServerEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer func() {
 		if conn != nil {
 			_ = conn.Close()

@@ -72,7 +72,7 @@ func TestDuplex(t *testing.T) {
 	var grpcRootCert string
 	t.Run("grpc", func(t *testing.T) {
 		// Grab the rootcert with the v2 endpoint
-		conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", port), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			t.Fatal(err)
 		}
