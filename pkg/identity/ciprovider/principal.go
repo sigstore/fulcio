@@ -39,7 +39,7 @@ func claimsToString(claims map[string]interface{}) map[string]string {
 
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
-func applyTemplate(path string, data map[string]string, defaultData map[string]string) string {
+func applyTemplateOrReplace(path string, data map[string]string, defaultData map[string]string) string {
 
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
@@ -102,7 +102,7 @@ func (p Config) Embed(_ context.Context, cert *x509.Certificate) error {
 	}
 	claims := claimsToString(rawClaims)
 
-	subjectAlternativeNameURL, err := url.Parse(applyTemplate(p.Metadata.SubjectAlternativeName, claims, defaults))
+	subjectAlternativeNameURL, err := url.Parse(applyTemplateOrReplace(p.Metadata.SubjectAlternativeName, claims, defaults))
 	if err != nil {
 		panic(err)
 	}
@@ -112,26 +112,26 @@ func (p Config) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer:                              e.Issuer,
-		GithubWorkflowTrigger:               applyTemplate(e.GithubWorkflowTrigger, claims, defaults),
-		GithubWorkflowSHA:                   applyTemplate(e.GithubWorkflowSHA, claims, defaults),
-		GithubWorkflowName:                  applyTemplate(e.GithubWorkflowName, claims, defaults),
-		GithubWorkflowRepository:            applyTemplate(e.GithubWorkflowRepository, claims, defaults),
-		GithubWorkflowRef:                   applyTemplate(e.GithubWorkflowRef, claims, defaults),
-		BuildSignerURI:                      applyTemplate(e.BuildSignerURI, claims, defaults),
-		BuildConfigDigest:                   applyTemplate(e.BuildConfigDigest, claims, defaults),
-		RunnerEnvironment:                   applyTemplate(e.RunnerEnvironment, claims, defaults),
-		SourceRepositoryURI:                 applyTemplate(e.SourceRepositoryURI, claims, defaults),
-		SourceRepositoryDigest:              applyTemplate(e.SourceRepositoryDigest, claims, defaults),
-		SourceRepositoryRef:                 applyTemplate(e.SourceRepositoryRef, claims, defaults),
-		SourceRepositoryIdentifier:          applyTemplate(e.SourceRepositoryIdentifier, claims, defaults),
-		SourceRepositoryOwnerURI:            applyTemplate(e.SourceRepositoryOwnerURI, claims, defaults),
-		SourceRepositoryOwnerIdentifier:     applyTemplate(e.SourceRepositoryOwnerIdentifier, claims, defaults),
-		BuildConfigURI:                      applyTemplate(e.BuildConfigURI, claims, defaults),
-		BuildSignerDigest:                   applyTemplate(e.BuildSignerDigest, claims, defaults),
-		BuildTrigger:                        applyTemplate(e.BuildTrigger, claims, defaults),
-		RunInvocationURI:                    applyTemplate(e.RunInvocationURI, claims, defaults),
-		SourceRepositoryVisibilityAtSigning: applyTemplate(e.SourceRepositoryVisibilityAtSigning, claims, defaults),
+		Issuer:                              applyTemplateOrReplace(e.Issuer, claims, defaults),
+		GithubWorkflowTrigger:               applyTemplateOrReplace(e.GithubWorkflowTrigger, claims, defaults),
+		GithubWorkflowSHA:                   applyTemplateOrReplace(e.GithubWorkflowSHA, claims, defaults),
+		GithubWorkflowName:                  applyTemplateOrReplace(e.GithubWorkflowName, claims, defaults),
+		GithubWorkflowRepository:            applyTemplateOrReplace(e.GithubWorkflowRepository, claims, defaults),
+		GithubWorkflowRef:                   applyTemplateOrReplace(e.GithubWorkflowRef, claims, defaults),
+		BuildSignerURI:                      applyTemplateOrReplace(e.BuildSignerURI, claims, defaults),
+		BuildConfigDigest:                   applyTemplateOrReplace(e.BuildConfigDigest, claims, defaults),
+		RunnerEnvironment:                   applyTemplateOrReplace(e.RunnerEnvironment, claims, defaults),
+		SourceRepositoryURI:                 applyTemplateOrReplace(e.SourceRepositoryURI, claims, defaults),
+		SourceRepositoryDigest:              applyTemplateOrReplace(e.SourceRepositoryDigest, claims, defaults),
+		SourceRepositoryRef:                 applyTemplateOrReplace(e.SourceRepositoryRef, claims, defaults),
+		SourceRepositoryIdentifier:          applyTemplateOrReplace(e.SourceRepositoryIdentifier, claims, defaults),
+		SourceRepositoryOwnerURI:            applyTemplateOrReplace(e.SourceRepositoryOwnerURI, claims, defaults),
+		SourceRepositoryOwnerIdentifier:     applyTemplateOrReplace(e.SourceRepositoryOwnerIdentifier, claims, defaults),
+		BuildConfigURI:                      applyTemplateOrReplace(e.BuildConfigURI, claims, defaults),
+		BuildSignerDigest:                   applyTemplateOrReplace(e.BuildSignerDigest, claims, defaults),
+		BuildTrigger:                        applyTemplateOrReplace(e.BuildTrigger, claims, defaults),
+		RunInvocationURI:                    applyTemplateOrReplace(e.RunInvocationURI, claims, defaults),
+		SourceRepositoryVisibilityAtSigning: applyTemplateOrReplace(e.SourceRepositoryVisibilityAtSigning, claims, defaults),
 	}.Render()
 	if err != nil {
 		return err
