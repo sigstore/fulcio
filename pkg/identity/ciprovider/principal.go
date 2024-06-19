@@ -37,6 +37,8 @@ func claimsToString(claims map[string]interface{}) map[string]string {
 	return stringClaims
 }
 
+// It makes string interpolation for a given string by using the
+// templates syntax https://pkg.go.dev/text/template
 func applyTemplate(path string, data map[string]string, defaultData map[string]string) string {
 
 	// Here we merge the data from was claimed by the id token with the
@@ -110,7 +112,7 @@ func (p Config) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer:                              applyTemplate(e.Issuer, claims, defaults),
+		Issuer:                              e.Issuer,
 		GithubWorkflowTrigger:               applyTemplate(e.GithubWorkflowTrigger, claims, defaults),
 		GithubWorkflowSHA:                   applyTemplate(e.GithubWorkflowSHA, claims, defaults),
 		GithubWorkflowName:                  applyTemplate(e.GithubWorkflowName, claims, defaults),
