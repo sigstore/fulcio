@@ -29,16 +29,49 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/identity"
 )
 
 func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims            map[string]interface{}
-		ExpectedPrincipal Provider
+		ExpectedPrincipal Config
 	}{
-		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
+			ExpectedPrincipal: Config{
+				Metadata: config.IssuersMetadata{
+					ClaimsMapper: certificate.Extensions{
+						Issuer:                              "issuer",
+						GithubWorkflowTrigger:               "event_name",
+						GithubWorkflowSHA:                   "sha",
+						GithubWorkflowName:                  "workflow",
+						GithubWorkflowRepository:            "repository",
+						GithubWorkflowRef:                   "ref",
+						BuildSignerURI:                      "{{ .url }}/{{ .job_workflow_ref }}",
+						BuildSignerDigest:                   "job_workflow_sha",
+						RunnerEnvironment:                   "runner_environment",
+						SourceRepositoryURI:                 "{{ .url }}/{{ .repository }}",
+						SourceRepositoryDigest:              "sha",
+						SourceRepositoryRef:                 "ref",
+						SourceRepositoryIdentifier:          "repository_id",
+						SourceRepositoryOwnerURI:            "{{ .url }}/{{ .repository_owner }}",
+						SourceRepositoryOwnerIdentifier:     "repository_owner_id",
+						BuildConfigURI:                      "{{ .url }}/{{ .workflow_ref }}",
+						BuildConfigDigest:                   "workflow_sha",
+						BuildTrigger:                        "event_name",
+						RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
+						SourceRepositoryVisibilityAtSigning: "repository_visibility",
+					},
+					Defaults: map[string]string{
+						"url": "https://github.com",
+					},
+					SubjectAlternativeName: "{{.url}}/{{.job_workflow_ref}}",
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			claims, err := json.Marshal(map[string]interface{}{
 				"issuer":                "https://token.actions.githubusercontent.com",
 				"event_name":            "trigger",
 				"sha":                   "sha",
@@ -56,89 +89,41 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 				"run_id":                "runID",
 				"run_attempt":           "runAttempt",
 				"repository_visibility": "public",
-			},
-			ExpectedPrincipal: Provider{
-				Subject: "subject-test",
-				Extensions: certificate.Extensions{
-					BuildSignerDigest:          "job_workflow_sha",
-					SourceRepositoryDigest:     "sha",
-					SourceRepositoryRef:        "ref",
-					SourceRepositoryIdentifier: "repository_id",
-					RunInvocationURI:           "{{.url}}/{{.repository}}/actions/runs/{{.run_id}}/",
-				},
-				Uris: []string{
-					"{{.url}}/{{.job_workflow_ref}}",
-				},
-				Defaults: map[string]string{
-					"url": "https://github.com",
-				},
-				OIDCIssuers: []config.OIDCIssuer{
-					{
-						IssuerURL: "https://token.actions.githubusercontent.com",
-					},
-				},
-				MetaIssuers: []config.OIDCIssuer{
-					{
-						IssuerURL: "https://token.actions.githubusercontent.com/*",
-						ClientID:  "sigstore",
-					},
-				},
-				Claims: map[string]interface{}{
-					"event_name":            "trigger",
-					"issuer":                "https://token.actions.githubusercontent.com",
-					"job_workflow_ref":      "jobWorkflowRef",
-					"job_workflow_sha":      "jobWorkflowSha",
-					"ref":                   "ref",
-					"repository":            "repository",
-					"repository_id":         "repoID",
-					"repository_owner":      "repoOwner",
-					"repository_owner_id":   "repoOwnerID",
-					"repository_visibility": "public",
-					"run_attempt":           "runAttempt",
-					"run_id":                "runID",
-					"runner_environment":    "runnerEnv",
-					"sha":                   "sha",
-					"workflow":              "workflowname",
-					"workflow_ref":          "workflowRef",
-					"workflow_sha":          "workflowSHA",
-				},
-			},
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			token := &oidc.IDToken{
-				Subject: "subject-test",
-			}
-			claims, err := json.Marshal(test.Claims)
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
+			token := &oidc.IDToken{}
 			withClaims(token, claims)
+
+			test.ExpectedPrincipal.Token = token
 			ctx := context.TODO()
 			OIDCIssuers :=
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
 						IssuerURL: token.Issuer,
-						Type:      config.IssuerTypeGithubWorkflow,
+						Type:      config.IssuerTypeCiProvider,
+						SubType:   "github-workflow",
 						ClientID:  "sigstore",
 					},
 				}
+			meta := make(map[string]config.IssuersMetadata)
+			meta["github-workflow"] = test.ExpectedPrincipal.Metadata
 			cfg := &config.FulcioConfig{
-				OIDCIssuers: OIDCIssuers,
+				OIDCIssuers:     OIDCIssuers,
+				IssuersMetadata: meta,
 			}
 			ctx = config.With(ctx, cfg)
 			principal, err := WorkflowPrincipalFromIDToken(ctx, token)
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			if !reflect.DeepEqual(principal, test.ExpectedPrincipal) {
 				t.Error("Principals should be equals")
 			}
 		})
 	}
+
 }
 
 // reflect hack because "claims" field is unexported by oidc IDToken
@@ -199,7 +184,8 @@ func TestName(t *testing.T) {
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
 						IssuerURL: token.Issuer,
-						Type:      config.IssuerTypeGithubWorkflow,
+						Type:      config.IssuerTypeCiProvider,
+						SubType:   "ci-provider",
 						ClientID:  "sigstore",
 					},
 				}
@@ -222,57 +208,10 @@ func TestName(t *testing.T) {
 
 func TestEmbed(t *testing.T) {
 	tests := map[string]struct {
-		Principal identity.Principal
 		WantErr   bool
 		WantFacts map[string]func(x509.Certificate) error
 	}{
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
-			Principal: &Provider{
-				Extensions: certificate.Extensions{
-					Issuer:                              "issuer",
-					GithubWorkflowTrigger:               "event_name",
-					GithubWorkflowSHA:                   "sha",
-					GithubWorkflowName:                  "workflow",
-					GithubWorkflowRepository:            "repository",
-					GithubWorkflowRef:                   "ref",
-					BuildSignerURI:                      "{{ .url }}/{{ .job_workflow_ref }}",
-					BuildSignerDigest:                   "job_workflow_sha",
-					RunnerEnvironment:                   "runner_environment",
-					SourceRepositoryURI:                 "{{ .url }}/{{ .repository }}",
-					SourceRepositoryDigest:              "sha",
-					SourceRepositoryRef:                 "ref",
-					SourceRepositoryIdentifier:          "repository_id",
-					SourceRepositoryOwnerURI:            "{{ .url }}/{{ .repository_owner }}",
-					SourceRepositoryOwnerIdentifier:     "repository_owner_id",
-					BuildConfigURI:                      "{{ .url }}/{{ .workflow_ref }}",
-					BuildConfigDigest:                   "workflow_sha",
-					BuildTrigger:                        "event_name",
-					RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
-					SourceRepositoryVisibilityAtSigning: "repository_visibility",
-				},
-				Claims: map[string]interface{}{
-					"issuer":                "https://token.actions.githubusercontent.com",
-					"event_name":            "trigger",
-					"sha":                   "sha",
-					"workflow":              "workflowname",
-					"repository":            "repository",
-					"ref":                   "ref",
-					"job_workflow_sha":      "jobWorkflowSha",
-					"job_workflow_ref":      "jobWorkflowRef",
-					"runner_environment":    "runnerEnv",
-					"repository_id":         "repoID",
-					"repository_owner":      "repoOwner",
-					"repository_owner_id":   "repoOwnerID",
-					"workflow_ref":          "workflowRef",
-					"workflow_sha":          "workflowSHA",
-					"run_id":                "runID",
-					"run_attempt":           "runAttempt",
-					"repository_visibility": "public",
-				},
-				Defaults: map[string]string{
-					"url": "https://github.com",
-				},
-			},
 			WantErr: false,
 			WantFacts: map[string]func(x509.Certificate) error{
 				`Certifificate should have correct issuer`:                       factDeprecatedExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, "https://token.actions.githubusercontent.com"),
@@ -298,16 +237,70 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct source repository visibility extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "public"),
 			},
 		},
-		`Github workflow value with bad URL fails`: {
-			Principal: &Provider{},
-			WantErr:   true,
-		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			var cert x509.Certificate
-			err := test.Principal.Embed(context.TODO(), &cert)
+			claims, err := json.Marshal(map[string]interface{}{
+				"issuer":                "https://token.actions.githubusercontent.com",
+				"event_name":            "trigger",
+				"sha":                   "sha",
+				"workflow":              "workflowname",
+				"repository":            "repository",
+				"ref":                   "ref",
+				"job_workflow_sha":      "jobWorkflowSha",
+				"job_workflow_ref":      "jobWorkflowRef",
+				"runner_environment":    "runnerEnv",
+				"repository_id":         "repoID",
+				"repository_owner":      "repoOwner",
+				"repository_owner_id":   "repoOwnerID",
+				"workflow_ref":          "workflowRef",
+				"workflow_sha":          "workflowSHA",
+				"run_id":                "runID",
+				"run_attempt":           "runAttempt",
+				"repository_visibility": "public",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			token := &oidc.IDToken{}
+			withClaims(token, claims)
+
+			principal :=
+				&Config{
+					Metadata: config.IssuersMetadata{
+						ClaimsMapper: certificate.Extensions{
+							Issuer:                              "issuer",
+							GithubWorkflowTrigger:               "event_name",
+							GithubWorkflowSHA:                   "sha",
+							GithubWorkflowName:                  "workflow",
+							GithubWorkflowRepository:            "repository",
+							GithubWorkflowRef:                   "ref",
+							BuildSignerURI:                      "{{ .url }}/{{ .job_workflow_ref }}",
+							BuildSignerDigest:                   "job_workflow_sha",
+							RunnerEnvironment:                   "runner_environment",
+							SourceRepositoryURI:                 "{{ .url }}/{{ .repository }}",
+							SourceRepositoryDigest:              "sha",
+							SourceRepositoryRef:                 "ref",
+							SourceRepositoryIdentifier:          "repository_id",
+							SourceRepositoryOwnerURI:            "{{ .url }}/{{ .repository_owner }}",
+							SourceRepositoryOwnerIdentifier:     "repository_owner_id",
+							BuildConfigURI:                      "{{ .url }}/{{ .workflow_ref }}",
+							BuildConfigDigest:                   "workflow_sha",
+							BuildTrigger:                        "event_name",
+							RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
+							SourceRepositoryVisibilityAtSigning: "repository_visibility",
+						},
+						Defaults: map[string]string{
+							"url": "https://github.com",
+						},
+						SubjectAlternativeName: "{{.url}}/{{.job_workflow_ref}}",
+					},
+					Token: token,
+				}
+
+			err = principal.Embed(context.TODO(), &cert)
 			if err != nil {
 				if !test.WantErr {
 					t.Error(err)

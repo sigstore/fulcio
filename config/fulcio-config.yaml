@@ -20,43 +20,51 @@ data:
             "https://accounts.google.com": {
               "IssuerURL": "https://accounts.google.com",
               "ClientID": "sigstore",
-              "Type": "email"
+              "Type": "email",
+              "SubType": ""
             },
             "https://agent.buildkite.com": {
               "IssuerURL": "https://agent.buildkite.com",
               "ClientID": "sigstore",
-              "Type": "buildkite-job"
+              "Type": "buildkite-job",
+              "SubType": ""
             },
             "https://allow.pub": {
               "IssuerURL": "https://allow.pub",
               "ClientID": "sigstore",
               "Type": "spiffe",
+              "SubType": "",
               "SPIFFETrustDomain": "allow.pub"
             },
             "https://auth-staging.eclipse.org/realms/sigstore": {
               "IssuerURL": "https://auth-staging.eclipse.org/realms/sigstore",
               "ClientID": "sigstore",
-              "Type": "email"
+              "Type": "email",
+              "SubType": ""
             },
             "https://auth.eclipse.org/auth/realms/sigstore": {
               "IssuerURL": "https://auth.eclipse.org/auth/realms/sigstore",
               "ClientID": "sigstore",
-              "Type": "email"
+              "Type": "email",
+              "SubType": ""
             },
             "https://dev.gitlab.org": {
               "IssuerURL": "https://dev.gitlab.org",
               "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
+              "Type": "gitlab-pipeline",
+              "SubType": ""
             },
             "https://gitlab.archlinux.org": {
               "IssuerURL": "https://gitlab.archlinux.org",
               "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
+              "Type": "gitlab-pipeline",
+              "SubType": ""
             },
             "https://gitlab.com": {
               "IssuerURL": "https://gitlab.com",
               "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
+              "Type": "gitlab-pipeline",
+              "SubType": ""
             },
             "https://issuer.enforce.dev": {
               "IssuerURL": "https://issuer.enforce.dev",
@@ -67,46 +75,56 @@ data:
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
               "ClientID": "sigstore",
               "Type": "email",
+              "SubType": "",
               "IssuerClaim": "$.federated_claims.connector_id"
             },
             "https://oidc.codefresh.io": {
               "IssuerURL": "https://oidc.codefresh.io",
               "ClientID": "sigstore",
-              "Type": "codefresh-workflow"
+              "Type": "codefresh-workflow",
+              "SubType": ""
             },
             "https://ops.gitlab.net": {
               "IssuerURL": "https://ops.gitlab.net",
               "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
+              "Type": "gitlab-pipeline",
+              "SubType": ""
             },
             "https://token.actions.githubusercontent.com": {
               "IssuerURL": "https://token.actions.githubusercontent.com",
               "ClientID": "sigstore",
-              "Type": "github-workflow"
+              "Type": "github-workflow",
+              "SubType": ""
             }
           },
           "MetaIssuers": {
             "https://*.oic.prod-aks.azure.com/*": {
               "ClientID": "sigstore",
-              "Type": "kubernetes"
+              "Type": "kubernetes",
+              "SubType": ""
             },
             "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
               "ClientID": "sigstore",
-              "Type": "kubernetes"
+              "Type": "kubernetes",
+              "SubType": ""
             },
             "https://oidc.eks.*.amazonaws.com/id/*": {
               "ClientID": "sigstore",
-              "Type": "kubernetes"
+              "Type": "kubernetes",
+              "SubType": ""
             },
             "https://oidc.prod-aks.azure.com/*": {
               "ClientID": "sigstore",
-              "Type": "kubernetes"
+              "Type": "kubernetes",
+              "SubType": ""
             },
             "https://token.actions.githubusercontent.com/*": {
               "ClientID": "sigstore",
-              "Type": "github-workflow"
+              "Type": "github-workflow",
+              "SubType": ""
             }
-          }
+          },
+          "IssuersMetadata": null
         }
     server.yaml: |-
         host: 0.0.0.0

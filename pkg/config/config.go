@@ -24,13 +24,16 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -60,10 +63,19 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 
+	// defines the metadata for the issuers
+	IssuersMetadata map[string]IssuersMetadata
+
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
 	// lru is an LRU cache of recently used verifiers for our meta issuers.
 	lru *lru.TwoQueueCache
+}
+
+type IssuersMetadata struct {
+	Defaults               map[string]string
+	ClaimsMapper           certificate.Extensions
+	SubjectAlternativeName string
 }
 
 type OIDCIssuer struct {
@@ -74,6 +86,8 @@ type OIDCIssuer struct {
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	Type IssuerType `json:"Type" yaml:"type,omitempty"`
+	// Issuers subtype
+	SubType string `json:"SubType" yaml:"sub-type,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
@@ -284,6 +298,7 @@ const (
 	IssuerTypeSpiffe            = "spiffe"
 	IssuerTypeURI               = "uri"
 	IssuerTypeUsername          = "username"
+	IssuerTypeCiProvider        = "ci-provider"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
@@ -432,6 +447,52 @@ func FromContext(ctx context.Context) *FulcioConfig {
 	return untyped.(*FulcioConfig)
 }
 
+type CiProvidersConfig struct {
+	Providers map[string]Provider
+}
+type Provider struct {
+	Extensions             certificate.Extensions `yaml:"extensions,omitempty"`
+	SubjectAlternativeName string                 `yaml:"subject-alternative-name,omitempty"`
+	Defaults               map[string]string      `yaml:"defaults,omitempty"`
+	OIDCIssuers            []OIDCIssuer           `yaml:"oidc-issuers,omitempty"`
+	MetaIssuers            []OIDCIssuer           `yaml:"meta-issuers,omitempty"`
+}
+
+func LoadCiProvidersConfig(cfg *FulcioConfig) (*FulcioConfig, error) {
+	var ciProvidersConfig CiProvidersConfig
+	_, path, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(path)
+	providersConfigFile, err := os.ReadFile(basepath + "/providers_config.yaml")
+
+	if err != nil {
+		fmt.Printf("yamlFile.Get err #%v ", err)
+	}
+	err = yaml.Unmarshal(providersConfigFile, &ciProvidersConfig)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	cfg.IssuersMetadata = make(map[string]IssuersMetadata)
+	for k, v := range ciProvidersConfig.Providers {
+		cfg.IssuersMetadata[k] = IssuersMetadata{
+			v.Defaults,
+			v.Extensions,
+			v.SubjectAlternativeName,
+		}
+		for _, issuer := range v.OIDCIssuers {
+			issuer.SubType = k
+			issuer.Type = IssuerTypeCiProvider
+			cfg.OIDCIssuers[issuer.IssuerURL] = issuer
+		}
+		for _, issuer := range v.MetaIssuers {
+			issuer.SubType = k
+			issuer.Type = IssuerTypeCiProvider
+			cfg.MetaIssuers[issuer.IssuerURL] = issuer
+		}
+	}
+	return cfg, err
+}
+
 // Load a config from disk, or use defaults
 func Load(configPath string) (*FulcioConfig, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -446,7 +507,12 @@ func Load(configPath string) (*FulcioConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
-	return Read(b)
+	fulcioConfig, err := Read(b)
+	if err != nil {
+		return fulcioConfig, err
+	}
+
+	return fulcioConfig, err
 }
 
 // Read parses the bytes of a config
@@ -515,6 +581,8 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	case IssuerTypeEmail:
 		return "email"
 	case IssuerTypeGithubWorkflow:
+		return "sub"
+	case IssuerTypeCiProvider:
 		return "sub"
 	case IssuerTypeCodefreshWorkflow:
 		return "sub"
