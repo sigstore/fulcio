@@ -55,7 +55,9 @@ func applyTemplateOrReplace(path string, data map[string]string, defaultData map
 
 	if strings.Contains(path, "{{") {
 		var doc bytes.Buffer
-		t := template.New("")
+		// This option forces to having the claim that is required
+		// for the template
+		t := template.New("").Option("missingkey=error")
 		p, err := t.Parse(path)
 		if err != nil {
 			panic(err)
