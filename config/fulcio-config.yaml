@@ -58,6 +58,11 @@ data:
               "ClientID": "sigstore",
               "Type": "gitlab-pipeline"
             },
+            "https://issuer.enforce.dev": {
+              "IssuerURL": "https://issuer.enforce.dev",
+              "ClientID": "sigstore",
+              "Type": "chainguard-identity"
+            },
             "https://oauth2.sigstore.dev/auth": {
               "IssuerURL": "https://oauth2.sigstore.dev/auth",
               "ClientID": "sigstore",

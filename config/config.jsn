@@ -25,6 +25,11 @@
       "IssuerURL": "https://oidc.codefresh.io",
       "ClientID": "sigstore",
       "Type": "codefresh-workflow"
+    },
+    "https://issuer.enforce.dev": {
+      "IssuerURL": "https://issuer.enforce.dev",
+      "ClientID": "sigstore",
+      "Type": "chainguard-identity"
     }
   }
 }
