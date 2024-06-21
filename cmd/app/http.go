@@ -63,7 +63,8 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
-	cc, err := grpc.NewClient(grpcServer.grpcServerEndpoint, opts...)
+	grpcHealthEndpoint := fmt.Sprintf("localhost:%s", viper.GetString("grpc-port"))
+	cc, err := grpc.NewClient(grpcHealthEndpoint, opts...)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
