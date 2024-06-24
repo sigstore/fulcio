@@ -63,8 +63,11 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 
-	// defines the metadata for the issuers
-	IssuersMetadata map[string]IssuersMetadata
+	// It defines metadata to be used for the CIProvider identity provider principal.
+	// The CI provider has a generic logic for ci providers, this metadata is used
+	// to define the right behavior for each ci provider that is defined
+	// on the configuration file
+	CIIssuerMetadata map[string]DefaultTemplateValues
 
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
@@ -72,9 +75,15 @@ type FulcioConfig struct {
 	lru *lru.TwoQueueCache
 }
 
-type IssuersMetadata struct {
-	Defaults               map[string]string
-	ClaimsMapper           certificate.Extensions
+type DefaultTemplateValues struct {
+	// Default key and values that can be used for filling the templates
+	// If a key cannot be found on the token claims, the template will use the defaults
+	Defaults map[string]string
+	// It is the mapper from the id token claims to the Extensions.
+	// It expects strings with templates syntax https://pkg.go.dev/text/template
+	// or raw strings with claims keys to be replaced
+	ClaimsMapper certificate.Extensions
+	// A alternative name for the issuer subject
 	SubjectAlternativeName string
 }
 
@@ -86,8 +95,8 @@ type OIDCIssuer struct {
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	Type IssuerType `json:"Type" yaml:"type,omitempty"`
-	// Issuers subtype
-	SubType string `json:"SubType,omitempty" yaml:"sub-type,omitempty"`
+	// Issuers CiProvider type
+	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
@@ -472,20 +481,20 @@ func LoadCiProvidersConfig(cfg *FulcioConfig) (*FulcioConfig, error) {
 		fmt.Printf("Unmarshal: %v", err)
 	}
 
-	cfg.IssuersMetadata = make(map[string]IssuersMetadata)
+	cfg.CIIssuerMetadata = make(map[string]DefaultTemplateValues)
 	for k, v := range ciProvidersConfig.Providers {
-		cfg.IssuersMetadata[k] = IssuersMetadata{
+		cfg.CIIssuerMetadata[k] = DefaultTemplateValues{
 			v.Defaults,
 			v.Extensions,
 			v.SubjectAlternativeName,
 		}
 		for _, issuer := range v.OIDCIssuers {
-			issuer.SubType = k
+			issuer.CIProvider = k
 			issuer.Type = IssuerTypeCiProvider
 			cfg.OIDCIssuers[issuer.IssuerURL] = issuer
 		}
 		for _, issuer := range v.MetaIssuers {
-			issuer.SubType = k
+			issuer.CIProvider = k
 			issuer.Type = IssuerTypeCiProvider
 			cfg.MetaIssuers[issuer.IssuerURL] = issuer
 		}

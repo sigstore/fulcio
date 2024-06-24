@@ -75,10 +75,10 @@ func TestIssuer(t *testing.T) {
 		OIDCIssuers :=
 			map[string]config.OIDCIssuer{
 				token.Issuer: {
-					IssuerURL: token.Issuer,
-					Type:      config.IssuerTypeCiProvider,
-					SubType:   "github-workflow",
-					ClientID:  "sigstore",
+					IssuerURL:  token.Issuer,
+					Type:       config.IssuerTypeCiProvider,
+					CIProvider: "github-workflow",
+					ClientID:   "sigstore",
 				},
 			}
 		cfg := &config.FulcioConfig{

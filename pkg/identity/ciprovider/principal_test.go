@@ -37,7 +37,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 	}{
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
 			ExpectedPrincipal: Config{
-				Metadata: config.IssuersMetadata{
+				Metadata: config.DefaultTemplateValues{
 					ClaimsMapper: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
@@ -101,17 +101,17 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			OIDCIssuers :=
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
-						IssuerURL: token.Issuer,
-						Type:      config.IssuerTypeCiProvider,
-						SubType:   "github-workflow",
-						ClientID:  "sigstore",
+						IssuerURL:  token.Issuer,
+						Type:       config.IssuerTypeCiProvider,
+						CIProvider: "github-workflow",
+						ClientID:   "sigstore",
 					},
 				}
-			meta := make(map[string]config.IssuersMetadata)
+			meta := make(map[string]config.DefaultTemplateValues)
 			meta["github-workflow"] = test.ExpectedPrincipal.Metadata
 			cfg := &config.FulcioConfig{
-				OIDCIssuers:     OIDCIssuers,
-				IssuersMetadata: meta,
+				OIDCIssuers:      OIDCIssuers,
+				CIIssuerMetadata: meta,
 			}
 			ctx = config.With(ctx, cfg)
 			principal, err := WorkflowPrincipalFromIDToken(ctx, token)
@@ -183,10 +183,10 @@ func TestName(t *testing.T) {
 			OIDCIssuers :=
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
-						IssuerURL: token.Issuer,
-						Type:      config.IssuerTypeCiProvider,
-						SubType:   "ci-provider",
-						ClientID:  "sigstore",
+						IssuerURL:  token.Issuer,
+						Type:       config.IssuerTypeCiProvider,
+						CIProvider: "ci-provider",
+						ClientID:   "sigstore",
 					},
 				}
 			cfg := &config.FulcioConfig{
@@ -236,7 +236,7 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct source repository visibility extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "public"),
 			},
 			Principal: Config{
-				Metadata: config.IssuersMetadata{
+				Metadata: config.DefaultTemplateValues{
 					ClaimsMapper: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",

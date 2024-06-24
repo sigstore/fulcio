@@ -73,7 +73,7 @@ func applyTemplateOrReplace(path string, data map[string]string, defaultData map
 
 type Config struct {
 	Token    *oidc.IDToken
-	Metadata config.IssuersMetadata
+	Metadata config.DefaultTemplateValues
 }
 
 func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
@@ -85,7 +85,7 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 
 	return Config{
 		token,
-		cfg.IssuersMetadata[issuer.SubType],
+		cfg.CIIssuerMetadata[issuer.CIProvider],
 	}, nil
 }
 

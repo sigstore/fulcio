@@ -107,7 +107,7 @@ data:
               "Type": "github-workflow"
             }
           },
-          "IssuersMetadata": null
+          "DefaultTemplateValues": null
         }
     server.yaml: |-
         host: 0.0.0.0
