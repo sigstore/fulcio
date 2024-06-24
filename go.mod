@@ -12,7 +12,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/goadesign/goa v2.2.5+incompatible
 	github.com/golang/protobuf v1.5.4
-	github.com/google/certificate-transparency-go v1.1.8
+	github.com/google/certificate-transparency-go v1.2.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
