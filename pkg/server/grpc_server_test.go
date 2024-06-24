@@ -39,22 +39,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
+
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/test/bufconn"
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const (
@@ -521,9 +523,9 @@ func TestAPIWithEmail(t *testing.T) {
 			Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 			Subject:  c.Subject,
 			Audience: jwt.Audience{"sigstore"},
-		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).CompactSerialize()
+		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).Serialize()
 		if err != nil {
-			t.Fatalf("CompactSerialize() = %v", err)
+			t.Fatalf("Serialize() = %v", err)
 		}
 
 		ctClient, eca := createCA(cfg, t)
@@ -610,9 +612,9 @@ func TestAPIWithUsername(t *testing.T) {
 			Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 			Subject:  c.Subject,
 			Audience: jwt.Audience{"sigstore"},
-		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).CompactSerialize()
+		}).Claims(customClaims{Email: c.Subject, EmailVerified: true}).Serialize()
 		if err != nil {
-			t.Fatalf("CompactSerialize() = %v", err)
+			t.Fatalf("Serialize() = %v", err)
 		}
 
 		ctClient, eca := createCA(cfg, t)
@@ -708,9 +710,9 @@ func TestAPIWithUriSubject(t *testing.T) {
 			Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 			Subject:  c.Subject,
 			Audience: jwt.Audience{"sigstore"},
-		}).CompactSerialize()
+		}).Serialize()
 		if err != nil {
-			t.Fatalf("CompactSerialize() = %v", err)
+			t.Fatalf("Serialize() = %v", err)
 		}
 
 		ctClient, eca := createCA(cfg, t)
@@ -801,9 +803,9 @@ func TestAPIWithKubernetes(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  k8sSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(&claims).CompactSerialize()
+	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -890,9 +892,9 @@ func TestAPIWithBuildkite(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  buildkiteSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(&claims).CompactSerialize()
+	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1008,9 +1010,9 @@ func TestAPIWithGitHub(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  githubSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(&claims).CompactSerialize()
+	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1176,9 +1178,9 @@ func TestAPIWithGitLab(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  gitLabSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(&claims).CompactSerialize()
+	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1319,9 +1321,9 @@ func TestAPIWithCodefresh(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  codefreshSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(&claims).CompactSerialize()
+	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1427,9 +1429,9 @@ func TestAPIWithIssuerClaimConfig(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true, OtherIssuer: otherIssuerVal}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true, OtherIssuer: otherIssuerVal}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1503,9 +1505,9 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1585,9 +1587,9 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1660,9 +1662,9 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1736,9 +1738,9 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1804,9 +1806,9 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1865,9 +1867,9 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
