@@ -87,7 +87,7 @@ type OIDCIssuer struct {
 	// certificate values are needed
 	Type IssuerType `json:"Type" yaml:"type,omitempty"`
 	// Issuers subtype
-	SubType string `json:"SubType" yaml:"sub-type,omitempty"`
+	SubType string `json:"SubType,omitempty" yaml:"sub-type,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
