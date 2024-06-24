@@ -39,26 +39,27 @@ func claimsToString(claims map[string]interface{}) map[string]string {
 
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
-func applyTemplateOrReplace(path string, data map[string]string, defaultData map[string]string) string {
+func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, defaultTemplateValues map[string]string) string {
 
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
-	// The order here matter because we want to override the default data
-	// with the claimed data.
+	// The order here matter because we want to override the claimed data
+	// with the default data.
+	// The default data will have priority over the claimed data.
 	mergedData := make(map[string]string)
-	for k, v := range defaultData {
+	for k, v := range tokenClaims {
 		mergedData[k] = v
 	}
-	for k, v := range data {
+	for k, v := range defaultTemplateValues {
 		mergedData[k] = v
 	}
 
-	if strings.Contains(path, "{{") {
+	if strings.Contains(extValueTemplate, "{{") {
 		var doc bytes.Buffer
 		// This option forces to having the claim that is required
 		// for the template
 		t := template.New("").Option("missingkey=error")
-		p, err := t.Parse(path)
+		p, err := t.Parse(extValueTemplate)
 		if err != nil {
 			panic(err)
 		}
@@ -68,7 +69,7 @@ func applyTemplateOrReplace(path string, data map[string]string, defaultData map
 		}
 		return doc.String()
 	}
-	return mergedData[path]
+	return mergedData[extValueTemplate]
 }
 
 type Config struct {
