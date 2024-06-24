@@ -24,12 +24,14 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/fatih/structs"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
-func claimsToString(claims map[string]interface{}) map[string]string {
+func mapValuesToString(claims map[string]interface{}) map[string]string {
 	stringClaims := make(map[string]string)
 	for k, v := range claims {
 		stringClaims[k] = v.(string)
@@ -39,7 +41,7 @@ func claimsToString(claims map[string]interface{}) map[string]string {
 
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
-func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, defaultTemplateValues map[string]string) string {
+func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, defaultTemplateValues map[string]string) (string, error) {
 
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
@@ -61,15 +63,19 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 		t := template.New("").Option("missingkey=error")
 		p, err := t.Parse(extValueTemplate)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		err = p.Execute(&doc, mergedData)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
-		return doc.String()
+		return doc.String(), nil
 	}
-	return mergedData[extValueTemplate]
+	claimValue, ok := mergedData[extValueTemplate]
+	if !ok {
+		return "", fmt.Errorf("value <%s> not present in either claims or defaults", extValueTemplate)
+	}
+	return claimValue, nil
 }
 
 type Config struct {
@@ -96,46 +102,40 @@ func (p Config) Name(_ context.Context) string {
 
 func (p Config) Embed(_ context.Context, cert *x509.Certificate) error {
 
-	e := p.Metadata.ClaimsMapper
+	e := p.Metadata.ClaimsMap
 	defaults := p.Metadata.Defaults
 
 	var rawClaims map[string]interface{}
 	if err := p.Token.Claims(&rawClaims); err != nil {
 		return err
 	}
-	claims := claimsToString(rawClaims)
+	claims := mapValuesToString(rawClaims)
 
-	subjectAlternativeNameURL, err := url.Parse(applyTemplateOrReplace(p.Metadata.SubjectAlternativeName, claims, defaults))
+	subjectAlternativeName, err := applyTemplateOrReplace(p.Metadata.SubjectAlternativeName, claims, defaults)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	subjectAlternativeNameURL, err := url.Parse(subjectAlternativeName)
+	if err != nil {
+		return err
 	}
 	uris := []*url.URL{subjectAlternativeNameURL}
 	// Set workflow ref URL to SubjectAlternativeName on certificate
 	cert.URIs = uris
-
+	mapExtensionsForTemplate := mapValuesToString(structs.Map(e))
+	for k, v := range mapExtensionsForTemplate {
+		mapExtensionsForTemplate[k], err = applyTemplateOrReplace(v, claims, defaults)
+		if err != nil {
+			return err
+		}
+	}
+	ext := &certificate.Extensions{}
+	err = mapstructure.Decode(mapExtensionsForTemplate, &ext)
+	if err != nil {
+		return err
+	}
 	// Embed additional information into custom extensions
-	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer:                              applyTemplateOrReplace(e.Issuer, claims, defaults),
-		GithubWorkflowTrigger:               applyTemplateOrReplace(e.GithubWorkflowTrigger, claims, defaults),
-		GithubWorkflowSHA:                   applyTemplateOrReplace(e.GithubWorkflowSHA, claims, defaults),
-		GithubWorkflowName:                  applyTemplateOrReplace(e.GithubWorkflowName, claims, defaults),
-		GithubWorkflowRepository:            applyTemplateOrReplace(e.GithubWorkflowRepository, claims, defaults),
-		GithubWorkflowRef:                   applyTemplateOrReplace(e.GithubWorkflowRef, claims, defaults),
-		BuildSignerURI:                      applyTemplateOrReplace(e.BuildSignerURI, claims, defaults),
-		BuildConfigDigest:                   applyTemplateOrReplace(e.BuildConfigDigest, claims, defaults),
-		RunnerEnvironment:                   applyTemplateOrReplace(e.RunnerEnvironment, claims, defaults),
-		SourceRepositoryURI:                 applyTemplateOrReplace(e.SourceRepositoryURI, claims, defaults),
-		SourceRepositoryDigest:              applyTemplateOrReplace(e.SourceRepositoryDigest, claims, defaults),
-		SourceRepositoryRef:                 applyTemplateOrReplace(e.SourceRepositoryRef, claims, defaults),
-		SourceRepositoryIdentifier:          applyTemplateOrReplace(e.SourceRepositoryIdentifier, claims, defaults),
-		SourceRepositoryOwnerURI:            applyTemplateOrReplace(e.SourceRepositoryOwnerURI, claims, defaults),
-		SourceRepositoryOwnerIdentifier:     applyTemplateOrReplace(e.SourceRepositoryOwnerIdentifier, claims, defaults),
-		BuildConfigURI:                      applyTemplateOrReplace(e.BuildConfigURI, claims, defaults),
-		BuildSignerDigest:                   applyTemplateOrReplace(e.BuildSignerDigest, claims, defaults),
-		BuildTrigger:                        applyTemplateOrReplace(e.BuildTrigger, claims, defaults),
-		RunInvocationURI:                    applyTemplateOrReplace(e.RunInvocationURI, claims, defaults),
-		SourceRepositoryVisibilityAtSigning: applyTemplateOrReplace(e.SourceRepositoryVisibilityAtSigning, claims, defaults),
-	}.Render()
+	cert.ExtraExtensions, err = ext.Render()
 	if err != nil {
 		return err
 	}

@@ -69,69 +69,69 @@ type Extensions struct {
 	// Deprecated
 	// Triggering event of the Github Workflow. Matches the `event_name` claim of ID
 	// tokens from Github Actions
-	GithubWorkflowTrigger string `yaml:"github-workflow-trigger"` // OID 1.3.6.1.4.1.57264.1.2
+	GithubWorkflowTrigger string `yaml:"github-workflow-trigger,omitempty"` // OID 1.3.6.1.4.1.57264.1.2
 
 	// Deprecated
 	// SHA of git commit being built in Github Actions. Matches the `sha` claim of ID
 	// tokens from Github Actions
-	GithubWorkflowSHA string `yaml:"github-workflow-sha"` // OID 1.3.6.1.4.1.57264.1.3
+	GithubWorkflowSHA string `yaml:"github-workflow-sha,omitempty"` // OID 1.3.6.1.4.1.57264.1.3
 
 	// Deprecated
 	// Name of Github Actions Workflow. Matches the `workflow` claim of the ID
 	// tokens from Github Actions
-	GithubWorkflowName string `yaml:"github-workflow-name"` // OID 1.3.6.1.4.1.57264.1.4
+	GithubWorkflowName string `yaml:"github-workflow-name,omitempty"` // OID 1.3.6.1.4.1.57264.1.4
 
 	// Deprecated
 	// Repository of the Github Actions Workflow. Matches the `repository` claim of the ID
 	// tokens from Github Actions
-	GithubWorkflowRepository string `yaml:"github-workflow-repository"` // OID 1.3.6.1.4.1.57264.1.5
+	GithubWorkflowRepository string `yaml:"github-workflow-repository,omitempty"` // OID 1.3.6.1.4.1.57264.1.5
 
 	// Deprecated
 	// Git Ref of the Github Actions Workflow. Matches the `ref` claim of the ID tokens
 	// from Github Actions
-	GithubWorkflowRef string `yaml:"github-workflow-ref"` // 1.3.6.1.4.1.57264.1.6
+	GithubWorkflowRef string `yaml:"github-workflow-ref,omitempty"` // 1.3.6.1.4.1.57264.1.6
 
 	// Reference to specific build instructions that are responsible for signing.
-	BuildSignerURI string `yaml:"build-signer-uri"` // 1.3.6.1.4.1.57264.1.9
+	BuildSignerURI string `yaml:"build-signer-uri,omitempty"` // 1.3.6.1.4.1.57264.1.9
 
 	// Immutable reference to the specific version of the build instructions that is responsible for signing.
-	BuildSignerDigest string `yaml:"build-signer-digest"` // 1.3.6.1.4.1.57264.1.10
+	BuildSignerDigest string `yaml:"build-signer-digest,omitempty"` // 1.3.6.1.4.1.57264.1.10
 
 	// Specifies whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure.
-	RunnerEnvironment string `yaml:"runner-environment"` // 1.3.6.1.4.1.57264.1.11
+	RunnerEnvironment string `yaml:"runner-environment,omitempty"` // 1.3.6.1.4.1.57264.1.11
 
 	// Source repository URL that the build was based on.
-	SourceRepositoryURI string `yaml:"source-repository-uri"` // 1.3.6.1.4.1.57264.1.12
+	SourceRepositoryURI string `yaml:"source-repository-uri,omitempty"` // 1.3.6.1.4.1.57264.1.12
 
 	// Immutable reference to a specific version of the source code that the build was based upon.
-	SourceRepositoryDigest string `yaml:"source-repository-digest"` // 1.3.6.1.4.1.57264.1.13
+	SourceRepositoryDigest string `yaml:"source-repository-digest,omitempty"` // 1.3.6.1.4.1.57264.1.13
 
 	// Source Repository Ref that the build run was based upon.
-	SourceRepositoryRef string `yaml:"source-repository-ref"` // 1.3.6.1.4.1.57264.1.14
+	SourceRepositoryRef string `yaml:"source-repository-ref,omitempty"` // 1.3.6.1.4.1.57264.1.14
 
 	// Immutable identifier for the source repository the workflow was based upon.
-	SourceRepositoryIdentifier string `yaml:"source-repository-identifier"` // 1.3.6.1.4.1.57264.1.15
+	SourceRepositoryIdentifier string `yaml:"source-repository-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.15
 
 	// Source repository owner URL of the owner of the source repository that the build was based on.
-	SourceRepositoryOwnerURI string `yaml:"source-repository-owner-uri"` // 1.3.6.1.4.1.57264.1.16
+	SourceRepositoryOwnerURI string `yaml:"source-repository-owner-uri,omitempty"` // 1.3.6.1.4.1.57264.1.16
 
 	// Immutable identifier for the owner of the source repository that the workflow was based upon.
-	SourceRepositoryOwnerIdentifier string `yaml:"source-repository-owner-identifier"` // 1.3.6.1.4.1.57264.1.17
+	SourceRepositoryOwnerIdentifier string `yaml:"source-repository-owner-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.17
 
 	// Build Config URL to the top-level/initiating build instructions.
-	BuildConfigURI string `yaml:"build-config-uri"` // 1.3.6.1.4.1.57264.1.18
+	BuildConfigURI string `yaml:"build-config-uri,omitempty"` // 1.3.6.1.4.1.57264.1.18
 
 	// Immutable reference to the specific version of the top-level/initiating build instructions.
-	BuildConfigDigest string `yaml:"build-config-digest"` // 1.3.6.1.4.1.57264.1.19
+	BuildConfigDigest string `yaml:"build-config-digest,omitempty"` // 1.3.6.1.4.1.57264.1.19
 
 	// Event or action that initiated the build.
-	BuildTrigger string `yaml:"build-trigger"` // 1.3.6.1.4.1.57264.1.20
+	BuildTrigger string `yaml:"build-trigger,omitempty"` // 1.3.6.1.4.1.57264.1.20
 
 	// Run Invocation URL to uniquely identify the build execution.
-	RunInvocationURI string `yaml:"run-invocation-uri"` // 1.3.6.1.4.1.57264.1.21
+	RunInvocationURI string `yaml:"run-invocation-uri,omitempty"` // 1.3.6.1.4.1.57264.1.21
 
 	// Source repository visibility at the time of signing the certificate.
-	SourceRepositoryVisibilityAtSigning string `yaml:"source-repository-visibility-at-signing"` // 1.3.6.1.4.1.57264.1.22
+	SourceRepositoryVisibilityAtSigning string `yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
 func (e Extensions) Render() ([]pkix.Extension, error) {

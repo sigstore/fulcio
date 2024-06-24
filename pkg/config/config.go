@@ -82,7 +82,7 @@ type DefaultTemplateValues struct {
 	// It is the mapper from the id token claims to the Extensions.
 	// It expects strings with templates syntax https://pkg.go.dev/text/template
 	// or raw strings with claims keys to be replaced
-	ClaimsMapper certificate.Extensions
+	ClaimsMap certificate.Extensions
 	// A alternative name for the issuer subject
 	SubjectAlternativeName string
 }
