@@ -214,10 +214,6 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	if err != nil {
 		log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
 	}
-	cfg, err = config.LoadCiProvidersConfig(cfg)
-	if err != nil {
-		log.Logger.Fatalf("error loading CiProviderConfig: %v", err)
-	}
 
 	var baseca certauth.CertificateAuthority
 	switch viper.GetString("ca") {

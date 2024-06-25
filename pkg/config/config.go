@@ -24,10 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -455,52 +453,6 @@ func FromContext(ctx context.Context) *FulcioConfig {
 		return nil
 	}
 	return untyped.(*FulcioConfig)
-}
-
-type CiProvidersConfig struct {
-	Providers map[string]Provider
-}
-type Provider struct {
-	Extensions             certificate.Extensions `yaml:"extensions,omitempty"`
-	SubjectAlternativeName string                 `yaml:"subject-alternative-name,omitempty"`
-	Defaults               map[string]string      `yaml:"defaults,omitempty"`
-	OIDCIssuers            []OIDCIssuer           `yaml:"oidc-issuers,omitempty"`
-	MetaIssuers            []OIDCIssuer           `yaml:"meta-issuers,omitempty"`
-}
-
-func LoadCiProvidersConfig(cfg *FulcioConfig) (*FulcioConfig, error) {
-	var ciProvidersConfig CiProvidersConfig
-	_, path, _, _ := runtime.Caller(0)
-	basepath := filepath.Dir(path)
-	providersConfigFile, err := os.ReadFile(basepath + "/providers_config.yaml")
-
-	if err != nil {
-		fmt.Printf("yamlFile.Get err #%v ", err)
-	}
-	err = yaml.Unmarshal(providersConfigFile, &ciProvidersConfig)
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-
-	cfg.CIIssuerMetadata = make(map[string]DefaultTemplateValues)
-	for k, v := range ciProvidersConfig.Providers {
-		cfg.CIIssuerMetadata[k] = DefaultTemplateValues{
-			v.Defaults,
-			v.Extensions,
-			v.SubjectAlternativeName,
-		}
-		for _, issuer := range v.OIDCIssuers {
-			issuer.CIProvider = k
-			issuer.Type = IssuerTypeCIProvider
-			cfg.OIDCIssuers[issuer.IssuerURL] = issuer
-		}
-		for _, issuer := range v.MetaIssuers {
-			issuer.CIProvider = k
-			issuer.Type = IssuerTypeCIProvider
-			cfg.MetaIssuers[issuer.IssuerURL] = issuer
-		}
-	}
-	return cfg, err
 }
 
 // Load a config from disk, or use defaults
