@@ -39,6 +39,7 @@ import (
 	"testing"
 	"time"
 
+	"chainguard.dev/sdk/uidp"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -197,6 +198,7 @@ func TestGetConfiguration(t *testing.T) {
 	_, gitHubIssuer := newOIDCIssuer(t)
 	_, gitLabIssuer := newOIDCIssuer(t)
 	_, codefreshIssuer := newOIDCIssuer(t)
+	_, chainguardIssuer := newOIDCIssuer(t)
 
 	issuerDomain, err := url.Parse(usernameIssuer)
 	if err != nil {
@@ -247,6 +249,11 @@ func TestGetConfiguration(t *testing.T) {
 				"IssuerURL": %q,
 				"ClientID": "sigstore",
 				"Type": "codefresh-workflow"
+			},
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "chainguard-identity"
 			}
 		},
 		"MetaIssuers": {
@@ -263,6 +270,7 @@ func TestGetConfiguration(t *testing.T) {
 		gitHubIssuer, gitHubIssuer,
 		gitLabIssuer, gitLabIssuer,
 		codefreshIssuer, codefreshIssuer,
+		chainguardIssuer, chainguardIssuer,
 		k8sIssuer)))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
@@ -283,14 +291,15 @@ func TestGetConfiguration(t *testing.T) {
 		t.Fatal("GetConfiguration failed", err)
 	}
 
-	if len(config.Issuers) != 9 {
-		t.Fatalf("expected 9 issuers, got %v", len(config.Issuers))
+	if got, want := len(config.Issuers), 10; got != want {
+		t.Fatalf("expected %d issuers, got %d", want, got)
 	}
 
 	expectedIssuers := map[string]bool{
 		emailIssuer: true, spiffeIssuer: true, uriIssuer: true,
 		usernameIssuer: true, k8sIssuer: true, gitHubIssuer: true,
 		buildkiteIssuer: true, gitLabIssuer: true, codefreshIssuer: true,
+		chainguardIssuer: true,
 	}
 	for _, iss := range config.Issuers {
 		var issURL string
@@ -1380,6 +1389,130 @@ func TestAPIWithCodefresh(t *testing.T) {
 		14: claims.SCMRef,
 		18: claims.PlatformURL + "/api/pipelines/" + claims.PipelineID,
 		21: claims.PlatformURL + "/build/" + claims.WorkflowID,
+	}
+	for o, value := range expectedExts {
+		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
+		if !found {
+			t.Fatalf("expected extension in custom OID 1.3.6.1.4.1.57264.1.%d", o)
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			t.Fatalf("error unmarshalling extension: :%v", err)
+		}
+		if len(rest) != 0 {
+			t.Fatal("error unmarshalling extension, rest is not 0")
+		}
+		if string(extValue) != value {
+			t.Fatalf("unexpected extension value, expected %s, got %s", value, extValue)
+		}
+	}
+}
+
+// chainguardClaims holds the additional JWT claims for Chainguard OIDC tokens
+type chainguardClaims struct {
+	Actor    map[string]string `json:"act"`
+	Internal struct {
+		ServicePrincipal string `json:"service-principal,omitempty"`
+	} `json:"internal"`
+}
+
+// Tests API for Chainguard subject types
+func TestAPIWithChainguard(t *testing.T) {
+	chainguardSigner, chainguardIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "chainguard-identity"
+			}
+        }
+	}`, chainguardIssuer, chainguardIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	group := uidp.NewUIDP("")
+	chainguardSubject := group.NewChild()
+	claims := chainguardClaims{
+		Actor: map[string]string{
+			"iss": chainguardIssuer,
+			"sub": fmt.Sprintf("catalog-syncer:%s", group.String()),
+			"aud": "chainguard",
+		},
+		Internal: struct {
+			ServicePrincipal string `json:"service-principal,omitempty"`
+		}{
+			ServicePrincipal: "CATALOG_SYNCER",
+		},
+	}
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(chainguardSigner).Claims(jwt.Claims{
+		Issuer:   chainguardIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  chainguardSubject.String(),
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(&claims).Serialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	pubBytes, proof := generateKeyAndProof(chainguardSubject.String(), t)
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pubBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, chainguardIssuer, t)
+
+	// Expect URI values
+	if len(leafCert.URIs) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	chainguardURL := fmt.Sprintf("%s/%s", chainguardIssuer, chainguardSubject)
+	chainguardURI, err := url.Parse(chainguardURL)
+	if err != nil {
+		t.Fatalf("failed to parse expected url")
+	}
+	if *leafCert.URIs[0] != *chainguardURI {
+		t.Fatalf("URIs do not match: Expected %v, got %v", chainguardURI, leafCert.URIs[0])
+	}
+
+	expectedExts := map[int]string{
+		8: chainguardIssuer,
+
+		// TODO(mattmoor): Embed more of the Chainguard token structure via OIDs.
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})

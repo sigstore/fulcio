@@ -279,6 +279,7 @@ const (
 	IssuerTypeGithubWorkflow    = "github-workflow"
 	IssuerTypeCodefreshWorkflow = "codefresh-workflow"
 	IssuerTypeGitLabPipeline    = "gitlab-pipeline"
+	IssuerTypeChainguard        = "chainguard-identity"
 	IssuerTypeKubernetes        = "kubernetes"
 	IssuerTypeSpiffe            = "spiffe"
 	IssuerTypeURI               = "uri"
@@ -516,6 +517,8 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	case IssuerTypeGithubWorkflow:
 		return "sub"
 	case IssuerTypeCodefreshWorkflow:
+		return "sub"
+	case IssuerTypeChainguard:
 		return "sub"
 	case IssuerTypeKubernetes:
 		return "sub"
