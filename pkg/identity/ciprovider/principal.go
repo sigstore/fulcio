@@ -32,11 +32,11 @@ import (
 )
 
 func mapValuesToString(claims map[string]interface{}) map[string]string {
-	stringClaims := make(map[string]string)
+	newMap := make(map[string]string)
 	for k, v := range claims {
-		stringClaims[k] = v.(string)
+		newMap[k] = fmt.Sprintf("%v", v)
 	}
-	return stringClaims
+	return newMap
 }
 
 func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
@@ -110,7 +110,7 @@ func (principal ciPrincipal) Name(_ context.Context) string {
 
 func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
-	e := principal.ClaimsMetadata.ClaimsTemplates
+	claimsTemplates := principal.ClaimsMetadata.ClaimsTemplates
 	defaults := principal.ClaimsMetadata.Defaults
 	claims, err := getTokenClaims(principal.Token)
 	if err != nil {
@@ -126,23 +126,30 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
-	mapExtensionsForTemplate := mapValuesToString(structs.Map(e))
+	mapExtensionsForTemplate := mapValuesToString(structs.Map(claimsTemplates))
 	for k, v := range mapExtensionsForTemplate {
-		mapExtensionsForTemplate[k], err = applyTemplateOrReplace(v, claims, defaults)
-		if err != nil {
-			return err
+		// It avoids to try applying template or replace for a empty string.
+		if v != "" {
+			mapExtensionsForTemplate[k], err = applyTemplateOrReplace(v, claims, defaults)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	ext := &certificate.Extensions{}
+	ext := &certificate.Extensions{
+		Issuer: principal.Token.Issuer,
+	}
 	err = mapstructure.Decode(mapExtensionsForTemplate, &ext)
 	if err != nil {
 		return err
 	}
+	// Guarantees to set the extension issuer as the token issuer
+	// regardless of whether this field has been set before
+	ext.Issuer = principal.Token.Issuer
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = ext.Render()
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

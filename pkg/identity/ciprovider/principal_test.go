@@ -238,7 +238,6 @@ func TestEmbed(t *testing.T) {
 			Principal: ciPrincipal{
 				ClaimsMetadata: config.DefaultTemplateValues{
 					ClaimsTemplates: certificate.Extensions{
-						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
 						GithubWorkflowName:                  "workflow",
@@ -272,7 +271,6 @@ func TestEmbed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var cert x509.Certificate
 			claims, err := json.Marshal(map[string]interface{}{
-				"issuer":                "https://token.actions.githubusercontent.com",
 				"event_name":            "trigger",
 				"sha":                   "sha",
 				"workflow":              "workflowname",
@@ -294,6 +292,7 @@ func TestEmbed(t *testing.T) {
 				t.Fatal(err)
 			}
 			token := &oidc.IDToken{}
+			token.Issuer = "https://token.actions.githubusercontent.com"
 			withClaims(token, claims)
 
 			test.Principal.Token = token
