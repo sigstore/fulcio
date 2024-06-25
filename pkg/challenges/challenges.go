@@ -76,7 +76,7 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 		principal, err = uri.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeUsername:
 		principal, err = username.PrincipalFromIDToken(ctx, tok)
-	case config.IssuerTypeCiProvider:
+	case config.IssuerTypeCIProvider:
 		principal, err = ciprovider.WorkflowPrincipalFromIDToken(ctx, tok)
 	default:
 		return nil, fmt.Errorf("unsupported issuer: %s", iss.Type)

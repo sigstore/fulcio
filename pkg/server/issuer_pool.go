@@ -58,7 +58,7 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:
 		return github.Issuer(issuerURL)
-	case config.IssuerTypeCiProvider:
+	case config.IssuerTypeCIProvider:
 		return ciprovider.Issuer(issuerURL)
 	case config.IssuerTypeGitLabPipeline:
 		return gitlabcom.Issuer(issuerURL)

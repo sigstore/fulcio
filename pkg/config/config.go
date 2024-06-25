@@ -79,12 +79,13 @@ type DefaultTemplateValues struct {
 	// Default key and values that can be used for filling the templates
 	// If a key cannot be found on the token claims, the template will use the defaults
 	Defaults map[string]string
-	// It is the mapper from the id token claims to the Extensions.
+	// It is a Extensions version which the values are template strigs.
 	// It expects strings with templates syntax https://pkg.go.dev/text/template
 	// or raw strings with claims keys to be replaced
-	ClaimsMap certificate.Extensions
+	ClaimsTemplates certificate.Extensions
 	// A alternative name for the issuer subject
-	SubjectAlternativeName string
+	// It's typically the same value as Build Signer URI
+	SubjectAlternativeNameTemplate string
 }
 
 type OIDCIssuer struct {
@@ -307,7 +308,7 @@ const (
 	IssuerTypeSpiffe            = "spiffe"
 	IssuerTypeURI               = "uri"
 	IssuerTypeUsername          = "username"
-	IssuerTypeCiProvider        = "ci-provider"
+	IssuerTypeCIProvider        = "ci-provider"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
@@ -490,12 +491,12 @@ func LoadCiProvidersConfig(cfg *FulcioConfig) (*FulcioConfig, error) {
 		}
 		for _, issuer := range v.OIDCIssuers {
 			issuer.CIProvider = k
-			issuer.Type = IssuerTypeCiProvider
+			issuer.Type = IssuerTypeCIProvider
 			cfg.OIDCIssuers[issuer.IssuerURL] = issuer
 		}
 		for _, issuer := range v.MetaIssuers {
 			issuer.CIProvider = k
-			issuer.Type = IssuerTypeCiProvider
+			issuer.Type = IssuerTypeCIProvider
 			cfg.MetaIssuers[issuer.IssuerURL] = issuer
 		}
 	}
@@ -516,12 +517,7 @@ func Load(configPath string) (*FulcioConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
-	fulcioConfig, err := Read(b)
-	if err != nil {
-		return fulcioConfig, err
-	}
-
-	return fulcioConfig, err
+	return Read(b)
 }
 
 // Read parses the bytes of a config
@@ -591,7 +587,7 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 		return "email"
 	case IssuerTypeGithubWorkflow:
 		return "sub"
-	case IssuerTypeCiProvider:
+	case IssuerTypeCIProvider:
 		return "sub"
 	case IssuerTypeCodefreshWorkflow:
 		return "sub"

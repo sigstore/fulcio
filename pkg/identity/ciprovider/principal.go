@@ -39,6 +39,14 @@ func mapValuesToString(claims map[string]interface{}) map[string]string {
 	return stringClaims
 }
 
+func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
+	var tokenClaims map[string]interface{}
+	if err := token.Claims(&tokenClaims); err != nil {
+		return nil, err
+	}
+	return mapValuesToString(tokenClaims), nil
+}
+
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
 func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, defaultTemplateValues map[string]string) (string, error) {
@@ -78,49 +86,45 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	return claimValue, nil
 }
 
-type Config struct {
-	Token    *oidc.IDToken
-	Metadata config.DefaultTemplateValues
+type ciPrincipal struct {
+	Token          *oidc.IDToken
+	ClaimsMetadata config.DefaultTemplateValues
 }
 
 func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	cfg := config.FromContext(ctx)
-	issuer, ok := cfg.GetIssuer(token.Issuer)
+	issuerCfg, ok := cfg.GetIssuer(token.Issuer)
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
 	}
 
-	return Config{
+	return ciPrincipal{
 		token,
-		cfg.CIIssuerMetadata[issuer.CIProvider],
+		cfg.CIIssuerMetadata[issuerCfg.CIProvider],
 	}, nil
 }
 
-func (p Config) Name(_ context.Context) string {
-	return p.Token.Subject
+func (principal ciPrincipal) Name(_ context.Context) string {
+	return principal.Token.Subject
 }
 
-func (p Config) Embed(_ context.Context, cert *x509.Certificate) error {
+func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
-	e := p.Metadata.ClaimsMap
-	defaults := p.Metadata.Defaults
-
-	var rawClaims map[string]interface{}
-	if err := p.Token.Claims(&rawClaims); err != nil {
-		return err
-	}
-	claims := mapValuesToString(rawClaims)
-
-	subjectAlternativeName, err := applyTemplateOrReplace(p.Metadata.SubjectAlternativeName, claims, defaults)
+	e := principal.ClaimsMetadata.ClaimsTemplates
+	defaults := principal.ClaimsMetadata.Defaults
+	claims, err := getTokenClaims(principal.Token)
 	if err != nil {
 		return err
 	}
-	subjectAlternativeNameURL, err := url.Parse(subjectAlternativeName)
+	subjectAlternativeName, err := applyTemplateOrReplace(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, claims, defaults)
 	if err != nil {
 		return err
 	}
-	uris := []*url.URL{subjectAlternativeNameURL}
-	// Set workflow ref URL to SubjectAlternativeName on certificate
+	sanURL, err := url.Parse(subjectAlternativeName)
+	if err != nil {
+		return err
+	}
+	uris := []*url.URL{sanURL}
 	cert.URIs = uris
 	mapExtensionsForTemplate := mapValuesToString(structs.Map(e))
 	for k, v := range mapExtensionsForTemplate {

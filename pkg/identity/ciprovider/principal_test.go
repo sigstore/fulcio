@@ -33,12 +33,12 @@ import (
 
 func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		ExpectedPrincipal Config
+		ExpectedPrincipal ciPrincipal
 	}{
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
-			ExpectedPrincipal: Config{
-				Metadata: config.DefaultTemplateValues{
-					ClaimsMap: certificate.Extensions{
+			ExpectedPrincipal: ciPrincipal{
+				ClaimsMetadata: config.DefaultTemplateValues{
+					ClaimsTemplates: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
@@ -63,7 +63,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 					Defaults: map[string]string{
 						"url": "https://github.com",
 					},
-					SubjectAlternativeName: "{{.url}}/{{.job_workflow_ref}}",
+					SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",
 				},
 			},
 		},
@@ -102,13 +102,13 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
 						IssuerURL:  token.Issuer,
-						Type:       config.IssuerTypeCiProvider,
+						Type:       config.IssuerTypeCIProvider,
 						CIProvider: "github-workflow",
 						ClientID:   "sigstore",
 					},
 				}
 			meta := make(map[string]config.DefaultTemplateValues)
-			meta["github-workflow"] = test.ExpectedPrincipal.Metadata
+			meta["github-workflow"] = test.ExpectedPrincipal.ClaimsMetadata
 			cfg := &config.FulcioConfig{
 				OIDCIssuers:      OIDCIssuers,
 				CIIssuerMetadata: meta,
@@ -184,7 +184,7 @@ func TestName(t *testing.T) {
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
 						IssuerURL:  token.Issuer,
-						Type:       config.IssuerTypeCiProvider,
+						Type:       config.IssuerTypeCIProvider,
 						CIProvider: "ci-provider",
 						ClientID:   "sigstore",
 					},
@@ -209,7 +209,7 @@ func TestName(t *testing.T) {
 func TestEmbed(t *testing.T) {
 	tests := map[string]struct {
 		WantFacts map[string]func(x509.Certificate) error
-		Principal Config
+		Principal ciPrincipal
 	}{
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
 			WantFacts: map[string]func(x509.Certificate) error{
@@ -235,9 +235,9 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct run invocation ID extension`:            factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "https://github.com/repository/actions/runs/runID/attempts/runAttempt"),
 				`Certificate has correct source repository visibility extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "public"),
 			},
-			Principal: Config{
-				Metadata: config.DefaultTemplateValues{
-					ClaimsMap: certificate.Extensions{
+			Principal: ciPrincipal{
+				ClaimsMetadata: config.DefaultTemplateValues{
+					ClaimsTemplates: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
@@ -262,7 +262,7 @@ func TestEmbed(t *testing.T) {
 					Defaults: map[string]string{
 						"url": "https://github.com",
 					},
-					SubjectAlternativeName: "{{.url}}/{{.job_workflow_ref}}",
+					SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",
 				},
 			},
 		},

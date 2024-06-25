@@ -76,7 +76,7 @@ func TestIssuer(t *testing.T) {
 			map[string]config.OIDCIssuer{
 				token.Issuer: {
 					IssuerURL:  token.Issuer,
-					Type:       config.IssuerTypeCiProvider,
+					Type:       config.IssuerTypeCIProvider,
 					CIProvider: "github-workflow",
 					ClientID:   "sigstore",
 				},
