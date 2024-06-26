@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/fatih/structs"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -128,8 +127,13 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
-	mapExtensionsForTemplate := mapValuesToString(structs.Map(claimsTemplates))
-	for k, v := range mapExtensionsForTemplate {
+	mapExtensionsForTemplate := make(map[string]interface{})
+	err = mapstructure.Decode(claimsTemplates, &mapExtensionsForTemplate)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range mapValuesToString(mapExtensionsForTemplate) {
 		// It avoids to try applying template or replace for a empty string.
 		if v != "" {
 			mapExtensionsForTemplate[k], err = applyTemplateOrReplace(v, claims, defaults)

@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/fatih/structs"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -468,14 +468,18 @@ func CheckParseTemplates(fulcioConfig *FulcioConfig) error {
 	}
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
-		claimsTemplates := structs.Map(ciIssuerMetadata.ClaimsTemplates)
+		claimsTemplates := make(map[string]interface{})
+		err := mapstructure.Decode(ciIssuerMetadata.ClaimsTemplates, &claimsTemplates)
+		if err != nil {
+			return err
+		}
 		for _, temp := range claimsTemplates {
 			err := checkParse(temp)
 			if err != nil {
 				return err
 			}
 		}
-		err := checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
+		err = checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
 		if err != nil {
 			return err
 		}
