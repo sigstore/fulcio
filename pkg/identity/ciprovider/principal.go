@@ -69,6 +69,8 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 		// This option forces to having the claim that is required
 		// for the template
 		t := template.New("").Option("missingkey=error")
+		// It shouldn't raise error since we already checked all
+		// templates in CheckParseTemplates functions in config.go
 		p, err := t.Parse(extValueTemplate)
 		if err != nil {
 			return "", err

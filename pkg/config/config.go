@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/fatih/structs"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -455,6 +457,32 @@ func FromContext(ctx context.Context) *FulcioConfig {
 	return untyped.(*FulcioConfig)
 }
 
+// It checks that the templates defined are parseable
+// We should check it during the service bootstrap to avoid errors further
+func CheckParseTemplates(fulcioConfig *FulcioConfig) error {
+
+	checkParse := func(temp interface{}) error {
+		t := template.New("").Option("missingkey=error")
+		_, err := t.Parse(temp.(string))
+		return err
+	}
+
+	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
+		claimsTemplates := structs.Map(ciIssuerMetadata.ClaimsTemplates)
+		for _, temp := range claimsTemplates {
+			err := checkParse(temp)
+			if err != nil {
+				return err
+			}
+		}
+		err := checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Load a config from disk, or use defaults
 func Load(configPath string) (*FulcioConfig, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -469,7 +497,13 @@ func Load(configPath string) (*FulcioConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
-	return Read(b)
+
+	fulcioConfig, err := Read(b)
+	if err != nil {
+		return fulcioConfig, err
+	}
+	err = CheckParseTemplates(fulcioConfig)
+	return fulcioConfig, err
 }
 
 // Read parses the bytes of a config

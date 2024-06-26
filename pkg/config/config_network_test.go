@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/sigstore/fulcio/pkg/certificate"
 )
 
 func TestLoad(t *testing.T) {
@@ -65,6 +66,47 @@ func TestLoad(t *testing.T) {
 
 	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
 		t.Error("no error returned from an unconfigured issuer")
+	}
+}
+
+func TestParseTemplate(t *testing.T) {
+
+	validTemplate := "{{.foobar}}"
+	invalidTemplate := "{{.foobar}"
+	ciissuerMetadata := make(map[string]DefaultTemplateValues)
+	ciissuerMetadata["github"] = DefaultTemplateValues{
+		ClaimsTemplates: certificate.Extensions{
+			BuildTrigger: invalidTemplate,
+		},
+	}
+	fulcioConfig := &FulcioConfig{
+		CIIssuerMetadata: ciissuerMetadata,
+	}
+	err := CheckParseTemplates(fulcioConfig)
+	if err == nil {
+		t.Error("It should raise an error")
+	}
+	ciissuerMetadata["github"] = DefaultTemplateValues{
+		ClaimsTemplates: certificate.Extensions{
+			BuildTrigger: validTemplate,
+		},
+	}
+	fulcioConfig = &FulcioConfig{
+		CIIssuerMetadata: ciissuerMetadata,
+	}
+	err = CheckParseTemplates(fulcioConfig)
+	if err != nil {
+		t.Error("It shouldn't raise an error")
+	}
+	ciissuerMetadata["github"] = DefaultTemplateValues{
+		SubjectAlternativeNameTemplate: invalidTemplate,
+	}
+	fulcioConfig = &FulcioConfig{
+		CIIssuerMetadata: ciissuerMetadata,
+	}
+	err = CheckParseTemplates(fulcioConfig)
+	if err == nil {
+		t.Error("It should raise an error")
 	}
 }
 
