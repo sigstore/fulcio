@@ -76,13 +76,15 @@ type FulcioConfig struct {
 }
 
 type IssuerMetadata struct {
-	// Default key and values that can be used for filling the templates
+	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults
 	DefaultTemplateValues map[string]string
-	// It is a Extensions version which the values are template strigs.
-	// It expects strings with templates syntax https://pkg.go.dev/text/template
-	// or raw strings with claims keys to be replaced
-	ClaimsTemplates certificate.Extensions
+	// ExtensionTemplates contains a mapping between certificate extension and token claim
+	// Provide either strings following https://pkg.go.dev/text/template syntax,
+	// e.g "{{ .url }}/{{ .repository }}"
+	// or non-templated strings with token claim keys to be replaced,
+	// e.g "job_workflow_sha"
+	ExtensionTemplates certificate.Extensions
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
 	SubjectAlternativeNameTemplate string
@@ -96,7 +98,7 @@ type OIDCIssuer struct {
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	Type IssuerType `json:"Type" yaml:"type,omitempty"`
-	// Issuers CiProvider type
+	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
 	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
@@ -416,7 +418,7 @@ func validateConfig(conf *FulcioConfig) error {
 		}
 	}
 
-	return nil
+	return validateCIIssuerMetadata(conf)
 }
 
 var DefaultConfig = &FulcioConfig{
@@ -459,7 +461,7 @@ func FromContext(ctx context.Context) *FulcioConfig {
 
 // It checks that the templates defined are parseable
 // We should check it during the service bootstrap to avoid errors further
-func CheckParseTemplates(fulcioConfig *FulcioConfig) error {
+func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 
 	checkParse := func(temp interface{}) error {
 		t := template.New("").Option("missingkey=error")
@@ -469,7 +471,7 @@ func CheckParseTemplates(fulcioConfig *FulcioConfig) error {
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
 		claimsTemplates := make(map[string]interface{})
-		err := mapstructure.Decode(ciIssuerMetadata.ClaimsTemplates, &claimsTemplates)
+		err := mapstructure.Decode(ciIssuerMetadata.ExtensionTemplates, &claimsTemplates)
 		if err != nil {
 			return err
 		}
@@ -501,13 +503,7 @@ func Load(configPath string) (*FulcioConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
-
-	fulcioConfig, err := Read(b)
-	if err != nil {
-		return fulcioConfig, err
-	}
-	err = CheckParseTemplates(fulcioConfig)
-	return fulcioConfig, err
+	return Read(b)
 }
 
 // Read parses the bytes of a config

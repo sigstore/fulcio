@@ -75,26 +75,26 @@ func TestParseTemplate(t *testing.T) {
 	invalidTemplate := "{{.foobar}"
 	ciissuerMetadata := make(map[string]IssuerMetadata)
 	ciissuerMetadata["github"] = IssuerMetadata{
-		ClaimsTemplates: certificate.Extensions{
+		ExtensionTemplates: certificate.Extensions{
 			BuildTrigger: invalidTemplate,
 		},
 	}
 	fulcioConfig := &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
-	err := CheckParseTemplates(fulcioConfig)
+	err := validateCIIssuerMetadata(fulcioConfig)
 	if err == nil {
 		t.Error("It should raise an error")
 	}
 	ciissuerMetadata["github"] = IssuerMetadata{
-		ClaimsTemplates: certificate.Extensions{
+		ExtensionTemplates: certificate.Extensions{
 			BuildTrigger: validTemplate,
 		},
 	}
 	fulcioConfig = &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
-	err = CheckParseTemplates(fulcioConfig)
+	err = validateCIIssuerMetadata(fulcioConfig)
 	if err != nil {
 		t.Error("It shouldn't raise an error")
 	}
@@ -104,7 +104,7 @@ func TestParseTemplate(t *testing.T) {
 	fulcioConfig = &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
-	err = CheckParseTemplates(fulcioConfig)
+	err = validateCIIssuerMetadata(fulcioConfig)
 	if err == nil {
 		t.Error("It should raise an error")
 	}

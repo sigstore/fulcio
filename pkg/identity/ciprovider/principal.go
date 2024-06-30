@@ -69,7 +69,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 		// for the template
 		t := template.New("").Option("missingkey=error")
 		// It shouldn't raise error since we already checked all
-		// templates in CheckParseTemplates functions in config.go
+		// templates in validateCIIssuerMetadata functions in config.go
 		p, err := t.Parse(extValueTemplate)
 		if err != nil {
 			return "", err
@@ -111,7 +111,7 @@ func (principal ciPrincipal) Name(_ context.Context) string {
 
 func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
-	claimsTemplates := principal.ClaimsMetadata.ClaimsTemplates
+	claimsTemplates := principal.ClaimsMetadata.ExtensionTemplates
 	defaults := principal.ClaimsMetadata.DefaultTemplateValues
 	claims, err := getTokenClaims(principal.Token)
 	if err != nil {

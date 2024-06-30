@@ -38,7 +38,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
 			ExpectedPrincipal: ciPrincipal{
 				ClaimsMetadata: config.IssuerMetadata{
-					ClaimsTemplates: certificate.Extensions{
+					ExtensionTemplates: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
@@ -237,7 +237,7 @@ func TestEmbed(t *testing.T) {
 			},
 			Principal: ciPrincipal{
 				ClaimsMetadata: config.IssuerMetadata{
-					ClaimsTemplates: certificate.Extensions{
+					ExtensionTemplates: certificate.Extensions{
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
 						GithubWorkflowName:                  "workflow",
