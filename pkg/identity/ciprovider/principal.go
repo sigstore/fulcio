@@ -48,7 +48,7 @@ func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
 
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
-func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, defaultTemplateValues map[string]string) (string, error) {
+func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, issuerMetadata map[string]string) (string, error) {
 
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
@@ -59,7 +59,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	for k, v := range tokenClaims {
 		mergedData[k] = v
 	}
-	for k, v := range defaultTemplateValues {
+	for k, v := range issuerMetadata {
 		mergedData[k] = v
 	}
 
@@ -89,7 +89,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 
 type ciPrincipal struct {
 	Token          *oidc.IDToken
-	ClaimsMetadata config.DefaultTemplateValues
+	ClaimsMetadata config.IssuerMetadata
 }
 
 func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
@@ -112,7 +112,7 @@ func (principal ciPrincipal) Name(_ context.Context) string {
 func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	claimsTemplates := principal.ClaimsMetadata.ClaimsTemplates
-	defaults := principal.ClaimsMetadata.Defaults
+	defaults := principal.ClaimsMetadata.DefaultTemplateValues
 	claims, err := getTokenClaims(principal.Token)
 	if err != nil {
 		return err

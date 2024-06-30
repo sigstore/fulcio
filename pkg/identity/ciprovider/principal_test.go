@@ -37,7 +37,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 	}{
 		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
 			ExpectedPrincipal: ciPrincipal{
-				ClaimsMetadata: config.DefaultTemplateValues{
+				ClaimsMetadata: config.IssuerMetadata{
 					ClaimsTemplates: certificate.Extensions{
 						Issuer:                              "issuer",
 						GithubWorkflowTrigger:               "event_name",
@@ -60,7 +60,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 						RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 						SourceRepositoryVisibilityAtSigning: "repository_visibility",
 					},
-					Defaults: map[string]string{
+					DefaultTemplateValues: map[string]string{
 						"url": "https://github.com",
 					},
 					SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",
@@ -107,7 +107,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 						ClientID:   "sigstore",
 					},
 				}
-			meta := make(map[string]config.DefaultTemplateValues)
+			meta := make(map[string]config.IssuerMetadata)
 			meta["github-workflow"] = test.ExpectedPrincipal.ClaimsMetadata
 			cfg := &config.FulcioConfig{
 				OIDCIssuers:      OIDCIssuers,
@@ -236,7 +236,7 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct source repository visibility extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "public"),
 			},
 			Principal: ciPrincipal{
-				ClaimsMetadata: config.DefaultTemplateValues{
+				ClaimsMetadata: config.IssuerMetadata{
 					ClaimsTemplates: certificate.Extensions{
 						GithubWorkflowTrigger:               "event_name",
 						GithubWorkflowSHA:                   "sha",
@@ -258,7 +258,7 @@ func TestEmbed(t *testing.T) {
 						RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 						SourceRepositoryVisibilityAtSigning: "repository_visibility",
 					},
-					Defaults: map[string]string{
+					DefaultTemplateValues: map[string]string{
 						"url": "https://github.com",
 					},
 					SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",

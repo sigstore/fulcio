@@ -67,7 +67,7 @@ type FulcioConfig struct {
 	// The CI provider has a generic logic for ci providers, this metadata is used
 	// to define the right behavior for each ci provider that is defined
 	// on the configuration file
-	CIIssuerMetadata map[string]DefaultTemplateValues
+	CIIssuerMetadata map[string]IssuerMetadata
 
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
@@ -75,10 +75,10 @@ type FulcioConfig struct {
 	lru *lru.TwoQueueCache
 }
 
-type DefaultTemplateValues struct {
+type IssuerMetadata struct {
 	// Default key and values that can be used for filling the templates
 	// If a key cannot be found on the token claims, the template will use the defaults
-	Defaults map[string]string
+	DefaultTemplateValues map[string]string
 	// It is a Extensions version which the values are template strigs.
 	// It expects strings with templates syntax https://pkg.go.dev/text/template
 	// or raw strings with claims keys to be replaced
