@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/mitchellh/mapstructure"
-	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
@@ -127,33 +126,24 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
-	mapExtensionsForTemplate := make(map[string]interface{})
-	err = mapstructure.Decode(claimsTemplates, &mapExtensionsForTemplate)
-	if err != nil {
-		return err
+	v := reflect.Indirect(reflect.ValueOf(&claimsTemplates))
+	for i := 0; i < v.NumField(); i++ {
+		s := v.Field(i).String() // value of each field, e.g the template string
+		if s == "" {
+			continue
+		}
+		extValue, err := applyTemplateOrReplace(s, claims, defaults)
+		if err != nil {
+			return err
+		}
+		v.Field(i).SetString(extValue)
 	}
 
-	for k, v := range mapValuesToString(mapExtensionsForTemplate) {
-		// It avoids to try applying template or replace for a empty string.
-		if v != "" {
-			mapExtensionsForTemplate[k], err = applyTemplateOrReplace(v, claims, defaults)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	ext := &certificate.Extensions{
-		Issuer: principal.Token.Issuer,
-	}
-	err = mapstructure.Decode(mapExtensionsForTemplate, &ext)
-	if err != nil {
-		return err
-	}
 	// Guarantees to set the extension issuer as the token issuer
 	// regardless of whether this field has been set before
-	ext.Issuer = principal.Token.Issuer
+	claimsTemplates.Issuer = principal.Token.Issuer
 	// Embed additional information into custom extensions
-	cert.ExtraExtensions, err = ext.Render()
+	cert.ExtraExtensions, err = claimsTemplates.Render()
 	if err != nil {
 		return err
 	}

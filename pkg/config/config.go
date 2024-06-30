@@ -32,7 +32,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/mitchellh/mapstructure"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -470,18 +469,16 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 	}
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
-		claimsTemplates := make(map[string]interface{})
-		err := mapstructure.Decode(ciIssuerMetadata.ExtensionTemplates, &claimsTemplates)
-		if err != nil {
-			return err
-		}
-		for _, temp := range claimsTemplates {
-			err := checkParse(temp)
+		v := reflect.Indirect(reflect.ValueOf(&ciIssuerMetadata.ExtensionTemplates))
+		for i := 0; i < v.NumField(); i++ {
+			s := v.Field(i).String()
+			err := checkParse(s)
 			if err != nil {
 				return err
 			}
 		}
-		err = checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
+
+		err := checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
 		if err != nil {
 			return err
 		}
