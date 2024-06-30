@@ -83,7 +83,7 @@ type IssuerMetadata struct {
 	// It expects strings with templates syntax https://pkg.go.dev/text/template
 	// or raw strings with claims keys to be replaced
 	ClaimsTemplates certificate.Extensions
-	// A alternative name for the issuer subject
+	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
 	SubjectAlternativeNameTemplate string
 }
