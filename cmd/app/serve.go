@@ -18,6 +18,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"flag"
@@ -108,6 +109,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-tls-certificate", "", "the certificate file to use for secure connections - only applies to grpc-port")
 	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
 	cmd.Flags().Duration("idle-connection-timeout", 30*time.Second, "The time allowed for connections (HTTP or gRPC) to go idle before being closed by the server")
+	cmd.Flags().String("tls-ca-cert", "", "Path to TLS CA certificate")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -273,7 +275,33 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 			}
 			opts.PublicKey = string(pemPubKey)
 		}
-		ctClient, err = ctclient.New(logURL, &http.Client{Timeout: 30 * time.Second}, opts)
+		var httpClient *http.Client
+		if tlsCaCertPath := viper.GetString("tls-ca-cert"); tlsCaCertPath != "" {
+			tlsCaCert, err := os.ReadFile(filepath.Clean(tlsCaCertPath))
+			if err != nil {
+				log.Logger.Fatal(err)
+			}
+			caCertPool := x509.NewCertPool()
+			if ok := caCertPool.AppendCertsFromPEM(tlsCaCert); !ok {
+				log.Logger.Fatal("failed to append TLS CA certificate")
+			}
+			tlsConfig := &tls.Config{
+				RootCAs:    caCertPool,
+				MinVersion: tls.VersionTLS12,
+			}
+			transport := &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}
+			httpClient = &http.Client{
+				Timeout:   30 * time.Second,
+				Transport: transport,
+			}
+		} else {
+			httpClient = &http.Client{
+				Timeout: 30 * time.Second,
+			}
+		}
+		ctClient, err = ctclient.New(logURL, httpClient, opts)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
