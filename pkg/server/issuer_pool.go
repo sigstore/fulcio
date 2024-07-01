@@ -19,6 +19,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/identity/buildkite"
 	"github.com/sigstore/fulcio/pkg/identity/chainguard"
+	"github.com/sigstore/fulcio/pkg/identity/ciprovider"
 	"github.com/sigstore/fulcio/pkg/identity/codefresh"
 	"github.com/sigstore/fulcio/pkg/identity/email"
 	"github.com/sigstore/fulcio/pkg/identity/github"
@@ -57,6 +58,8 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:
 		return github.Issuer(issuerURL)
+	case config.IssuerTypeCIProvider:
+		return ciprovider.Issuer(issuerURL)
 	case config.IssuerTypeGitLabPipeline:
 		return gitlabcom.Issuer(issuerURL)
 	case config.IssuerTypeBuildkiteJob:

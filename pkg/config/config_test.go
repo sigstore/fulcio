@@ -492,6 +492,9 @@ func Test_issuerToChallengeClaim(t *testing.T) {
 	if claim := issuerToChallengeClaim(IssuerTypeGithubWorkflow, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for GitHub issuer, got %s", claim)
 	}
+	if claim := issuerToChallengeClaim(IssuerTypeCIProvider, ""); claim != "sub" {
+		t.Fatalf("expected sub subject claim for CI issuer, got %s", claim)
+	}
 	if claim := issuerToChallengeClaim(IssuerTypeGitLabPipeline, ""); claim != "sub" {
 		t.Fatalf("expected sub subject claim for GitLab issuer, got %s", claim)
 	}
