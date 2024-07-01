@@ -462,9 +462,9 @@ func FromContext(ctx context.Context) *FulcioConfig {
 // We should check it during the service bootstrap to avoid errors further
 func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 
-	checkParse := func(temp interface{}) error {
+	checkParse := func(temp string) error {
 		t := template.New("").Option("missingkey=error")
-		_, err := t.Parse(temp.(string))
+		_, err := t.Parse(temp)
 		return err
 	}
 

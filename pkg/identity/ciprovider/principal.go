@@ -97,7 +97,6 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
 	}
-
 	return ciPrincipal{
 		token,
 		cfg.CIIssuerMetadata[issuerCfg.CIProvider],
@@ -127,9 +126,10 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
 	v := reflect.Indirect(reflect.ValueOf(&claimsTemplates))
+	vType := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		s := v.Field(i).String() // value of each field, e.g the template string
-		if s == "" {
+		if s == "" || vType.Field(i).Name == "Issuer" {
 			continue
 		}
 		extValue, err := applyTemplateOrReplace(s, claims, defaults)
