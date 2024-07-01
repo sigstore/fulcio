@@ -32,7 +32,7 @@ import (
 func mapValuesToString(claims map[string]interface{}) map[string]string {
 	newMap := make(map[string]string)
 	for k, v := range claims {
-		newMap[k] = fmt.Sprintf("%v", v)
+		newMap[k] = fmt.Sprintf("%s", v)
 	}
 	return newMap
 }
