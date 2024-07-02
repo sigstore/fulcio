@@ -66,7 +66,7 @@ type FulcioConfig struct {
 	// The CI provider has a generic logic for ci providers, this metadata is used
 	// to define the right behavior for each ci provider that is defined
 	// on the configuration file
-	CIIssuerMetadata map[string]IssuerMetadata
+	CIIssuerMetadata map[string]IssuerMetadata `json:"CIIssuerMetadata,omitempty" yaml:"ci-issuer-metadata,omitempty"`
 
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
