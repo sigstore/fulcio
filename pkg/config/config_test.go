@@ -28,22 +28,16 @@ import (
 )
 
 var validCfg = `
-{
-	"OIDCIssuers": {
-		"https://accounts.google.com": {
-			"IssuerURL": "https://accounts.google.com",
-			"ClientID": "foo",
-			"Type": "email",
-			"ChallengeClaim": "email"
-		}
-	},
-	"MetaIssuers": {
-		"https://oidc.eks.*.amazonaws.com/id/*": {
-			"ClientID": "bar",
-			"Type": "kubernetes"
-		}
-	}
-}
+oidc-issuers:
+  https://accounts.google.com:
+    issuer-url: https://accounts.google.com
+    client-id: foo
+    type: email
+    challenge-claim: email
+meta-issuers:
+  https://oidc.eks.*.amazonaws.com/id/*:
+    client-id: bar
+    type: kubernetes
 `
 
 func TestMetaURLs(t *testing.T) {

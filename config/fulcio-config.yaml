@@ -14,100 +14,104 @@
 # limitations under the License.
 apiVersion: v1
 data:
-    config.json: |-
-        {
-          "OIDCIssuers": {
-            "https://accounts.google.com": {
-              "IssuerURL": "https://accounts.google.com",
-              "ClientID": "sigstore",
-              "Type": "email"
-            },
-            "https://agent.buildkite.com": {
-              "IssuerURL": "https://agent.buildkite.com",
-              "ClientID": "sigstore",
-              "Type": "buildkite-job"
-            },
-            "https://allow.pub": {
-              "IssuerURL": "https://allow.pub",
-              "ClientID": "sigstore",
-              "Type": "spiffe",
-              "SPIFFETrustDomain": "allow.pub"
-            },
-            "https://auth-staging.eclipse.org/realms/sigstore": {
-              "IssuerURL": "https://auth-staging.eclipse.org/realms/sigstore",
-              "ClientID": "sigstore",
-              "Type": "email"
-            },
-            "https://auth.eclipse.org/auth/realms/sigstore": {
-              "IssuerURL": "https://auth.eclipse.org/auth/realms/sigstore",
-              "ClientID": "sigstore",
-              "Type": "email"
-            },
-            "https://dev.gitlab.org": {
-              "IssuerURL": "https://dev.gitlab.org",
-              "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
-            },
-            "https://gitlab.archlinux.org": {
-              "IssuerURL": "https://gitlab.archlinux.org",
-              "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
-            },
-            "https://gitlab.com": {
-              "IssuerURL": "https://gitlab.com",
-              "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
-            },
-            "https://issuer.enforce.dev": {
-              "IssuerURL": "https://issuer.enforce.dev",
-              "ClientID": "sigstore",
-              "Type": "chainguard-identity"
-            },
-            "https://oauth2.sigstore.dev/auth": {
-              "IssuerURL": "https://oauth2.sigstore.dev/auth",
-              "ClientID": "sigstore",
-              "Type": "email",
-              "IssuerClaim": "$.federated_claims.connector_id"
-            },
-            "https://oidc.codefresh.io": {
-              "IssuerURL": "https://oidc.codefresh.io",
-              "ClientID": "sigstore",
-              "Type": "codefresh-workflow"
-            },
-            "https://ops.gitlab.net": {
-              "IssuerURL": "https://ops.gitlab.net",
-              "ClientID": "sigstore",
-              "Type": "gitlab-pipeline"
-            },
-            "https://token.actions.githubusercontent.com": {
-              "IssuerURL": "https://token.actions.githubusercontent.com",
-              "ClientID": "sigstore",
-              "Type": "github-workflow"
-            }
-          },
-          "MetaIssuers": {
-            "https://*.oic.prod-aks.azure.com/*": {
-              "ClientID": "sigstore",
-              "Type": "kubernetes"
-            },
-            "https://container.googleapis.com/v1/projects/*/locations/*/clusters/*": {
-              "ClientID": "sigstore",
-              "Type": "kubernetes"
-            },
-            "https://oidc.eks.*.amazonaws.com/id/*": {
-              "ClientID": "sigstore",
-              "Type": "kubernetes"
-            },
-            "https://oidc.prod-aks.azure.com/*": {
-              "ClientID": "sigstore",
-              "Type": "kubernetes"
-            },
-            "https://token.actions.githubusercontent.com/*": {
-              "ClientID": "sigstore",
-              "Type": "github-workflow"
-            }
-          }
-        }
+    config.yaml: |-
+        oidc-issuers:
+            https://accounts.google.com:
+                issuer-url: https://accounts.google.com
+                client-id: sigstore
+                type: email
+                contact: tac@sigstore.dev 
+                description: "Google OIDC auth"
+            https://agent.buildkite.com:
+                issuer-url: https://agent.buildkite.com
+                client-id: sigstore
+                type: buildkite-job
+                contact: support@buildkite.com
+                description: "Buildkite Agent OIDC tokens for job identity"
+            https://allow.pub:
+                issuer-url: https://allow.pub
+                client-id: sigstore
+                type: spiffe
+                spiffe-trust-domain: allow.pub
+                contact: evan@phx.io
+                description: "Server side signing support for the OCI registry vcr.pub"
+            https://auth-staging.eclipse.org/realms/sigstore:
+                issuer-url: https://auth-staging.eclipse.org/realms/sigstore
+                client-id: sigstore
+                type: email
+                contact: security@eclipse-foundation.org
+                description: "Eclipse Foundation Staging OIDC provider"
+            https://auth.eclipse.org/auth/realms/sigstore:
+                issuer-url: https://auth.eclipse.org/auth/realms/sigstore
+                client-id: sigstore
+                type: email
+                contact: security@eclipse-foundation.org
+                description: "Eclipse Foundation Production OIDC provider"
+            https://dev.gitlab.org:
+                issuer-url: https://dev.gitlab.org
+                client-id: sigstore
+                type: gitlab-pipeline
+                contact: distribution-be@gitlab.com
+                description: "GitLab OIDC tokens for job identity"
+            https://gitlab.archlinux.org:
+                issuer-url: https://gitlab.archlinux.org
+                client-id: sigstore
+                type: gitlab-pipeline
+                contact: sigstore@archlinux.org
+                description: "GitLab OIDC tokens for job identity"
+            https://gitlab.com:
+                issuer-url: https://gitlab.com
+                client-id: sigstore
+                type: gitlab-pipeline
+                contact: support@gitlab.com
+                description: "GitLab OIDC tokens for job identity"
+            https://issuer.enforce.dev:
+                issuer-url: https://issuer.enforce.dev
+                client-id: sigstore
+                type: chainguard-identity
+                contact: mattmoor@chainguard.dev
+                description: "Chainguard identity tokens"
+            https://oauth2.sigstore.dev/auth:
+                issuer-url: https://oauth2.sigstore.dev/auth
+                client-id: sigstore
+                type: email
+                issuer-claim: $.federated_claims.connector_id
+                contact: tac@sigstore.dev
+                description: "dex address for fulcio"
+            https://oidc.codefresh.io:
+                issuer-url: https://oidc.codefresh.io
+                client-id: sigstore
+                type: codefresh-workflow
+                contact: support@codefresh.io
+                description: "Codefresh OIDC tokens for job identity"
+            https://ops.gitlab.net:
+                issuer-url: https://ops.gitlab.net
+                client-id: sigstore
+                type: gitlab-pipeline
+                contact: distribution-be@gitlab.com
+                description: "GitLab OIDC tokens for job identity"
+            https://token.actions.githubusercontent.com:
+                issuer-url: https://token.actions.githubusercontent.com
+                client-id: sigstore
+                type: github-workflow
+                contact: tac@sigstore.dev
+                description: "GitHub Actions OIDC auth"
+        meta-issuers:
+            https://*.oic.prod-aks.azure.com/*:
+                client-id: sigstore
+                type: kubernetes
+            https://container.googleapis.com/v1/projects/*/locations/*/clusters/*:
+                client-id: sigstore
+                type: kubernetes
+            https://oidc.eks.*.amazonaws.com/id/*:
+                client-id: sigstore
+                type: kubernetes
+            https://oidc.prod-aks.azure.com/*:
+                client-id: sigstore
+                type: kubernetes
+            https://token.actions.githubusercontent.com/*:
+                client-id: sigstore
+                type: github-workflow
     server.yaml: |-
         host: 0.0.0.0
         port: 5555
