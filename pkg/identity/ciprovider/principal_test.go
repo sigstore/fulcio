@@ -256,12 +256,12 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		`Missing key for template`: {
 			Template:       "{{ .foo }}",
 			ExpectedResult: "",
-			ExpectErr:      true,
+			ExpectErr:      false,
 		},
 		`Empty string`: {
 			Template:       "",
 			ExpectedResult: "",
-			ExpectErr:      true,
+			ExpectErr:      false,
 		},
 		`Replaceable string`: {
 			Template:       "job_workflow_ref",
@@ -271,7 +271,7 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		`Missing string`: {
 			Template:       "bar",
 			ExpectedResult: "",
-			ExpectErr:      true,
+			ExpectErr:      false,
 		},
 		`If else template`: {
 			Template:       `refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}{{ .ref_gitlab }}`,

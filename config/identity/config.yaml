@@ -15,6 +15,8 @@
 define:
   - &github-type "github-workflow"
   - &gitlab-type "gitlab-pipeline"
+  - &codefresh-type "codefresh-workflow"
+  - &buildkite-type "buildkite-job"
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -25,7 +27,8 @@ oidc-issuers:
   https://agent.buildkite.com:
     issuer-url: https://agent.buildkite.com
     client-id: sigstore
-    type: buildkite-job
+    type: ci-provider
+    ci-provider: *buildkite-type
     contact: support@buildkite.com
     description: "Buildkite Agent OIDC tokens for job identity"
   https://allow.pub:
@@ -84,7 +87,8 @@ oidc-issuers:
   https://oidc.codefresh.io:
     issuer-url: https://oidc.codefresh.io
     client-id: sigstore
-    type: codefresh-workflow
+    type: ci-provider
+    ci-provider: *codefresh-type
     contact: support@codefresh.io
     description: "Codefresh OIDC tokens for job identity"
   https://ops.gitlab.net:
@@ -162,3 +166,18 @@ ci-issuer-metadata:
         run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
         source-repository-visibility-at-signing: "repository_visibility"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
+  *codefresh-type:
+    default-template-values:
+        url: "https://g.codefresh.io"
+    extension-templates:
+        build-signer-uri: "{{if .platform_url}}{{.platform_ur}}{{ else }}{{.url}}{{end}}/build/{{ .workflow_id }}"
+        runner-environment: "runner_environment"
+        source-repository-uri: "scm_repo_url"
+        source-repository-ref: "scm_ref"
+        build-config-uri: "{{if .platform_url}}{{.platform_ur}}{{ else }}{{.url}}{{end}}/api/pipelines/{{ .pipeline_id }}"
+        run-invocation-uri: "{{if .platform_url}}{{.platform_ur}}{{ else }}{{.url}}{{end}}/build/{{ .workflow_id }}"
+    subject-alternative-name-template: "{{if .platform_url}}{{.platform_ur}}{{ else }}{{.url}}{{end}}/{{.account_name}}/{{.pipeline_name}}:{{.account_id}}/{{.pipeline_id}}"
+  *buildkite-type:
+    default-template-values:
+        url: "https://buildkite.com"
+    subject-alternative-name-template: "{{.url}}/{{.organization_slug}}/{{.pipeline_slug}}"

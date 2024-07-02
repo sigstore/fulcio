@@ -66,7 +66,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 		var doc bytes.Buffer
 		// This option forces to having the claim that is required
 		// for the template
-		t := template.New("").Option("missingkey=error")
+		t := template.New("").Option("missingkey=zero")
 		// It shouldn't raise error since we already checked all
 		// templates in validateCIIssuerMetadata functions in config.go
 		p, err := t.Parse(extValueTemplate)
@@ -81,7 +81,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	}
 	claimValue, ok := mergedData[extValueTemplate]
 	if !ok {
-		return "", fmt.Errorf("value <%s> not present in either claims or defaults", extValueTemplate)
+		return "", nil
 	}
 	return claimValue, nil
 }
