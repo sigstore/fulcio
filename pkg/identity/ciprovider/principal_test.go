@@ -206,6 +206,62 @@ func TestName(t *testing.T) {
 	}
 }
 
+func TestApplyTemplateOrReplace(t *testing.T) {
+
+	tokenClaims := map[string]string{
+		"aud":                   "sigstore",
+		"event_name":            "push",
+		"exp":                   "0",
+		"iss":                   "https://token.actions.githubusercontent.com",
+		"job_workflow_ref":      "sigstore/fulcio/.github/workflows/foo.yaml@refs/heads/main",
+		"job_workflow_sha":      "example-sha",
+		"ref":                   "refs/heads/main",
+		"repository":            "sigstore/fulcio",
+		"repository_id":         "12345",
+		"repository_owner":      "username",
+		"repository_owner_id":   "345",
+		"repository_visibility": "public",
+		"run_attempt":           "1",
+		"run_id":                "42",
+		"runner_environment":    "cloud-hosted",
+		"sha":                   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"sub":                   "repo:sigstore/fulcio:ref:refs/heads/main",
+		"workflow":              "foo",
+		"workflow_ref":          "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
+		"workflow_sha":          "example-sha-other",
+	}
+	issuerMetadata := map[string]string{
+		"url": "https://github.com",
+	}
+
+	tests := map[string]struct {
+		Template       string
+		ExpectedResult string
+		ExpectErr      bool
+	}{
+		`Valid template`: {
+			Template:       "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
+			ExpectedResult: "https://github.com/sigstore/fulcio/actions/runs/42/attempts/1",
+			ExpectErr:      false,
+		},
+		// Add more tests for edge cases
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata)
+			if res != test.ExpectedResult {
+				t.Errorf("expected result don't matches: Expected %s, received: %s",
+					test.ExpectedResult, res)
+			}
+			if (err == nil) == test.ExpectErr {
+				t.Errorf("should raise an error don't matches: Expected %v, received: %v",
+					test.ExpectErr, err)
+			}
+		})
+	}
+}
+
 func TestEmbed(t *testing.T) {
 	tests := map[string]struct {
 		WantFacts map[string]func(x509.Certificate) error

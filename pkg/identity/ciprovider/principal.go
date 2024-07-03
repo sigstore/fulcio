@@ -126,9 +126,13 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
 	v := reflect.Indirect(reflect.ValueOf(&claimsTemplates))
+	// Type of the reflect value is needed as it is necessary
+	// for getting the field name.
 	vType := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		s := v.Field(i).String() // value of each field, e.g the template string
+		// We check the field name to avoid to apply the template for the Issuer
+		// Issuer field should always come from the token issuer
 		if s == "" || vType.Field(i).Name == "Issuer" {
 			continue
 		}
