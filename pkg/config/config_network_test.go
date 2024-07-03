@@ -82,9 +82,10 @@ func TestParseTemplate(t *testing.T) {
 	fulcioConfig := &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
+	// BuildTrigger as a invalid template should raise an error
 	err := validateCIIssuerMetadata(fulcioConfig)
 	if err == nil {
-		t.Error("It should raise an error")
+		t.Error("invalid template should raise an error")
 	}
 	ciissuerMetadata["github"] = IssuerMetadata{
 		ExtensionTemplates: certificate.Extensions{
@@ -94,9 +95,10 @@ func TestParseTemplate(t *testing.T) {
 	fulcioConfig = &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
+	// BuildTrigger as a valid template shouldn't raise an error
 	err = validateCIIssuerMetadata(fulcioConfig)
 	if err != nil {
-		t.Error("It shouldn't raise an error")
+		t.Error("valid template shouldn't raise an error, error: %w", err)
 	}
 	ciissuerMetadata["github"] = IssuerMetadata{
 		SubjectAlternativeNameTemplate: invalidTemplate,
@@ -104,9 +106,21 @@ func TestParseTemplate(t *testing.T) {
 	fulcioConfig = &FulcioConfig{
 		CIIssuerMetadata: ciissuerMetadata,
 	}
+	// A SAN as a invalid template should raise an error
 	err = validateCIIssuerMetadata(fulcioConfig)
 	if err == nil {
-		t.Error("It should raise an error")
+		t.Error("invalid SAN should raise an error")
+	}
+	ciissuerMetadata["github"] = IssuerMetadata{
+		SubjectAlternativeNameTemplate: invalidTemplate,
+	}
+	fulcioConfig = &FulcioConfig{
+		CIIssuerMetadata: ciissuerMetadata,
+	}
+	// A SAN as a valid template should raise an error
+	err = validateCIIssuerMetadata(fulcioConfig)
+	if err == nil {
+		t.Error("valid SAN shouldn't raise an error")
 	}
 }
 

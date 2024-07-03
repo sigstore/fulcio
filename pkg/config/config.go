@@ -469,7 +469,7 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 	}
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
-		v := reflect.Indirect(reflect.ValueOf(&ciIssuerMetadata.ExtensionTemplates))
+		v := reflect.ValueOf(ciIssuerMetadata.ExtensionTemplates)
 		for i := 0; i < v.NumField(); i++ {
 			s := v.Field(i).String()
 			err := checkParse(s)
