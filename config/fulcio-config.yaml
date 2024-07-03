@@ -106,8 +106,7 @@ data:
               "ClientID": "sigstore",
               "Type": "github-workflow"
             }
-          },
-          "CIIssuerMetadata": null
+          }
         }
     server.yaml: |-
         host: 0.0.0.0
