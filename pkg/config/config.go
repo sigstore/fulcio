@@ -77,16 +77,16 @@ type FulcioConfig struct {
 type IssuerMetadata struct {
 	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults
-	DefaultTemplateValues map[string]string
+	DefaultTemplateValues map[string]string `json:"DefaultTemplateValues,omitempty" yaml:"default-template-values,omitempty"`
 	// ExtensionTemplates contains a mapping between certificate extension and token claim
 	// Provide either strings following https://pkg.go.dev/text/template syntax,
 	// e.g "{{ .url }}/{{ .repository }}"
 	// or non-templated strings with token claim keys to be replaced,
 	// e.g "job_workflow_sha"
-	ExtensionTemplates certificate.Extensions
+	ExtensionTemplates certificate.Extensions `json:"ExtensionTemplates,omitempty" yaml:"extension-templates,omitempty"`
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
-	SubjectAlternativeNameTemplate string
+	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
 }
 
 type OIDCIssuer struct {

@@ -244,7 +244,31 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 			ExpectedResult: "https://github.com/sigstore/fulcio/actions/runs/42/attempts/1",
 			ExpectErr:      false,
 		},
-		// Add more tests for edge cases
+		`Empty template`: {
+			Template:       "{{}}",
+			ExpectedResult: "",
+			ExpectErr:      true,
+		},
+		`Missing key for template`: {
+			Template:       "{{ .foo }}",
+			ExpectedResult: "",
+			ExpectErr:      true,
+		},
+		`Empty string`: {
+			Template:       "",
+			ExpectedResult: "",
+			ExpectErr:      true,
+		},
+		`Replaceable string`: {
+			Template:       "job_workflow_ref",
+			ExpectedResult: "sigstore/fulcio/.github/workflows/foo.yaml@refs/heads/main",
+			ExpectErr:      false,
+		},
+		`Missing string`: {
+			Template:       "bar",
+			ExpectedResult: "",
+			ExpectErr:      true,
+		},
 	}
 
 	for name, test := range tests {
@@ -254,9 +278,9 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 				t.Errorf("expected result don't matches: Expected %s, received: %s",
 					test.ExpectedResult, res)
 			}
-			if (err == nil) == test.ExpectErr {
+			if (err != nil) != test.ExpectErr {
 				t.Errorf("should raise an error don't matches: Expected %v, received: %v",
-					test.ExpectErr, err)
+					test.ExpectErr, err != nil)
 			}
 		})
 	}
