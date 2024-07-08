@@ -125,7 +125,9 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
-	v := reflect.Indirect(reflect.ValueOf(&claimsTemplates))
+	// We should use value.Elem() here as we need a
+	// addressable reference of the templates for applying the SetString().
+	v := reflect.ValueOf(&claimsTemplates).Elem()
 	// Type of the reflect value is needed as it is necessary
 	// for getting the field name.
 	vType := v.Type()
