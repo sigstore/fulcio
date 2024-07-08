@@ -91,5 +91,4 @@ jobs:
       - name: check-config
         run: |
           set -e
-          go run federation/main.go
-          git diff --exit-code
+          go test -timeout 30s -run ^TestLoadFulcioConfig$ github.com/sigstore/fulcio/pkg/config
