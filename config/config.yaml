@@ -1,0 +1,97 @@
+oidc-issuers:
+    https://accounts.google.com:
+        issuer-url: https://accounts.google.com
+        client-id: sigstore
+        type: email
+        contact: tac@sigstore.dev 
+        description: "Google OIDC auth"
+    https://agent.buildkite.com:
+        issuer-url: https://agent.buildkite.com
+        client-id: sigstore
+        type: buildkite-job
+        contact: support@buildkite.com
+        description: "Buildkite Agent OIDC tokens for job identity"
+    https://allow.pub:
+        issuer-url: https://allow.pub
+        client-id: sigstore
+        type: spiffe
+        spiffe-trust-domain: allow.pub
+        contact: evan@phx.io
+        description: "Server side signing support for the OCI registry vcr.pub"
+    https://auth-staging.eclipse.org/realms/sigstore:
+        issuer-url: https://auth-staging.eclipse.org/realms/sigstore
+        client-id: sigstore
+        type: email
+        contact: security@eclipse-foundation.org
+        description: "Eclipse Foundation Staging OIDC provider"
+    https://auth.eclipse.org/auth/realms/sigstore:
+        issuer-url: https://auth.eclipse.org/auth/realms/sigstore
+        client-id: sigstore
+        type: email
+        contact: security@eclipse-foundation.org
+        description: "Eclipse Foundation Production OIDC provider"
+    https://dev.gitlab.org:
+        issuer-url: https://dev.gitlab.org
+        client-id: sigstore
+        type: gitlab-pipeline
+        contact: distribution-be@gitlab.com
+        description: "GitLab OIDC tokens for job identity"
+    https://gitlab.archlinux.org:
+        issuer-url: https://gitlab.archlinux.org
+        client-id: sigstore
+        type: gitlab-pipeline
+        contact: sigstore@archlinux.org
+        description: "GitLab OIDC tokens for job identity"
+    https://gitlab.com:
+        issuer-url: https://gitlab.com
+        client-id: sigstore
+        type: gitlab-pipeline
+        contact: support@gitlab.com
+        description: "GitLab OIDC tokens for job identity"
+    https://issuer.enforce.dev:
+        issuer-url: https://issuer.enforce.dev
+        client-id: sigstore
+        type: chainguard-identity
+        contact: mattmoor@chainguard.dev
+        description: "Chainguard identity tokens"
+    https://oauth2.sigstore.dev/auth:
+        issuer-url: https://oauth2.sigstore.dev/auth
+        client-id: sigstore
+        type: email
+        issuer-claim: $.federated_claims.connector_id
+        contact: tac@sigstore.dev
+        description: "dex address for fulcio"
+    https://oidc.codefresh.io:
+        issuer-url: https://oidc.codefresh.io
+        client-id: sigstore
+        type: codefresh-workflow
+        contact: support@codefresh.io
+        description: "Codefresh OIDC tokens for job identity"
+    https://ops.gitlab.net:
+        issuer-url: https://ops.gitlab.net
+        client-id: sigstore
+        type: gitlab-pipeline
+        contact: distribution-be@gitlab.com
+        description: "GitLab OIDC tokens for job identity"
+    https://token.actions.githubusercontent.com:
+        issuer-url: https://token.actions.githubusercontent.com
+        client-id: sigstore
+        type: github-workflow
+        contact: tac@sigstore.dev
+        description: "GitHub Actions OIDC auth"
+meta-issuers:
+    https://*.oic.prod-aks.azure.com/*:
+        client-id: sigstore
+        type: kubernetes
+    https://container.googleapis.com/v1/projects/*/locations/*/clusters/*:
+        client-id: sigstore
+        type: kubernetes
+    https://oidc.eks.*.amazonaws.com/id/*:
+        client-id: sigstore
+        type: kubernetes
+    https://oidc.prod-aks.azure.com/*:
+        client-id: sigstore
+        type: kubernetes
+    https://token.actions.githubusercontent.com/*:
+        client-id: sigstore
+        type: github-workflow

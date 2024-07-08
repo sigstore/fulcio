@@ -53,11 +53,17 @@ jobs:
         include:
         - issuer: "OIDC Issuer"
           issuer-config: |
-            "OIDCIssuers": {"https://kubernetes.default.svc": {"IssuerURL": "https://kubernetes.default.svc","ClientID": "sigstore","Type": "kubernetes"}}
+            oidc-issuers:
+              https://kubernetes.default.svc:
+                issuer-url: https://kubernetes.default.svc
+                client-id: sigstore
+                type: kubernetes
         - issuer: "Meta Issuer"
           issuer-config: |
-            "MetaIssuers": {"https://kubernetes.*.svc": {"ClientID": "sigstore","Type": "kubernetes"}}
-
+            meta-issuers:
+              https://kubernetes.*.svc:
+                client-id: sigstore
+                type: kubernetes
     env:
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
       # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
@@ -124,7 +130,7 @@ jobs:
             name: fulcio-config
             namespace: fulcio-system
           data:
-            config.json: |-
+            config.yaml: |-
               {
                 ${{ matrix.issuer-config }}
               }
