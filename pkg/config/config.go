@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +32,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -60,10 +62,31 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 
+	// It defines metadata to be used for the CIProvider identity provider principal.
+	// The CI provider has a generic logic for ci providers, this metadata is used
+	// to define the right behavior for each ci provider that is defined
+	// on the configuration file
+	CIIssuerMetadata map[string]IssuerMetadata `json:"CIIssuerMetadata,omitempty" yaml:"ci-issuer-metadata,omitempty"`
+
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
 	// lru is an LRU cache of recently used verifiers for our meta issuers.
 	lru *lru.TwoQueueCache
+}
+
+type IssuerMetadata struct {
+	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
+	// If a key cannot be found on the token claims, the template will use the defaults
+	DefaultTemplateValues map[string]string `json:"DefaultTemplateValues,omitempty" yaml:"default-template-values,omitempty"`
+	// ExtensionTemplates contains a mapping between certificate extension and token claim
+	// Provide either strings following https://pkg.go.dev/text/template syntax,
+	// e.g "{{ .url }}/{{ .repository }}"
+	// or non-templated strings with token claim keys to be replaced,
+	// e.g "job_workflow_sha"
+	ExtensionTemplates certificate.Extensions `json:"ExtensionTemplates,omitempty" yaml:"extension-templates,omitempty"`
+	// Template for the Subject Alternative Name extension
+	// It's typically the same value as Build Signer URI
+	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
 }
 
 type OIDCIssuer struct {
@@ -74,6 +97,8 @@ type OIDCIssuer struct {
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	Type IssuerType `json:"Type" yaml:"type,omitempty"`
+	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
+	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
@@ -284,6 +309,7 @@ const (
 	IssuerTypeSpiffe            = "spiffe"
 	IssuerTypeURI               = "uri"
 	IssuerTypeUsername          = "username"
+	IssuerTypeCIProvider        = "ci-provider"
 )
 
 func parseConfig(b []byte) (cfg *FulcioConfig, err error) {
@@ -391,7 +417,7 @@ func validateConfig(conf *FulcioConfig) error {
 		}
 	}
 
-	return nil
+	return validateCIIssuerMetadata(conf)
 }
 
 var DefaultConfig = &FulcioConfig{
@@ -430,6 +456,34 @@ func FromContext(ctx context.Context) *FulcioConfig {
 		return nil
 	}
 	return untyped.(*FulcioConfig)
+}
+
+// It checks that the templates defined are parseable
+// We should check it during the service bootstrap to avoid errors further
+func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
+
+	checkParse := func(temp string) error {
+		t := template.New("").Option("missingkey=error")
+		_, err := t.Parse(temp)
+		return err
+	}
+
+	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
+		v := reflect.ValueOf(ciIssuerMetadata.ExtensionTemplates)
+		for i := 0; i < v.NumField(); i++ {
+			s := v.Field(i).String()
+			err := checkParse(s)
+			if err != nil {
+				return err
+			}
+		}
+
+		err := checkParse(ciIssuerMetadata.SubjectAlternativeNameTemplate)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Load a config from disk, or use defaults
@@ -515,6 +569,8 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	case IssuerTypeEmail:
 		return "email"
 	case IssuerTypeGithubWorkflow:
+		return "sub"
+	case IssuerTypeCIProvider:
 		return "sub"
 	case IssuerTypeCodefreshWorkflow:
 		return "sub"
