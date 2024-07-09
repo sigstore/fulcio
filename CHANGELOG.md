@@ -1,3 +1,26 @@
+# v1.5.0
+
+## Features
+
+* Add Chainguard OIDC provider. (#1703)
+* Adding support for configuration from yaml file (#1687)
+* Upgrade go to 1.22 (#1625)
+
+## Documentation
+
+* oid-info: fix table render (#1662)
+* docs: Fix extensions for digest values requiring a type prefix (#1661)
+
+## Contributors
+
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Facundo Tuesca
+* Javan Lacerda
+* Matt Moore
+* Tomas Turek
+* William Woodruff
+
 # v1.4.5
 
 ## Features
