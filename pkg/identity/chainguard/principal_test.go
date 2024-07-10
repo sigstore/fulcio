@@ -60,6 +60,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ExpectPrincipal: workflowPrincipal{
 				issuer:  "https://issuer.enforce.dev",
 				subject: id.String(),
+				name:    id.String(),
 				actor: map[string]string{
 					"iss": "https://iss.example.com/",
 					"sub": fmt.Sprintf("catalog-syncer:%s", group.String()),
@@ -85,6 +86,34 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ExpectPrincipal: workflowPrincipal{
 				issuer:  "https://issuer.enforce.dev",
 				subject: group.String(),
+				name:    group.String(),
+				actor: map[string]string{
+					"iss": "https://auth.chainguard.dev/",
+					"sub": "google-oauth2|1234567890",
+					"aud": "fdsaldfkjhasldf",
+				},
+			},
+			WantErr: false,
+		},
+		`Human SSO token (with email)`: {
+			Claims: map[string]interface{}{
+				"iss":            "https://issuer.enforce.dev",
+				"sub":            group.String(),
+				"email":          "jane@doe.dev",
+				"email_verified": true,
+				// Actor claims track the identity that was used to assume the
+				// Chainguard identity.  In this case, it is the Catalog Syncer
+				// service principal.
+				"act": map[string]string{
+					"iss": "https://auth.chainguard.dev/",
+					"sub": "google-oauth2|1234567890",
+					"aud": "fdsaldfkjhasldf",
+				},
+			},
+			ExpectPrincipal: workflowPrincipal{
+				issuer:  "https://issuer.enforce.dev",
+				subject: group.String(),
+				name:    "jane@doe.dev",
 				actor: map[string]string{
 					"iss": "https://auth.chainguard.dev/",
 					"sub": "google-oauth2|1234567890",

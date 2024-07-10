@@ -22,11 +22,13 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/sigstore/pkg/oauthflow"
 )
 
 type workflowPrincipal struct {
 	issuer  string
 	subject string
+	name    string
 
 	actor            map[string]string
 	servicePrincipal string
@@ -35,7 +37,7 @@ type workflowPrincipal struct {
 var _ identity.Principal = (*workflowPrincipal)(nil)
 
 func (w workflowPrincipal) Name(_ context.Context) string {
-	return w.subject
+	return w.name
 }
 
 func PrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
@@ -50,9 +52,19 @@ func PrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Prin
 		return nil, err
 	}
 
+	// This is the exact function that cosign uses to extract the "subject"
+	// (misnomer) from the token in order to establish "proof of possession".
+	// We MUST use this to implement Name() or tokens that embed an email claim
+	// will fail to sign because of this divergent logic.
+	name, err := oauthflow.SubjectFromToken(token)
+	if err != nil {
+		return nil, err
+	}
+
 	return &workflowPrincipal{
 		issuer:           token.Issuer,
 		subject:          token.Subject,
+		name:             name,
 		actor:            claims.Actor,
 		servicePrincipal: claims.Internal.ServicePrincipal,
 	}, nil
