@@ -34,7 +34,7 @@ type FulcioConfigMap struct {
 func TestLoadFulcioConfig(t *testing.T) {
 	_, path, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(path)
-	b, err := os.ReadFile(basepath + "/../../config/config.yaml")
+	b, err := os.ReadFile(basepath + "/../../config/identity/config.yaml")
 	if err != nil {
 		t.Errorf("read file: %v", err)
 	}

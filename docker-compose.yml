@@ -37,7 +37,7 @@ services:
       - "${FULCIO_METRICS_PORT:-2112}:2112"
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
-      - ${FULCIO_CONFIG:-./config/config.yaml}:/etc/fulcio-config/config.yaml:z
+      - ${FULCIO_CONFIG:-./config/identity/config.yaml}:/etc/fulcio-config/config.yaml:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
