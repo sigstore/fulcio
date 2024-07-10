@@ -22,6 +22,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/sigstore/pkg/oauthflow"
 )
 
 type workflowPrincipal struct {
@@ -50,9 +51,14 @@ func PrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Prin
 		return nil, err
 	}
 
+	subject, err := oauthflow.SubjectFromToken(token)
+	if err != nil {
+		return nil, err
+	}
+
 	return &workflowPrincipal{
 		issuer:           token.Issuer,
-		subject:          token.Subject,
+		subject:          subject,
 		actor:            claims.Actor,
 		servicePrincipal: claims.Internal.ServicePrincipal,
 	}, nil
