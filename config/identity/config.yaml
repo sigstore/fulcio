@@ -26,10 +26,6 @@ oidc-issuers:
     client-id: sigstore
     type: spiffe
     spiffe-trust-domain: allow.pub
-  https://auth-staging.eclipse.org/realms/sigstore:
-    issuer-url: https://auth-staging.eclipse.org/realms/sigstore
-    client-id: sigstore
-    type: email
   https://auth.eclipse.org/auth/realms/sigstore:
     issuer-url: https://auth.eclipse.org/auth/realms/sigstore
     client-id: sigstore
