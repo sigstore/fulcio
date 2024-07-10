@@ -1,3 +1,13 @@
+# v1.5.1
+
+## Bug Fixes
+
+* Surface the right `Name()` from our principal. (#1726)
+
+## Contributors
+
+* Matt Moore
+
 # v1.5.0
 
 ## Features
