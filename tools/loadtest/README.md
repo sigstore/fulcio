@@ -24,7 +24,7 @@ Confirm a successful install with `locust -V`, which should print the version. Y
 
 ### Fetching identity token
 
-To fetch a certificate, you will need an OIDC token from one of the [OIDC issuers](https://github.com/sigstore/fulcio/blob/main/config/fulcio-config.yaml). One way is to fetch a token from Google. Note that you will need to install [`gcloud`](https://cloud.google.com/sdk/gcloud) and create a service account. A service account is necessary for the `--include-email` flag, which is needed to get an OIDC token with the correct format for Fulcio.
+To fetch a certificate, you will need an OIDC token from one of the [OIDC issuers](https://github.com/sigstore/fulcio/blob/main/config/identity/config.yaml). One way is to fetch a token from Google. Note that you will need to install [`gcloud`](https://cloud.google.com/sdk/gcloud) and create a service account. A service account is necessary for the `--include-email` flag, which is needed to get an OIDC token with the correct format for Fulcio.
 
 Run the following command, and record the output:
 

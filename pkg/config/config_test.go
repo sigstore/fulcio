@@ -27,7 +27,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 )
 
-var validCfg = `
+var validYamlCfg = `
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -38,6 +38,25 @@ meta-issuers:
   https://oidc.eks.*.amazonaws.com/id/*:
     client-id: bar
     type: kubernetes
+`
+
+var validJSONCfg = `
+{
+	"OIDCIssuers": {
+		"https://accounts.google.com": {
+			"IssuerURL": "https://accounts.google.com",
+			"ClientID": "foo",
+			"Type": "email",
+			"ChallengeClaim": "email"
+		}
+	},
+	"MetaIssuers": {
+		"https://oidc.eks.*.amazonaws.com/id/*": {
+			"ClientID": "bar",
+			"Type": "kubernetes"
+		}
+	}
+}
 `
 
 func TestMetaURLs(t *testing.T) {

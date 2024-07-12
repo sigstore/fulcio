@@ -22,15 +22,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
-type FulcioConfigMap struct {
-	Data map[string]string `yaml:"data,omitempty"`
-}
-
-// It tests that the config/fulcio-config.yaml is properly parsable
+// The config/identity/config.yaml is a config file that is reflected directly
+// to the public good instance.
+// This test checks that the config.yaml is valid and can be properly used
+// on the public good instance.
 func TestLoadFulcioConfig(t *testing.T) {
 	_, path, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(path)
@@ -39,12 +36,7 @@ func TestLoadFulcioConfig(t *testing.T) {
 		t.Errorf("read file: %v", err)
 	}
 
-	cfg := FulcioConfigMap{}
-	if err := yaml.Unmarshal(b, &cfg); err != nil {
-		t.Errorf("Unmarshal: %v", err)
-	}
-
-	fulcioConfig, err := Read([]byte(cfg.Data["config.yaml"]))
+	fulcioConfig, err := Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +54,11 @@ func TestLoadFulcioConfig(t *testing.T) {
 		}
 		if string(got.Type) == "" {
 			t.Errorf("Issuer Type should not be empty")
+		}
+		if got.Type == IssuerTypeCIProvider {
+			if got.CIProvider == "" {
+				t.Errorf("Issuer CIProvider should not be empty when Type is ci-provider")
+			}
 		}
 		if _, ok := fulcioConfig.GetIssuer("not_an_issuer"); ok {
 			t.Error("no error returned from an unconfigured issuer")
