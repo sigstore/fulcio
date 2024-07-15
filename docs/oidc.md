@@ -10,9 +10,7 @@ Sigstore runs a federated OIDC identity provider, Dex. Users authenticate to the
 
 To add a new OIDC issuer:
 
-* Add a file under the [`federation` folder](https://github.com/sigstore/fulcio/tree/main/federation) with the URL, new issuer type name, and contact ([example](https://github.com/sigstore/fulcio/blob/8975dfd/federation/agent.buildkite.com/config.yaml))
-* Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/fulcio-config.yaml) by running `go run federation/main.go`
-* Add the new issuer to the [`identity` folder](https://github.com/sigstore/fulcio/tree/main/pkg/identity) ([example](https://github.com/sigstore/fulcio/tree/main/pkg/identity/buildkite)). You will define an `Issuer` type and a way to map the token to the certificate extensions.
+* Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/identity/config.yaml) and to the [`identity` folder](https://github.com/sigstore/fulcio/tree/main/pkg/identity) ([example](https://github.com/sigstore/fulcio/tree/main/pkg/identity/buildkite)). You will define an `Issuer` type and a way to map the token to the certificate extensions.
 * Define a constant with the issuer type name in the [configuration](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L213-L221), add update the [tests](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config_test.go#L473-L503)
 * Map the issuer type to the token claim that will be signed over when requesting a token [here](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L464-L486). You can likely just use `sub`.
 * Add a case statement to map the issuer constant to the issuer type you created [here](https://github.com/sigstore/fulcio/blob/4d9d96a/pkg/server/issuer_pool.go#L40-L62)

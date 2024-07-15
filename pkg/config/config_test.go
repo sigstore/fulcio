@@ -27,7 +27,20 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 )
 
-var validCfg = `
+var validYamlCfg = `
+oidc-issuers:
+  https://accounts.google.com:
+    issuer-url: https://accounts.google.com
+    client-id: foo
+    type: email
+    challenge-claim: email
+meta-issuers:
+  https://oidc.eks.*.amazonaws.com/id/*:
+    client-id: bar
+    type: kubernetes
+`
+
+var validJSONCfg = `
 {
 	"OIDCIssuers": {
 		"https://accounts.google.com": {
