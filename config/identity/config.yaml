@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-define: &github-type "github-workflow"
-
+define:
+  - &github-type "github-workflow"
+  - &gitlab-type "gitlab-pipeline"
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -43,19 +44,22 @@ oidc-issuers:
   https://dev.gitlab.org:
     issuer-url: https://dev.gitlab.org
     client-id: sigstore
-    type: gitlab-pipeline
+    type: ci-provider
+    ci-provider: *gitlab-type
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://gitlab.archlinux.org:
     issuer-url: https://gitlab.archlinux.org
     client-id: sigstore
-    type: gitlab-pipeline
+    type: ci-provider
+    ci-provider: *gitlab-type
     contact: sigstore@archlinux.org
     description: "GitLab OIDC tokens for job identity"
   https://gitlab.com:
     issuer-url: https://gitlab.com
     client-id: sigstore
-    type: gitlab-pipeline
+    type: ci-provider
+    ci-provider: *gitlab-type
     contact: support@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://issuer.enforce.dev:
@@ -86,7 +90,8 @@ oidc-issuers:
   https://ops.gitlab.net:
     issuer-url: https://ops.gitlab.net
     client-id: sigstore
-    type: gitlab-pipeline
+    type: ci-provider
+    ci-provider: *gitlab-type
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://token.actions.githubusercontent.com:
@@ -117,7 +122,7 @@ ci-issuer-metadata:
   *github-type:
       default-template-values:
           url: "https://github.com"
-      extension-templates: 
+      extension-templates:
           github-workflow-trigger: "event_name"
           github-workflow-sha: "sha"
           github-workflow-name: "workflow"
@@ -138,3 +143,22 @@ ci-issuer-metadata:
           run-invocation-uri: "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}"
           source-repository-visibility-at-signing: "repository_visibility"
       subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
+  *gitlab-type:
+    default-template-values:
+        url: "https://gitlab.com"
+    extension-templates:
+        build-signer-uri: "https://{{ .ci_config_ref_uri }}"
+        build-signer-digest: "ci_config_sha"
+        runner-environment: "runner_environment"
+        source-repository-uri: "{{ .url }}/{{ .repository }}"
+        source-repository-digest: "sha"
+        source-repository-ref: "ref"
+        source-repository-identifier: "project_id"
+        source-repository-owner-uri: "{{ .url }}/{{ .namespace_path }}"
+        source-repository-owner-identifier: "namespace_id"
+        build-config-uri: "https://{{ .ci_config_ref_uri }}"
+        build-config-digest: "ci_config_sha"
+        build-trigger: "pipeline_source"
+        run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
+        source-repository-visibility-at-signing: "repository_visibility"
+    subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
