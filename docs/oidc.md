@@ -10,13 +10,18 @@ Sigstore runs a federated OIDC identity provider, Dex. Users authenticate to the
 
 To add a new OIDC issuer:
 
-* Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/identity/config.yaml) and to the [`identity` folder](https://github.com/sigstore/fulcio/tree/main/pkg/identity) ([example](https://github.com/sigstore/fulcio/tree/main/pkg/identity/buildkite)). You will define an `Issuer` type and a way to map the token to the certificate extensions.
-* Define a constant with the issuer type name in the [configuration](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L213-L221), add update the [tests](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config_test.go#L473-L503)
-* Map the issuer type to the token claim that will be signed over when requesting a token [here](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L464-L486). You can likely just use `sub`.
-* Add a case statement to map the issuer constant to the issuer type you created [here](https://github.com/sigstore/fulcio/blob/4d9d96a/pkg/server/issuer_pool.go#L40-L62)
-* Update the end-to-end gRPC tests:
-   * Update the [configuration test](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L175)
-   * Add a test for the new issuer ([example](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L331))
+* Add the new issuer to the [configuration](https://github.com/sigstore/fulcio/blob/main/config/identity/config.yaml).
+  * Attention: If your issuer is for a CI provider, you should set the `type` as `ci-provider` and set the field `ci-provider` with the name of your provider. You should also fill the `ci-issuer-metadata` with the `default-template-values`, `extension-templates` and `subject-alternative-name-template`, following the pattern defined on the example ([example](tbd after migrating the github to ci-provider)).
+  * Important notes: The `extension-templates` and the `subject-alternative-name-template` follows the templates [pattern](https://pkg.go.dev/text/template). The name used to fill the `ci-provider` field has to be the same used as key for `ci-issuer-metadata`, we suggest to use a variable for this.
+* If your issuer is not for a CI provider, you need to follow the next steps:
+  * Add the new issuer to the [`identity` folder](https://github.com/sigstore/fulcio/tree/main/pkg/identity) ([example](https://github.com/sigstore/fulcio/tree/main/pkg/identity/email)). You will define an `Issuer` type and a way to map the token to the certificate extensions.
+  * Define a constant with the issuer type name in the [configuration](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L213-L221), add update the [tests](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config_test.go#L473-L503)
+  * Map the issuer type to the token claim that will be signed over when requesting a token [here](https://github.com/sigstore/fulcio/blob/afeadb3b7d11f704489637cabc4e150dea3e00ed/pkg/config/config.go#L464-L486). You can likely just use `sub`.
+  * Add a case statement to map the issuer constant to the issuer type you created [here](https://github.com/sigstore/fulcio/blob/4d9d96a/pkg/server/issuer_pool.go#L40-L62)
+* These next steps are required only for non-ci issuers, as it is already tested for generically. Although, you are welcome to add tests for your provider if you want to.
+  * Update the end-to-end gRPC tests:
+    * Update the [configuration test](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L175)
+    * Add a test for the new issuer ([example](https://github.com/sigstore/fulcio/blob/572b7c8496c29a04721f608dd0307ba08773c60c/pkg/server/grpc_server_test.go#L331))
 
 See [this example](https://github.com/sigstore/fulcio/pull/890), although it is out of date as you'll now need to create an issuer type.
 

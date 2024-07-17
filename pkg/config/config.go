@@ -111,6 +111,11 @@ type OIDCIssuer struct {
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
 	ChallengeClaim string `json:"ChallengeClaim,omitempty" yaml:"challenge-claim,omitempty"`
+	// Optional, the description for the issuer
+	Description string `json:"Description,omitempty" yaml:"description,omitempty"`
+	// Optional, the contact for the issuer team
+	// Usually it is a email
+	Contact string `json:"Contact,omitempty" yaml:"contact,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
