@@ -60,7 +60,7 @@ func TestLoadFulcioConfig(t *testing.T) {
 				t.Errorf("issuer that is CIProvider field shouldn't be empty when Type is ci-provider")
 			}
 			if _, ok := fulcioConfig.CIIssuerMetadata[got.CIProvider]; !ok {
-				t.Error("isseuer with type ci provider should has the same ci provider name as key for CIIssuerMetadata")
+				t.Error("issuer with type ci-provider should have the same CI provider name as key for CIIssuerMetadata")
 			}
 		}
 		if _, ok := fulcioConfig.GetIssuer("not_an_issuer"); ok {
