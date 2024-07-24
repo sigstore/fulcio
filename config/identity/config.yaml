@@ -152,7 +152,7 @@ ci-issuer-metadata:
         runner-environment: "runner_environment"
         source-repository-uri: "{{ .url }}/{{ .repository }}"
         source-repository-digest: "sha"
-        source-repository-ref: "ref"
+        source-repository-ref: refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}/{{ .ref }}
         source-repository-identifier: "project_id"
         source-repository-owner-uri: "{{ .url }}/{{ .namespace_path }}"
         source-repository-owner-identifier: "namespace_id"
