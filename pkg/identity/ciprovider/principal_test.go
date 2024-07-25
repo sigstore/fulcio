@@ -229,6 +229,10 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		"workflow":              "foo",
 		"workflow_ref":          "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
 		"workflow_sha":          "example-sha-other",
+		"ref_type":              "branch",
+		"ref_gitlab":            "main",
+		"ref_type_tag":          "tag",
+		"ref_tag":               "1.0.0",
 	}
 	issuerMetadata := map[string]string{
 		"url": "https://github.com",
@@ -269,18 +273,28 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 			ExpectedResult: "",
 			ExpectErr:      true,
 		},
+		`If else template`: {
+			Template:       `refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}{{ .ref_gitlab }}`,
+			ExpectedResult: "refs/heads/main",
+			ExpectErr:      false,
+		},
+		`If else template using else condition`: {
+			Template:       `refs/{{if eq .ref_type_tag "branch"}}heads/{{ else }}tags/{{end}}{{ .ref_tag }}`,
+			ExpectedResult: "refs/tags/1.0.0",
+			ExpectErr:      false,
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata)
 			if res != test.ExpectedResult {
-				t.Errorf("expected result don't matches: Expected %s, received: %s",
-					test.ExpectedResult, res)
+				t.Errorf("expected result don't matches: Expected %s, received: %s, error: %v",
+					test.ExpectedResult, res, err)
 			}
 			if (err != nil) != test.ExpectErr {
-				t.Errorf("should raise an error don't matches: Expected %v, received: %v",
-					test.ExpectErr, err != nil)
+				t.Errorf("should raise an error don't matches: Expected %v, received: %v, error: %v",
+					test.ExpectErr, err != nil, err)
 			}
 		})
 	}
