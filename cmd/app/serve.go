@@ -276,7 +276,7 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 			opts.PublicKey = string(pemPubKey)
 		}
 		var httpClient *http.Client
-		if tlsCaCertPath := viper.GetString("tls-ca-cert"); tlsCaCertPath != "" {
+		if tlsCaCertPath := viper.GetString("ct-log.tls-ca-cert"); tlsCaCertPath != "" {
 			tlsCaCert, err := os.ReadFile(filepath.Clean(tlsCaCertPath))
 			if err != nil {
 				log.Logger.Fatal(err)
