@@ -87,6 +87,33 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			},
 			WantErr: false,
 		},
+		`String email verified value`: {
+			Claims: map[string]interface{}{
+				"aud":            "sigstore",
+				"iss":            "https://dex.other.com",
+				"sub":            "doesntmatter",
+				"email":          "alice@example.com",
+				"email_verified": "true",
+				"federated": map[string]string{
+					"issuer": "https://example.com",
+				},
+			},
+			Config: config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"https://dex.other.com": {
+						IssuerURL:   "https://dex.other.com",
+						IssuerClaim: "$.federated.issuer",
+						Type:        config.IssuerTypeEmail,
+						ClientID:    "sigstore",
+					},
+				},
+			},
+			ExpectedPrincipal: principal{
+				issuer:  "https://example.com",
+				address: "alice@example.com",
+			},
+			WantErr: false,
+		},
 		`Custom issuer claim missing`: {
 			Claims: map[string]interface{}{
 				"aud":            "sigstore",

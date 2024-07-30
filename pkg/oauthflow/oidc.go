@@ -23,11 +23,25 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
+type stringAsBool bool
+
+func (sb *stringAsBool) UnmarshalJSON(b []byte) error {
+	switch string(b) {
+	case "true", `"true"`, "True", `"True"`:
+		*sb = true
+	case "false", `"false"`, "False", `"False"`:
+		*sb = false
+	default:
+		return errors.New("invalid value for boolean")
+	}
+	return nil
+}
+
 func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 	// Extract custom claims
 	var claims struct {
-		Email    string `json:"email"`
-		Verified bool   `json:"email_verified"`
+		Email    string       `json:"email"`
+		Verified stringAsBool `json:"email_verified"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return "", false, err
@@ -36,7 +50,7 @@ func EmailFromIDToken(token *oidc.IDToken) (string, bool, error) {
 		return "", false, errors.New("token missing email claim")
 	}
 
-	return claims.Email, claims.Verified, nil
+	return claims.Email, bool(claims.Verified), nil
 }
 
 func IssuerFromIDToken(token *oidc.IDToken, claimJSONPath string) (string, error) {
