@@ -283,6 +283,11 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 			ExpectedResult: "refs/tags/1.0.0",
 			ExpectErr:      false,
 		},
+		`Raise error for empty key in comparison`: {
+			Template:       `{{if eq . ""}}foo{{else}}bar{{end}}`,
+			ExpectedResult: "",
+			ExpectErr:      true,
+		},
 	}
 
 	for name, test := range tests {
