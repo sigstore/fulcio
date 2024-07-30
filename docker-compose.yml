@@ -26,7 +26,8 @@ services:
       "--port=5555",
       "--grpc-port=5554",
       "--ca=ephemeralca",
-      "--ct-log-url=http://ct_server:6962/test",
+      "--ct-log-url=https://ct_server:6962/test",
+      "--ct-log.tls-ca-cert=/config/tls/ca.crt",
       # Uncomment this for production logging
       # "--log_type=prod",
       ]
@@ -38,6 +39,7 @@ services:
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
       - ${FULCIO_CONFIG:-./config/identity/config.yaml}:/etc/fulcio-config/config.yaml:z
+      - ./config/tls:/config/tls:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
@@ -79,10 +81,13 @@ services:
     image: gcr.io/trillian-opensource-ci/ctfe
     volumes:
       - ctfeConfig:/etc/config/:ro
+      - ./config/tls:/config/tls:z
     command: [
         "--log_config" ,"/etc/config/ct_server.cfg",
         "--log_rpc_server", "trillian-log-server:8096",
         "--http_endpoint", "0.0.0.0:6962",
+        "--tls_certificate", "/config/tls/tls.crt",
+        "--tls_key", "/config/tls/tls.key",
         "--alsologtostderr",
     ]
     restart: always # retry while ctfe_init is running
