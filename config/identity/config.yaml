@@ -168,12 +168,16 @@ ci-issuer-metadata:
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
   *codefresh-type:
     default-template-values:
-        url: "https://g.codefresh.io"
+        # We are setting the default value for "platform_url" as the ci-provider
+        # principal gives priority to the claimed value over the default
+        # when they have the same name. Then it will use the default "platform_url" value
+        # for cases that the claimed data doesn't exist.
+        platform_url: "https://g.codefresh.io"
     extension-templates:
         # platform_url: Codefresh platform url
         # workflow_id: The ID of the specific workflow authorized in the claim.
         # For example, 64f447c02199f903000gh20.
-        build-signer-uri: "{{if .platform_url}}{{.platform_url}}{{ else }}{{.url}}{{end}}/build/{{ .workflow_id }}"
+        build-signer-uri: "{{.platform_url}}/build/{{ .workflow_id }}"
         # runner_environment: Whether the build took place in cloud or self-hosted infrastructure
         runner-environment: "runner_environment"
         # scm_repo_url: Applies to Git push, PR, and manual Git trigger types.
@@ -185,12 +189,12 @@ ci-issuer-metadata:
         # for which the workflow should execute. For example, main or v1.0.0.
         source-repository-ref: "scm_ref"
         # pipeline_id: Codefresh Pipeline id
-        build-config-uri: "{{if .platform_url}}{{.platform_url}}{{ else }}{{.url}}{{end}}/api/pipelines/{{ .pipeline_id }}"
+        build-config-uri: "{{.platform_url}}/api/pipelines/{{ .pipeline_id }}"
         # account_name: Codefresh account name
         # pipeline_name: Codefresh pipline name (project/pipeline)
         # account_id: Codefresh account id
-        run-invocation-uri: "{{if .platform_url}}{{.platform_url}}{{ else }}{{.url}}{{end}}/build/{{ .workflow_id }}"
-    subject-alternative-name-template: "{{if .platform_url}}{{.platform_url}}{{ else }}{{.url}}{{end}}/{{.account_name}}/{{.pipeline_name}}:{{.account_id}}/{{.pipeline_id}}"
+        run-invocation-uri: "{{.platform_url}}/build/{{ .workflow_id }}"
+    subject-alternative-name-template: "{{.platform_url}}/{{.account_name}}/{{.pipeline_name}}:{{.account_id}}/{{.pipeline_id}}"
   *buildkite-type:
     default-template-values:
         url: "https://buildkite.com"

@@ -53,12 +53,12 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	// default data provided by the yaml file.
 	// The order here matter because we want to override the claimed data
 	// with the default data.
-	// The default data will have priority over the claimed data.
+	// The claimed data will have priority over the default data.
 	mergedData := make(map[string]string)
-	for k, v := range tokenClaims {
+	for k, v := range issuerMetadata {
 		mergedData[k] = v
 	}
-	for k, v := range issuerMetadata {
+	for k, v := range tokenClaims {
 		mergedData[k] = v
 	}
 
@@ -66,7 +66,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 		var doc bytes.Buffer
 		// This option forces to having the claim that is required
 		// for the template
-		t := template.New("").Option("missingkey=zero")
+		t := template.New("").Option("missingkey=error")
 		// It shouldn't raise error since we already checked all
 		// templates in validateCIIssuerMetadata functions in config.go
 		p, err := t.Parse(extValueTemplate)
@@ -81,7 +81,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	}
 	claimValue, ok := mergedData[extValueTemplate]
 	if !ok {
-		return "", nil
+		return "", fmt.Errorf("value <%s> not present in either claims or defaults", extValueTemplate)
 	}
 	return claimValue, nil
 }
