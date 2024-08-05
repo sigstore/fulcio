@@ -1,7 +1,7 @@
 chainguard.dev/go-grpc-kit v0.17.5 h1:y0MHgqm3v0LKKQfxPJV57wkXxa8uMSpNTjhtHbNh1DY=
 chainguard.dev/go-grpc-kit v0.17.5/go.mod h1:vQGcwZiX6jXwhyLPCZwVMvjITD+XcrSmQzuCTW/XcVc=
-chainguard.dev/sdk v0.1.21 h1:D10Gvq69Sep23WkM9NA9qjch19ZzWY9KV4wJKt5FK5Y=
-chainguard.dev/sdk v0.1.21/go.mod h1:d/kBHuWjnNcLZUDSz1xwhnc/pDeWqweGvs6+fogAAZI=
+chainguard.dev/sdk v0.1.22 h1:qXYJiaGTd9QqS8FP6qS4GXrO21sA27PY7cizcFzR14Q=
+chainguard.dev/sdk v0.1.22/go.mod h1:N2m/Jg2mj2Qi9EupzTuwUQQQbp76WbbwSbxaB8V4YDo=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.115.0 h1:CnFSK6Xo3lDYRoBKEcAtia6VSC837/ZkJuRduSFnr14=
 cloud.google.com/go v0.115.0/go.mod h1:8jIM5vVgoAEoiVxQ/O4BFTfHqulPZgs/ufEzMcFMdWU=
@@ -46,8 +46,8 @@ github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aws/aws-sdk-go v1.54.16 h1:+B9zGaVwOUU6AO9Sy99VjTMDPthWx10HjB08hjaBHIc=
 github.com/aws/aws-sdk-go v1.54.16/go.mod h1:eRwEWoyTWFMVYVQzKMNHWP5/RV4xIUGMQfXQHfHkpNU=
-github.com/aws/aws-sdk-go-v2 v1.30.1 h1:4y/5Dvfrhd1MxRDD77SrfsDaj8kUkkljU7XE83NPV+o=
-github.com/aws/aws-sdk-go-v2 v1.30.1/go.mod h1:nIQjQVp5sfpQcTc9mPSr1B0PaWK5ByX9MOoDadSN4lc=
+github.com/aws/aws-sdk-go-v2 v1.30.3 h1:jUeBtG0Ih+ZIFH0F4UkmL9w3cSpaMv9tYYDbzILP8dY=
+github.com/aws/aws-sdk-go-v2 v1.30.3/go.mod h1:nIQjQVp5sfpQcTc9mPSr1B0PaWK5ByX9MOoDadSN4lc=
 github.com/aws/aws-sdk-go-v2/config v1.27.24 h1:NM9XicZ5o1CBU/MZaHwFtimRpWx9ohAUAqkG6AqSqPo=
 github.com/aws/aws-sdk-go-v2/config v1.27.24/go.mod h1:aXzi6QJTuQRVVusAO8/NxpdTeTyr/wRcybdDtfUwJSs=
 github.com/aws/aws-sdk-go-v2/credentials v1.17.24 h1:YclAsrnb1/GTQNt2nzv+756Iw4mF8AOzcDfweWwwm/M=
