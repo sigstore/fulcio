@@ -125,46 +125,82 @@ meta-issuers:
 ci-issuer-metadata:
   *github-type:
     default-template-values:
+      # url: URL of issuer, https://github.com
       url: "https://github.com"
     extension-templates:
+      # event_name: Event that triggered this workflow run. E.g "push", "tag"
       github-workflow-trigger: "event_name"
+      # sha: Commit SHA being built
       github-workflow-sha: "sha"
+      # workflow (Deprecated): Name of workflow that is running (mutable)
       github-workflow-name: "workflow"
+      # repository: Name of repository being built
       github-workflow-repository: "repository"
+      # ref: Git ref being built
       github-workflow-ref: "ref"
+      # job_workflow_ref: Specific build instructions (i.e. reusable workflow)
       build-signer-uri: "{{ .url }}/{{ .job_workflow_ref }}"
+      # job_workflow_sha: Commit SHA to specific build instructions
       build-signer-digest: "job_workflow_sha"
+      # runner_environment: Whether the build took place in cloud or self-hosted infrastructure
       runner-environment: "runner_environment"
+      # repository: Name of repository being built
       source-repository-uri: "{{ .url }}/{{ .repository }}"
       source-repository-digest: "sha"
       source-repository-ref: "ref"
+      # repository_id: ID to the source repo
       source-repository-identifier: "repository_id"
+      # repository_owner: Owner of the source repo (mutable)
       source-repository-owner-uri: "{{ .url }}/{{ .repository_owner }}"
+      # repository_owner_id: ID of the source repo
       source-repository-owner-identifier: "repository_owner_id"
+      # workflow_ref: Ref of top-level workflow that is running
       build-config-uri: "{{ .url }}/{{ .workflow_ref }}"
+      # workflow_sha: Commit SHA of top-level workflow that is running
       build-config-digest: "workflow_sha"
       build-trigger: "event_name"
+      # run_id: ID of workflow run
+      # run_attempt: Attempt number of workflow run
       run-invocation-uri: "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}"
+      # repository_visibility: Visibility of the source repo
       source-repository-visibility-at-signing: "repository_visibility"
     subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
   *gitlab-type:
     default-template-values:
       url: "https://gitlab.com"
     extension-templates:
+      # url: The URL of the GitLab instance. https://gitlab.com
+      # ci_config_ref_uri: Ref of top-level pipeline definition.
+      # E.g. gitlab.com/my-group/my-project//.gitlab-ci.yml@refs/heads/main
       build-signer-uri: "https://{{ .ci_config_ref_uri }}"
+      # ci_config_sha: Commit sha of top-level pipeline definition, and is
+      # only populated when `ciConfigRefURI` is local to the GitLab instance
       build-signer-digest: "ci_config_sha"
+      # runner_environment: The type of runner used by the job. May be one of gitlab-hosted or self-hosted.
       runner-environment: "runner_environment"
+      # repository: Repository building built
       source-repository-uri: "{{ .url }}/{{ .repository }}"
+      # sha: Commit SHA being built
       source-repository-digest: "sha"
+      # ref_type: The type of the ref
+      # E.g. "branch", "tag"
+      # ref: Git ref being built
       source-repository-ref: refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}/{{ .ref }}
+      # project_id: ID to the source repo
       source-repository-identifier: "project_id"
+      # namespace_path: Owner of the source repo (mutable)
       source-repository-owner-uri: "{{ .url }}/{{ .namespace_path }}"
+      # namespace_id: ID of the source repo
       source-repository-owner-identifier: "namespace_id"
       build-config-uri: "https://{{ .ci_config_ref_uri }}"
       build-config-digest: "ci_config_sha"
+      # pipeline_source: Event that triggered this workflow run. E.g "push", "tag" etc
       build-trigger: "pipeline_source"
+      # project_path: Repository building built
+      # job_id: job ID
       run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
-      source-repository-visibility-at-signing: "repository_visibility"
+      # project_visibility: Visibility of the source project
+      source-repository-visibility-at-signing: "project_visibility"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
   *codefresh-type:
     default-template-values:
@@ -172,9 +208,9 @@ ci-issuer-metadata:
       # principal gives priority to the claimed value over the default
       # when they have the same name. Then it will use the default "platform_url" value
       # for cases that the claimed data doesn't exist.
+      # platform_url: Codefresh platform url
       platform_url: "https://g.codefresh.io"
     extension-templates:
-      # platform_url: Codefresh platform url
       # workflow_id: The ID of the specific workflow authorized in the claim.
       # For example, 64f447c02199f903000gh20.
       build-signer-uri: "{{.platform_url}}/build/{{ .workflow_id }}"
