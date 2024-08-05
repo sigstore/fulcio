@@ -233,9 +233,12 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		"ref_gitlab":            "main",
 		"ref_type_tag":          "tag",
 		"ref_tag":               "1.0.0",
+		"claim_foo":             "bar",
 	}
 	issuerMetadata := map[string]string{
-		"url": "https://github.com",
+		"url":         "https://github.com",
+		"claim_foo":   "default",
+		"default_foo": "default_bar",
 	}
 
 	tests := map[string]struct {
@@ -287,6 +290,16 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 			Template:       `{{if eq . ""}}foo{{else}}bar{{end}}`,
 			ExpectedResult: "",
 			ExpectErr:      true,
+		},
+		`Should use default when claim doesn't exist`: {
+			Template:       "default_foo",
+			ExpectedResult: "default_bar",
+			ExpectErr:      false,
+		},
+		`Should prior claims over defaults when they has the same name`: {
+			Template:       "claim_foo",
+			ExpectedResult: "bar",
+			ExpectErr:      false,
 		},
 	}
 
