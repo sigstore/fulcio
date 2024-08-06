@@ -1,3 +1,37 @@
+# v1.6.0
+
+v1.6.0 adds support for onboarding CI identity providers via configuration
+rather than code changes, which should greatly simplify the onboarding process.
+
+## Features
+
+* CiProvider as a new OIDCIssuer type (#1729)
+* Add TLS support for CTLog (#1718)
+* Added support for email\_verified being a string or bool (#1744)
+
+## Documentation
+
+* Update IDP requirements (#1742)
+
+## Public Good Instance Configuration
+
+* Move codefresh and buildkite to ci-provider identity (#1743)
+* Move gitlab to ci-provider (#1740)
+* Migrate github to ci provider flow (#1738)
+* add Hellō provider (#1739)
+* Move configuration to yaml format (#1720)
+* Removes identity providers federation (#1736)
+
+## Contributors
+
+* Andrew Block
+* cpanato
+* Dick Hardt
+* Firas Ghanmi
+* Hayden B
+* Javan Lacerda
+* Matt Moore
+
 # v1.5.1
 
 ## Bug Fixes
