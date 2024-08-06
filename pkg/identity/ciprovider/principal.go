@@ -53,12 +53,12 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	// default data provided by the yaml file.
 	// The order here matter because we want to override the claimed data
 	// with the default data.
-	// The default data will have priority over the claimed data.
+	// The claimed data will have priority over the default data.
 	mergedData := make(map[string]string)
-	for k, v := range tokenClaims {
+	for k, v := range issuerMetadata {
 		mergedData[k] = v
 	}
-	for k, v := range issuerMetadata {
+	for k, v := range tokenClaims {
 		mergedData[k] = v
 	}
 
