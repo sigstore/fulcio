@@ -171,8 +171,8 @@ ci-issuer-metadata:
       build-signer-digest: "ci_config_sha"
       # runner_environment: The type of runner used by the job. May be one of gitlab-hosted or self-hosted.
       runner-environment: "runner_environment"
-      # repository: Repository building built
-      source-repository-uri: "{{ .url }}/{{ .repository }}"
+      # project_path: Repository path building built
+      source-repository-uri: "{{ .url }}/{{ .project_path }}"
       # sha: Commit SHA being built
       source-repository-digest: "sha"
       # ref_type: The type of the ref
