@@ -31,13 +31,6 @@ oidc-issuers:
     ci-provider: *buildkite-type
     contact: support@buildkite.com
     description: "Buildkite Agent OIDC tokens for job identity"
-  https://allow.pub:
-    issuer-url: https://allow.pub
-    client-id: sigstore
-    type: spiffe
-    spiffe-trust-domain: allow.pub
-    contact: evan@phx.io
-    description: "Server side signing support for the OCI registry vcr.pub"
   https://auth.eclipse.org/auth/realms/sigstore:
     issuer-url: https://auth.eclipse.org/auth/realms/sigstore
     client-id: sigstore
