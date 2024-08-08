@@ -149,8 +149,6 @@ GitHub supports OIDC tokens for its workflows initiated from GitHub Actions. Thi
 
 SPIFFE-based OIDC providers use a SPIFFE ID as the URI subject alternative name of the certificate, scoped to a domain.
 
-* vcr.pub OCI registry (`allow.pub`)
-
 ### Kubernetes
 
 Cloud-based Kubernetes instances can authenticate using OIDC tokens per cluster.
