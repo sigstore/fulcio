@@ -120,7 +120,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	if err != nil {
 		return err
 	}
-	if strings.Trim(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, " ") == "" {
+	if strings.TrimSpace(principal.ClaimsMetadata.SubjectAlternativeNameTemplate) == "" {
 		return fmt.Errorf("SubjectAlternativeNameTemplate should not be empty. Issuer: %s", principal.Token.Issuer)
 	}
 	subjectAlternativeName, err := applyTemplateOrReplace(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, claims, defaults, principal.Token.Issuer)
@@ -143,7 +143,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 		s := v.Field(i).String() // value of each field, e.g the template string
 		// We check the field name to avoid to apply the template for the Issuer
 		// Issuer field should always come from the token issuer
-		if strings.Trim(s, " ") == "" || vType.Field(i).Name == "Issuer" {
+		if strings.TrimSpace(s) == "" || vType.Field(i).Name == "Issuer" {
 			continue
 		}
 		extValue, err := applyTemplateOrReplace(s, claims, defaults, principal.Token.Issuer)
