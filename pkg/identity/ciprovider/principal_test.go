@@ -313,7 +313,10 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata, "https://token.actions.githubusercontent.com")
+			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata,
+				map[string]string{
+					"Issuer": "https://token.actions.githubusercontent.com",
+				})
 			if res != test.ExpectedResult {
 				t.Errorf("expected result don't matches: Expected %s, received: %s, error: %v",
 					test.ExpectedResult, res, err)
