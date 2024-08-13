@@ -47,7 +47,8 @@ func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
 
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
-func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, issuerMetadata map[string]string) (string, error) {
+// Issuer added as a parameter for having a richer log
+func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, issuerMetadata map[string]string, issuer string) (string, error) {
 
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
@@ -81,7 +82,7 @@ func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]stri
 	}
 	claimValue, ok := mergedData[extValueTemplate]
 	if !ok {
-		return "", fmt.Errorf("value <%s> not present in either claims or defaults", extValueTemplate)
+		return "", fmt.Errorf("value <%s> not present in either claims or defaults. Issuer: %s", extValueTemplate, issuer)
 	}
 	return claimValue, nil
 }
@@ -97,9 +98,13 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	if !ok {
 		return nil, fmt.Errorf("configuration can not be loaded for issuer %v", token.Issuer)
 	}
+	metadata, ok := cfg.CIIssuerMetadata[issuerCfg.CIProvider]
+	if !ok {
+		return nil, fmt.Errorf("metadata not found for ci provider %s", issuerCfg.CIProvider)
+	}
 	return ciPrincipal{
 		token,
-		cfg.CIIssuerMetadata[issuerCfg.CIProvider],
+		metadata,
 	}, nil
 }
 
@@ -115,7 +120,10 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	if err != nil {
 		return err
 	}
-	subjectAlternativeName, err := applyTemplateOrReplace(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, claims, defaults)
+	if strings.Trim(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, " ") == "" {
+		return fmt.Errorf("SubjectAlternativeNameTemplate should not be empty. Issuer: %s", principal.Token.Issuer)
+	}
+	subjectAlternativeName, err := applyTemplateOrReplace(principal.ClaimsMetadata.SubjectAlternativeNameTemplate, claims, defaults, principal.Token.Issuer)
 	if err != nil {
 		return err
 	}
@@ -135,10 +143,10 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 		s := v.Field(i).String() // value of each field, e.g the template string
 		// We check the field name to avoid to apply the template for the Issuer
 		// Issuer field should always come from the token issuer
-		if s == "" || vType.Field(i).Name == "Issuer" {
+		if strings.Trim(s, " ") == "" || vType.Field(i).Name == "Issuer" {
 			continue
 		}
-		extValue, err := applyTemplateOrReplace(s, claims, defaults)
+		extValue, err := applyTemplateOrReplace(s, claims, defaults, principal.Token.Issuer)
 		if err != nil {
 			return err
 		}
