@@ -180,17 +180,25 @@ func TestName(t *testing.T) {
 			}
 			withClaims(token, claims)
 			ctx := context.TODO()
+			template := "{{.foobar}}"
+			ciissuerMetadata := make(map[string]config.IssuerMetadata)
+			ciissuerMetadata["github-workflow"] = config.IssuerMetadata{
+				ExtensionTemplates: certificate.Extensions{
+					BuildTrigger: template,
+				},
+			}
 			OIDCIssuers :=
 				map[string]config.OIDCIssuer{
 					token.Issuer: {
 						IssuerURL:  token.Issuer,
 						Type:       config.IssuerTypeCIProvider,
-						CIProvider: "ci-provider",
+						CIProvider: "github-workflow",
 						ClientID:   "sigstore",
 					},
 				}
 			cfg := &config.FulcioConfig{
-				OIDCIssuers: OIDCIssuers,
+				OIDCIssuers:      OIDCIssuers,
+				CIIssuerMetadata: ciissuerMetadata,
 			}
 			ctx = config.With(ctx, cfg)
 			principal, err := WorkflowPrincipalFromIDToken(ctx, token)
@@ -305,7 +313,10 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata)
+			res, err := applyTemplateOrReplace(test.Template, tokenClaims, issuerMetadata,
+				map[string]string{
+					"Issuer": "https://token.actions.githubusercontent.com",
+				})
 			if res != test.ExpectedResult {
 				t.Errorf("expected result don't matches: Expected %s, received: %s, error: %v",
 					test.ExpectedResult, res, err)

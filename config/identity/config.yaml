@@ -178,7 +178,7 @@ ci-issuer-metadata:
       # ref_type: The type of the ref
       # E.g. "branch", "tag"
       # ref: Git ref being built
-      source-repository-ref: refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}/{{ .ref }}
+      source-repository-ref: refs/{{if eq .ref_type "branch"}}heads/{{ else }}tags/{{end}}{{ .ref }}
       # project_id: ID to the source repo
       source-repository-identifier: "project_id"
       # namespace_path: Owner of the source repo (mutable)

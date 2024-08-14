@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
@@ -81,8 +82,16 @@ func TestIssuer(t *testing.T) {
 					ClientID:   "sigstore",
 				},
 			}
+		template := "{{.foobar}}"
+		ciissuerMetadata := make(map[string]config.IssuerMetadata)
+		ciissuerMetadata["github-workflow"] = config.IssuerMetadata{
+			ExtensionTemplates: certificate.Extensions{
+				BuildTrigger: template,
+			},
+		}
 		cfg := &config.FulcioConfig{
-			OIDCIssuers: OIDCIssuers,
+			OIDCIssuers:      OIDCIssuers,
+			CIIssuerMetadata: ciissuerMetadata,
 		}
 		ctx = config.With(ctx, cfg)
 		identity.Authorize = func(_ context.Context, _ string, _ ...config.InsecureOIDCConfigOption) (*oidc.IDToken, error) {
