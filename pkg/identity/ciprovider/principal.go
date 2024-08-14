@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"html/template"
+	"net/mail"
 	"net/url"
 	"reflect"
 	"strings"
@@ -48,7 +49,9 @@ func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
 // It makes string interpolation for a given string by using the
 // templates syntax https://pkg.go.dev/text/template
 func applyTemplateOrReplace(extValueTemplate string, tokenClaims map[string]string, issuerMetadata map[string]string) (string, error) {
-
+	if len(extValueTemplate) == 0 {
+		return "", nil
+	}
 	// Here we merge the data from was claimed by the id token with the
 	// default data provided by the yaml file.
 	// The order here matter because we want to override the claimed data
@@ -119,12 +122,30 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	if err != nil {
 		return err
 	}
-	sanURL, err := url.Parse(subjectAlternativeName)
+	subjectAlternativeNameEmail, err := applyTemplateOrReplace(principal.ClaimsMetadata.SubjectAlternativeNameEmailTemplate, claims, defaults)
 	if err != nil {
 		return err
 	}
-	uris := []*url.URL{sanURL}
-	cert.URIs = uris
+	if len(subjectAlternativeName) == 0 && len(subjectAlternativeNameEmail) == 0 {
+		return fmt.Errorf("at least one field must be speciefied (subjectAlternativeName or subjectAlternativeNameEmail)")
+	}
+	if len(subjectAlternativeName) != 0 {
+		sanURL, err := url.Parse(subjectAlternativeName)
+		if err != nil {
+			return err
+		}
+		uris := []*url.URL{sanURL}
+		cert.URIs = uris
+	}
+
+	if len(subjectAlternativeNameEmail) != 0 {
+		mailAddress, err := mail.ParseAddress(subjectAlternativeNameEmail)
+		if err != nil {
+			return err
+		}
+		emails := []string{mailAddress.Address}
+		cert.EmailAddresses = emails
+	}
 	// We should use value.Elem() here as we need a
 	// addressable reference of the templates for applying the SetString().
 	v := reflect.ValueOf(&claimsTemplates).Elem()

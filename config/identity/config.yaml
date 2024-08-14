@@ -195,6 +195,7 @@ ci-issuer-metadata:
       # project_visibility: Visibility of the source project
       source-repository-visibility-at-signing: "project_visibility"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
+    subject-alternative-name-email-template: "{{ .user_email }}"
   *codefresh-type:
     default-template-values:
       # We are setting the default value for "platform_url" as the ci-provider

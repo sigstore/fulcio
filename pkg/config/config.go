@@ -87,6 +87,8 @@ type IssuerMetadata struct {
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
 	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
+	// Template for email support as a Subject Alternative Name extension
+	SubjectAlternativeNameEmailTemplate string `json:"SubjectAlternativeNameEmailTemplate,omitempty" yaml:"subject-alternative-name-email-template,omitempty"`
 }
 
 type OIDCIssuer struct {

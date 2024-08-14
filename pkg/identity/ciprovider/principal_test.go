@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -373,7 +374,8 @@ func TestEmbed(t *testing.T) {
 					DefaultTemplateValues: map[string]string{
 						"url": "https://github.com",
 					},
-					SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",
+					SubjectAlternativeNameTemplate:      "{{.url}}/{{.job_workflow_ref}}",
+					SubjectAlternativeNameEmailTemplate: "{{.user_email}}",
 				},
 			},
 		},
@@ -399,6 +401,7 @@ func TestEmbed(t *testing.T) {
 				"run_id":                "runID",
 				"run_attempt":           "runAttempt",
 				"repository_visibility": "public",
+				"user_email":            "test@example.com",
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -410,7 +413,16 @@ func TestEmbed(t *testing.T) {
 			test.Principal.Token = token
 			err = test.Principal.Embed(context.TODO(), &cert)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
+			}
+			sans := cryptoutils.GetSubjectAlternateNames(&cert)
+			for _, san := range sans {
+				switch san {
+				case "test@example.com":
+				case "https://github.com/jobWorkflowRef":
+				default:
+					t.Error("Incorrect SAN: ", san)
+				}
 			}
 			for factName, fact := range test.WantFacts {
 				t.Run(factName, func(t *testing.T) {
