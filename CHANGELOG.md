@@ -1,3 +1,13 @@
+# v1.6.1
+
+## Bug Fixes
+
+* fix: removing surplus slash, making logs richer (#1762)
+
+## Contributors
+
+* Javan Lacerda
+
 # v1.6.0
 
 v1.6.0 adds support for onboarding CI identity providers via configuration
