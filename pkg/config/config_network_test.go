@@ -64,6 +64,18 @@ func TestLoadYamlConfig(t *testing.T) {
 		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
 	}
 
+	// Checking that the ci provider meta issuer has been set correctly
+	got, ok = cfg.GetIssuer("https://oidc.foo.foobar.bar.com/id/CLUSTERIDENTIFIER")
+	if !ok {
+		t.Error("expected true, got false")
+	}
+	if got.Type != "ci-provider" {
+		t.Errorf("expected ci-provider, got %s", got.Type)
+	}
+	if got.CIProvider != "github-workflow" {
+		t.Errorf("expected github-workflow, got %s", got.CIProvider)
+	}
+
 	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {
 		t.Error("no error returned from an unconfigured issuer")
 	}
@@ -103,6 +115,18 @@ func TestLoadJsonConfig(t *testing.T) {
 	}
 	if got.IssuerURL != "https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER" {
 		t.Errorf("expected https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER, got %s", got.IssuerURL)
+	}
+
+	// Checking that the ci provider meta issuer has been set correctly
+	got, ok = cfg.GetIssuer("https://oidc.foo.foobar.bar.com/id/CLUSTERIDENTIFIER")
+	if !ok {
+		t.Error("expected true, got false")
+	}
+	if got.Type != "ci-provider" {
+		t.Errorf("expected ci-provider, got %s", got.Type)
+	}
+	if got.CIProvider != "github-workflow" {
+		t.Errorf("expected github-workflow, got %s", got.CIProvider)
 	}
 
 	if _, ok := cfg.GetIssuer("not_an_issuer"); ok {

@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -68,9 +69,32 @@ func TestLoadFulcioConfig(t *testing.T) {
 		}
 	}
 
-	for _, metaIssuer := range fulcioConfig.MetaIssuers {
-		if metaIssuer.ClientID != "sigstore" {
-			t.Errorf("expected sigstore, got %s", metaIssuer.ClientID)
+	for metaIssuerURLRegex := range fulcioConfig.MetaIssuers {
+		metaIssuerURL := strings.ReplaceAll(metaIssuerURLRegex, "*", "foo")
+		got, ok := fulcioConfig.GetIssuer(metaIssuerURL)
+		if !ok {
+			t.Errorf("expected true, got false, %s", metaIssuerURL)
+		}
+		if got.ClientID != "sigstore" {
+			t.Errorf("expected sigstore, got %s", got.ClientID)
+		}
+		if got.IssuerURL != metaIssuerURL {
+			t.Errorf("expected %s, got %s", metaIssuerURL, got.IssuerURL)
+		}
+
+		if string(got.Type) == "" {
+			t.Errorf("issuer Type should not be empty")
+		}
+		if got.Type == IssuerTypeCIProvider {
+			if got.CIProvider == "" {
+				t.Errorf("issuer that is CIProvider field shouldn't be empty when Type is ci-provider")
+			}
+			if _, ok := fulcioConfig.CIIssuerMetadata[got.CIProvider]; !ok {
+				t.Error("issuer with type ci-provider should have the same CI provider name as key for CIIssuerMetadata")
+			}
+		}
+		if _, ok := fulcioConfig.GetIssuer("not_an_issuer"); ok {
+			t.Error("no error returned from an unconfigured issuer")
 		}
 	}
 }

@@ -38,6 +38,10 @@ meta-issuers:
   https://oidc.eks.*.amazonaws.com/id/*:
     client-id: bar
     type: kubernetes
+  https://oidc.foo.*.bar.com/id/*:
+    client-id: bar
+    type: ci-provider
+    ci-provider: github-workflow
 `
 
 var validJSONCfg = `
@@ -54,6 +58,11 @@ var validJSONCfg = `
 		"https://oidc.eks.*.amazonaws.com/id/*": {
 			"ClientID": "bar",
 			"Type": "kubernetes"
+		},
+		"https://oidc.foo.*.bar.com/id/*": {
+			"ClientID": "bar",
+			"Type": "ci-provider",
+			"CiProvider": "github-workflow"
 		}
 	}
 }

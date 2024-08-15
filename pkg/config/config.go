@@ -156,6 +156,7 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 				Type:          iss.Type,
 				IssuerClaim:   iss.IssuerClaim,
 				SubjectDomain: iss.SubjectDomain,
+				CIProvider:    iss.CIProvider,
 			}, true
 		}
 	}
