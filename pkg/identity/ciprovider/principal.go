@@ -106,7 +106,8 @@ func WorkflowPrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (ide
 	}
 	metadata, ok := cfg.CIIssuerMetadata[issuerCfg.CIProvider]
 	if !ok {
-		return nil, fmt.Errorf("metadata not found for ci provider %s", issuerCfg.CIProvider)
+		return nil, fmt.Errorf(
+			"metadata not found for ci provider %s, issuer: %s", issuerCfg.CIProvider, token.Issuer)
 	}
 	return ciPrincipal{
 		token,
