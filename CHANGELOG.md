@@ -1,3 +1,13 @@
+# v1.6.2
+
+## Bug Fixes
+
+* fix: adding ci provider for meta-issuers (#1767)
+
+## Contributors
+
+* Javan Lacerda
+
 # v1.6.1
 
 ## Bug Fixes
