@@ -203,6 +203,11 @@ ci-issuer-metadata:
       # for cases that the claimed data doesn't exist.
       # platform_url: Codefresh platform url
       platform_url: "https://g.codefresh.io"
+      scm_repo_url: ""
+      scm_ref: ""
+      runner_environment: ""
+      account_name: ""
+      pipeline_name: ""
     extension-templates:
       # workflow_id: The ID of the specific workflow authorized in the claim.
       # For example, 64f447c02199f903000gh20.
