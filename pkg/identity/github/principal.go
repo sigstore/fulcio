@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net/url"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -105,6 +106,7 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		WorkflowSha          string `json:"workflow_sha"`
 		RunID                string `json:"run_id"`
 		RunAttempt           string `json:"run_attempt"`
+		Enterprise           string `json:"enterprise"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return nil, err
@@ -159,10 +161,16 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		return nil, errors.New("missing run_attempt claim in ID token")
 	}
 
+	baseURL := `https://github.com/`
+
+	if claims.Enterprise != "" {
+		baseURL = fmt.Sprintf("https://%s.ghe.com/", claims.Enterprise)
+	}
+
 	return &workflowPrincipal{
 		subject:              token.Subject,
 		issuer:               token.Issuer,
-		url:                  `https://github.com/`,
+		url:                  baseURL,
 		sha:                  claims.Sha,
 		eventName:            claims.EventName,
 		repository:           claims.Repository,
