@@ -161,16 +161,16 @@ func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (ident
 		return nil, errors.New("missing run_attempt claim in ID token")
 	}
 
-	baseUrl := `https://github.com/`
+	baseURL := `https://github.com/`
 
 	if claims.Enterprise != "" {
-		baseUrl = fmt.Sprintf("https://%s.ghe.com/", claims.Enterprise)
+		baseURL = fmt.Sprintf("https://%s.ghe.com/", claims.Enterprise)
 	}
 
 	return &workflowPrincipal{
 		subject:              token.Subject,
 		issuer:               token.Issuer,
-		url:                  baseUrl,
+		url:                  baseURL,
 		sha:                  claims.Sha,
 		eventName:            claims.EventName,
 		repository:           claims.Repository,
