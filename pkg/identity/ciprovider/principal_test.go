@@ -247,6 +247,7 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		"url":         "https://github.com",
 		"claim_foo":   "default",
 		"default_foo": "default_bar",
+		"empty_value": "",
 	}
 
 	tests := map[string]struct {
@@ -307,6 +308,11 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		`Should prior claims over defaults when they has the same name`: {
 			Template:       "claim_foo",
 			ExpectedResult: "bar",
+			ExpectErr:      false,
+		},
+		`Should return empty string for empty default`: {
+			Template:       "{{ .empty_value }}/123",
+			ExpectedResult: "/123",
 			ExpectErr:      false,
 		},
 	}
