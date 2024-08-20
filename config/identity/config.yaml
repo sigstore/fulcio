@@ -206,8 +206,6 @@ ci-issuer-metadata:
       scm_repo_url: ""
       scm_ref: ""
       runner_environment: ""
-      account_name: ""
-      pipeline_name: ""
     extension-templates:
       # workflow_id: The ID of the specific workflow authorized in the claim.
       # For example, 64f447c02199f903000gh20.
