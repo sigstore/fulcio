@@ -1,3 +1,14 @@
+# v1.6.3
+
+## Features
+
+* If custom server url exists, use that instead of the default one. (#1776)
+
+## Contributors
+
+* Fredrik Skogman
+* Javan Lacerda
+
 # v1.6.2
 
 ## Bug Fixes
