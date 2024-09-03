@@ -1,0 +1,22 @@
+name: Nightly Release
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Runs at midnight every day
+
+concurrency: nightly-release
+
+jobs:
+  nightly-release:
+    name: Nightly release
+    uses: sigstore/community/.github/workflows/reusable-release.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      release_tag: nightly-latest
+      key_ring: ${{ github.event.inputs.key_ring }}
+      key_name: ${{ github.event.inputs.key_name }}
+      workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-fulcio'
+      service_account: 'github-actions-fulcio@projectsigstore.iam.gserviceaccount.com'
+      repo: 'fulcio'
