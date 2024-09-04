@@ -86,7 +86,7 @@ func getPubKeyFormat(pemBytes []byte) (privatecapb.PublicKey_KeyFormat, error) {
 	block, _ := pem.Decode(pemBytes)
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse public key: " + err.Error())
+		return 0, fmt.Errorf("failed to parse public key: %w", err)
 	}
 	switch pub := pub.(type) {
 	case *rsa.PublicKey, *ecdsa.PublicKey:
