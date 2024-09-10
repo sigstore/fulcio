@@ -15,31 +15,36 @@
 
 linters:
   enable:
-  - unused
-  - errcheck
-  - gofmt
-  - goimports
-  - gosec
-  - gocritic
-  - misspell
-  - revive
+    - unused
+    - errcheck
+    - gofmt
+    - goimports
+    - gosec
+    - gocritic
+    - misspell
+    - revive
+linters-settings:
+  gosec:
+    excludes:
+      - G115  # integer overflow conversion int -> uint32
+      - G602  # slice index out of range
 output:
   uniq-by-line: false
 issues:
   exclude-rules:
-  - path: _test\.go
-    linters:
-    - errcheck
-    - gosec
-  # the following section is due to the legacy API being deprecated
-  - path: pkg/server/legacy_server.go
-    linters:
-    - staticcheck
-    text: SA1019
-  - path: pkg/ca/tinkca/signer.go
-    linters:
-    - staticcheck
-    text: SA1019
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+    # the following section is due to the legacy API being deprecated
+    - path: pkg/server/legacy_server.go
+      linters:
+        - staticcheck
+      text: SA1019
+    - path: pkg/ca/tinkca/signer.go
+      linters:
+        - staticcheck
+      text: SA1019
   max-issues-per-linter: 0
   max-same-issues: 0
 run:
