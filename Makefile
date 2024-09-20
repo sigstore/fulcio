@@ -122,7 +122,7 @@ $(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
 ko:
 	# fulcio
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare \
+	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve $(FORMATED_LABEL) --bare \
 		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
 		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
 
