@@ -67,7 +67,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-const serveCmdEnvPrefix = "FULCIO_SERVE"
+const (
+	serveCmdEnvPrefix        = "FULCIO_SERVE"
+	defaultConfigPath string = "/etc/fulcio-config/config.yaml"
+)
 
 var serveCmdConfigFilePath string
 
@@ -88,7 +91,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
 	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
 	cmd.Flags().String("ct-log-public-key-path", "", "Path to a PEM-encoded public key of the CT log, used to verify SCTs")
-	cmd.Flags().String("config-path", "/etc/fulcio-config/config.yaml", "path to fulcio config yaml")
+	cmd.Flags().String("config-path", defaultConfigPath, "path to fulcio config yaml")
 	cmd.Flags().String("pkcs11-config-path", "config/crypto11.conf", "path to fulcio pkcs11 config file")
 	cmd.Flags().String("fileca-cert", "", "Path to CA certificate")
 	cmd.Flags().String("fileca-key", "", "Path to CA encrypted private key")
@@ -212,6 +215,13 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	_ = flag.CommandLine.Parse([]string{})
 
 	cp := viper.GetString("config-path")
+	if cp == defaultConfigPath {
+		if _, err := os.Stat(cp); os.IsNotExist(err) {
+			log.Logger.Warnf("warn loading --config-path=%s: %v, fall back to json", cp, err)
+			cp = strings.TrimSuffix(cp, ".yaml") + ".json"
+		}
+	}
+
 	cfg, err := config.Load(cp)
 	if err != nil {
 		log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
