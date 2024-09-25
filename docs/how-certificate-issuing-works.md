@@ -76,7 +76,7 @@ certificate to the certificate authority root certificate.
 Fulcio supports several signing backends to sign certificates:
 
 - KMS: A KMS key hosted on GCP, AWS, Azure or Hashicorp
-- [Tink](https://github.com/google/tink): A secure KMS-encrypted Tink keyset created with [tinkey](https://github.com/google/tink/blob/master/docs/TINKEY.md)
+- [Tink](https://github.com/tink-crypto/): A secure KMS-encrypted Tink keyset created with [tinkey](https://github.com/tink-crypto/tink-tinkey)
 - PKCS#11: This works with any PKCS#11 devices including AWS CloudHSM,
   [softHSM](https://www.opendnssec.org/softhsm/) and others
 - [Google CA Service](https://cloud.google.com/certificate-authority-service/docs): A GCP-hosted certificate authority

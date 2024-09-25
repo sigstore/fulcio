@@ -23,9 +23,9 @@ import (
 	"hash"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/proto/tink_go_proto"
-	"github.com/google/tink/go/signature"
+	"github.com/tink-crypto/tink-go/v2/keyset"
+	"github.com/tink-crypto/tink-go/v2/proto/tink_go_proto"
+	"github.com/tink-crypto/tink-go/v2/signature"
 )
 
 type TestStruct struct {
