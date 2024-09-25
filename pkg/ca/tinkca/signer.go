@@ -22,16 +22,15 @@ import (
 	"fmt"
 	"math/big"
 
-	signatureSubtle "github.com/google/tink/go/signature/subtle"
-	"github.com/google/tink/go/subtle"
-
-	"github.com/golang/protobuf/proto" //lint:ignore SA1019 needed for unmarshalling
-	"github.com/google/tink/go/insecurecleartextkeyset"
-	"github.com/google/tink/go/keyset"
-	commonpb "github.com/google/tink/go/proto/common_go_proto"
-	ecdsapb "github.com/google/tink/go/proto/ecdsa_go_proto"
-	ed25519pb "github.com/google/tink/go/proto/ed25519_go_proto"
-	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
+	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
+	"github.com/tink-crypto/tink-go/v2/keyset"
+	commonpb "github.com/tink-crypto/tink-go/v2/proto/common_go_proto"
+	ecdsapb "github.com/tink-crypto/tink-go/v2/proto/ecdsa_go_proto"
+	ed25519pb "github.com/tink-crypto/tink-go/v2/proto/ed25519_go_proto"
+	tinkpb "github.com/tink-crypto/tink-go/v2/proto/tink_go_proto"
+	signatureSubtle "github.com/tink-crypto/tink-go/v2/signature/subtle"
+	"github.com/tink-crypto/tink-go/v2/subtle"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -54,7 +53,7 @@ func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
 
 	switch k.GetTypeUrl() {
 	case ecdsaSignerTypeURL:
-		// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/ecdsa_signer_key_manager.go#L48
+		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/signer_key_manager.go#L48
 		privKey := new(ecdsapb.EcdsaPrivateKey)
 		if err := proto.Unmarshal(k.GetValue(), privKey); err != nil {
 			return nil, fmt.Errorf("error unmarshalling ecdsa private key: %w", err)
@@ -62,16 +61,19 @@ func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
 		if err := validateEcdsaPrivKey(privKey); err != nil {
 			return nil, fmt.Errorf("error validating ecdsa private key: %w", err)
 		}
-		// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/subtle/ecdsa_signer.go#L39
+		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/subtle/ecdsa_signer.go#L37
 		_, curve, _ := getECDSAParamNames(privKey.PublicKey.Params)
 		p := new(ecdsa.PrivateKey)
 		c := subtle.GetCurve(curve)
+		if c == nil {
+			return nil, errors.New("tink ecdsa signer: invalid curve")
+		}
 		p.PublicKey.Curve = c
 		p.D = new(big.Int).SetBytes(privKey.GetKeyValue())
 		p.PublicKey.X, p.PublicKey.Y = c.ScalarBaseMult(privKey.GetKeyValue())
 		return p, nil
 	case ed25519SignerTypeURL:
-		// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/ed25519_signer_key_manager.go#L47
+		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ed25519/signer_key_manager.go#L47
 		privKey := new(ed25519pb.Ed25519PrivateKey)
 		if err := proto.Unmarshal(k.GetValue(), privKey); err != nil {
 			return nil, fmt.Errorf("error unmarshalling ed25519 private key: %w", err)
@@ -79,7 +81,7 @@ func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
 		if err := validateEd25519PrivKey(privKey); err != nil {
 			return nil, fmt.Errorf("error validating ed25519 private key: %w", err)
 		}
-		// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/subtle/ed25519_signer.go#L29
+		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/subtle/ed25519_signer.go#L27
 		p := ed25519.NewKeyFromSeed(privKey.GetKeyValue())
 		return p, nil
 	default:
@@ -98,10 +100,13 @@ func getPrimaryKey(ks *tinkpb.Keyset) *tinkpb.KeyData {
 }
 
 // validateEcdsaPrivKey validates the given ECDSAPrivateKey.
-// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/ecdsa_signer_key_manager.go#L139
+// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/signer_key_manager.go#L151
 func validateEcdsaPrivKey(key *ecdsapb.EcdsaPrivateKey) error {
 	if err := keyset.ValidateKeyVersion(key.Version, uint32(ecdsaSignerKeyVersion)); err != nil {
-		return fmt.Errorf("ecdsa_signer_key_manager: invalid key: %w", err)
+		return fmt.Errorf("ecdsa: invalid key version in key: %s", err)
+	}
+	if err := keyset.ValidateKeyVersion(key.GetPublicKey().GetVersion(), uint32(ecdsaSignerKeyVersion)); err != nil {
+		return fmt.Errorf("ecdsa: invalid public version in key: %s", err)
 	}
 	hash, curve, encoding := getECDSAParamNames(key.PublicKey.Params)
 	return signatureSubtle.ValidateECDSAParams(hash, curve, encoding)
@@ -109,22 +114,22 @@ func validateEcdsaPrivKey(key *ecdsapb.EcdsaPrivateKey) error {
 
 // getECDSAParamNames returns the string representations of each parameter in
 // the given ECDSAParams.
-// https://github.com/google/tink/blob/4cc630dfc711555f6bbbad64f8c573b39b7af500/go/signature/proto.go#L26
+// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/proto.go#L24
 func getECDSAParamNames(params *ecdsapb.EcdsaParams) (string, string, string) {
-	hashName := commonpb.HashType_name[int32(params.HashType)]
-	curveName := commonpb.EllipticCurveType_name[int32(params.Curve)]
-	encodingName := ecdsapb.EcdsaSignatureEncoding_name[int32(params.Encoding)]
+	hashName := commonpb.HashType_name[int32(params.GetHashType())]
+	curveName := commonpb.EllipticCurveType_name[int32(params.GetCurve())]
+	encodingName := ecdsapb.EcdsaSignatureEncoding_name[int32(params.GetEncoding())]
 	return hashName, curveName, encodingName
 }
 
 // validateEd25519PrivKey validates the given ED25519PrivateKey.
-// https://github.com/google/tink/blob/9753ffddd4d04aa56e0605ff4a0db46f2fb80529/go/signature/ed25519_signer_key_manager.go#L132
+// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ed25519/signer_key_manager.go#L157
 func validateEd25519PrivKey(key *ed25519pb.Ed25519PrivateKey) error {
 	if err := keyset.ValidateKeyVersion(key.Version, uint32(ed25519SignerKeyVersion)); err != nil {
-		return fmt.Errorf("ed25519_signer_key_manager: invalid key: %w", err)
+		return fmt.Errorf("ed25519: invalid key: %w", err)
 	}
 	if len(key.KeyValue) != ed25519.SeedSize {
-		return fmt.Errorf("ed2219_signer_key_manager: invalid key length, got %d", len(key.KeyValue))
+		return fmt.Errorf("ed25519: invalid key length, got %d", len(key.KeyValue))
 	}
 	return nil
 }

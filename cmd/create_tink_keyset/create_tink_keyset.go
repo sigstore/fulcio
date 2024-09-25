@@ -21,9 +21,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/signature"
 	"github.com/sigstore/fulcio/pkg/ca/tinkca"
+	"github.com/tink-crypto/tink-go/v2/keyset"
+	"github.com/tink-crypto/tink-go/v2/signature"
 )
 
 /*
