@@ -237,4 +237,8 @@ message OIDCIssuer {
     string challenge_claim = 4;
     // The expected SPIFFE trust domain. Only present when the OIDC issuer issues tokens for SPIFFE identities.
     string spiffe_trust_domain = 5;
+    // The type of the IDP (e.g. "email", "username", etc.).
+    string issuer_type = 6;
+    // The expected subject domain. Only present when the OIDC issuer issues tokens for URI or username identities.
+    string subject_domain = 7;
 }

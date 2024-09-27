@@ -237,6 +237,14 @@
         "spiffeTrustDomain": {
           "type": "string",
           "description": "The expected SPIFFE trust domain. Only present when the OIDC issuer issues tokens for SPIFFE identities."
+        },
+        "issuerType": {
+          "type": "string",
+          "description": "The type of the IDP (e.g. \"email\", \"username\", etc.)."
+        },
+        "subjectDomain": {
+          "type": "string",
+          "description": "The expected subject domain. Only present when the OIDC issuer issues tokens for URI or username identities."
         }
       },
       "description": "Metadata about an OIDC issuer."

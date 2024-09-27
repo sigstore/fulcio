@@ -540,46 +540,98 @@ func Test_issuerToChallengeClaim(t *testing.T) {
 }
 
 func TestToIssuers(t *testing.T) {
-	config := &FulcioConfig{
-		OIDCIssuers: map[string]OIDCIssuer{
-			"example.com": {
-				IssuerURL: "example.com",
-				ClientID:  "sigstore",
-				Type:      IssuerTypeEmail,
+	tests := []struct {
+		config *FulcioConfig
+		want   []*protobuf.OIDCIssuer
+	}{
+		{
+			config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"example.com": {
+						IssuerURL: "example.com",
+						ClientID:  "sigstore",
+						Type:      IssuerTypeEmail,
+					},
+				},
+				MetaIssuers: map[string]OIDCIssuer{
+					"wildcard.*.example.com": {
+						ClientID: "sigstore",
+						Type:     IssuerTypeKubernetes,
+					},
+				},
+			},
+			want: []*protobuf.OIDCIssuer{
+				{
+					Audience:       "sigstore",
+					ChallengeClaim: "email",
+					Issuer: &protobuf.OIDCIssuer_IssuerUrl{
+						IssuerUrl: "example.com",
+					},
+					IssuerType: IssuerTypeEmail,
+				},
+				{
+					Audience:       "sigstore",
+					ChallengeClaim: "sub",
+					Issuer: &protobuf.OIDCIssuer_WildcardIssuerUrl{
+						WildcardIssuerUrl: "wildcard.*.example.com",
+					},
+					IssuerType: IssuerTypeKubernetes,
+				},
 			},
 		},
-		MetaIssuers: map[string]OIDCIssuer{
-			"wildcard.*.example.com": {
-				ClientID: "sigstore",
-				Type:     IssuerTypeKubernetes,
+		{
+			config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"username.example.com": {
+						IssuerURL:     "username.example.com",
+						ClientID:      "sigstore",
+						Type:          IssuerTypeUsername,
+						SubjectDomain: "username.example.com",
+					},
+				},
+			},
+			want: []*protobuf.OIDCIssuer{
+				{
+					Audience:       "sigstore",
+					ChallengeClaim: "sub",
+					Issuer: &protobuf.OIDCIssuer_IssuerUrl{
+						IssuerUrl: "username.example.com",
+					},
+					IssuerType:    IssuerTypeUsername,
+					SubjectDomain: "username.example.com",
+				},
+			},
+		},
+		{
+			config: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					"uriissuer.example.com": {
+						IssuerURL:     "uriissuer.example.com",
+						ClientID:      "sigstore",
+						Type:          IssuerTypeURI,
+						SubjectDomain: "uriissuer.example.com",
+					},
+				},
+			},
+			want: []*protobuf.OIDCIssuer{
+				{
+					Audience:       "sigstore",
+					ChallengeClaim: "sub",
+					Issuer: &protobuf.OIDCIssuer_IssuerUrl{
+						IssuerUrl: "uriissuer.example.com",
+					},
+					IssuerType:    IssuerTypeURI,
+					SubjectDomain: "uriissuer.example.com",
+				},
 			},
 		},
 	}
 
-	issuers := config.ToIssuers()
-	if len(issuers) != 2 {
-		t.Fatalf("unexpected number of issues, expected 2, got %v", len(issuers))
-	}
-
-	iss := &protobuf.OIDCIssuer{
-		Audience:       "sigstore",
-		ChallengeClaim: "email",
-		Issuer: &protobuf.OIDCIssuer_IssuerUrl{
-			IssuerUrl: "example.com",
-		},
-	}
-	if !reflect.DeepEqual(issuers[0], iss) {
-		t.Fatalf("expected issuer %v, got %v", iss, issuers[0])
-	}
-	iss = &protobuf.OIDCIssuer{
-		Audience:       "sigstore",
-		ChallengeClaim: "sub",
-		Issuer: &protobuf.OIDCIssuer_WildcardIssuerUrl{
-			WildcardIssuerUrl: "wildcard.*.example.com",
-		},
-	}
-	if !reflect.DeepEqual(issuers[1], iss) {
-		t.Fatalf("expected issuer %v, got %v", iss, issuers[1])
+	for _, test := range tests {
+		issuers := test.config.ToIssuers()
+		if !reflect.DeepEqual(issuers, test.want) {
+			t.Fatalf("expected issuers %v, got %v", test.want, issuers)
+		}
 	}
 }
 
