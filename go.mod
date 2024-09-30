@@ -36,11 +36,11 @@ require (
 	github.com/tink-crypto/tink-go-awskms/v2 v2.1.0
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.2.0
 	github.com/tink-crypto/tink-go/v2 v2.2.0
-	go.step.sm/crypto v0.52.0
+	go.step.sm/crypto v0.53.0
 	go.uber.org/zap v1.27.0
-	google.golang.org/api v0.197.0
+	google.golang.org/api v0.198.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1
-	google.golang.org/grpc v1.66.1
+	google.golang.org/grpc v1.67.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.8.5
@@ -48,12 +48,12 @@ require (
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/auth v0.9.3 // indirect
+	cloud.google.com/go/auth v0.9.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
-	cloud.google.com/go/iam v1.2.0 // indirect
-	cloud.google.com/go/kms v1.19.0 // indirect
-	cloud.google.com/go/longrunning v0.6.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.1 // indirect
+	cloud.google.com/go/iam v1.2.1 // indirect
+	cloud.google.com/go/kms v1.20.0 // indirect
+	cloud.google.com/go/longrunning v0.6.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0 // indirect
@@ -63,20 +63,20 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.55.5 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.30.5 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.27.33 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.32 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.13 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.17 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.17 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.31.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.27.37 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.35 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.14 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.18 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.18 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.20 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.35.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.22.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.30.7 // indirect
-	github.com/aws/smithy-go v1.20.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.23.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.27.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.31.1 // indirect
+	github.com/aws/smithy-go v1.21.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
