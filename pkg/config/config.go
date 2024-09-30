@@ -237,6 +237,8 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 			Audience:          cfgIss.ClientID,
 			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
 			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
+			IssuerType:        cfgIss.Type.String(),
+			SubjectDomain:     cfgIss.SubjectDomain,
 		}
 		issuers = append(issuers, issuer)
 	}
@@ -247,6 +249,8 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 			Audience:          cfgIss.ClientID,
 			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
 			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
+			IssuerType:        cfgIss.Type.String(),
+			SubjectDomain:     cfgIss.SubjectDomain,
 		}
 		issuers = append(issuers, issuer)
 	}
@@ -303,6 +307,10 @@ func (fc *FulcioConfig) prepare() error {
 }
 
 type IssuerType string
+
+func (it IssuerType) String() string {
+	return string(it)
+}
 
 const (
 	IssuerTypeBuildkiteJob      = "buildkite-job"
