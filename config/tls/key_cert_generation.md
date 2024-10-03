@@ -13,7 +13,7 @@ openssl req -newkey rsa:4096 -nodes -keyout tls.key -out server-req.pem -subj "/
 echo "subjectAltName=DNS:*,DNS:ct_server,IP:0.0.0.0" > server-ext.cnf
 
 # 3. Use CA's private key to sign ct_server's CSR and get back the signed certificate
-openssl x509 -req -in server-req.pem -days 60 -CA ca.crt -CAkey ca.key -CAcreateserial -out tls.crt -extfile server-ext.cnf
+openssl x509 -req -in server-req.pem -days 36500 -CA ca.crt -CAkey ca.key -CAcreateserial -out tls.crt -extfile server-ext.cnf
 
 # 4. Clean-up 
 rm ca.key ca.srl server-ext.cnf server-req.pem
