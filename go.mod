@@ -1,6 +1,6 @@
 module github.com/sigstore/fulcio
 
-go 1.23.1
+go 1.23.2
 
 require (
 	chainguard.dev/go-grpc-kit v0.17.6
