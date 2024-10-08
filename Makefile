@@ -49,9 +49,9 @@ FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 # It should be blank for default builds
 FORMATED_LABEL ?=
 
-RUN_NUMBER ?= "local"
+GITHUB_RUN_NUMBER ?= "local"
 
-FULL_TAG := "0.$(shell date +%Y%m%d).$(RUN_NUMBER)+ref.$(GIT_HASH)"
+FULL_TAG := "0.$(shell date +%Y%m%d).$(GITHUB_RUN_NUMBER)-ref.$(GIT_VERSION)"
 
 # Binaries
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go

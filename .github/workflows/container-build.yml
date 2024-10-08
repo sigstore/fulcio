@@ -77,4 +77,4 @@ jobs:
       - name: container
         run: |
           echo "Formated Label: ${{ steps.labels.outputs.FORMATED_LABELS }}"
-          KO_PREFIX=gcr.io/projectsigstore/fulcio/ci/fulcio FORMATED_LABEL=${{ steps.labels.outputs.FORMATED_LABELS }} RUN_NUMBER=${{ github.run_number }} make sign-keyless-ci
+          KO_PREFIX=gcr.io/projectsigstore/fulcio/ci/fulcio FORMATED_LABEL=${{ steps.labels.outputs.FORMATED_LABELS }} make sign-keyless-ci
