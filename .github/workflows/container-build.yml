@@ -31,6 +31,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -76,4 +77,4 @@ jobs:
       - name: container
         run: |
           echo "Formated Label: ${{ steps.labels.outputs.FORMATED_LABELS }}"
-          KO_PREFIX=gcr.io/projectsigstore/fulcio/ci/fulcio FORMATED_LABEL=${{ steps.labels.outputs.FORMATED_LABELS }} make sign-keyless-ci
+          KO_PREFIX=gcr.io/projectsigstore/fulcio/ci/fulcio FORMATED_LABEL=${{ steps.labels.outputs.FORMATED_LABELS }} RUN_NUMBER=${{ github.run_number }} make sign-keyless-ci

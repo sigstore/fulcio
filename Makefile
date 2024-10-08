@@ -47,7 +47,11 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
 # It should be blank for default builds
-FORMATED_LABEL =
+FORMATED_LABEL ?=
+
+RUN_NUMBER ?= "local"
+
+FULL_TAG := "0.$(shell date +%Y%m%d).$(RUN_NUMBER)+ref.$(GIT_HASH)"
 
 # Binaries
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
@@ -126,7 +130,7 @@ ko:
 	# fulcio
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
 	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve $(FORMATED_LABEL) --bare \
-		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
+		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --tags $(FULL_TAG) \
 		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
 
 .PHONY: ko-local
