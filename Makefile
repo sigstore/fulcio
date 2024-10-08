@@ -46,6 +46,9 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
+# It should be blank for default builds
+FORMATED_LABEL =
+
 # Binaries
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
 PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
