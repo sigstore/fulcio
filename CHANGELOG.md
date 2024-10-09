@@ -1,3 +1,25 @@
+# v1.6.5
+
+## Features
+
+* use go1.23.2 (#1834)
+* fallback to json default cfg path if yaml does not exist (#1810)
+* Include IDP type and subject domain in configuration API response (#1824)
+
+## Documentation
+
+* Update OIDC claim mapping table to reflect the current state (#1801)
+
+
+## Contributors
+
+* Aditya Sirish
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Hayden B
+* Nina
+* Richard Fan
+
 # v1.6.4
 
 ## Features
