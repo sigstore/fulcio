@@ -3,17 +3,17 @@ module github.com/sigstore/fulcio/hack/tools
 go 1.22.5
 
 require (
-	github.com/googleapis/api-linter v1.67.3
+	github.com/googleapis/api-linter v1.67.4
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
 	bitbucket.org/creachadair/stringset v0.0.12 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
-	github.com/bufbuild/protocompile v0.10.0 // indirect
+	github.com/bufbuild/protocompile v0.14.1 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/jhump/protoreflect v1.16.0 // indirect
