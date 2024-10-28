@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	chainguard.dev/go-grpc-kit v0.17.6
 	chainguard.dev/sdk v0.1.28
-	cloud.google.com/go/security v1.18.1
+	cloud.google.com/go/security v1.18.2
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
@@ -22,7 +22,7 @@ require (
 	github.com/magiconair/properties v1.8.7
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.60.0
+	github.com/prometheus/common v0.60.1
 	github.com/rs/cors v1.11.1
 	github.com/sigstore/sigstore v1.8.10
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.10
@@ -38,8 +38,8 @@ require (
 	github.com/tink-crypto/tink-go/v2 v2.2.0
 	go.step.sm/crypto v0.54.0
 	go.uber.org/zap v1.27.0
-	google.golang.org/api v0.201.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20240930140551-af27646dc61f
+	google.golang.org/api v0.203.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20241007155032-5fefd90f89a9
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -48,7 +48,7 @@ require (
 
 require (
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.9.8 // indirect
+	cloud.google.com/go/auth v0.9.9 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.2.1 // indirect
@@ -152,8 +152,8 @@ require (
 	golang.org/x/term v0.25.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	google.golang.org/genproto v0.0.0-20241007155032-5fefd90f89a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241007155032-5fefd90f89a9 // indirect
+	google.golang.org/genproto v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 )
