@@ -70,6 +70,12 @@ oidc-issuers:
     type: email
     contact: contact@hello.coop
     description: "Hellō OIDC auth"
+  https://www.kaggle.com/api/v1/models/signing:
+    issuer-url: https://www.kaggle.com/api/v1/models/signing
+    client-id: sigstore
+    type: email
+    contact: support@kaggle.com
+    description: "Kaggle OIDC provider"
   https://oauth2.sigstore.dev/auth:
     issuer-url: https://oauth2.sigstore.dev/auth
     client-id: sigstore
