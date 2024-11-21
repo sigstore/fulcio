@@ -134,12 +134,30 @@ func ValidateTemplate(filename string, _ *x509.Certificate, _ string) error {
 func GetDefaultTemplate(certType string) (string, error) {
 	switch certType {
 	case "root":
+		if rootTemplate == "" {
+			return "", fmt.Errorf("root template is required but not found")
+		}
 		return rootTemplate, nil
+	// Both intermediate and leaf are optional - return empty if not found
 	case "intermediate":
+		if intermediateTemplate == "" {
+			return "", nil
+		}
 		return intermediateTemplate, nil
 	case "leaf":
+		if leafTemplate == "" {
+			return "", nil
+		}
 		return leafTemplate, nil
 	default:
 		return "", fmt.Errorf("invalid certificate type: %s", certType)
 	}
+}
+
+// Ensures that required templates are present
+func ValidateTemplateRequirements() error {
+	if rootTemplate == "" {
+		return fmt.Errorf("root template is required but not found")
+	}
+	return nil
 }

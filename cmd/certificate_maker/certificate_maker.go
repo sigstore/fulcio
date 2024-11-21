@@ -38,7 +38,7 @@ var (
 	version string
 
 	rootCmd = &cobra.Command{
-		Use:     "fulcio-certificate-maker",
+		Use:     "certificate-maker",
 		Short:   "Create certificate chains for Fulcio",
 		Long:    `A tool for creating root, intermediate, and leaf certificates for Fulcio with code signing capabilities`,
 		Version: version,
@@ -50,7 +50,7 @@ var (
 		Long: `Create a certificate chain with the specified common name.
 The common name will be used as the Subject Common Name for the certificates.
 If no common name is provided, the values from the templates will be used.
-Example: fulcio-certificate-maker create "https://fulcio.example.com"`,
+Example: certificate-maker create "https://fulcio.example.com"`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: runCreate,
 	}

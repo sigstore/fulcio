@@ -442,15 +442,6 @@ func TestValidateKMSConfig(t *testing.T) {
 			},
 			wantError: "RootKeyID must be specified",
 		},
-		{
-			name: "missing leaf key ID",
-			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
-			},
-			wantError: "LeafKeyID must be specified",
-		},
 	}
 
 	for _, tt := range tests {

@@ -18,7 +18,7 @@ Build the binary:
 
 ```bash
 make cert-maker
-./fulcio-certificate-maker --help
+./certificate-maker --help
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ The tool can be configured using either command-line flags or environment variab
 The `create` command accepts an optional positional argument for the common name:
 
 ```bash
-fulcio-certificate-maker create [common-name]
+certificate-maker create [common-name]
 ```
 
 If no common name is provided, the values from the templates will be used.
@@ -38,22 +38,27 @@ If no common name is provided, the values from the templates will be used.
 Available flags:
 
 - `--kms-type`: KMS provider type (awskms, gcpkms, azurekms, hashivault)
+
 - `--root-key-id`: KMS key identifier for root certificate
+- `--intermediate-key-id`: KMS key identifier for intermediate certificate
 - `--leaf-key-id`: KMS key identifier for leaf certificate
+
 - `--aws-region`: AWS region (required for AWS KMS)
 - `--azure-tenant-id`: Azure KMS tenant ID
 - `--gcp-credentials-file`: Path to credentials file (for Google Cloud KMS)
 - `--vault-address`: HashiCorp Vault address
 - `--vault-token`: HashiCorp Vault token
+
 - `--root-template`: Path to root certificate template
-- `--leaf-template`: Path to leaf certificate template
+- `--root-lifetime`: Root certificate lifetime (default: 87600h, 10 years)
 - `--root-cert`: Output path for root certificate (default: root.pem)
-- `--leaf-cert`: Output path for leaf certificate (default: leaf.pem)
-- `--intermediate-key-id`: KMS key identifier for intermediate certificate
+
 - `--intermediate-template`: Path to intermediate certificate template
 - `--intermediate-cert`: Output path for intermediate certificate
-- `--root-lifetime`: Root certificate lifetime (default: 87600h, 10 years)
 - `--intermediate-lifetime`: Intermediate certificate lifetime (default: 43800h, 5 years)
+
+- `--leaf-template`: Path to leaf certificate template
+- `--leaf-cert`: Output path for leaf certificate (default: leaf.pem)
 - `--leaf-lifetime`: Leaf certificate lifetime (default: 8760h, 1 year)
 
 ### Environment Variables
@@ -261,7 +266,7 @@ Certificate:
 Example with AWS KMS:
 
 ```bash
-fulcio-certificate-maker create "https://fulcio.example.com" \
+certificate-maker create "https://fulcio.example.com" \
   --kms-type awskms \
   --aws-region us-east-1 \
   --root-key-id alias/fulcio-root \
@@ -275,7 +280,7 @@ fulcio-certificate-maker create "https://fulcio.example.com" \
 Example with Azure KMS:
 
 ```bash
-fulcio-certificate-maker create "https://fulcio.example.com" \
+certificate-maker create "https://fulcio.example.com" \
   --kms-type azurekms \
   --azure-tenant-id 1b4a4fed-fed8-4823-a8a0-3d5cea83d122 \
   --root-key-id "azurekms:name=sigstore-key;vault=sigstore-key" \
@@ -292,7 +297,7 @@ fulcio-certificate-maker create "https://fulcio.example.com" \
 Example with GCP KMS:
 
 ```bash
-fulcio-certificate-maker create "https://fulcio.example.com" \
+certificate-maker create "https://fulcio.example.com" \
   --kms-type gcpkms \
   --gcp-credentials-file ~/.config/gcloud/application_default_credentials.json \
   --root-key-id  projects/<project_id>/locations/<location>/keyRings/<keyring>/cryptoKeys/fulcio-key1/cryptoKeyVersions/<version> \
@@ -309,7 +314,7 @@ fulcio-certificate-maker create "https://fulcio.example.com" \
 Example with HashiCorp Vault KMS:
 
 ```bash
-fulcio-certificate-maker create "https://fulcio.example.com" \
+certificate-maker create "https://fulcio.example.com" \
   --kms-type hashivault \
   --vault-address http://vault:8200 \
   --vault-token token \
