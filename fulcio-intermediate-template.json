@@ -1,0 +1,32 @@
+{
+    "subject": {
+        "country": [
+            "US"
+        ],
+        "organization": [
+            "Sigstore"
+        ],
+        "organizationalUnit": [
+            "Fulcio Intermediate CA"
+        ],
+        "commonName": "https://fulcio.com"
+    },
+    "issuer": {
+        "commonName": "https://fulcio.com"
+    },
+    "notBefore": "2024-01-01T00:00:00Z",
+    "notAfter": "2034-01-01T00:00:00Z",
+    "serialNumber": 2,
+    "basicConstraints": {
+        "isCA": true,
+        "maxPathLen": 0
+    },
+    "keyUsage": [
+        "certSign",
+        "crlSign",
+        "digitalSignature"
+    ],
+    "extKeyUsage": [
+        "CodeSigning"
+    ]
+}
