@@ -23,8 +23,5 @@
   "keyUsage": [
     "certSign",
     "crlSign"
-  ],
-  "extKeyUsage": [
-    "CodeSigning"
   ]
 }
