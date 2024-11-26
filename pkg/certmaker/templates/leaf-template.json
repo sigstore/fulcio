@@ -7,7 +7,7 @@
             "Sigstore"
         ],
         "organizationalUnit": [
-            "Fulcio Intermediate CA"
+            "Fulcio Leaf CA"
         ],
         "commonName": "https://fulcio.com"
     },
@@ -16,7 +16,6 @@
     },
     "notBefore": "2024-01-01T00:00:00Z",
     "notAfter": "2034-01-01T00:00:00Z",
-    "serialNumber": 2,
     "basicConstraints": {
         "isCA": true,
         "maxPathLen": 0
