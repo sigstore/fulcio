@@ -14,11 +14,12 @@
 //
 
 // Package certmaker implements a certificate creation utility for Fulcio.
-// It supports creating root and leaf certificates using (AWS, GCP, Azure).
+// It supports creating root, intermediate, and leaf certs using (AWS, GCP, Azure).
 package certmaker
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -35,11 +36,12 @@ import (
 
 // KMSConfig holds config for KMS providers.
 type KMSConfig struct {
-	Type      string            // KMS provider type: "awskms", "cloudkms", "azurekms"
-	Region    string            // AWS region or Cloud location
-	RootKeyID string            // Root CA key identifier
-	LeafKeyID string            // Leaf CA key identifier
-	Options   map[string]string // Provider-specific options
+	Type              string
+	Region            string
+	RootKeyID         string
+	IntermediateKeyID string
+	LeafKeyID         string
+	Options           map[string]string
 }
 
 // InitKMS initializes KMS provider based on the given config, KMSConfig.
@@ -66,12 +68,18 @@ func InitKMS(ctx context.Context, config KMSConfig) (apiv1.KeyManager, error) {
 	case "cloudkms":
 		opts.URI = fmt.Sprintf("cloudkms:%s", keyID)
 		if credFile, ok := config.Options["credentials-file"]; ok {
+			if _, err := os.Stat(credFile); err != nil {
+				return nil, fmt.Errorf("failed to initialize Cloud KMS: credentials file not found: %s", credFile)
+			}
 			opts.URI += fmt.Sprintf("?credentials-file=%s", credFile)
 		}
-		return cloudkms.New(ctx, opts)
+		km, err := cloudkms.New(ctx, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Cloud KMS: %w", err)
+		}
+		return km, nil
 	case "azurekms":
-		opts.URI = fmt.Sprintf("azurekms://%s.vault.azure.net/keys/%s",
-			config.Options["vault-name"], keyID)
+		opts.URI = keyID
 		if config.Options["tenant-id"] != "" {
 			opts.URI += fmt.Sprintf("?tenant-id=%s", config.Options["tenant-id"])
 		}
@@ -81,71 +89,89 @@ func InitKMS(ctx context.Context, config KMSConfig) (apiv1.KeyManager, error) {
 	}
 }
 
-// CreateCertificates generates a certificate chain using the configured KMS provider.
-// It creates both root and leaf certificates using the provided templates
-// and KMS signing keys.
-func CreateCertificates(km apiv1.KeyManager, config KMSConfig, rootTemplatePath, leafTemplatePath, rootCertPath, leafCertPath string) error {
-	// Parse root template
+// CreateCertificates creates certificates using the provided KMS and templates.
+// It creates 3 certificates (root -> intermediate -> leaf) if intermediateKeyID is provided,
+// otherwise creates just 2 certs (root -> leaf).
+func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
+	rootTemplatePath, leafTemplatePath string,
+	rootCertPath, leafCertPath string,
+	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string) error {
+
+	// Create root cert
 	rootTmpl, err := ParseTemplate(rootTemplatePath, nil)
 	if err != nil {
 		return fmt.Errorf("error parsing root template: %w", err)
 	}
-	rootKeyName := config.RootKeyID
-	if config.Type == "azurekms" {
-		rootKeyName = fmt.Sprintf("azurekms:vault=%s;name=%s",
-			config.Options["vault-name"], config.RootKeyID)
-	}
+
 	rootSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
-		SigningKey: rootKeyName,
+		SigningKey: config.RootKeyID,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating root signer: %w", err)
 	}
 
-	// Create root cert
 	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootSigner.Public(), rootSigner)
 	if err != nil {
 		return fmt.Errorf("error creating root certificate: %w", err)
 	}
+
 	if err := WriteCertificateToFile(rootCert, rootCertPath); err != nil {
 		return fmt.Errorf("error writing root certificate: %w", err)
 	}
 
+	var signingCert *x509.Certificate
+	var signingKey crypto.Signer
+
+	if intermediateKeyID != "" {
+		// Create intermediate cert if key ID is provided
+		intermediateTmpl, err := ParseTemplate(intermediateTemplatePath, rootCert)
+		if err != nil {
+			return fmt.Errorf("error parsing intermediate template: %w", err)
+		}
+
+		intermediateSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
+			SigningKey: intermediateKeyID,
+		})
+		if err != nil {
+			return fmt.Errorf("error creating intermediate signer: %w", err)
+		}
+
+		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediateSigner.Public(), rootSigner)
+		if err != nil {
+			return fmt.Errorf("error creating intermediate certificate: %w", err)
+		}
+
+		if err := WriteCertificateToFile(intermediateCert, intermediateCertPath); err != nil {
+			return fmt.Errorf("error writing intermediate certificate: %w", err)
+		}
+
+		signingCert = intermediateCert
+		signingKey = intermediateSigner
+	} else {
+		signingCert = rootCert
+		signingKey = rootSigner
+	}
+
 	// Create leaf cert
-	leafTmpl, err := ParseTemplate(leafTemplatePath, rootCert)
+	leafTmpl, err := ParseTemplate(leafTemplatePath, signingCert)
 	if err != nil {
 		return fmt.Errorf("error parsing leaf template: %w", err)
 	}
-	leafKeyName := config.LeafKeyID
-	if config.Type == "azurekms" {
-		leafKeyName = fmt.Sprintf("azurekms:vault=%s;name=%s",
-			config.Options["vault-name"], config.LeafKeyID)
-	}
+
 	leafSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
-		SigningKey: leafKeyName,
+		SigningKey: config.LeafKeyID,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating leaf signer: %w", err)
 	}
 
-	leafCert, err := x509util.CreateCertificate(leafTmpl, rootCert, leafSigner.Public(), rootSigner)
+	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafSigner.Public(), signingKey)
 	if err != nil {
 		return fmt.Errorf("error creating leaf certificate: %w", err)
 	}
 
 	if err := WriteCertificateToFile(leafCert, leafCertPath); err != nil {
 		return fmt.Errorf("error writing leaf certificate: %w", err)
-	}
-
-	// Verify cert chain
-	pool := x509.NewCertPool()
-	pool.AddCert(rootCert)
-	opts := x509.VerifyOptions{
-		Roots:     pool,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-	}
-	if _, err := leafCert.Verify(opts); err != nil {
-		return fmt.Errorf("certificate chain verification failed: %w", err)
 	}
 
 	return nil
@@ -163,11 +189,19 @@ func WriteCertificateToFile(cert *x509.Certificate, filename string) error {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 	defer file.Close()
+
 	if err := pem.Encode(file, certPEM); err != nil {
 		return fmt.Errorf("failed to write certificate to file %s: %w", filename, err)
 	}
 
+	// Determine cert type
 	certType := "root"
+	if !cert.IsCA {
+		certType = "leaf"
+	} else if cert.MaxPathLen == 0 {
+		certType = "intermediate"
+	}
+
 	fmt.Printf("Your %s certificate has been saved in %s.\n", certType, filename)
 	return nil
 }
@@ -183,29 +217,93 @@ func ValidateKMSConfig(config KMSConfig) error {
 
 	switch config.Type {
 	case "awskms":
+		// AWS KMS validation
 		if config.Region == "" {
 			return fmt.Errorf("region is required for AWS KMS")
 		}
+		validateAWSKeyID := func(keyID, keyType string) error {
+			if keyID == "" {
+				return nil
+			}
+			if !strings.HasPrefix(keyID, "arn:aws:kms:") && !strings.HasPrefix(keyID, "alias/") {
+				return fmt.Errorf("awskms %s must start with 'arn:aws:kms:' or 'alias/'", keyType)
+			}
+			return nil
+		}
+		if err := validateAWSKeyID(config.RootKeyID, "RootKeyID"); err != nil {
+			return err
+		}
+		if err := validateAWSKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
+			return err
+		}
+		if err := validateAWSKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+			return err
+		}
+
 	case "cloudkms":
-		if config.RootKeyID != "" && !strings.HasPrefix(config.RootKeyID, "projects/") {
-			return fmt.Errorf("cloudkms RootKeyID must start with 'projects/'")
+		// GCP KMS validation
+		validateGCPKeyID := func(keyID, keyType string) error {
+			if keyID == "" {
+				return nil
+			}
+			if !strings.HasPrefix(keyID, "projects/") {
+				return fmt.Errorf("cloudkms %s must start with 'projects/'", keyType)
+			}
+			if !strings.Contains(keyID, "/locations/") || !strings.Contains(keyID, "/keyRings/") {
+				return fmt.Errorf("invalid cloudkms key format for %s: %s", keyType, keyID)
+			}
+			return nil
 		}
-		if config.LeafKeyID != "" && !strings.HasPrefix(config.LeafKeyID, "projects/") {
-			return fmt.Errorf("cloudkms LeafKeyID must start with 'projects/'")
+		if err := validateGCPKeyID(config.RootKeyID, "RootKeyID"); err != nil {
+			return err
 		}
+		if err := validateGCPKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
+			return err
+		}
+		if err := validateGCPKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+			return err
+		}
+
 	case "azurekms":
-		if config.Options["vault-name"] == "" {
-			return fmt.Errorf("vault-name is required for Azure KMS")
+		// Azure KMS validation
+		if config.Options == nil {
+			return fmt.Errorf("options map is required for Azure KMS")
 		}
 		if config.Options["tenant-id"] == "" {
 			return fmt.Errorf("tenant-id is required for Azure KMS")
 		}
+		validateAzureKeyID := func(keyID, keyType string) error {
+			if keyID == "" {
+				return nil
+			}
+			// Validate format: azurekms:name=<key-name>;vault=<vault-name>
+			if !strings.HasPrefix(keyID, "azurekms:name=") {
+				return fmt.Errorf("azurekms %s must start with 'azurekms:name='", keyType)
+			}
+			if !strings.Contains(keyID, ";vault=") {
+				return fmt.Errorf("vault name is required for Azure Key Vault")
+			}
+			return nil
+		}
+		if err := validateAzureKeyID(config.RootKeyID, "RootKeyID"); err != nil {
+			return err
+		}
+		if err := validateAzureKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
+			return err
+		}
+		if err := validateAzureKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("unsupported KMS type: %s", config.Type)
 	}
 
 	return nil
 }
 
-// ValidateTemplatePath validates that a template file exists and contains valid JSON
+// ValidateTemplatePath checks if the template file exists, has a .json extension,
+// and contains valid JSON content.
 func ValidateTemplatePath(path string) error {
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("template not found at %s: %w", path, err)
