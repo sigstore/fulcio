@@ -14,8 +14,7 @@ import (
 	"time"
 )
 
-// CertificateTemplate defines the JSON structure for Fulcio certificate templates.
-// It supports both root and leaf CA certificates with code signing capabilities.
+// CertificateTemplate defines the structure for the JSON certificate templates
 type CertificateTemplate struct {
 	Subject struct {
 		Country            []string `json:"country,omitempty"`
@@ -53,14 +52,15 @@ func ParseTemplate(filename string, parent *x509.Certificate) (*x509.Certificate
 		return nil, fmt.Errorf("error parsing template JSON: %w", err)
 	}
 
-	if err := ValidateTemplate(&tmpl, parent); err != nil {
+	if err := ValidateTemplate(&tmpl, parent, "root"); err != nil {
 		return nil, err
 	}
 
 	return CreateCertificateFromTemplate(&tmpl, parent)
 }
 
-func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate) error {
+// ValidateTemplate performs validation checks on the certificate template.
+func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certType string) error {
 	if tmpl.Subject.CommonName == "" {
 		return fmt.Errorf("template subject.commonName cannot be empty")
 	}
@@ -73,6 +73,7 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate) error
 		return fmt.Errorf("CA certificate must specify at least one key usage")
 	}
 
+	// For CA certs
 	if tmpl.BasicConstraints.IsCA {
 		hasKeyUsageCertSign := false
 		for _, usage := range tmpl.KeyUsage {
@@ -101,6 +102,7 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate) error
 	return nil
 }
 
+// CreateCertificateFromTemplate creates an x509.Certificate from the provided template
 func CreateCertificateFromTemplate(tmpl *CertificateTemplate, parent *x509.Certificate) (*x509.Certificate, error) {
 	notBefore, err := time.Parse(time.RFC3339, tmpl.NotBefore)
 	if err != nil {
@@ -143,6 +145,8 @@ func CreateCertificateFromTemplate(tmpl *CertificateTemplate, parent *x509.Certi
 	return cert, nil
 }
 
+// SetKeyUsages applies the specified key usage to cert(s)
+// supporting certSign, crlSign, and digitalSignature usages.
 func SetKeyUsages(cert *x509.Certificate, usages []string) {
 	for _, usage := range usages {
 		switch usage {
@@ -156,6 +160,8 @@ func SetKeyUsages(cert *x509.Certificate, usages []string) {
 	}
 }
 
+// SetExtKeyUsages applies the specified extended key usage flags to the cert(s).
+// Currently only supports CodeSigning usage.
 func SetExtKeyUsages(cert *x509.Certificate, usages []string) {
 	for _, usage := range usages {
 		switch usage {
