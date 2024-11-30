@@ -7,7 +7,7 @@
             "Sigstore"
         ],
         "organizationalUnit": [
-            "Fulcio Leaf CA"
+            "Fulcio Intermediate CA"
         ],
         "commonName": "https://fulcio.com"
     },
@@ -17,10 +17,12 @@
     "notBefore": "2024-01-01T00:00:00Z",
     "notAfter": "2034-01-01T00:00:00Z",
     "basicConstraints": {
-        "isCA": false
+        "isCA": true,
+        "maxPathLen": 0
     },
     "keyUsage": [
-        "digitalSignature"
+        "certSign",
+        "crlSign"
     ],
     "extKeyUsage": [
         "CodeSigning"
