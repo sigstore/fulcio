@@ -1,7 +1,20 @@
+// Copyright 2024 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
 // Package certmaker provides template parsing and certificate generation functionality
-// for creating Fulcio X.509 certificates from JSON templates. It supports both root and
-// leaf certificate creation with configurable properties including key usage,
-// extended key usage, and basic constraints.
+// for creating X.509 certificates from JSON templates per RFC3161 standards.
 package certmaker
 
 import (
@@ -52,7 +65,16 @@ func ParseTemplate(filename string, parent *x509.Certificate) (*x509.Certificate
 		return nil, fmt.Errorf("error parsing template JSON: %w", err)
 	}
 
-	if err := ValidateTemplate(&tmpl, parent, "root"); err != nil {
+	certType := "root"
+	if parent != nil {
+		if tmpl.BasicConstraints.IsCA {
+			certType = "intermediate"
+		} else {
+			certType = "leaf"
+		}
+	}
+
+	if err := ValidateTemplate(&tmpl, parent, certType); err != nil {
 		return nil, err
 	}
 
@@ -61,42 +83,76 @@ func ParseTemplate(filename string, parent *x509.Certificate) (*x509.Certificate
 
 // ValidateTemplate performs validation checks on the certificate template.
 func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certType string) error {
+	if tmpl.NotBefore == "" || tmpl.NotAfter == "" {
+		return fmt.Errorf("notBefore and notAfter times must be specified")
+	}
+
+	notBefore, err := time.Parse(time.RFC3339, tmpl.NotBefore)
+	if err != nil {
+		return fmt.Errorf("invalid notBefore time format: %w", err)
+	}
+	notAfter, err := time.Parse(time.RFC3339, tmpl.NotAfter)
+	if err != nil {
+		return fmt.Errorf("invalid notAfter time format: %w", err)
+	}
+	if notBefore.After(notAfter) {
+		return fmt.Errorf("NotBefore time must be before NotAfter time")
+	}
+
 	if tmpl.Subject.CommonName == "" {
 		return fmt.Errorf("template subject.commonName cannot be empty")
 	}
 
-	if parent == nil && tmpl.Issuer.CommonName == "" {
-		return fmt.Errorf("template issuer.commonName cannot be empty for root certificate")
-	}
-
-	if tmpl.BasicConstraints.IsCA && len(tmpl.KeyUsage) == 0 {
-		return fmt.Errorf("CA certificate must specify at least one key usage")
-	}
-
-	// For CA certs
-	if tmpl.BasicConstraints.IsCA {
-		hasKeyUsageCertSign := false
-		for _, usage := range tmpl.KeyUsage {
-			if usage == "certSign" {
-				hasKeyUsageCertSign = true
+	switch certType {
+	case "root":
+		if !tmpl.BasicConstraints.IsCA {
+			return fmt.Errorf("root certificate must be a CA")
+		}
+		if tmpl.Issuer.CommonName == "" {
+			return fmt.Errorf("template issuer.commonName cannot be empty for root certificate")
+		}
+	case "intermediate":
+		if parent == nil {
+			return fmt.Errorf("parent certificate is required for non-root certificates")
+		}
+		if !tmpl.BasicConstraints.IsCA {
+			return fmt.Errorf("intermediate certificate must be a CA")
+		}
+		if tmpl.BasicConstraints.MaxPathLen != 0 {
+			return fmt.Errorf("intermediate CA MaxPathLen must be 0")
+		}
+	case "leaf":
+		if parent == nil {
+			return fmt.Errorf("parent certificate is required for non-root certificates")
+		}
+		if tmpl.BasicConstraints.IsCA {
+			return fmt.Errorf("leaf certificate cannot be a CA")
+		}
+		if containsKeyUsage(tmpl.KeyUsage, "certSign") {
+			return fmt.Errorf("leaf certificate cannot have certSign key usage")
+		}
+		hasCodeSigning := false
+		for _, usage := range tmpl.ExtKeyUsage {
+			if usage == "CodeSigning" {
+				hasCodeSigning = true
 				break
 			}
 		}
-		if !hasKeyUsageCertSign {
-			return fmt.Errorf("CA certificate must have certSign key usage")
+		if !hasCodeSigning {
+			return fmt.Errorf("Fulcio leaf certificates must have codeSign extended key usage")
 		}
+	default:
+		return fmt.Errorf("invalid certificate type: %s", certType)
 	}
 
-	// Fulcio-specific validation for code signing
-	hasCodeSigning := false
-	for _, usage := range tmpl.ExtKeyUsage {
-		if usage == "CodeSigning" {
-			hasCodeSigning = true
-			break
+	// Basic CA validation
+	if tmpl.BasicConstraints.IsCA {
+		if len(tmpl.KeyUsage) == 0 {
+			return fmt.Errorf("CA certificate must specify at least one key usage")
 		}
-	}
-	if !hasCodeSigning && !tmpl.BasicConstraints.IsCA {
-		return fmt.Errorf("Fulcio leaf certificates must have codeSign extended key usage")
+		if !containsKeyUsage(tmpl.KeyUsage, "certSign") {
+			return fmt.Errorf("CA certificate must have certSign key usage")
+		}
 	}
 
 	return nil
@@ -112,6 +168,10 @@ func CreateCertificateFromTemplate(tmpl *CertificateTemplate, parent *x509.Certi
 	notAfter, err := time.Parse(time.RFC3339, tmpl.NotAfter)
 	if err != nil {
 		return nil, fmt.Errorf("invalid notAfter time format: %w", err)
+	}
+
+	if notBefore.After(notAfter) {
+		return nil, fmt.Errorf("NotBefore time must be before NotAfter time")
 	}
 
 	cert := &x509.Certificate{
@@ -169,4 +229,14 @@ func SetExtKeyUsages(cert *x509.Certificate, usages []string) {
 			cert.ExtKeyUsage = append(cert.ExtKeyUsage, x509.ExtKeyUsageCodeSigning)
 		}
 	}
+}
+
+// Helper function to check if a key usage is present
+func containsKeyUsage(usages []string, target string) bool {
+	for _, usage := range usages {
+		if usage == target {
+			return true
+		}
+	}
+	return false
 }
