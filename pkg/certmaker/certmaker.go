@@ -14,7 +14,7 @@
 //
 
 // Package certmaker implements a certificate creation utility for Fulcio.
-// It supports creating root and leaf certificates using (AWS, GCP, Azure).
+// It supports creating root, intermediate, and leaf certs using (AWS, GCP, Azure).
 package certmaker
 
 import (
@@ -69,10 +69,7 @@ func InitKMS(ctx context.Context, config KMSConfig) (apiv1.KeyManager, error) {
 		opts.URI = fmt.Sprintf("cloudkms:%s", keyID)
 		if credFile, ok := config.Options["credentials-file"]; ok {
 			if _, err := os.Stat(credFile); err != nil {
-				if os.IsNotExist(err) {
-					return nil, fmt.Errorf("credentials file not found: %s", credFile)
-				}
-				return nil, fmt.Errorf("error accessing credentials file: %w", err)
+				return nil, fmt.Errorf("failed to initialize Cloud KMS: credentials file not found: %s", credFile)
 			}
 			opts.URI += fmt.Sprintf("?credentials-file=%s", credFile)
 		}
@@ -269,6 +266,9 @@ func ValidateKMSConfig(config KMSConfig) error {
 
 	case "azurekms":
 		// Azure KMS validation
+		if config.Options == nil {
+			return fmt.Errorf("options map is required for Azure KMS")
+		}
 		if config.Options["tenant-id"] == "" {
 			return fmt.Errorf("tenant-id is required for Azure KMS")
 		}
@@ -281,7 +281,7 @@ func ValidateKMSConfig(config KMSConfig) error {
 				return fmt.Errorf("azurekms %s must start with 'azurekms:name='", keyType)
 			}
 			if !strings.Contains(keyID, ";vault=") {
-				return fmt.Errorf("azurekms %s must contain ';vault=' parameter", keyType)
+				return fmt.Errorf("vault name is required for Azure Key Vault")
 			}
 			return nil
 		}
