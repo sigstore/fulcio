@@ -224,8 +224,7 @@ func SetKeyUsages(cert *x509.Certificate, usages []string) {
 // Currently only supports CodeSigning usage.
 func SetExtKeyUsages(cert *x509.Certificate, usages []string) {
 	for _, usage := range usages {
-		switch usage {
-		case "CodeSigning":
+		if usage == "CodeSigning" {
 			cert.ExtKeyUsage = append(cert.ExtKeyUsage, x509.ExtKeyUsageCodeSigning)
 		}
 	}

@@ -61,7 +61,7 @@ func (m *mockKMS) CreateSigner(req *apiv1.CreateSignerRequest) (crypto.Signer, e
 	return nil, fmt.Errorf("key not found: %s", req.SigningKey)
 }
 
-func (m *mockKMS) CreateKey(req *apiv1.CreateKeyRequest) (*apiv1.CreateKeyResponse, error) {
+func (m *mockKMS) CreateKey(_ *apiv1.CreateKeyRequest) (*apiv1.CreateKeyResponse, error) {
 	return nil, fmt.Errorf("CreateKey is not supported in mockKMS")
 }
 
@@ -73,25 +73,6 @@ func (m *mockKMS) GetPublicKey(req *apiv1.GetPublicKeyRequest) (crypto.PublicKey
 }
 
 func (m *mockKMS) Close() error {
-	return nil
-}
-
-// mockErrorKMS simulates KMS errors for testing
-type mockErrorKMS struct{}
-
-func (m *mockErrorKMS) CreateSigner(*apiv1.CreateSignerRequest) (crypto.Signer, error) {
-	return nil, fmt.Errorf("simulated KMS error")
-}
-
-func (m *mockErrorKMS) GetPublicKey(*apiv1.GetPublicKeyRequest) (crypto.PublicKey, error) {
-	return nil, fmt.Errorf("simulated KMS error")
-}
-
-func (m *mockErrorKMS) CreateKey(*apiv1.CreateKeyRequest) (*apiv1.CreateKeyResponse, error) {
-	return nil, fmt.Errorf("simulated KMS error")
-}
-
-func (m *mockErrorKMS) Close() error {
 	return nil
 }
 

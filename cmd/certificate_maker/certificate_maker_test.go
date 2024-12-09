@@ -246,7 +246,7 @@ func TestCreateCommand(t *testing.T) {
 	// Create a test command
 	cmd := &cobra.Command{
 		Use: "test",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return nil
 		},
 	}
