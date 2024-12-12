@@ -117,7 +117,7 @@ func runCreate(_ *cobra.Command, _ []string) error {
 	// Handle KMS provider options
 	switch config.Type {
 	case "gcpkms":
-		if credsFile := getConfigValue(kmsCredsFile, "KMS_CREDENTIALS_FILE"); credsFile != "" {
+		if credsFile := getConfigValue(kmsCredsFile, "GCP_CREDENTIALS_FILE"); credsFile != "" {
 			// Check if credentials file exists before trying to use it
 			if _, err := os.Stat(credsFile); err != nil {
 				if os.IsNotExist(err) {
@@ -128,7 +128,7 @@ func runCreate(_ *cobra.Command, _ []string) error {
 			config.Options["credentials-file"] = credsFile
 		}
 	case "azurekms":
-		if tenantID := getConfigValue(kmsTenantID, "KMS_TENANT_ID"); tenantID != "" {
+		if tenantID := getConfigValue(kmsTenantID, "AZURE_TENANT_ID"); tenantID != "" {
 			config.Options["tenant-id"] = tenantID
 		}
 	}
