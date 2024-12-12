@@ -84,11 +84,11 @@ func init() {
 
 	rootCmd.AddCommand(createCmd)
 
-	createCmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, cloudkms, azurekms)")
+	createCmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
 	createCmd.Flags().StringVar(&kmsRegion, "kms-region", "", "KMS region")
 	createCmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
-	createCmd.Flags().StringVar(&kmsTenantID, "kms-tenant-id", "", "Azure KMS tenant ID")
-	createCmd.Flags().StringVar(&kmsCredsFile, "kms-credentials-file", "", "Path to credentials file (for Google Cloud KMS)")
+	createCmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
+	createCmd.Flags().StringVar(&kmsCredsFile, "gcpkms-credentials-file", "", "Path to credentials file for GCP KMS")
 	createCmd.Flags().StringVar(&rootTemplatePath, "root-template", "pkg/certmaker/templates/root-template.json", "Path to root certificate template")
 	createCmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "pkg/certmaker/templates/leaf-template.json", "Path to leaf certificate template")
 	createCmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
@@ -116,8 +116,15 @@ func runCreate(_ *cobra.Command, _ []string) error {
 
 	// Handle KMS provider options
 	switch config.Type {
-	case "cloudkms":
+	case "gcpkms":
 		if credsFile := getConfigValue(kmsCredsFile, "KMS_CREDENTIALS_FILE"); credsFile != "" {
+			// Check if credentials file exists before trying to use it
+			if _, err := os.Stat(credsFile); err != nil {
+				if os.IsNotExist(err) {
+					return fmt.Errorf("failed to initialize KMS: credentials file not found: %s", credsFile)
+				}
+				return fmt.Errorf("failed to initialize KMS: error accessing credentials file: %w", err)
+			}
 			config.Options["credentials-file"] = credsFile
 		}
 	case "azurekms":

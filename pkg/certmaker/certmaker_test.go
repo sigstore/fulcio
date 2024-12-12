@@ -449,11 +449,11 @@ func TestValidateKMSConfig(t *testing.T) {
 		{
 			name: "gcp_kms_invalid_root_key_format",
 			config: KMSConfig{
-				Type:      "cloudkms",
-				RootKeyID: "invalid-key-format",
+				Type:      "gcpkms",
+				RootKeyID: "invalid-key-id",
 			},
 			wantErr:    true,
-			wantErrMsg: "cloudkms RootKeyID must start with 'projects/'",
+			wantErrMsg: "gcpkms RootKeyID must start with 'projects/'",
 		},
 		{
 			name: "azure_kms_missing_tenant_id",
@@ -1081,27 +1081,28 @@ func TestGCPKMSValidation(t *testing.T) {
 		wantError string
 	}{
 		{
-			name: "invalid root key format",
+			name: "invalid_root_key_format",
 			config: KMSConfig{
-				Type:      "cloudkms",
-				RootKeyID: "invalid-format",
+				Type:      "gcpkms",
+				RootKeyID: "invalid-key-id",
 			},
 			wantError: "must start with 'projects/'",
 		},
 		{
-			name: "missing locations in key path",
+			name: "missing_locations_in_key_path",
 			config: KMSConfig{
-				Type:      "cloudkms",
-				RootKeyID: "projects/test-project/keyrings/test-ring",
+				Type:      "gcpkms",
+				RootKeyID: "projects/test-project",
 			},
-			wantError: "invalid cloudkms key format",
+			wantError: "invalid gcpkms key format",
 		},
 		{
-			name: "valid GCP key format",
+			name: "valid_GCP_key_format",
 			config: KMSConfig{
-				Type:      "cloudkms",
+				Type:      "gcpkms",
 				RootKeyID: "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key",
 			},
+			wantError: "",
 		},
 	}
 
@@ -1220,7 +1221,7 @@ func TestInitKMSErrors(t *testing.T) {
 		{
 			name: "GCP KMS with nonexistent credentials file",
 			config: KMSConfig{
-				Type:      "cloudkms",
+				Type:      "gcpkms",
 				RootKeyID: "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key",
 				Options: map[string]string{
 					"credentials-file": "/nonexistent/credentials.json",

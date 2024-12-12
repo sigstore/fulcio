@@ -176,15 +176,15 @@ func TestRunCreate(t *testing.T) {
 		{
 			name: "GCP KMS with credentials file",
 			args: []string{
-				"--kms-type", "cloudkms",
-				"--root-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key",
-				"--leaf-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/leaf-key",
-				"--kms-credentials-file", "/nonexistent/credentials.json",
+				"--kms-type", "gcpkms",
+				"--root-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key/cryptoKeyVersions/1",
+				"--leaf-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/leaf-key/cryptoKeyVersions/1",
+				"--gcpkms-credentials-file", "/nonexistent/credentials.json",
 				"--root-template", rootTmplPath,
 				"--leaf-template", leafTmplPath,
 			},
 			wantError: true,
-			errMsg:    "credentials file not found",
+			errMsg:    "failed to initialize KMS: credentials file not found",
 		},
 		{
 			name: "Azure KMS without tenant ID",
@@ -214,20 +214,20 @@ func TestRunCreate(t *testing.T) {
 			}
 
 			// Add all flags that runCreate expects
-			cmd.Flags().StringVar(&kmsType, "kms-type", "", "")
-			cmd.Flags().StringVar(&kmsRegion, "kms-region", "", "")
-			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "")
-			cmd.Flags().StringVar(&kmsTenantID, "kms-tenant-id", "", "")
-			cmd.Flags().StringVar(&kmsCredsFile, "kms-credentials-file", "", "")
-			cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "")
-			cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "")
-			cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "")
-			cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "")
-			cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "")
-			cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "")
-			cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "")
-			cmd.Flags().StringVar(&intermediateTemplate, "intermediate-template", "", "")
-			cmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "", "")
+			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
+			cmd.Flags().StringVar(&kmsRegion, "kms-region", "", "KMS region")
+			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
+			cmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
+			cmd.Flags().StringVar(&kmsCredsFile, "gcpkms-credentials-file", "", "Path to credentials file for GCP KMS")
+			cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
+			cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
+			cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
+			cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "Path to leaf certificate template")
+			cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "Output path for root certificate")
+			cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "Output path for leaf certificate")
+			cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
+			cmd.Flags().StringVar(&intermediateTemplate, "intermediate-template", "", "Path to intermediate certificate template")
+			cmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
 
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
