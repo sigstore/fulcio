@@ -85,10 +85,10 @@ func init() {
 	rootCmd.AddCommand(createCmd)
 
 	createCmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
-	createCmd.Flags().StringVar(&kmsRegion, "kms-region", "", "KMS region")
+	createCmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 	createCmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
 	createCmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
-	createCmd.Flags().StringVar(&kmsCredsFile, "gcpkms-credentials-file", "", "Path to credentials file for GCP KMS")
+	createCmd.Flags().StringVar(&kmsCredsFile, "gcp-credentials-file", "", "Path to credentials file for GCP KMS")
 	createCmd.Flags().StringVar(&rootTemplatePath, "root-template", "pkg/certmaker/templates/root-template.json", "Path to root certificate template")
 	createCmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "pkg/certmaker/templates/leaf-template.json", "Path to leaf certificate template")
 	createCmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
@@ -107,7 +107,7 @@ func runCreate(_ *cobra.Command, _ []string) error {
 	// Build KMS config from flags and environment
 	config := certmaker.KMSConfig{
 		Type:              getConfigValue(kmsType, "KMS_TYPE"),
-		Region:            getConfigValue(kmsRegion, "KMS_REGION"),
+		Region:            getConfigValue(kmsRegion, "AWS_REGION"),
 		RootKeyID:         getConfigValue(rootKeyID, "KMS_ROOT_KEY_ID"),
 		IntermediateKeyID: getConfigValue(intermediateKeyID, "KMS_INTERMEDIATE_KEY_ID"),
 		LeafKeyID:         getConfigValue(leafKeyID, "KMS_LEAF_KEY_ID"),
