@@ -68,6 +68,13 @@ func TestGetConfigValue(t *testing.T) {
 			envValue:  "tenant-123",
 			want:      "tenant-123",
 		},
+		{
+			name:      "AWS KMS region from env",
+			flagValue: "",
+			envVar:    "AWS_REGION",
+			envValue:  "us-west-2",
+			want:      "us-west-2",
+		},
 	}
 
 	for _, tt := range tests {
@@ -139,7 +146,7 @@ func TestRunCreate(t *testing.T) {
 		{
 			name: "missing KMS type",
 			args: []string{
-				"--kms-region", "us-west-2",
+				"--aws-region", "us-west-2",
 				"--root-key-id", "test-root-key",
 				"--leaf-key-id", "test-leaf-key",
 				"--root-template", rootTmplPath,
@@ -152,9 +159,9 @@ func TestRunCreate(t *testing.T) {
 			name: "invalid KMS type",
 			args: []string{
 				"--kms-type", "invalid",
-				"--kms-region", "us-west-2",
-				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
-				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "test-root-key",
+				"--leaf-key-id", "test-leaf-key",
 				"--root-template", rootTmplPath,
 				"--leaf-template", leafTmplPath,
 			},
@@ -165,7 +172,7 @@ func TestRunCreate(t *testing.T) {
 			name: "missing root template",
 			args: []string{
 				"--kms-type", "awskms",
-				"--kms-region", "us-west-2",
+				"--aws-region", "us-west-2",
 				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
 				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
 				"--root-template", "nonexistent.json",
@@ -178,7 +185,7 @@ func TestRunCreate(t *testing.T) {
 			name: "missing leaf template",
 			args: []string{
 				"--kms-type", "awskms",
-				"--kms-region", "us-west-2",
+				"--aws-region", "us-west-2",
 				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
 				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
 				"--root-template", rootTmplPath,
@@ -193,7 +200,7 @@ func TestRunCreate(t *testing.T) {
 				"--kms-type", "gcpkms",
 				"--root-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key/cryptoKeyVersions/1",
 				"--leaf-key-id", "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/leaf-key/cryptoKeyVersions/1",
-				"--gcpkms-credentials-file", "/nonexistent/credentials.json",
+				"--gcp-credentials-file", "/nonexistent/credentials.json",
 				"--root-template", rootTmplPath,
 				"--leaf-template", leafTmplPath,
 			},
@@ -212,6 +219,19 @@ func TestRunCreate(t *testing.T) {
 			wantError: true,
 			errMsg:    "tenant-id is required",
 		},
+		{
+			name: "AWS KMS test",
+			args: []string{
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				"--root-template", rootTmplPath,
+				"--leaf-template", leafTmplPath,
+			},
+			wantError: true,
+			errMsg:    "operation error KMS",
+		},
 	}
 
 	for _, tt := range tests {
@@ -229,10 +249,10 @@ func TestRunCreate(t *testing.T) {
 
 			// Add all flags that runCreate expects
 			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
-			cmd.Flags().StringVar(&kmsRegion, "kms-region", "", "KMS region")
+			cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
 			cmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
-			cmd.Flags().StringVar(&kmsCredsFile, "gcpkms-credentials-file", "", "Path to credentials file for GCP KMS")
+			cmd.Flags().StringVar(&kmsCredsFile, "gcp-credentials-file", "", "Path to credentials file for GCP KMS")
 			cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
 			cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
 			cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
@@ -267,7 +287,7 @@ func TestCreateCommand(t *testing.T) {
 
 	// Add flags
 	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS type")
-	cmd.Flags().StringVar(&kmsRegion, "kms-region", "", "KMS region")
+	cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "Root key ID")
 	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "Leaf key ID")
 
@@ -278,7 +298,7 @@ func TestCreateCommand(t *testing.T) {
 	// Test flag parsing
 	err = cmd.ParseFlags([]string{
 		"--kms-type", "awskms",
-		"--kms-region", "us-west-2",
+		"--aws-region", "us-west-2",
 		"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
 		"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 	})
