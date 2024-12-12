@@ -54,6 +54,20 @@ func TestGetConfigValue(t *testing.T) {
 			envValue:  "",
 			want:      "",
 		},
+		{
+			name:      "GCP credentials file from env",
+			flagValue: "",
+			envVar:    "GCP_CREDENTIALS_FILE",
+			envValue:  "/path/to/creds.json",
+			want:      "/path/to/creds.json",
+		},
+		{
+			name:      "Azure tenant ID from env",
+			flagValue: "",
+			envVar:    "AZURE_TENANT_ID",
+			envValue:  "tenant-123",
+			want:      "tenant-123",
+		},
 	}
 
 	for _, tt := range tests {
