@@ -229,7 +229,19 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			if !strings.HasPrefix(keyID, "arn:aws:kms:") && !strings.HasPrefix(keyID, "alias/") {
+			if strings.HasPrefix(keyID, "arn:aws:kms:") {
+				parts := strings.Split(keyID, ":")
+				if len(parts) < 6 {
+					return fmt.Errorf("invalid AWS KMS ARN format for %s", keyType)
+				}
+				if parts[3] != config.Region {
+					return fmt.Errorf("region in ARN (%s) does not match configured region (%s)", parts[3], config.Region)
+				}
+			} else if strings.HasPrefix(keyID, "alias/") {
+				if strings.TrimPrefix(keyID, "alias/") == "" {
+					return fmt.Errorf("alias name cannot be empty for %s", keyType)
+				}
+			} else {
 				return fmt.Errorf("awskms %s must start with 'arn:aws:kms:' or 'alias/'", keyType)
 			}
 			return nil
@@ -250,11 +262,20 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			if !strings.HasPrefix(keyID, "projects/") {
-				return fmt.Errorf("gcpkms %s must start with 'projects/'", keyType)
+			requiredComponents := []struct {
+				component string
+				message   string
+			}{
+				{"projects/", "must start with 'projects/'"},
+				{"/locations/", "must contain '/locations/'"},
+				{"/keyRings/", "must contain '/keyRings/'"},
+				{"/cryptoKeys/", "must contain '/cryptoKeys/'"},
+				{"/cryptoKeyVersions/", "must contain '/cryptoKeyVersions/'"},
 			}
-			if !strings.Contains(keyID, "/locations/") || !strings.Contains(keyID, "/keyRings/") {
-				return fmt.Errorf("invalid gcpkms key format for %s: %s", keyType, keyID)
+			for _, req := range requiredComponents {
+				if !strings.Contains(keyID, req.component) {
+					return fmt.Errorf("gcpkms %s %s", keyType, req.message)
+				}
 			}
 			return nil
 		}
@@ -280,12 +301,19 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			// Validate format: azurekms:name=<key-name>;vault=<vault-name>
 			if !strings.HasPrefix(keyID, "azurekms:name=") {
 				return fmt.Errorf("azurekms %s must start with 'azurekms:name='", keyType)
 			}
-			if !strings.Contains(keyID, ";vault=") {
-				return fmt.Errorf("vault name is required for Azure Key Vault")
+			nameStart := strings.Index(keyID, "name=") + 5
+			vaultIndex := strings.Index(keyID, ";vault=")
+			if vaultIndex == -1 {
+				return fmt.Errorf("azurekms %s must contain ';vault=' parameter", keyType)
+			}
+			if strings.TrimSpace(keyID[nameStart:vaultIndex]) == "" {
+				return fmt.Errorf("key name cannot be empty for %s", keyType)
+			}
+			if strings.TrimSpace(keyID[vaultIndex+7:]) == "" {
+				return fmt.Errorf("vault name cannot be empty for %s", keyType)
 			}
 			return nil
 		}

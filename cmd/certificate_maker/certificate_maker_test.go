@@ -18,11 +18,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetConfigValue(t *testing.T) {
@@ -84,22 +83,27 @@ func TestGetConfigValue(t *testing.T) {
 				defer os.Unsetenv(tt.envVar)
 			}
 			got := getConfigValue(tt.flagValue, tt.envVar)
-			assert.Equal(t, tt.want, got)
+			if got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
 
 func TestInitLogger(t *testing.T) {
 	logger := initLogger()
-	require.NotNil(t, logger)
+	if logger == nil {
+		t.Error("logger should not be nil")
+	}
 }
 
 func TestRunCreate(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "cert-test-*")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create test template files
 	rootTemplate := `{
 		"subject": {
 			"commonName": "Test Root CA"
@@ -132,9 +136,13 @@ func TestRunCreate(t *testing.T) {
 	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
 	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
 	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0600)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	tests := []struct {
 		name      string
@@ -236,7 +244,6 @@ func TestRunCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 				defer os.Unsetenv(k)
@@ -247,7 +254,6 @@ func TestRunCreate(t *testing.T) {
 				RunE: runCreate,
 			}
 
-			// Add all flags that runCreate expects
 			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
 			cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
@@ -267,17 +273,19 @@ func TestRunCreate(t *testing.T) {
 			err := cmd.Execute()
 
 			if tt.wantError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errMsg)
+				}
 			} else {
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 		})
 	}
 }
 
 func TestCreateCommand(t *testing.T) {
-	// Create a test command
 	cmd := &cobra.Command{
 		Use: "test",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -285,40 +293,50 @@ func TestCreateCommand(t *testing.T) {
 		},
 	}
 
-	// Add flags
 	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS type")
 	cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "Root key ID")
 	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "Leaf key ID")
 
-	// Test missing required flags
 	err := cmd.Execute()
-	require.NoError(t, err) // No required flags set yet
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Test flag parsing
 	err = cmd.ParseFlags([]string{
 		"--kms-type", "awskms",
 		"--aws-region", "us-west-2",
 		"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
 		"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Verify flag values
-	assert.Equal(t, "awskms", kmsType)
-	assert.Equal(t, "us-west-2", kmsRegion)
-	assert.Equal(t, "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab", rootKeyID)
-	assert.Equal(t, "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654", leafKeyID)
+	if kmsType != "awskms" {
+		t.Errorf("got kmsType %v, want awskms", kmsType)
+	}
+	if kmsRegion != "us-west-2" {
+		t.Errorf("got kmsRegion %v, want us-west-2", kmsRegion)
+	}
+	if rootKeyID != "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab" {
+		t.Errorf("got rootKeyID %v, want arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab", rootKeyID)
+	}
+	if leafKeyID != "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654" {
+		t.Errorf("got leafKeyID %v, want arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654", leafKeyID)
+	}
 }
 
 func TestRootCommand(t *testing.T) {
-	// Test help output
 	rootCmd.SetArgs([]string{"--help"})
 	err := rootCmd.Execute()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Test unknown command
 	rootCmd.SetArgs([]string{"unknown"})
 	err = rootCmd.Execute()
-	require.Error(t, err)
+	if err == nil {
+		t.Error("expected error for unknown command, got nil")
+	}
 }
