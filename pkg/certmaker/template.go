@@ -121,6 +121,9 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certT
 		if tmpl.BasicConstraints.MaxPathLen != 0 {
 			return fmt.Errorf("intermediate CA MaxPathLen must be 0")
 		}
+		if !containsKeyUsage(tmpl.KeyUsage, "certSign") {
+			return fmt.Errorf("intermediate CA certificate must have certSign key usage")
+		}
 	case "leaf":
 		if parent == nil {
 			return fmt.Errorf("parent certificate is required for non-root certificates")
@@ -152,6 +155,16 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certT
 		}
 		if !containsKeyUsage(tmpl.KeyUsage, "certSign") {
 			return fmt.Errorf("CA certificate must have certSign key usage")
+		}
+	}
+
+	// Time validation against parent
+	if parent != nil {
+		if notBefore.Before(parent.NotBefore) {
+			return fmt.Errorf("certificate notBefore time cannot be before parent's notBefore time")
+		}
+		if notAfter.After(parent.NotAfter) {
+			return fmt.Errorf("certificate notAfter time cannot be after parent's notAfter time")
 		}
 	}
 

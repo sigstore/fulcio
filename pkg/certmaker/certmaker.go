@@ -14,25 +14,48 @@
 //
 
 // Package certmaker implements a certificate creation utility for Fulcio.
-// It supports creating root, intermediate, and leaf certs using (AWS, GCP, Azure).
+// It supports creating root, intermediate, and leaf certs using (AWS, GCP, Azure, HashiVault).
 package certmaker
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
-	"go.step.sm/crypto/kms/apiv1"
-	"go.step.sm/crypto/kms/awskms"
-	"go.step.sm/crypto/kms/azurekms"
-	"go.step.sm/crypto/kms/cloudkms"
+	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/kms"
+	"github.com/sigstore/sigstore/pkg/signature/options"
+
+	// Initialize AWS KMS provider
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/aws"
+	// Initialize Azure KMS provider
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/azure"
+	// Initialize GCP KMS provider
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/gcp"
+	// Initialize HashiVault KMS provider
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 	"go.step.sm/crypto/x509util"
 )
+
+type signerWrapper struct {
+	signature.SignerVerifier
+}
+
+func (s signerWrapper) Public() crypto.PublicKey {
+	key, _ := s.PublicKey()
+	return key
+}
+
+func (s signerWrapper) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return s.SignMessage(bytes.NewReader(digest), options.WithDigest(digest))
+}
 
 // KMSConfig holds config for KMS providers.
 type KMSConfig struct {
@@ -45,14 +68,9 @@ type KMSConfig struct {
 }
 
 // InitKMS initializes KMS provider based on the given config, KMSConfig.
-// Supports AWS KMS, Google Cloud KMS, and Azure Key Vault.
-func InitKMS(ctx context.Context, config KMSConfig) (apiv1.KeyManager, error) {
+var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerifier, error) {
 	if err := ValidateKMSConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid KMS configuration: %w", err)
-	}
-	opts := apiv1.Options{
-		Type: apiv1.Type(config.Type),
-		URI:  "",
 	}
 
 	// Falls back to LeafKeyID if root is not set
@@ -61,42 +79,83 @@ func InitKMS(ctx context.Context, config KMSConfig) (apiv1.KeyManager, error) {
 		keyID = config.LeafKeyID
 	}
 
+	var sv signature.SignerVerifier
+	var err error
+
 	switch config.Type {
 	case "awskms":
-		opts.URI = fmt.Sprintf("awskms:///%s?region=%s", keyID, config.Region)
-		return awskms.New(ctx, opts)
-	case "gcpkms":
-		opts.Type = apiv1.Type("cloudkms")
-		opts.URI = fmt.Sprintf("cloudkms:%s", keyID)
-		if credFile, ok := config.Options["credentials-file"]; ok {
-			if _, err := os.Stat(credFile); err != nil {
-				if os.IsNotExist(err) {
-					return nil, fmt.Errorf("credentials file not found: %s", credFile)
-				}
-				return nil, fmt.Errorf("error accessing credentials file: %w", err)
-			}
-			opts.URI += fmt.Sprintf("?credentials-file=%s", credFile)
+		ref := fmt.Sprintf("awskms:///%s", keyID)
+		if config.Region != "" {
+			os.Setenv("AWS_REGION", config.Region)
 		}
-		km, err := cloudkms.New(ctx, opts)
+		sv, err = kms.Get(ctx, ref, crypto.SHA256)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize AWS KMS: %w", err)
+		}
+
+	case "gcpkms":
+		ref := fmt.Sprintf("gcpkms://%s", keyID)
+		sv, err = kms.Get(ctx, ref, crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize GCP KMS: %w", err)
 		}
-		return km, nil
+
 	case "azurekms":
-		opts.URI = keyID
-		if config.Options["tenant-id"] != "" {
-			opts.URI += fmt.Sprintf("?tenant-id=%s", config.Options["tenant-id"])
+		keyURI := keyID
+		if strings.HasPrefix(keyID, "azurekms:name=") {
+			nameStart := strings.Index(keyID, "name=") + 5
+			vaultIndex := strings.Index(keyID, ";vault=")
+			if vaultIndex != -1 {
+				keyName := strings.TrimSpace(keyID[nameStart:vaultIndex])
+				vaultName := strings.TrimSpace(keyID[vaultIndex+7:])
+				keyURI = fmt.Sprintf("azurekms://%s.vault.azure.net/%s", vaultName, keyName)
+			}
 		}
-		return azurekms.New(ctx, opts)
+		if config.Options != nil && config.Options["tenant-id"] != "" {
+			os.Setenv("AZURE_TENANT_ID", config.Options["tenant-id"])
+			os.Setenv("AZURE_ADDITIONALLY_ALLOWED_TENANTS", "*")
+		}
+		os.Setenv("AZURE_AUTHORITY_HOST", "https://login.microsoftonline.com/")
+
+		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Azure KMS: %w", err)
+		}
+
+	case "hashivault":
+		keyURI := fmt.Sprintf("hashivault://%s", keyID)
+		if config.Options != nil {
+			if token := config.Options["token"]; token != "" {
+				os.Setenv("VAULT_TOKEN", token)
+			}
+			if addr := config.Options["address"]; addr != "" {
+				os.Setenv("VAULT_ADDR", addr)
+			}
+		}
+
+		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize HashiVault KMS: %w", err)
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported KMS type: %s", config.Type)
 	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get KMS signer: %w", err)
+	}
+	if sv == nil {
+		return nil, fmt.Errorf("KMS returned nil signer")
+	}
+
+	return sv, nil
 }
 
 // CreateCertificates creates certificates using the provided KMS and templates.
 // It creates 3 certificates (root -> intermediate -> leaf) if intermediateKeyID is provided,
 // otherwise creates just 2 certs (root -> leaf).
-func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
+func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	rootTemplatePath, leafTemplatePath string,
 	rootCertPath, leafCertPath string,
 	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string) error {
@@ -107,14 +166,13 @@ func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
 		return fmt.Errorf("error parsing root template: %w", err)
 	}
 
-	rootSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
-		SigningKey: config.RootKeyID,
-	})
+	// Get public key from signer
+	rootPubKey, err := sv.PublicKey()
 	if err != nil {
-		return fmt.Errorf("error creating root signer: %w", err)
+		return fmt.Errorf("error getting root public key: %w", err)
 	}
 
-	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootSigner.Public(), rootSigner)
+	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, signerWrapper{sv})
 	if err != nil {
 		return fmt.Errorf("error creating root certificate: %w", err)
 	}
@@ -133,14 +191,20 @@ func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
 			return fmt.Errorf("error parsing intermediate template: %w", err)
 		}
 
-		intermediateSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
-			SigningKey: intermediateKeyID,
-		})
+		// Initialize new KMS for intermediate key
+		intermediateConfig := config
+		intermediateConfig.RootKeyID = intermediateKeyID
+		intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
 		if err != nil {
-			return fmt.Errorf("error creating intermediate signer: %w", err)
+			return fmt.Errorf("error initializing intermediate KMS: %w", err)
 		}
 
-		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediateSigner.Public(), rootSigner)
+		intermediatePubKey, err := intermediateSV.PublicKey()
+		if err != nil {
+			return fmt.Errorf("error getting intermediate public key: %w", err)
+		}
+
+		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, signerWrapper{sv})
 		if err != nil {
 			return fmt.Errorf("error creating intermediate certificate: %w", err)
 		}
@@ -150,10 +214,10 @@ func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
 		}
 
 		signingCert = intermediateCert
-		signingKey = intermediateSigner
+		signingKey = signerWrapper{intermediateSV}
 	} else {
 		signingCert = rootCert
-		signingKey = rootSigner
+		signingKey = signerWrapper{sv}
 	}
 
 	// Create leaf cert
@@ -162,14 +226,20 @@ func CreateCertificates(km apiv1.KeyManager, config KMSConfig,
 		return fmt.Errorf("error parsing leaf template: %w", err)
 	}
 
-	leafSigner, err := km.CreateSigner(&apiv1.CreateSignerRequest{
-		SigningKey: config.LeafKeyID,
-	})
+	// Initialize new KMS for leaf key
+	leafConfig := config
+	leafConfig.RootKeyID = config.LeafKeyID
+	leafSV, err := InitKMS(context.Background(), leafConfig)
 	if err != nil {
-		return fmt.Errorf("error creating leaf signer: %w", err)
+		return fmt.Errorf("error initializing leaf KMS: %w", err)
 	}
 
-	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafSigner.Public(), signingKey)
+	leafPubKey, err := leafSV.PublicKey()
+	if err != nil {
+		return fmt.Errorf("error getting leaf public key: %w", err)
+	}
+
+	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
 	if err != nil {
 		return fmt.Errorf("error creating leaf certificate: %w", err)
 	}
@@ -229,7 +299,8 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			if strings.HasPrefix(keyID, "arn:aws:kms:") {
+			switch {
+			case strings.HasPrefix(keyID, "arn:aws:kms:"):
 				parts := strings.Split(keyID, ":")
 				if len(parts) < 6 {
 					return fmt.Errorf("invalid AWS KMS ARN format for %s", keyType)
@@ -237,11 +308,11 @@ func ValidateKMSConfig(config KMSConfig) error {
 				if parts[3] != config.Region {
 					return fmt.Errorf("region in ARN (%s) does not match configured region (%s)", parts[3], config.Region)
 				}
-			} else if strings.HasPrefix(keyID, "alias/") {
+			case strings.HasPrefix(keyID, "alias/"):
 				if strings.TrimPrefix(keyID, "alias/") == "" {
 					return fmt.Errorf("alias name cannot be empty for %s", keyType)
 				}
-			} else {
+			default:
 				return fmt.Errorf("awskms %s must start with 'arn:aws:kms:' or 'alias/'", keyType)
 			}
 			return nil
@@ -324,6 +395,43 @@ func ValidateKMSConfig(config KMSConfig) error {
 			return err
 		}
 		if err := validateAzureKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+			return err
+		}
+
+	case "hashivault":
+		// HashiVault KMS validation
+		if config.Options == nil {
+			return fmt.Errorf("options map is required for HashiVault KMS")
+		}
+		if config.Options["address"] == "" {
+			return fmt.Errorf("address is required for HashiVault KMS")
+		}
+		if config.Options["token"] == "" {
+			return fmt.Errorf("token is required for HashiVault KMS")
+		}
+		validateHashiVaultKeyID := func(keyID, keyType string) error {
+			if keyID == "" {
+				return nil
+			}
+			parts := strings.Split(keyID, "/")
+			if len(parts) < 3 {
+				return fmt.Errorf("hashivault %s must be in format: transit/keys/keyname", keyType)
+			}
+			if parts[0] != "transit" || parts[1] != "keys" {
+				return fmt.Errorf("hashivault %s must start with 'transit/keys/'", keyType)
+			}
+			if parts[2] == "" {
+				return fmt.Errorf("key name cannot be empty for %s", keyType)
+			}
+			return nil
+		}
+		if err := validateHashiVaultKeyID(config.RootKeyID, "RootKeyID"); err != nil {
+			return err
+		}
+		if err := validateHashiVaultKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
+			return err
+		}
+		if err := validateHashiVaultKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
 			return err
 		}
 

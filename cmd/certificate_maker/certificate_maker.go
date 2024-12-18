@@ -62,6 +62,8 @@ var (
 	intermediateKeyID    string
 	intermediateTemplate string
 	intermediateCert     string
+	kmsVaultToken        string
+	kmsVaultAddr         string
 
 	rawJSON = []byte(`{
 		"level": "debug",
@@ -84,7 +86,7 @@ func init() {
 
 	rootCmd.AddCommand(createCmd)
 
-	createCmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms)")
+	createCmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms, hashivault)")
 	createCmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 	createCmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
 	createCmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
@@ -98,6 +100,8 @@ func init() {
 	createCmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
 	createCmd.Flags().StringVar(&intermediateTemplate, "intermediate-template", "pkg/certmaker/templates/intermediate-template.json", "Path to intermediate certificate template")
 	createCmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+	createCmd.Flags().StringVar(&kmsVaultToken, "vault-token", "", "HashiVault token")
+	createCmd.Flags().StringVar(&kmsVaultAddr, "vault-address", "", "HashiVault server address")
 }
 
 func runCreate(_ *cobra.Command, _ []string) error {
@@ -130,6 +134,13 @@ func runCreate(_ *cobra.Command, _ []string) error {
 	case "azurekms":
 		if tenantID := getConfigValue(kmsTenantID, "AZURE_TENANT_ID"); tenantID != "" {
 			config.Options["tenant-id"] = tenantID
+		}
+	case "hashivault":
+		if token := getConfigValue(kmsVaultToken, "VAULT_TOKEN"); token != "" {
+			config.Options["token"] = token
+		}
+		if addr := getConfigValue(kmsVaultAddr, "VAULT_ADDR"); addr != "" {
+			config.Options["address"] = addr
 		}
 	}
 
