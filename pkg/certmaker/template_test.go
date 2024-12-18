@@ -21,6 +21,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateTemplateFields(t *testing.T) {
@@ -158,6 +162,8 @@ func TestValidateTemplateFields(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			},
 			certType:  "leaf",
 			wantError: "leaf certificate cannot have certSign key usage",
@@ -215,15 +221,139 @@ func TestValidateTemplateFields(t *testing.T) {
 			certType:  "root",
 			wantError: "NotBefore time must be before NotAfter time",
 		},
+		{
+			name: "leaf without CodeSigning usage",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Leaf"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				KeyUsage: []string{"digitalSignature"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: false},
+				NotBefore: "2024-01-01T00:00:00Z",
+				NotAfter:  "2025-01-01T00:00:00Z",
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test CA",
+				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			certType:  "leaf",
+			wantError: "Fulcio leaf certificates must have codeSign extended key usage",
+		},
+		{
+			name: "valid intermediate CA",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Intermediate CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test Root CA"},
+				NotBefore: "2024-01-01T00:00:00Z",
+				NotAfter:  "2025-01-01T00:00:00Z",
+				KeyUsage:  []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{
+					IsCA:       true,
+					MaxPathLen: 0,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			certType: "intermediate",
+		},
+		{
+			name: "intermediate with wrong MaxPathLen",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Intermediate CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test Root CA"},
+				NotBefore: "2024-01-01T00:00:00Z",
+				NotAfter:  "2025-01-01T00:00:00Z",
+				KeyUsage:  []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{
+					IsCA:       true,
+					MaxPathLen: 1,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			certType:  "intermediate",
+			wantError: "intermediate CA MaxPathLen must be 0",
+		},
+		{
+			name: "leaf with invalid time constraints",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Leaf"},
+				NotBefore:   "2023-01-01T00:00:00Z",
+				NotAfter:    "2026-01-01T00:00:00Z",
+				KeyUsage:    []string{"digitalSignature"},
+				ExtKeyUsage: []string{"CodeSigning"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: false},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test CA",
+				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			certType:  "leaf",
+			wantError: "certificate notBefore time cannot be before parent's notBefore time",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateTemplate(tt.tmpl, tt.parent, tt.certType)
 			if tt.wantError != "" {
-				if !strings.Contains(err.Error(), tt.wantError) {
-					t.Errorf("error %q should contain %q", err.Error(), tt.wantError)
-				}
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -231,7 +361,8 @@ func TestValidateTemplateFields(t *testing.T) {
 
 func TestParseTemplateErrors(t *testing.T) {
 	tests := []struct {
-		name      string
+		name string
+
 		content   string
 		wantError string
 	}{
@@ -265,22 +396,15 @@ func TestParseTemplateErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpFile, err := os.CreateTemp("", "cert-template-*.json")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 			defer os.Remove(tmpFile.Name())
 
 			err = os.WriteFile(tmpFile.Name(), []byte(tt.content), 0600)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
 			_, err = ParseTemplate(tmpFile.Name(), nil)
-			if err == nil {
-				t.Errorf("expected error, got nil")
-			} else if !strings.Contains(err.Error(), tt.wantError) {
-				t.Errorf("error %q should contain %q", err.Error(), tt.wantError)
-			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantError)
 		})
 	}
 
@@ -305,26 +429,15 @@ func TestInvalidCertificateType(t *testing.T) {
 	}
 
 	err := ValidateTemplate(tmpl, nil, "invalid")
-	if err == nil {
-		t.Errorf("expected error, got nil")
-	} else if !strings.Contains(err.Error(), "invalid certificate type") {
-		t.Errorf("error %q should contain %q", err.Error(), "invalid certificate type")
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid certificate type")
 }
 
 func TestContainsExtKeyUsage(t *testing.T) {
-	if containsExtKeyUsage(nil, "CodeSigning") {
-		t.Error("empty list (nil) should return false")
-	}
-	if containsExtKeyUsage([]string{}, "CodeSigning") {
-		t.Error("empty list should return false")
-	}
-	if !containsExtKeyUsage([]string{"CodeSigning"}, "CodeSigning") {
-		t.Error("should find matching usage")
-	}
-	if containsExtKeyUsage([]string{"OtherUsage"}, "CodeSigning") {
-		t.Error("should not find non-matching usage")
-	}
+	assert.False(t, containsExtKeyUsage(nil, "CodeSigning"), "empty list (nil) should return false")
+	assert.False(t, containsExtKeyUsage([]string{}, "CodeSigning"), "empty list should return false")
+	assert.True(t, containsExtKeyUsage([]string{"CodeSigning"}, "CodeSigning"), "should find matching usage")
+	assert.False(t, containsExtKeyUsage([]string{"OtherUsage"}, "CodeSigning"), "should not find non-matching usage")
 }
 
 func containsExtKeyUsage(usages []string, target string) bool {
@@ -370,6 +483,8 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
+				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			},
 			wantError: false,
 		},
