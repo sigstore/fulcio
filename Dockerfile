@@ -36,7 +36,7 @@ COPY --from=builder /opt/app-root/src/server /usr/local/bin/fulcio-server
 ENTRYPOINT ["/usr/local/bin/fulcio-server", "serve"]
 
 # debug compile options & debugger
-FROM deploy as debug
+FROM deploy AS debug
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.22.1
 
 # overwrite server and include debugger
