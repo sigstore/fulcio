@@ -22,4 +22,4 @@ ADD ./config/logid.sh /root/
 ADD ./config/ctfe /root/ctfe
 RUN chmod +x /root/logid.sh
 
-CMD /root/logid.sh
+CMD ["/root/logid.sh"]
