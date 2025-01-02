@@ -380,6 +380,11 @@ var DefaultConfig = &FulcioConfig{
 			ClientID:  "sigstore",
 			Type:      IssuerTypeGithubWorkflow,
 		},
+		"https://agent.buildkite.com": {
+			IssuerURL: "https://agent.buildkite.com",
+			ClientID:  "sigstore",
+			Type:      IssuerTypeBuildkiteJob,
+		},
 	},
 }
 
