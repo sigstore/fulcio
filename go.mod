@@ -5,7 +5,7 @@ go 1.23.4
 require (
 	chainguard.dev/go-grpc-kit v0.17.7
 	chainguard.dev/sdk v0.1.29
-	cloud.google.com/go/security v1.18.2
+	cloud.google.com/go/security v1.18.3
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
