@@ -21,8 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -33,7 +35,19 @@ import (
 func mapValuesToString(claims map[string]interface{}) map[string]string {
 	newMap := make(map[string]string)
 	for k, v := range claims {
-		newMap[k] = fmt.Sprintf("%s", v)
+		vType := reflect.ValueOf(v)
+		switch vType.Kind() {
+		case reflect.Float32, reflect.Float64:
+			value := vType.Interface().(float64)
+			if value == math.Trunc(value) {
+				// A float, but with no fractional part. Treat as an int
+				newMap[k] = fmt.Sprintf("%v", math.Trunc(value))
+			} else {
+				newMap[k] = strconv.FormatFloat(value, 'f', -1, 64)
+			}
+		default:
+			newMap[k] = fmt.Sprintf("%v", v)
+		}
 	}
 	return newMap
 }

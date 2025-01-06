@@ -214,6 +214,98 @@ func TestName(t *testing.T) {
 	}
 }
 
+func TestGetTokenClaims(t *testing.T) {
+
+	tokenClaims := map[string]interface{}{
+		"aud":                "sigstore",
+		"exp":                "0",
+		"iss":                "https://example.com",
+		"claim_string":       "bar",
+		"claim_string_empty": "",
+		"claim_bool":         true,
+		"claim_int":          1,
+		"claim_float_zero":   1.0,
+		"claim_float_low":    1.4,
+		"claim_float_high":   1.7,
+	}
+
+	tests := map[string]struct {
+		Claim          string
+		InputClaims    map[string]interface{}
+		ExpectedResult string
+		ExpectErr      bool
+	}{
+		`string claims pass through unchanged`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_string",
+			ExpectedResult: "bar",
+			ExpectErr:      false,
+		},
+		`empty string claims pass through unchanged`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_string_empty",
+			ExpectedResult: "",
+			ExpectErr:      false,
+		},
+		`bool claims pass through unchanged`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_bool",
+			ExpectedResult: "true",
+			ExpectErr:      false,
+		},
+		`integer claims are converted to a string`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_int",
+			ExpectedResult: "1",
+			ExpectErr:      false,
+		},
+		`float claims that are a whole number are converted to a string and formatted as an int`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_float_zero",
+			ExpectedResult: "1",
+			ExpectErr:      false,
+		},
+		`float claims are converted to a string with no rounding down`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_float_low",
+			ExpectedResult: "1.4",
+			ExpectErr:      false,
+		},
+		`float claims are converted to a string with no rounding up`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_float_high",
+			ExpectedResult: "1.7",
+			ExpectErr:      false,
+		},
+		`token has no claims`: {
+			ExpectErr: true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			token := &oidc.IDToken{}
+			token.Issuer = "https://example.com"
+			if test.InputClaims != nil {
+				claimsSerliaized, err := json.Marshal(test.InputClaims)
+				if err != nil {
+					t.Fatal(err)
+				}
+				withClaims(token, claimsSerliaized)
+			}
+			res, err := getTokenClaims(token)
+			if (err != nil) != test.ExpectErr {
+				t.Errorf("should raise an error don't matches: Expected %v, received: %v, error: %v",
+					test.ExpectErr, err != nil, err)
+			}
+			if res[test.Claim] != test.ExpectedResult {
+				t.Errorf("expected result don't matches: Expected %s, received: %s, error: %v",
+					test.ExpectedResult, res[test.Claim], err)
+			}
+		})
+	}
+}
+
 func TestApplyTemplateOrReplace(t *testing.T) {
 
 	tokenClaims := map[string]string{
