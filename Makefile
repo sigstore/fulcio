@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all test clean lint gosec
+.PHONY: all test clean lint gosec cert-maker
 
 all: fulcio
 # Ensure Make is run with bash shell as some syntax below is bash-specific
@@ -77,12 +77,16 @@ gen: $(GENSRC)
 fulcio: $(SRCS) ## Build Fulcio for local tests
 	go build -trimpath -ldflags "$(LDFLAGS)"
 
+cert-maker: ## Build the Fulcio Certificate Maker tool
+	go build -trimpath -ldflags "$(LDFLAGS)" -o fulcio-certificate-maker ./cmd/certificate_maker
+
 test: ## Runs go test
 	go test ./...
 
 clean: ## Clean the workspace
 	rm -rf dist
 	rm -rf fulcio
+	rm -rf fulcio-certificate-maker
 
 clean-gen: clean
 	rm -rf $(shell find pkg/generated -iname "*.go") *.swagger.json

@@ -12,17 +12,11 @@ This tool creates root, intermediate (optional), and leaf certificates for Fulci
 
 ## Local Development
 
-Clone and build the project locally:
+Build the binary:
 
 ```bash
-# Clone the repository
-git clone https://github.com/sigstore/fulcio
-
-# Change to project directory
-cd fulcio
-
-# Build the binary
-go build -o fulcio-certificate-maker ./cmd/certificate_maker
+make cert-maker
+./fulcio-certificate-maker --help
 ```
 
 ## Usage
