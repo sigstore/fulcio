@@ -236,4 +236,13 @@ ci-issuer-metadata:
   *buildkite-type:
     default-template-values:
       url: "https://buildkite.com"
-    subject-alternative-name-template: "{{.url}}/{{.organization_slug}}/{{.pipeline_slug}}"
+    extension-templates:
+      # Link to the specific Buildkite job that the OIDC token was generated from
+      run-invocation-uri: "{{.url}}/{{.organization_slug}}/{{.pipeline_slug}}/builds/{{.build_number}}#{{.job_id}}"
+      # Was the job executed on Buildkite operated compute or customer hosted compute? (valid values: self-hosted, buildkite-hosted)
+      runner-environment: "runner_environment"
+      # The git sha that job was running, available in the `build_commit` claim
+      source-repository-digest: "build_commit"
+      # build_source: Event that triggered this workflow run. (valid values: api, ui, webhook, trigger_job, schedule)
+      build-trigger: "build_source"
+    subject-alternative-name-template: "{{.url}}/{{.organization_slug}}/{{.pipeline_slug}}" # seems correct, do we still need the code in pkg/identity/buildkite/principal.go ?
