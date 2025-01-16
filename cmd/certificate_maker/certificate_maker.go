@@ -19,20 +19,21 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/certmaker"
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 // CLI flags and env vars for config.
 // Supports AWS KMS, Google Cloud KMS, and Azure Key Vault configurations.
 var (
-	logger  *zap.Logger
 	version string
 
 	rootCmd = &cobra.Command{
@@ -64,25 +65,22 @@ var (
 	intermediateCert     string
 	kmsVaultToken        string
 	kmsVaultAddr         string
-
-	rawJSON = []byte(`{
-		"level": "debug",
-		"encoding": "json",
-		"outputPaths": ["stdout"],
-		"errorOutputPaths": ["stderr"],
-		"initialFields": {"service": "fulcio-certificate-maker"},
-		"encoderConfig": {
-			"messageKey": "message",
-			"levelKey": "level",
-			"levelEncoder": "lowercase",
-			"timeKey": "timestamp",
-			"timeEncoder": "iso8601"
-		}
-	}`)
 )
 
+func mustBindPFlag(key string, flag *pflag.Flag) {
+	if err := viper.BindPFlag(key, flag); err != nil {
+		log.Logger.Fatal("failed to bind flag", zap.String("flag", key), zap.Error(err))
+	}
+}
+
+func mustBindEnv(key, envVar string) {
+	if err := viper.BindEnv(key, envVar); err != nil {
+		log.Logger.Fatal("failed to bind env var", zap.String("var", envVar), zap.Error(err))
+	}
+}
+
 func init() {
-	logger = initLogger()
+	log.ConfigureLogger("prod")
 
 	rootCmd.AddCommand(createCmd)
 
@@ -102,6 +100,34 @@ func init() {
 	createCmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
 	createCmd.Flags().StringVar(&kmsVaultToken, "vault-token", "", "HashiVault token")
 	createCmd.Flags().StringVar(&kmsVaultAddr, "vault-address", "", "HashiVault server address")
+
+	mustBindPFlag("kms-type", createCmd.Flags().Lookup("kms-type"))
+	mustBindPFlag("aws-region", createCmd.Flags().Lookup("aws-region"))
+	mustBindPFlag("kms-key-id", createCmd.Flags().Lookup("kms-key-id"))
+	mustBindPFlag("azure-tenant-id", createCmd.Flags().Lookup("azure-tenant-id"))
+	mustBindPFlag("gcp-credentials-file", createCmd.Flags().Lookup("gcp-credentials-file"))
+	mustBindPFlag("root-template", createCmd.Flags().Lookup("root-template"))
+	mustBindPFlag("leaf-template", createCmd.Flags().Lookup("leaf-template"))
+	mustBindPFlag("root-key-id", createCmd.Flags().Lookup("root-key-id"))
+	mustBindPFlag("leaf-key-id", createCmd.Flags().Lookup("leaf-key-id"))
+	mustBindPFlag("root-cert", createCmd.Flags().Lookup("root-cert"))
+	mustBindPFlag("leaf-cert", createCmd.Flags().Lookup("leaf-cert"))
+	mustBindPFlag("intermediate-key-id", createCmd.Flags().Lookup("intermediate-key-id"))
+	mustBindPFlag("intermediate-template", createCmd.Flags().Lookup("intermediate-template"))
+	mustBindPFlag("intermediate-cert", createCmd.Flags().Lookup("intermediate-cert"))
+	mustBindPFlag("vault-token", createCmd.Flags().Lookup("vault-token"))
+	mustBindPFlag("vault-address", createCmd.Flags().Lookup("vault-address"))
+
+	mustBindEnv("kms-type", "KMS_TYPE")
+	mustBindEnv("aws-region", "AWS_REGION")
+	mustBindEnv("kms-key-id", "KMS_KEY_ID")
+	mustBindEnv("azure-tenant-id", "AZURE_TENANT_ID")
+	mustBindEnv("gcp-credentials-file", "GCP_CREDENTIALS_FILE")
+	mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
+	mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
+	mustBindEnv("intermediate-key-id", "KMS_INTERMEDIATE_KEY_ID")
+	mustBindEnv("vault-token", "VAULT_TOKEN")
+	mustBindEnv("vault-address", "VAULT_ADDR")
 }
 
 func runCreate(_ *cobra.Command, _ []string) error {
@@ -110,18 +136,18 @@ func runCreate(_ *cobra.Command, _ []string) error {
 
 	// Build KMS config from flags and environment
 	config := certmaker.KMSConfig{
-		Type:              getConfigValue(kmsType, "KMS_TYPE"),
-		Region:            getConfigValue(kmsRegion, "AWS_REGION"),
-		RootKeyID:         getConfigValue(rootKeyID, "KMS_ROOT_KEY_ID"),
-		IntermediateKeyID: getConfigValue(intermediateKeyID, "KMS_INTERMEDIATE_KEY_ID"),
-		LeafKeyID:         getConfigValue(leafKeyID, "KMS_LEAF_KEY_ID"),
+		Type:              viper.GetString("kms-type"),
+		Region:            viper.GetString("aws-region"),
+		RootKeyID:         viper.GetString("root-key-id"),
+		IntermediateKeyID: viper.GetString("intermediate-key-id"),
+		LeafKeyID:         viper.GetString("leaf-key-id"),
 		Options:           make(map[string]string),
 	}
 
 	// Handle KMS provider options
 	switch config.Type {
 	case "gcpkms":
-		if credsFile := getConfigValue(kmsCredsFile, "GCP_CREDENTIALS_FILE"); credsFile != "" {
+		if credsFile := viper.GetString("gcp-credentials-file"); credsFile != "" {
 			// Check if credentials file exists before trying to use it
 			if _, err := os.Stat(credsFile); err != nil {
 				if os.IsNotExist(err) {
@@ -132,14 +158,14 @@ func runCreate(_ *cobra.Command, _ []string) error {
 			config.Options["credentials-file"] = credsFile
 		}
 	case "azurekms":
-		if tenantID := getConfigValue(kmsTenantID, "AZURE_TENANT_ID"); tenantID != "" {
+		if tenantID := viper.GetString("azure-tenant-id"); tenantID != "" {
 			config.Options["tenant-id"] = tenantID
 		}
 	case "hashivault":
-		if token := getConfigValue(kmsVaultToken, "VAULT_TOKEN"); token != "" {
+		if token := viper.GetString("vault-token"); token != "" {
 			config.Options["token"] = token
 		}
-		if addr := getConfigValue(kmsVaultAddr, "VAULT_ADDR"); addr != "" {
+		if addr := viper.GetString("vault-address"); addr != "" {
 			config.Options["address"] = addr
 		}
 	}
@@ -162,21 +188,6 @@ func runCreate(_ *cobra.Command, _ []string) error {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatal("Command failed", zap.Error(err))
+		log.Logger.Fatal("Command failed", zap.Error(err))
 	}
-}
-
-func getConfigValue(flagValue, envVar string) string {
-	if flagValue != "" {
-		return flagValue
-	}
-	return os.Getenv(envVar)
-}
-
-func initLogger() *zap.Logger {
-	var cfg zap.Config
-	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
-		panic(err)
-	}
-	return zap.Must(cfg.Build())
 }

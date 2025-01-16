@@ -28,8 +28,6 @@ linters-settings:
     excludes:
       - G115  # integer overflow conversion int -> uint32
       - G602  # slice index out of range
-output:
-  uniq-by-line: false
 issues:
   exclude-rules:
     - path: _test\.go
@@ -47,6 +45,7 @@ issues:
       text: SA1019
   max-issues-per-linter: 0
   max-same-issues: 0
+  uniq-by-line: false
 run:
   issues-exit-code: 1
   timeout: 10m

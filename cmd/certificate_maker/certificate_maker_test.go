@@ -20,7 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,15 +85,20 @@ func TestGetConfigValue(t *testing.T) {
 				os.Setenv(tt.envVar, tt.envValue)
 				defer os.Unsetenv(tt.envVar)
 			}
-			got := getConfigValue(tt.flagValue, tt.envVar)
+			viper.Reset()
+			viper.BindEnv(tt.envVar)
+			if tt.flagValue != "" {
+				viper.Set(tt.envVar, tt.flagValue)
+			}
+			got := viper.GetString(tt.envVar)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestInitLogger(t *testing.T) {
-	logger := initLogger()
-	require.NotNil(t, logger)
+	log.ConfigureLogger("prod")
+	require.NotNil(t, log.Logger)
 }
 
 func TestRunCreate(t *testing.T) {
@@ -261,17 +268,13 @@ func TestRunCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for k, v := range tt.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
-			}
-
+			log.ConfigureLogger("prod")
 			cmd := &cobra.Command{
 				Use:  "test",
 				RunE: runCreate,
 			}
 
-			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type (awskms, gcpkms, azurekms, hashivault)")
+			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type")
 			cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
 			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
 			cmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
@@ -287,6 +290,44 @@ func TestRunCreate(t *testing.T) {
 			cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
 			cmd.Flags().StringVar(&intermediateTemplate, "intermediate-template", "", "Path to intermediate certificate template")
 			cmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+
+			viper.Reset()
+			viper.BindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
+			viper.BindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
+			viper.BindPFlag("kms-key-id", cmd.Flags().Lookup("kms-key-id"))
+			viper.BindPFlag("azure-tenant-id", cmd.Flags().Lookup("azure-tenant-id"))
+			viper.BindPFlag("gcp-credentials-file", cmd.Flags().Lookup("gcp-credentials-file"))
+			viper.BindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
+			viper.BindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
+			viper.BindPFlag("vault-token", cmd.Flags().Lookup("vault-token"))
+			viper.BindPFlag("vault-address", cmd.Flags().Lookup("vault-address"))
+
+			switch tt.name {
+			case "invalid KMS type":
+				viper.Set("root-key-id", "dummy-key")
+			case "missing_root_template":
+				viper.Set("kms-type", "awskms")
+				viper.Set("root-key-id", "dummy-key")
+			case "missing_leaf_template":
+				viper.Set("kms-type", "awskms")
+				viper.Set("leaf-key-id", "dummy-key")
+			case "GCP_KMS_with_credentials_file":
+				viper.Set("kms-type", "gcpkms")
+				viper.Set("root-key-id", "dummy-key")
+			case "Azure_KMS_without_tenant_ID":
+				viper.Set("kms-type", "azurekms")
+				viper.Set("root-key-id", "dummy-key")
+			case "AWS_KMS_test":
+				viper.Set("kms-type", "awskms")
+				viper.Set("root-key-id", "dummy-key")
+			case "HashiVault_KMS_without_token":
+				viper.Set("kms-type", "hashivault")
+				viper.Set("root-key-id", "dummy-key")
+			case "HashiVault_KMS_without_address":
+				viper.Set("kms-type", "hashivault")
+				viper.Set("root-key-id", "dummy-key")
+				viper.Set("vault-token", "dummy-token")
+			}
 
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
