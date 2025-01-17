@@ -131,6 +131,7 @@ func init() {
 }
 
 func runCreate(_ *cobra.Command, _ []string) error {
+	defer func() { rootCmd.SilenceUsage = true }()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -187,7 +188,12 @@ func runCreate(_ *cobra.Command, _ []string) error {
 }
 
 func main() {
+	rootCmd.SilenceErrors = true
 	if err := rootCmd.Execute(); err != nil {
-		log.Logger.Fatal("Command failed", zap.Error(err))
+		if rootCmd.SilenceUsage {
+			log.Logger.Fatal("Command failed", zap.Error(err))
+		} else {
+			os.Exit(1)
+		}
 	}
 }
