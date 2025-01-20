@@ -37,7 +37,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.4.0
 	github.com/tink-crypto/tink-go-awskms/v2 v2.1.0
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.2.0
-	github.com/tink-crypto/tink-go/v2 v2.2.0
+	github.com/tink-crypto/tink-go/v2 v2.3.0
 	go.step.sm/crypto v0.56.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.216.0
