@@ -81,7 +81,7 @@ jobs:
           go-version: '${{ env.GOVERSION }}'
           check-latest: true
 
-      - uses: ko-build/setup-ko@3aebd0597dc1e9d1a26bcfdb7cbeb19c131d3037 # v0.7
+      - uses: ko-build/setup-ko@d982fec422852203cfb2053a8ec6ad302280d04d # v0.8
 
       - name: Setup Cluster
         uses: chainguard-dev/actions/setup-kind@29fb6e979a0b3efc79748a17e8cec08d0594cbfd # main
