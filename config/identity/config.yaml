@@ -104,6 +104,12 @@ oidc-issuers:
     ci-provider: *github-type
     contact: tac@sigstore.dev
     description: "GitHub Actions OIDC auth"
+  https://sigstore.verify.ibm.com/oauth2:
+    issuer-url: https://sigstore.verify.ibm.com/oauth2
+    client-id: sigstore
+    type: email
+    contact: sigstore@ibm.com
+    description: "IBM OIDC auth"
 meta-issuers:
   https://*.oic.prod-aks.azure.com/*:
     client-id: sigstore
