@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/certmaker"
@@ -65,6 +66,20 @@ func mustBindEnv(key, envVar string) {
 func init() {
 	log.ConfigureLogger("prod")
 
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	mustBindEnv("kms-type", "KMS_TYPE")
+	mustBindEnv("aws-region", "AWS_REGION")
+	mustBindEnv("azure-tenant-id", "AZURE_TENANT_ID")
+	mustBindEnv("gcp-credentials-file", "GCP_CREDENTIALS_FILE")
+	mustBindEnv("vault-token", "VAULT_TOKEN")
+	mustBindEnv("vault-address", "VAULT_ADDR")
+	mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
+	mustBindEnv("intermediate-key-id", "KMS_INTERMEDIATE_KEY_ID")
+	mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
+
 	rootCmd.AddCommand(createCmd)
 
 	// KMS provider flags
@@ -90,7 +105,6 @@ func init() {
 	createCmd.Flags().String("leaf-template", "pkg/certmaker/templates/leaf-template.json", "Path to leaf certificate template")
 	createCmd.Flags().String("leaf-cert", "leaf.pem", "Output path for leaf certificate")
 
-	// Bind flags to viper
 	mustBindPFlag("kms-type", createCmd.Flags().Lookup("kms-type"))
 	mustBindPFlag("aws-region", createCmd.Flags().Lookup("aws-region"))
 	mustBindPFlag("azure-tenant-id", createCmd.Flags().Lookup("azure-tenant-id"))
@@ -106,17 +120,6 @@ func init() {
 	mustBindPFlag("leaf-key-id", createCmd.Flags().Lookup("leaf-key-id"))
 	mustBindPFlag("leaf-template", createCmd.Flags().Lookup("leaf-template"))
 	mustBindPFlag("leaf-cert", createCmd.Flags().Lookup("leaf-cert"))
-
-	// Bind environment variables
-	mustBindEnv("kms-type", "KMS_TYPE")
-	mustBindEnv("aws-region", "AWS_REGION")
-	mustBindEnv("azure-tenant-id", "AZURE_TENANT_ID")
-	mustBindEnv("gcp-credentials-file", "GOOGLE_APPLICATION_CREDENTIALS")
-	mustBindEnv("vault-token", "VAULT_TOKEN")
-	mustBindEnv("vault-address", "VAULT_ADDR")
-	mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
-	mustBindEnv("intermediate-key-id", "KMS_INTERMEDIATE_KEY_ID")
-	mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
 }
 
 func runCreate(_ *cobra.Command, _ []string) error {

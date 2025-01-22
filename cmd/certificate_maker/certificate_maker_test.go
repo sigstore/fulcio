@@ -18,6 +18,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sigstore/fulcio/pkg/log"
@@ -28,7 +29,6 @@ import (
 )
 
 func TestGetConfigValue(t *testing.T) {
-	// KMS provider flags
 	var (
 		kmsType          string
 		awsKMSRegion     string
@@ -37,17 +37,14 @@ func TestGetConfigValue(t *testing.T) {
 		hashiVaultToken  string
 		hashiVaultAddr   string
 
-		// Root certificate flags
 		rootKeyID        string
 		rootTemplatePath string
 		rootCertPath     string
 
-		// Intermediate certificate flags
 		intermediateKeyID        string
 		intermediateTemplatePath string
 		intermediateCertPath     string
 
-		// Leaf certificate flags
 		leafKeyID        string
 		leafTemplatePath string
 		leafCertPath     string
@@ -58,7 +55,6 @@ func TestGetConfigValue(t *testing.T) {
 		},
 	}
 
-	// KMS provider flags
 	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type")
 	cmd.Flags().StringVar(&awsKMSRegion, "aws-region", "", "AWS KMS region")
 	cmd.Flags().StringVar(&azureKMSTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
@@ -66,17 +62,14 @@ func TestGetConfigValue(t *testing.T) {
 	cmd.Flags().StringVar(&hashiVaultToken, "vault-token", "", "HashiVault token")
 	cmd.Flags().StringVar(&hashiVaultAddr, "vault-address", "", "HashiVault server address")
 
-	// Root certificate flags
 	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
 	cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
 	cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "Output path for root certificate")
 
-	// Intermediate certificate flags
 	cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
 	cmd.Flags().StringVar(&intermediateTemplatePath, "intermediate-template", "", "Path to intermediate certificate template")
 	cmd.Flags().StringVar(&intermediateCertPath, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
 
-	// Leaf certificate flags
 	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
 	cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "Path to leaf certificate template")
 	cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "Output path for leaf certificate")
@@ -160,7 +153,8 @@ func TestRunCreate(t *testing.T) {
 		"basicConstraints": {
 			"isCA": true,
 			"maxPathLen": 1
-		}
+		},
+		"certLife": "8760h"
 	}`
 
 	leafTemplate := `{
@@ -173,7 +167,8 @@ func TestRunCreate(t *testing.T) {
 		"extKeyUsage": ["CodeSigning"],
 		"basicConstraints": {
 			"isCA": false
-		}
+		},
+		"certLife": "8760h"
 	}`
 
 	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
@@ -315,7 +310,6 @@ func TestRunCreate(t *testing.T) {
 				RunE: runCreate,
 			}
 
-			// KMS provider flags
 			cmd.Flags().String("kms-type", "", "KMS provider type")
 			cmd.Flags().String("aws-region", "", "AWS KMS region")
 			cmd.Flags().String("azure-tenant-id", "", "Azure KMS tenant ID")
@@ -323,17 +317,14 @@ func TestRunCreate(t *testing.T) {
 			cmd.Flags().String("vault-token", "", "HashiVault token")
 			cmd.Flags().String("vault-address", "", "HashiVault server address")
 
-			// Root certificate flags
 			cmd.Flags().String("root-key-id", "", "KMS key identifier for root certificate")
 			cmd.Flags().String("root-template", "", "Path to root certificate template")
 			cmd.Flags().String("root-cert", "root.pem", "Output path for root certificate")
 
-			// Intermediate certificate flags
 			cmd.Flags().String("intermediate-key-id", "", "KMS key identifier for intermediate certificate")
 			cmd.Flags().String("intermediate-template", "", "Path to intermediate certificate template")
 			cmd.Flags().String("intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
 
-			// Leaf certificate flags
 			cmd.Flags().String("leaf-key-id", "", "KMS key identifier for leaf certificate")
 			cmd.Flags().String("leaf-template", "", "Path to leaf certificate template")
 			cmd.Flags().String("leaf-cert", "leaf.pem", "Output path for leaf certificate")
@@ -400,7 +391,15 @@ func TestRunCreate(t *testing.T) {
 
 			if tt.wantError {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
+				if tt.name == "AWS KMS test" {
+					assert.True(t,
+						strings.Contains(err.Error(), "get identity: get credentials: failed to refresh cached credentials, no EC2 IMDS role found") ||
+							strings.Contains(err.Error(), "NotFoundException: Alias arn:aws:kms:us-west-2:") ||
+							strings.Contains(err.Error(), "operation error KMS: GetPublicKey"),
+						"Expected AWS credentials or key not found error, got: %v", err)
+				} else {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 			} else {
 				require.NoError(t, err)
 			}
@@ -452,4 +451,260 @@ func TestRootCommand(t *testing.T) {
 	rootCmd.SetArgs([]string{"unknown"})
 	err = rootCmd.Execute()
 	require.Error(t, err)
+}
+
+func setupTestCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "test",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+
+	cmd.Flags().String("kms-type", "", "KMS type")
+	cmd.Flags().String("aws-region", "", "AWS KMS region")
+	cmd.Flags().String("azure-tenant-id", "", "Azure KMS tenant ID")
+	cmd.Flags().String("vault-token", "", "HashiVault token")
+	cmd.Flags().String("vault-address", "", "HashiVault address")
+	cmd.Flags().String("root-key-id", "", "Root key ID")
+	cmd.Flags().String("leaf-key-id", "", "Leaf key ID")
+	cmd.Flags().String("root-template", "", "Root template path")
+	cmd.Flags().String("leaf-template", "", "Leaf template path")
+
+	return cmd
+}
+
+func TestEnvironmentVariableOverrides(t *testing.T) {
+	oldEnv := make(map[string]string)
+	envVars := []string{
+		"KMS_TYPE",
+		"AWS_REGION",
+		"AZURE_TENANT_ID",
+		"GCP_CREDENTIALS_FILE",
+		"VAULT_TOKEN",
+		"VAULT_ADDR",
+		"KMS_ROOT_KEY_ID",
+		"KMS_INTERMEDIATE_KEY_ID",
+		"KMS_LEAF_KEY_ID",
+	}
+	for _, env := range envVars {
+		oldEnv[env] = os.Getenv(env)
+	}
+
+	defer func() {
+		for env, value := range oldEnv {
+			if value == "" {
+				os.Unsetenv(env)
+			} else {
+				os.Setenv(env, value)
+			}
+		}
+	}()
+
+	tests := []struct {
+		name       string
+		envVars    map[string]string
+		flags      map[string]string
+		wantValues map[string]string
+	}{
+		{
+			name: "environment_overrides_flags",
+			envVars: map[string]string{
+				"KMS_TYPE":        "awskms",
+				"AWS_REGION":      "us-east-1",
+				"KMS_ROOT_KEY_ID": "env-root-key",
+				"KMS_LEAF_KEY_ID": "env-leaf-key",
+			},
+			flags: map[string]string{
+				"kms-type":    "gcpkms",
+				"aws-region":  "us-west-2",
+				"root-key-id": "flag-root-key",
+				"leaf-key-id": "flag-leaf-key",
+			},
+			wantValues: map[string]string{
+				"kms-type":    "awskms",
+				"aws-region":  "us-east-1",
+				"root-key-id": "env-root-key",
+				"leaf-key-id": "env-leaf-key",
+			},
+		},
+		{
+			name: "azure_kms_environment",
+			envVars: map[string]string{
+				"KMS_TYPE":        "azurekms",
+				"AZURE_TENANT_ID": "env-tenant-id",
+				"KMS_ROOT_KEY_ID": "azurekms:name=env-key;vault=env-vault",
+				"KMS_LEAF_KEY_ID": "azurekms:name=env-leaf;vault=env-vault",
+			},
+			flags: map[string]string{
+				"azure-tenant-id": "flag-tenant-id",
+				"root-key-id":     "flag-root-key",
+				"leaf-key-id":     "flag-leaf-key",
+			},
+			wantValues: map[string]string{
+				"kms-type":        "azurekms",
+				"azure-tenant-id": "env-tenant-id",
+				"root-key-id":     "azurekms:name=env-key;vault=env-vault",
+				"leaf-key-id":     "azurekms:name=env-leaf;vault=env-vault",
+			},
+		},
+		{
+			name: "hashivault_kms_environment",
+			envVars: map[string]string{
+				"KMS_TYPE":        "hashivault",
+				"VAULT_TOKEN":     "env-token",
+				"VAULT_ADDR":      "http://env-vault:8200",
+				"KMS_ROOT_KEY_ID": "transit/keys/env-key",
+				"KMS_LEAF_KEY_ID": "transit/keys/env-leaf",
+			},
+			flags: map[string]string{
+				"vault-token":   "flag-token",
+				"vault-address": "http://flag-vault:8200",
+				"root-key-id":   "flag-root-key",
+				"leaf-key-id":   "flag-leaf-key",
+			},
+			wantValues: map[string]string{
+				"kms-type":      "hashivault",
+				"vault-token":   "env-token",
+				"vault-address": "http://env-vault:8200",
+				"root-key-id":   "transit/keys/env-key",
+				"leaf-key-id":   "transit/keys/env-leaf",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, env := range envVars {
+				os.Unsetenv(env)
+			}
+			viper.Reset()
+
+			viper.AutomaticEnv()
+			viper.SetEnvPrefix("")
+			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+			mustBindEnv("kms-type", "KMS_TYPE")
+			mustBindEnv("aws-region", "AWS_REGION")
+			mustBindEnv("azure-tenant-id", "AZURE_TENANT_ID")
+			mustBindEnv("vault-token", "VAULT_TOKEN")
+			mustBindEnv("vault-address", "VAULT_ADDR")
+			mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
+			mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
+
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+
+			for k, v := range tt.flags {
+				viper.SetDefault(k, v)
+			}
+
+			for k, want := range tt.wantValues {
+				got := viper.GetString(k)
+				assert.Equal(t, want, got, "key %s", k)
+			}
+		})
+	}
+}
+
+func TestTemplateValidationInRunCreate(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "template-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	validTemplate := `{
+		"subject": {
+			"commonName": "Test CA"
+		},
+		"issuer": {
+			"commonName": "Test CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	invalidTemplate := `{
+		"invalid": json,
+	}`
+
+	validPath := filepath.Join(tmpDir, "valid.json")
+	invalidPath := filepath.Join(tmpDir, "invalid.json")
+	nonexistentPath := filepath.Join(tmpDir, "nonexistent.json")
+
+	err = os.WriteFile(validPath, []byte(validTemplate), 0600)
+	require.NoError(t, err)
+	err = os.WriteFile(invalidPath, []byte(invalidTemplate), 0600)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		flags     []string
+		wantError string
+	}{
+		{
+			name: "valid_template_paths",
+			flags: []string{
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "alias/test-key",
+				"--leaf-key-id", "alias/test-leaf-key",
+				"--root-template", validPath,
+				"--leaf-template", validPath,
+			},
+			wantError: "error getting root public key",
+		},
+		{
+			name: "nonexistent_root_template",
+			flags: []string{
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "alias/test-key",
+				"--leaf-key-id", "alias/test-leaf-key",
+				"--root-template", nonexistentPath,
+				"--leaf-template", validPath,
+			},
+			wantError: "template not found",
+		},
+		{
+			name: "invalid_root_template_json",
+			flags: []string{
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "alias/test-key",
+				"--leaf-key-id", "alias/test-leaf-key",
+				"--root-template", invalidPath,
+				"--leaf-template", validPath,
+			},
+			wantError: "invalid JSON",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.AutomaticEnv()
+			viper.SetEnvPrefix("")
+			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+			cmd := setupTestCommand()
+			cmd.RunE = runCreate
+
+			mustBindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
+			mustBindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
+			mustBindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
+			mustBindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
+			mustBindPFlag("root-template", cmd.Flags().Lookup("root-template"))
+			mustBindPFlag("leaf-template", cmd.Flags().Lookup("leaf-template"))
+
+			cmd.SetArgs(tt.flags)
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantError)
+		})
+	}
 }

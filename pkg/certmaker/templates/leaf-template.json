@@ -14,8 +14,7 @@
     "issuer": {
         "commonName": ""
     },
-    "notBefore": "2024-01-01T00:00:00Z",
-    "notAfter": "2034-01-01T00:00:00Z",
+    "certLife": "8760h",
     "basicConstraints": {
         "isCA": false
     },

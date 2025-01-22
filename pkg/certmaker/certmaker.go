@@ -79,7 +79,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 	case "gcpkms":
 		ref := fmt.Sprintf("gcpkms://%s", config.RootKeyID)
 		if gcpCredsFile := config.Options["gcp-credentials-file"]; gcpCredsFile != "" {
-			os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", gcpCredsFile)
+			os.Setenv("GCP_CREDENTIALS_FILE", gcpCredsFile)
 		}
 		sv, err = kms.Get(ctx, ref, crypto.SHA256)
 		if err != nil {
@@ -270,6 +270,12 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 
 // WriteCertificateToFile writes an X.509 certificate to a PEM-encoded file
 func WriteCertificateToFile(cert *x509.Certificate, filename string) error {
+	if cert == nil {
+		return fmt.Errorf("certificate cannot be nil")
+	}
+	if len(cert.Raw) == 0 {
+		return fmt.Errorf("certificate has no raw data")
+	}
 	certPEM := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,

@@ -23,6 +23,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -39,10 +40,11 @@ import (
 
 // mockSignerVerifier implements signature.SignerVerifier for testing
 type mockSignerVerifier struct {
-	key             crypto.PrivateKey
-	err             error
-	publicKeyFunc   func() (crypto.PublicKey, error)
-	signMessageFunc func(message io.Reader, opts ...signature.SignOption) ([]byte, error)
+	key              crypto.PrivateKey
+	err              error
+	publicKeyFunc    func() (crypto.PublicKey, error)
+	signMessageFunc  func(message io.Reader, opts ...signature.SignOption) ([]byte, error)
+	cryptoSignerFunc func(ctx context.Context, errHandler func(error)) (crypto.Signer, crypto.SignerOpts, error)
 }
 
 func (m *mockSignerVerifier) SignMessage(message io.Reader, opts ...signature.SignOption) ([]byte, error) {
@@ -65,7 +67,7 @@ func (m *mockSignerVerifier) SignMessage(message io.Reader, opts ...signature.Si
 }
 
 func (m *mockSignerVerifier) VerifySignature(_, _ io.Reader, _ ...signature.VerifyOption) error {
-	return nil
+	return m.err
 }
 
 func (m *mockSignerVerifier) PublicKey(_ ...signature.PublicKeyOption) (crypto.PublicKey, error) {
@@ -75,39 +77,37 @@ func (m *mockSignerVerifier) PublicKey(_ ...signature.PublicKeyOption) (crypto.P
 	if m.err != nil {
 		return nil, m.err
 	}
+	if m.key == nil {
+		return nil, fmt.Errorf("no key available")
+	}
 	switch k := m.key.(type) {
 	case *ecdsa.PrivateKey:
-		return k.Public(), nil
+		return &k.PublicKey, nil
 	default:
 		return nil, fmt.Errorf("unsupported key type")
 	}
 }
 
-func (m *mockSignerVerifier) Close() error {
-	return nil
-}
+func (m *mockSignerVerifier) Close() error { return nil }
 
-func (m *mockSignerVerifier) DefaultHashFunction() crypto.Hash {
-	return crypto.SHA256
-}
+func (m *mockSignerVerifier) DefaultHashFunction() crypto.Hash { return crypto.SHA256 }
 
-func (m *mockSignerVerifier) Bytes() ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
-}
+func (m *mockSignerVerifier) Bytes() ([]byte, error) { return nil, nil }
 
-func (m *mockSignerVerifier) KeyID() (string, error) {
-	return "mock-key-id", nil
-}
+func (m *mockSignerVerifier) KeyID() (string, error) { return "", nil }
 
-func (m *mockSignerVerifier) Status() error {
-	return nil
-}
+func (m *mockSignerVerifier) Status() error { return nil }
 
-func (m *mockSignerVerifier) CryptoSigner(_ context.Context, _ func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+func (m *mockSignerVerifier) CryptoSigner(ctx context.Context, errHandler func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+	if m.cryptoSignerFunc != nil {
+		return m.cryptoSignerFunc(ctx, errHandler)
+	}
 	if m.err != nil {
 		return nil, nil, m.err
 	}
-
+	if m.key == nil {
+		return nil, nil, fmt.Errorf("no key available")
+	}
 	switch k := m.key.(type) {
 	case *ecdsa.PrivateKey:
 		return k, crypto.SHA256, nil
@@ -314,751 +314,63 @@ func TestValidateTemplatePath(t *testing.T) {
 }
 
 func TestCreateCertificates(t *testing.T) {
-	defer func() { originalInitKMS = InitKMS }()
-
-	tests := []struct {
-		name                     string
-		config                   KMSConfig
-		rootTemplatePath         string
-		leafTemplatePath         string
-		rootCertPath             string
-		leafCertPath             string
-		intermediateKeyID        string
-		intermediateTemplatePath string
-		intermediateCertPath     string
-		setupMockSigner          func() signature.SignerVerifier
-		wantError                string
-	}{
-		{
-			name: "leaf_key_initialization_error",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "invalid-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				originalKMS := InitKMS
-				InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-					if strings.Contains(config.LeafKeyID, "invalid-key") {
-						return nil, fmt.Errorf("error initializing leaf KMS")
-					}
-					return &mockSignerVerifier{key: key}, nil
-				}
-				t.Cleanup(func() {
-					InitKMS = originalKMS
-				})
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error initializing leaf KMS",
-		},
-		{
-			name: "leaf_public_key_error",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				originalKMS := InitKMS
-				InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-					if strings.Contains(config.LeafKeyID, "leaf-key") {
-						return &mockSignerVerifier{
-							key: key,
-							err: fmt.Errorf("error getting leaf public key"),
-						}, nil
-					}
-					return &mockSignerVerifier{key: key}, nil
-				}
-				t.Cleanup(func() {
-					InitKMS = originalKMS
-				})
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error getting leaf public key",
-		},
-		{
-			name: "intermediate_key_initialization_error",
-			config: KMSConfig{
-				Type:              "awskms",
-				Options:           map[string]string{"region": "us-west-2"},
-				RootKeyID:         "alias/root-key",
-				IntermediateKeyID: "invalid-key",
-				LeafKeyID:         "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			intermediateTemplatePath: func(t *testing.T) string {
-				intermediateTemplate := filepath.Join(t.TempDir(), "intermediate.json")
-				err := os.WriteFile(intermediateTemplate, []byte(`{
-					"subject": {"commonName": "Test Intermediate CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 0},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return intermediateTemplate
-			}(t),
-			rootCertPath:         filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:         filepath.Join(t.TempDir(), "leaf.crt"),
-			intermediateKeyID:    "invalid-key",
-			intermediateCertPath: filepath.Join(t.TempDir(), "intermediate.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				originalKMS := InitKMS
-				InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-					if strings.Contains(config.IntermediateKeyID, "invalid-key") {
-						return nil, fmt.Errorf("error initializing intermediate KMS")
-					}
-					return &mockSignerVerifier{key: key}, nil
-				}
-				t.Cleanup(func() {
-					InitKMS = originalKMS
-				})
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error initializing intermediate KMS",
-		},
-		{
-			name: "intermediate_public_key_error",
-			config: KMSConfig{
-				Type:              "awskms",
-				Options:           map[string]string{"region": "us-west-2"},
-				RootKeyID:         "alias/root-key",
-				IntermediateKeyID: "alias/intermediate-key",
-				LeafKeyID:         "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			intermediateTemplatePath: func(t *testing.T) string {
-				intermediateTemplate := filepath.Join(t.TempDir(), "intermediate.json")
-				err := os.WriteFile(intermediateTemplate, []byte(`{
-					"subject": {"commonName": "Test Intermediate CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 0},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return intermediateTemplate
-			}(t),
-			rootCertPath:         filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:         filepath.Join(t.TempDir(), "leaf.crt"),
-			intermediateKeyID:    "alias/intermediate-key",
-			intermediateCertPath: filepath.Join(t.TempDir(), "intermediate.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				originalKMS := InitKMS
-				InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-					if strings.Contains(config.IntermediateKeyID, "intermediate-key") {
-						return &mockSignerVerifier{
-							key: key,
-							err: fmt.Errorf("error getting intermediate public key"),
-						}, nil
-					}
-					return &mockSignerVerifier{key: key}, nil
-				}
-				t.Cleanup(func() {
-					InitKMS = originalKMS
-				})
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error getting intermediate public key",
-		},
-		{
-			name: "invalid_leaf_template",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: "/nonexistent/leaf.json",
-			rootCertPath:     filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:     filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error parsing leaf template: error reading template file",
-		},
-		{
-			name: "successful_certificate_creation",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{
-					key: key,
-					err: fmt.Errorf("error getting leaf public key: getting public key: operation error KMS: GetPublicKey, get identity: get credentials: failed to refresh cached credentials, no EC2 IMDS role found"),
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						return key.Public(), nil
-					},
-				}
-			},
-			wantError: "error getting leaf public key: getting public key: operation error KMS: GetPublicKey, get identity: get credentials: failed to refresh cached credentials, no EC2 IMDS role found",
-		},
-		{
-			name: "invalid_template_path",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "awskms:///arn:aws:kms:us-west-2:123456789012:key/root-key",
-				LeafKeyID: "awskms:///arn:aws:kms:us-west-2:123456789012:key/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: "/nonexistent/leaf.json",
-			rootCertPath:     filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:     filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "error parsing leaf template: error reading template file",
-		},
-		{
-			name: "invalid_root_template_path",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: "/nonexistent/root.json",
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				return &mockSignerVerifier{
-					key: nil,
-					err: fmt.Errorf("no such file or directory"),
-				}
-			},
-			wantError: "error parsing root template: error reading template file",
-		},
-		{
-			name: "root_cert_write_error",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: "/nonexistent/directory/root.crt",
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{
-					key: key,
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						return key.Public(), nil
-					},
-				}
-			},
-			wantError: "failed to create file",
-		},
-		{
-			name: "leaf_cert_write_error",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: "/nonexistent/directory/leaf.crt",
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{
-					key: key,
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						return key.Public(), nil
-					},
-				}
-			},
-			wantError: "failed to create file",
-		},
-		{
-			name: "signing_error",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				return &mockSignerVerifier{
-					key: nil,
-					err: fmt.Errorf("signing error"),
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-						return key.Public(), nil
-					},
-				}
-			},
-			wantError: "signing error",
-		},
-		{
-			name: "intermediate_cert_write_error",
-			config: KMSConfig{
-				Type:              "awskms",
-				Options:           map[string]string{"region": "us-west-2"},
-				RootKeyID:         "alias/root-key",
-				IntermediateKeyID: "alias/intermediate-key",
-				LeafKeyID:         "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			intermediateTemplatePath: func(t *testing.T) string {
-				intermediateTemplate := filepath.Join(t.TempDir(), "intermediate.json")
-				err := os.WriteFile(intermediateTemplate, []byte(`{
-					"subject": {"commonName": "Test Intermediate CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 0},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return intermediateTemplate
-			}(t),
-			rootCertPath:         filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:         filepath.Join(t.TempDir(), "leaf.crt"),
-			intermediateKeyID:    "alias/intermediate-key",
-			intermediateCertPath: filepath.Join(t.TempDir(), "intermediate.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				return &mockSignerVerifier{
-					key: nil,
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						return nil, fmt.Errorf("error writing intermediate certificate")
-					},
-				}
-			},
-			wantError: "error writing intermediate certificate",
-		},
-		{
-			name: "invalid_cert_path",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: func(t *testing.T) string {
-				leafTemplate := filepath.Join(t.TempDir(), "leaf.json")
-				err := os.WriteFile(leafTemplate, []byte(`{
-					"subject": {"commonName": "Test Leaf"},
-					"keyUsage": ["digitalSignature"],
-					"extKeyUsage": ["CodeSigning"],
-					"basicConstraints": {"isCA": false},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return leafTemplate
-			}(t),
-			rootCertPath: "/nonexistent/directory/root.crt",
-			leafCertPath: filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				return &mockSignerVerifier{key: key}
-			},
-			wantError: "failed to create file",
-		},
-		{
-			name: "invalid_leaf_template_path#01",
-			config: KMSConfig{
-				Type:      "awskms",
-				Options:   map[string]string{"region": "us-west-2"},
-				RootKeyID: "alias/root-key",
-				LeafKeyID: "alias/leaf-key",
-			},
-			rootTemplatePath: func(t *testing.T) string {
-				rootTemplate := filepath.Join(t.TempDir(), "root.json")
-				err := os.WriteFile(rootTemplate, []byte(`{
-					"subject": {"commonName": "Test Root CA"},
-					"issuer": {"commonName": "Test Root CA"},
-					"keyUsage": ["certSign", "crlSign"],
-					"basicConstraints": {"isCA": true, "maxPathLen": 1},
-					"notBefore": "2024-01-01T00:00:00Z",
-					"notAfter": "2025-01-01T00:00:00Z"
-				}`), 0600)
-				require.NoError(t, err)
-				return rootTemplate
-			}(t),
-			leafTemplatePath: "/nonexistent/leaf.json",
-			rootCertPath:     filepath.Join(t.TempDir(), "root.crt"),
-			leafCertPath:     filepath.Join(t.TempDir(), "leaf.crt"),
-			setupMockSigner: func() signature.SignerVerifier {
-				key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-				originalKMS := InitKMS
-				InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-					if strings.Contains(config.LeafKeyID, "leaf-key") {
-						return &mockSignerVerifier{
-							key: key,
-							publicKeyFunc: func() (crypto.PublicKey, error) {
-								return key.Public(), nil
-							},
-							signMessageFunc: func(message io.Reader, _ ...signature.SignOption) ([]byte, error) {
-								digest := make([]byte, 32)
-								if _, err := message.Read(digest); err != nil {
-									return nil, err
-								}
-								return key.Sign(rand.Reader, digest, crypto.SHA256)
-							},
-						}, nil
-					}
-					return &mockSignerVerifier{
-						key: key,
-						publicKeyFunc: func() (crypto.PublicKey, error) {
-							return key.Public(), nil
-						},
-						signMessageFunc: func(message io.Reader, _ ...signature.SignOption) ([]byte, error) {
-							digest := make([]byte, 32)
-							if _, err := message.Read(digest); err != nil {
-								return nil, err
-							}
-							return key.Sign(rand.Reader, digest, crypto.SHA256)
-						},
-					}, nil
-				}
-				t.Cleanup(func() {
-					InitKMS = originalKMS
-				})
-				return &mockSignerVerifier{
-					key: key,
-					publicKeyFunc: func() (crypto.PublicKey, error) {
-						return key.Public(), nil
-					},
-					signMessageFunc: func(message io.Reader, _ ...signature.SignOption) ([]byte, error) {
-						digest := make([]byte, 32)
-						if _, err := message.Read(digest); err != nil {
-							return nil, err
-						}
-						return key.Sign(rand.Reader, digest, crypto.SHA256)
-					},
-				}
-			},
-			wantError: "error parsing leaf template: error reading template file",
-		},
+	defer func() { InitKMS = originalInitKMS }()
+	InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		return &mockSignerVerifier{key: key}, nil
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := CreateCertificates(tt.setupMockSigner(), tt.config,
-				tt.rootTemplatePath, tt.leafTemplatePath,
-				tt.rootCertPath, tt.leafCertPath,
-				tt.intermediateKeyID, tt.intermediateTemplatePath, tt.intermediateCertPath)
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
 
-			if tt.wantError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantError)
-			} else {
-				require.NoError(t, err)
-				_, err = os.Stat(tt.rootCertPath)
-				require.NoError(t, err)
-				_, err = os.Stat(tt.leafCertPath)
-				require.NoError(t, err)
-				if tt.intermediateKeyID != "" {
-					_, err = os.Stat(tt.intermediateCertPath)
-					require.NoError(t, err)
-				}
-			}
-		})
-	}
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0600)
+	require.NoError(t, err)
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test TSA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "4380h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"]
+	}`
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{}
+
+	err = CreateCertificates(mockSigner, KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "root-key",
+		LeafKeyID: "leaf-key",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error parsing root template: certLife must be specified")
 }
 
 func TestInitKMS(t *testing.T) {
@@ -1253,88 +565,268 @@ func TestInitKMS(t *testing.T) {
 	}
 }
 
-func TestValidateTemplateWithExtKeyUsage(t *testing.T) {
+type Subject struct {
+	Country            []string `json:"country,omitempty"`
+	Organization       []string `json:"organization,omitempty"`
+	OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+	CommonName         string   `json:"commonName"`
+}
+
+type Issuer struct {
+	CommonName string `json:"commonName"`
+}
+
+type BasicConstraints struct {
+	IsCA       bool `json:"isCA"`
+	MaxPathLen int  `json:"maxPathLen"`
+}
+
+func TestValidateTemplate(t *testing.T) {
+	tests := []struct {
+		name      string
+		template  *CertificateTemplate
+		parent    *x509.Certificate
+		certType  string
+		wantError string
+	}{
+		{
+			name: "valid_template_with_duration-based_validity",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Root CA",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: BasicConstraints{
+					IsCA:       true,
+					MaxPathLen: 1,
+				},
+			},
+			parent:    nil,
+			certType:  "root",
+			wantError: "",
+		},
+		{
+			name: "invalid_extended_key_usage",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"invalid"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "Fulcio leaf certificates must have codeSign extended key usage",
+		},
+		{
+			name: "invalid_duration_format",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "invalid",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "invalid certLife format: time: invalid duration \"invalid\"",
+		},
+		{
+			name: "negative_duration",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "-8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "certLife must be positive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplate(tt.template, tt.parent, tt.certType)
+			if tt.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			}
+		})
+	}
+}
+
+func TestValidateTemplateWithValidFields(t *testing.T) {
 	template := &CertificateTemplate{
-		Subject: struct {
-			Country            []string `json:"country,omitempty"`
-			Organization       []string `json:"organization,omitempty"`
-			OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
-			CommonName         string   `json:"commonName"`
-		}{
-			CommonName: "Test CA",
+		Subject: Subject{
+			CommonName: "Test Root CA",
 		},
-		Issuer: struct {
-			CommonName string `json:"commonName"`
-		}{
-			CommonName: "Test CA",
+		Issuer: Issuer{
+			CommonName: "Test Root CA",
 		},
-		KeyUsage:    []string{"certSign", "crlSign"},
-		ExtKeyUsage: []string{"serverAuth", "clientAuth"},
-		BasicConstraints: struct {
-			IsCA       bool `json:"isCA"`
-			MaxPathLen int  `json:"maxPathLen"`
-		}{
+		CertLifetime: "8760h",
+		KeyUsage:     []string{"certSign", "crlSign"},
+		BasicConstraints: BasicConstraints{
 			IsCA:       true,
 			MaxPathLen: 1,
 		},
-		NotBefore: "2024-01-01T00:00:00Z",
-		NotAfter:  "2025-01-01T00:00:00Z",
 	}
 
-	parent := &x509.Certificate{
-		Subject: pkix.Name{
-			CommonName: "Parent CA",
+	err := ValidateTemplate(template, nil, "root")
+	require.NoError(t, err)
+}
+
+func TestValidateTemplateWithDurationBasedValidity(t *testing.T) {
+	template := &CertificateTemplate{
+		Subject: Subject{
+			CommonName: "Test Root CA",
 		},
-		NotBefore: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		Issuer: Issuer{
+			CommonName: "Test Root CA",
+		},
+		CertLifetime: "8760h",
+		KeyUsage:     []string{"certSign", "crlSign"},
+		BasicConstraints: BasicConstraints{
+			IsCA:       true,
+			MaxPathLen: 1,
+		},
 	}
 
-	err := ValidateTemplate(template, parent, "root")
+	err := ValidateTemplate(template, nil, "root")
 	require.NoError(t, err)
 }
 
 func TestValidateTemplateWithInvalidExtKeyUsage(t *testing.T) {
 	template := &CertificateTemplate{
-		Subject: struct {
-			Country            []string `json:"country,omitempty"`
-			Organization       []string `json:"organization,omitempty"`
-			OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
-			CommonName         string   `json:"commonName"`
-		}{
+		Subject: Subject{
 			CommonName: "Test Leaf",
 		},
-		Issuer: struct {
-			CommonName string `json:"commonName"`
-		}{
-			CommonName: "Test CA",
+		Issuer: Issuer{
+			CommonName: "Test Root CA",
 		},
-		KeyUsage:    []string{"digitalSignature"},
-		ExtKeyUsage: []string{"nonExistentUsage", "anotherInvalidUsage"},
-		BasicConstraints: struct {
-			IsCA       bool `json:"isCA"`
-			MaxPathLen int  `json:"maxPathLen"`
-		}{
+		CertLifetime: "8760h",
+		KeyUsage:     []string{"digitalSignature"},
+		ExtKeyUsage:  []string{"invalid"},
+		BasicConstraints: BasicConstraints{
 			IsCA: false,
 		},
-		NotBefore: "2024-01-01T00:00:00Z",
-		NotAfter:  "2025-01-01T00:00:00Z",
 	}
 
 	parent := &x509.Certificate{
 		Subject: pkix.Name{
-			CommonName: "Parent CA",
+			CommonName: "Test Root CA",
 		},
-		NotBefore: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(24 * time.Hour),
 	}
 
 	err := ValidateTemplate(template, parent, "leaf")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must have codeSign extended key usage")
+	assert.Contains(t, err.Error(), "Fulcio leaf certificates must have codeSign extended key usage")
+}
 
-	template.ExtKeyUsage = append(template.ExtKeyUsage, "CodeSigning")
-	err = ValidateTemplate(template, parent, "leaf")
-	require.NoError(t, err)
+func TestValidateTemplateWithInvalidTimestamps(t *testing.T) {
+	template := &CertificateTemplate{
+		Subject: Subject{
+			CommonName: "Test Leaf",
+		},
+		Issuer: Issuer{
+			CommonName: "Test Root CA",
+		},
+		CertLifetime: "invalid",
+		KeyUsage:     []string{"digitalSignature"},
+		ExtKeyUsage:  []string{"CodeSigning"},
+		BasicConstraints: BasicConstraints{
+			IsCA: false,
+		},
+	}
+
+	parent := &x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: "Test Root CA",
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(24 * time.Hour),
+	}
+
+	err := ValidateTemplate(template, parent, "leaf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid certLife format: time: invalid duration \"invalid\"")
+}
+
+func TestValidateTemplateWithInvalidTimestampOrder(t *testing.T) {
+	template := &CertificateTemplate{
+		Subject: Subject{
+			CommonName: "Test Leaf",
+		},
+		Issuer: Issuer{
+			CommonName: "Test Root CA",
+		},
+		CertLifetime: "-8760h",
+		KeyUsage:     []string{"digitalSignature"},
+		ExtKeyUsage:  []string{"CodeSigning"},
+		BasicConstraints: BasicConstraints{
+			IsCA: false,
+		},
+	}
+
+	parent := &x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: "Test Root CA",
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(24 * time.Hour),
+	}
+
+	err := ValidateTemplate(template, parent, "leaf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "certLife must be positive")
 }
 
 func TestWriteCertificateToFile(t *testing.T) {
@@ -1490,53 +982,1026 @@ func TestWriteCertificateToFileErrors(t *testing.T) {
 }
 
 func TestCreateCertificatesTemplateValidation(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
 
-	rootTemplate := filepath.Join(tmpDir, "root.json")
-	err := os.WriteFile(rootTemplate, []byte(`{
-		"subject": {"commonName": "Test Root CA"},
-		"issuer": {"commonName": "Test Root CA"},
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.pem")
+	leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate-template.json")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.pem")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "",
 		"keyUsage": ["certSign", "crlSign"],
-		"basicConstraints": {"isCA": true, "maxPathLen": 1},
-		"notBefore": "2024-01-01T00:00:00Z",
-		"notAfter": "2025-01-01T00:00:00Z"
-	}`), 0600)
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0600)
 	require.NoError(t, err)
 
-	leafTemplate := filepath.Join(tmpDir, "leaf.json")
-	err = os.WriteFile(leafTemplate, []byte(`{
-		"subject": {"commonName": "Test Leaf"},
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test TSA"
+		},
+		"certLife": "4380h",
 		"keyUsage": ["digitalSignature"],
-		"basicConstraints": {"isCA": false},
-		"notBefore": "2024-01-01T00:00:00Z",
-		"notAfter": "2025-01-01T00:00:00Z"
-	}`), 0600)
+		"extKeyUsage": ["CodeSigning", "TimeStamping"]
+	}`
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{}
+
+	err = CreateCertificates(mockSigner, KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "root-key",
+		LeafKeyID: "leaf-key",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", intermediateTmplPath, intermediateCertPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error parsing root template: certLife must be specified")
+}
+
+func TestCreateCertificatesWithInvalidLeafTemplate(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(t *testing.T) (string, string, string, string, KMSConfig, signature.SignerVerifier)
+		wantError string
+	}{
+		{
+			name: "missing_timeStamping_extKeyUsage",
+			setup: func(t *testing.T) (string, string, string, string, KMSConfig, signature.SignerVerifier) {
+				tmpDir := t.TempDir()
+
+				rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+				rootCertPath := filepath.Join(tmpDir, "root.crt")
+				leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+				leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+				rootTemplate := `{
+					"subject": {
+						"commonName": "Test Root CA"
+					},
+					"issuer": {
+						"commonName": "Test Root CA"
+					},
+					"notBefore": "2024-01-01T00:00:00Z",
+					"notAfter": "2025-01-01T00:00:00Z",
+					"certLife": "8760h",
+					"keyUsage": ["certSign", "crlSign"],
+					"basicConstraints": {
+						"isCA": true,
+						"maxPathLen": 1
+					}
+				}`
+
+				leafTemplate := `{
+					"subject": {
+						"commonName": "Test TSA"
+					},
+					"issuer": {
+						"commonName": "Test Root CA"
+					},
+					"notBefore": "2024-01-01T00:00:00Z",
+					"notAfter": "2024-12-31T23:59:59Z",
+					"certLife": "8760h",
+					"keyUsage": ["digitalSignature"],
+					"extKeyUsage": ["CodeSigning"]
+				}`
+
+				err := os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+				require.NoError(t, err)
+				err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+				require.NoError(t, err)
+
+				key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+				require.NoError(t, err)
+
+				mockSigner := &mockSignerVerifier{
+					key: key,
+					publicKeyFunc: func() (crypto.PublicKey, error) {
+						return &key.PublicKey, nil
+					},
+					signMessageFunc: func(message io.Reader, _ ...signature.SignOption) ([]byte, error) {
+						msgBytes, err := io.ReadAll(message)
+						if err != nil {
+							return nil, err
+						}
+						h := crypto.SHA256.New()
+						h.Write(msgBytes)
+						digest := h.Sum(nil)
+						return ecdsa.SignASN1(rand.Reader, key, digest)
+					},
+				}
+
+				config := KMSConfig{
+					Type:      "awskms",
+					RootKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+					LeafKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+					Options:   map[string]string{"aws-region": "us-west-2"},
+				}
+
+				return rootTmplPath, rootCertPath, leafTmplPath, leafCertPath, config, mockSigner
+			},
+			wantError: "certificate notAfter time cannot be after parent's notAfter time",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() { InitKMS = originalInitKMS }()
+			InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+				return &mockSignerVerifier{err: errors.New("test error")}, nil
+			}
+
+			rootTmpl, rootCert, leafTmpl, leafCert, config, signer := tt.setup(t)
+			err := CreateCertificates(signer, config, rootTmpl, leafTmpl, rootCert, leafCert, "", "", "")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantError)
+		})
+	}
+}
+
+func TestCreateCertificatesWithInvalidIntermediateKey(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		if strings.Contains(config.IntermediateKeyID, "invalid-key") {
+			return nil, fmt.Errorf("test error")
+		}
+		_, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		return &mockSignerVerifier{err: errors.New("test error")}, nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate-template.json")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	intermediateTemplate := `{
+		"subject": {
+			"commonName": "Test Intermediate CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 0
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test TSA"
+		},
+		"issuer": {
+			"commonName": "Test Intermediate CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["digitalSignature"],
+		"extensions": [
+			{
+				"id": "2.5.29.37",
+				"critical": true,
+				"value": "MCQwIgYDVR0lBBswGQYIKwYBBQUHAwgGDSsGAQQBgjcUAgICAf8="
+			}
+		]
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(intermediateTmplPath, []byte(intermediateTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+	require.NoError(t, err)
+
+	_, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		err: errors.New("test error"),
+	}
+
+	config := KMSConfig{
+		Type:              "awskms",
+		RootKeyID:         "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		IntermediateKeyID: "invalid-key",
+		LeafKeyID:         "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		Options:           map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "invalid-key", intermediateTmplPath, intermediateCertPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error getting root public key: test error")
+}
+
+func TestCreateCertificatesWithIntermediateErrors(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate-template.json")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.pem")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	intermediateTemplate := `{
+		"subject": {
+			"commonName": "Test Intermediate CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 0
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(intermediateTmplPath, []byte(intermediateTemplate), 0644)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		err: errors.New("test error"),
+	}
+
+	kmsConfig := KMSConfig{
+		Type:              "mock",
+		RootKeyID:         "root-key",
+		IntermediateKeyID: "intermediate-key",
+		LeafKeyID:         "leaf-key",
+	}
+
+	err = CreateCertificates(mockSigner, kmsConfig, rootTmplPath, "", "", "", "intermediate-key", intermediateTmplPath, intermediateCertPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "test error")
+}
+
+func TestValidateTemplateWithDurationAndExtKeyUsage(t *testing.T) {
+	tests := []struct {
+		name      string
+		template  *CertificateTemplate
+		parent    *x509.Certificate
+		certType  string
+		wantError string
+	}{
+		{
+			name: "valid_template_with_duration-based_validity",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Root CA",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: BasicConstraints{
+					IsCA:       true,
+					MaxPathLen: 1,
+				},
+			},
+			parent:    nil,
+			certType:  "root",
+			wantError: "",
+		},
+		{
+			name: "invalid_extended_key_usage",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"invalid"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "Fulcio leaf certificates must have codeSign extended key usage",
+		},
+		{
+			name: "invalid_duration_format",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "invalid",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "invalid certLife format: time: invalid duration \"invalid\"",
+		},
+		{
+			name: "negative_duration",
+			template: &CertificateTemplate{
+				Subject: Subject{
+					CommonName: "Test Leaf",
+				},
+				Issuer: Issuer{
+					CommonName: "Test Root CA",
+				},
+				CertLifetime: "-8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: BasicConstraints{
+					IsCA: false,
+				},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test Root CA",
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(24 * time.Hour),
+			},
+			certType:  "leaf",
+			wantError: "certLife must be positive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplate(tt.template, tt.parent, tt.certType)
+			if tt.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			}
+		})
+	}
+}
+
+func TestCreateCertificatesWithoutIntermediate(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+	InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+		return &mockSignerVerifier{err: errors.New("test error")}, nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test TSA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "2190h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"]
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+	require.NoError(t, err)
+
+	_, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		err: errors.New("test error"),
+	}
+
+	config := KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		LeafKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test error")
+}
+
+func TestCreateCertificatesLeafErrors(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+	InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+		return &mockSignerVerifier{err: errors.New("test error")}, nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte("invalid json"), 0644)
+	require.NoError(t, err)
+
+	_, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		err: errors.New("test error"),
+	}
+
+	config := KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		LeafKeyID: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test error")
+}
+
+func TestInitKMSWithDifferentProviders(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    KMSConfig
+		wantError string
+	}{
+		{
+			name: "aws_kms_missing_region",
+			config: KMSConfig{
+				Type:      "awskms",
+				RootKeyID: "alias/test-key",
+				LeafKeyID: "alias/test-leaf-key",
+			},
+			wantError: "aws-region is required for AWS KMS",
+		},
+		{
+			name: "gcp_kms_invalid_key_format",
+			config: KMSConfig{
+				Type:      "gcpkms",
+				RootKeyID: "invalid-key-format",
+				LeafKeyID: "projects/test/locations/global/keyRings/test/cryptoKeys/test/cryptoKeyVersions/1",
+				Options: map[string]string{
+					"gcp-credentials-file": "/path/to/creds.json",
+				},
+			},
+			wantError: "gcpkms RootKeyID must start with 'projects/'",
+		},
+		{
+			name: "azure_kms_missing_tenant_id",
+			config: KMSConfig{
+				Type:      "azurekms",
+				RootKeyID: "azurekms:name=test-key;vault=test-vault",
+				LeafKeyID: "azurekms:name=test-leaf-key;vault=test-vault",
+				Options:   map[string]string{},
+			},
+			wantError: "azure-tenant-id is required for Azure KMS",
+		},
+		{
+			name: "hashivault_kms_missing_token",
+			config: KMSConfig{
+				Type:      "hashivault",
+				RootKeyID: "transit/keys/test-key",
+				LeafKeyID: "transit/keys/test-leaf-key",
+				Options: map[string]string{
+					"vault-address": "http://vault:8200",
+				},
+			},
+			wantError: "vault-token is required for HashiVault KMS",
+		},
+		{
+			name: "unsupported_kms_type",
+			config: KMSConfig{
+				Type:      "unsupported",
+				RootKeyID: "test-key",
+				LeafKeyID: "test-leaf-key",
+			},
+			wantError: "unsupported KMS type: unsupported",
+		},
+		{
+			name: "azure_kms_invalid_key_format",
+			config: KMSConfig{
+				Type:      "azurekms",
+				RootKeyID: "invalid-format",
+				LeafKeyID: "azurekms:name=test-leaf-key;vault=test-vault",
+				Options: map[string]string{
+					"azure-tenant-id": "test-tenant",
+				},
+			},
+			wantError: "azurekms RootKeyID must start with 'azurekms:name='",
+		},
+		{
+			name: "hashivault_kms_invalid_key_format",
+			config: KMSConfig{
+				Type:      "hashivault",
+				RootKeyID: "invalid/format",
+				LeafKeyID: "transit/keys/test-leaf-key",
+				Options: map[string]string{
+					"vault-token":   "test-token",
+					"vault-address": "http://vault:8200",
+				},
+			},
+			wantError: "hashivault RootKeyID must be in format: transit/keys/keyname",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateKMSConfig(tt.config)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantError)
+		})
+	}
+}
+
+func TestWriteCertificateToFileAdditionalErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		cert      *x509.Certificate
+		filename  string
+		wantError string
+	}{
+		{
+			name: "invalid_directory",
+			cert: &x509.Certificate{
+				Raw:  []byte("test"),
+				IsCA: true,
+			},
+			filename:  "/nonexistent/directory/cert.pem",
+			wantError: "failed to create file",
+		},
+		{
+			name:      "nil_certificate",
+			cert:      nil,
+			filename:  "test.pem",
+			wantError: "certificate cannot be nil",
+		},
+		{
+			name: "empty_raw_data",
+			cert: &x509.Certificate{
+				IsCA: true,
+			},
+			filename:  "test.pem",
+			wantError: "certificate has no raw data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := WriteCertificateToFile(tt.cert, tt.filename)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantError)
+		})
+	}
+}
+
+func TestCreateCertificatesCreationFailure(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		key: key,
+		publicKeyFunc: func() (crypto.PublicKey, error) {
+			return &key.PublicKey, nil
+		},
+		cryptoSignerFunc: func(_ context.Context, _ func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+			return nil, nil, fmt.Errorf("crypto signer error")
+		},
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test Leaf"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "24h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"],
+		"basicConstraints": {
+			"isCA": false
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
 	require.NoError(t, err)
 
 	config := KMSConfig{
 		Type:      "awskms",
-		RootKeyID: "alias/root-key",
-		LeafKeyID: "alias/leaf-key",
+		RootKeyID: "root-key",
+		LeafKeyID: "leaf-key",
 		Options:   map[string]string{"aws-region": "us-west-2"},
 	}
 
-	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	sv := &mockSignerVerifier{
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error getting root crypto signer: crypto signer error")
+}
+
+func TestCreateCertificatesSuccessPath(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
 		key: key,
 		publicKeyFunc: func() (crypto.PublicKey, error) {
-			return key.Public(), nil
+			return &key.PublicKey, nil
+		},
+		cryptoSignerFunc: func(_ context.Context, _ func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+			return key, crypto.SHA256, nil
 		},
 	}
 
-	err = CreateCertificates(sv, config,
-		rootTemplate,
-		leafTemplate,
-		filepath.Join(tmpDir, "root.crt"),
-		filepath.Join(tmpDir, "leaf.crt"),
-		"",
-		"",
-		"")
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		if config.RootKeyID == "root-key" {
+			return mockSigner, nil
+		}
+		if config.IntermediateKeyID == "intermediate-key" {
+			return mockSigner, nil
+		}
+		if config.LeafKeyID == "leaf-key" {
+			return mockSigner, nil
+		}
+		return nil, fmt.Errorf("unexpected key ID")
+	}
 
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate-template.json")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA",
+			"organization": ["Test Org"],
+			"country": ["US"]
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	intermediateTemplate := `{
+		"subject": {
+			"commonName": "Test Intermediate CA",
+			"organization": ["Test Org"],
+			"country": ["US"]
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "4380h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 0
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test Leaf",
+			"organization": ["Test Org"],
+			"country": ["US"]
+		},
+		"issuer": {
+			"commonName": "Test Intermediate CA"
+		},
+		"certLife": "24h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"],
+		"basicConstraints": {
+			"isCA": false
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(intermediateTmplPath, []byte(intermediateTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+	require.NoError(t, err)
+
+	config := KMSConfig{
+		Type:              "awskms",
+		RootKeyID:         "root-key",
+		IntermediateKeyID: "intermediate-key",
+		LeafKeyID:         "leaf-key",
+		Options:           map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath)
+	require.NoError(t, err)
+
+	_, err = os.Stat(rootCertPath)
+	require.NoError(t, err)
+	_, err = os.Stat(intermediateCertPath)
+	require.NoError(t, err)
+	_, err = os.Stat(leafCertPath)
+	require.NoError(t, err)
+}
+
+func TestCreateCertificatesInvalidSigner(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+
+	mockSigner := &mockSignerVerifier{
+		publicKeyFunc: func() (crypto.PublicKey, error) {
+			return nil, fmt.Errorf("signer does not implement CryptoSigner")
+		},
+		cryptoSignerFunc: nil,
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test Leaf"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "24h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"],
+		"basicConstraints": {
+			"isCA": false
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+	require.NoError(t, err)
+
+	config := KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "root-key",
+		LeafKeyID: "leaf-key",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error parsing leaf template: Fulcio leaf certificates must have codeSign extended key usage")
+	assert.Contains(t, err.Error(), "signer does not implement CryptoSigner")
+}
+
+func TestCreateCertificatesCryptoSignerFailure(t *testing.T) {
+	defer func() { InitKMS = originalInitKMS }()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockSigner := &mockSignerVerifier{
+		key: key,
+		publicKeyFunc: func() (crypto.PublicKey, error) {
+			return &key.PublicKey, nil
+		},
+		cryptoSignerFunc: func(_ context.Context, _ func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+			return nil, nil, fmt.Errorf("crypto signer error")
+		},
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cert-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
+	rootCertPath := filepath.Join(tmpDir, "root.crt")
+	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.crt")
+
+	rootTemplate := `{
+		"subject": {
+			"commonName": "Test Root CA"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "8760h",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 1
+		}
+	}`
+
+	leafTemplate := `{
+		"subject": {
+			"commonName": "Test Leaf"
+		},
+		"issuer": {
+			"commonName": "Test Root CA"
+		},
+		"certLife": "24h",
+		"keyUsage": ["digitalSignature"],
+		"extKeyUsage": ["CodeSigning", "TimeStamping"],
+		"basicConstraints": {
+			"isCA": false
+		}
+	}`
+
+	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0644)
+	require.NoError(t, err)
+
+	config := KMSConfig{
+		Type:      "awskms",
+		RootKeyID: "root-key",
+		LeafKeyID: "leaf-key",
+		Options:   map[string]string{"aws-region": "us-west-2"},
+	}
+
+	err = CreateCertificates(mockSigner, config, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error getting root crypto signer: crypto signer error")
 }

@@ -36,7 +36,7 @@ func TestValidateTemplateFields(t *testing.T) {
 		wantError string
 	}{
 		{
-			name: "valid root CA",
+			name: "valid_root_CA",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -47,9 +47,8 @@ func TestValidateTemplateFields(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test CA"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
-				KeyUsage:  []string{"certSign"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -58,7 +57,7 @@ func TestValidateTemplateFields(t *testing.T) {
 			certType: "root",
 		},
 		{
-			name: "missing subject common name",
+			name: "missing_subject_common_name",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -66,14 +65,13 @@ func TestValidateTemplateFields(t *testing.T) {
 					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 					CommonName         string   `json:"commonName"`
 				}{},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
+				CertLifetime: "8760h",
 			},
 			certType:  "root",
 			wantError: "subject.commonName cannot be empty",
 		},
 		{
-			name: "missing issuer common name for root",
+			name: "missing_issuer_common_name_for_root",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -81,8 +79,7 @@ func TestValidateTemplateFields(t *testing.T) {
 					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 					CommonName         string   `json:"commonName"`
 				}{CommonName: "Test CA"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
+				CertLifetime: "8760h",
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -92,7 +89,7 @@ func TestValidateTemplateFields(t *testing.T) {
 			wantError: "issuer.commonName cannot be empty for root certificate",
 		},
 		{
-			name: "CA without key usage",
+			name: "CA_without_key_usage",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -108,14 +105,13 @@ func TestValidateTemplateFields(t *testing.T) {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
 				}{IsCA: true},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
+				CertLifetime: "8760h",
 			},
 			certType:  "root",
 			wantError: "CA certificate must specify at least one key usage",
 		},
 		{
-			name: "CA without certSign usage",
+			name: "CA_without_certSign_usage",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -131,14 +127,13 @@ func TestValidateTemplateFields(t *testing.T) {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
 				}{IsCA: true},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
+				CertLifetime: "8760h",
 			},
 			certType:  "root",
 			wantError: "CA certificate must have certSign key usage",
 		},
 		{
-			name: "leaf with certSign usage",
+			name: "leaf_with_certSign_usage",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -149,27 +144,26 @@ func TestValidateTemplateFields(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test CA"},
-				KeyUsage:    []string{"certSign", "digitalSignature"},
-				ExtKeyUsage: []string{"CodeSigning"},
+				KeyUsage:     []string{"certSign", "digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				CertLifetime: "8760h",
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
 				}{IsCA: false},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
 			},
 			parent: &x509.Certificate{
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365),
 			},
 			certType:  "leaf",
 			wantError: "leaf certificate cannot have certSign key usage",
 		},
 		{
-			name: "invalid_notBefore_format",
+			name: "invalid_certLife_format",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -177,52 +171,13 @@ func TestValidateTemplateFields(t *testing.T) {
 					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 					CommonName         string   `json:"commonName"`
 				}{CommonName: "Test"},
-				NotBefore: "invalid",
-				NotAfter:  "2024-01-01T00:00:00Z",
+				CertLifetime: "1y",
 			},
 			certType:  "root",
-			wantError: "invalid notBefore time format",
+			wantError: "invalid certLife format",
 		},
 		{
-			name: "invalid_notAfter_format",
-			tmpl: &CertificateTemplate{
-				Subject: struct {
-					Country            []string `json:"country,omitempty"`
-					Organization       []string `json:"organization,omitempty"`
-					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
-					CommonName         string   `json:"commonName"`
-				}{CommonName: "Test"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "invalid",
-			},
-			certType:  "root",
-			wantError: "invalid notAfter time format",
-		},
-		{
-			name: "NotBefore after NotAfter",
-			tmpl: &CertificateTemplate{
-				Subject: struct {
-					Country            []string `json:"country,omitempty"`
-					Organization       []string `json:"organization,omitempty"`
-					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
-					CommonName         string   `json:"commonName"`
-				}{CommonName: "Test CA"},
-				Issuer: struct {
-					CommonName string `json:"commonName"`
-				}{CommonName: "Test CA"},
-				NotBefore: "2025-01-01T00:00:00Z",
-				NotAfter:  "2024-01-01T00:00:00Z",
-				KeyUsage:  []string{"certSign", "crlSign"},
-				BasicConstraints: struct {
-					IsCA       bool `json:"isCA"`
-					MaxPathLen int  `json:"maxPathLen"`
-				}{IsCA: true},
-			},
-			certType:  "root",
-			wantError: "NotBefore time must be before NotAfter time",
-		},
-		{
-			name: "leaf without CodeSigning usage",
+			name: "leaf_without_CodeSigning_usage",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -233,26 +188,25 @@ func TestValidateTemplateFields(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test CA"},
-				KeyUsage: []string{"digitalSignature"},
+				KeyUsage:     []string{"digitalSignature"},
+				CertLifetime: "8760h",
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
 				}{IsCA: false},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
 			},
 			parent: &x509.Certificate{
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365),
 			},
 			certType:  "leaf",
 			wantError: "Fulcio leaf certificates must have codeSign extended key usage",
 		},
 		{
-			name: "valid intermediate CA",
+			name: "valid_intermediate_CA",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -263,9 +217,8 @@ func TestValidateTemplateFields(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test Root CA"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
-				KeyUsage:  []string{"certSign", "crlSign"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -278,13 +231,13 @@ func TestValidateTemplateFields(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test Root CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365 * 2), // 2 years
 			},
 			certType: "intermediate",
 		},
 		{
-			name: "intermediate with wrong MaxPathLen",
+			name: "intermediate_with_wrong_MaxPathLen",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -295,9 +248,8 @@ func TestValidateTemplateFields(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test Root CA"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
-				KeyUsage:  []string{"certSign", "crlSign"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -310,14 +262,14 @@ func TestValidateTemplateFields(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test Root CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365),
 			},
 			certType:  "intermediate",
 			wantError: "intermediate CA MaxPathLen must be 0",
 		},
 		{
-			name: "leaf with invalid time constraints",
+			name: "leaf_with_invalid_time_constraints",
 			tmpl: &CertificateTemplate{
 				Subject: struct {
 					Country            []string `json:"country,omitempty"`
@@ -325,10 +277,9 @@ func TestValidateTemplateFields(t *testing.T) {
 					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 					CommonName         string   `json:"commonName"`
 				}{CommonName: "Test Leaf"},
-				NotBefore:   "2023-01-01T00:00:00Z",
-				NotAfter:    "2026-01-01T00:00:00Z",
-				KeyUsage:    []string{"digitalSignature"},
-				ExtKeyUsage: []string{"CodeSigning"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -338,8 +289,8 @@ func TestValidateTemplateFields(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(time.Hour), // Parent's NotBefore is in the future
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365),
 			},
 			certType:  "leaf",
 			wantError: "certificate notBefore time cannot be before parent's notBefore time",
@@ -361,8 +312,7 @@ func TestValidateTemplateFields(t *testing.T) {
 
 func TestParseTemplateErrors(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name      string
 		content   string
 		wantError string
 	}{
@@ -372,13 +322,15 @@ func TestParseTemplateErrors(t *testing.T) {
 			wantError: "invalid character",
 		},
 		{
-			name: "missing time fields",
+			name: "missing_time_fields",
 			content: `{
 				"subject": {
-					"commonName": "Test"
-				}
+					"commonName": "Test CA"
+				},
+				"certLife": "",
+				"keyUsage": ["certSign"]
 			}`,
-			wantError: "notBefore and notAfter times must be specified",
+			wantError: "certLife must be specified",
 		},
 		{
 			name: "invalid time format",
@@ -386,10 +338,9 @@ func TestParseTemplateErrors(t *testing.T) {
 				"subject": {
 					"commonName": "Test"
 				},
-				"notBefore": "invalid",
-				"notAfter": "2024-01-01T00:00:00Z"
+				"certLife": "invalid"
 			}`,
-			wantError: "invalid notBefore time format",
+			wantError: "invalid certLife format",
 		},
 	}
 
@@ -424,8 +375,7 @@ func TestInvalidCertificateType(t *testing.T) {
 			OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 			CommonName         string   `json:"commonName"`
 		}{CommonName: "Test"},
-		NotBefore: "2024-01-01T00:00:00Z",
-		NotAfter:  "2025-01-01T00:00:00Z",
+		CertLifetime: "8760h",
 	}
 
 	err := ValidateTemplate(tmpl, nil, "invalid")
@@ -470,10 +420,9 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 					OrganizationalUnit: []string{"Test Unit"},
 					CommonName:         "Test Leaf",
 				},
-				NotBefore:   "2024-01-01T00:00:00Z",
-				NotAfter:    "2025-01-01T00:00:00Z",
-				KeyUsage:    []string{"digitalSignature"},
-				ExtKeyUsage: []string{"CodeSigning"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -483,8 +432,8 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 				Subject: pkix.Name{
 					CommonName: "Test CA",
 				},
-				NotBefore: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365),
 			},
 			wantError: false,
 		},
@@ -500,9 +449,8 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 				Issuer: struct {
 					CommonName string `json:"commonName"`
 				}{CommonName: "Test Root"},
-				NotBefore: "2024-01-01T00:00:00Z",
-				NotAfter:  "2025-01-01T00:00:00Z",
-				KeyUsage:  []string{"certSign", "crlSign"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
 				BasicConstraints: struct {
 					IsCA       bool `json:"isCA"`
 					MaxPathLen int  `json:"maxPathLen"`
@@ -522,8 +470,44 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
 					CommonName         string   `json:"commonName"`
 				}{CommonName: "Test"},
-				NotBefore: "invalid",
-				NotAfter:  "2025-01-01T00:00:00Z",
+				CertLifetime: "1y",
+			},
+			wantError: true,
+		},
+		{
+			name: "valid_duration_based_template",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Root"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test Root"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{
+					IsCA:       true,
+					MaxPathLen: 1,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid_duration_format",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test"},
+				CertLifetime: "1y",
 			},
 			wantError: true,
 		},
@@ -533,58 +517,24 @@ func TestCreateCertificateFromTemplate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cert, err := CreateCertificateFromTemplate(tt.tmpl, tt.parent)
 			if tt.wantError {
-				if err == nil {
-					t.Errorf("expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if cert.Subject.CommonName != tt.tmpl.Subject.CommonName {
-				t.Errorf("CommonName got %v, want %v", cert.Subject.CommonName, tt.tmpl.Subject.CommonName)
-			}
-
-			for _, usage := range tt.tmpl.KeyUsage {
-				switch usage {
-				case "certSign":
-					if cert.KeyUsage&x509.KeyUsageCertSign == 0 {
-						t.Error("expected KeyUsageCertSign to be set")
-					}
-				case "crlSign":
-					if cert.KeyUsage&x509.KeyUsageCRLSign == 0 {
-						t.Error("expected KeyUsageCRLSign to be set")
-					}
-				case "digitalSignature":
-					if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
-						t.Error("expected KeyUsageDigitalSignature to be set")
-					}
-				}
-			}
-
-			for _, usage := range tt.tmpl.ExtKeyUsage {
-				if usage == "CodeSigning" {
-					found := false
-					for _, certUsage := range cert.ExtKeyUsage {
-						if certUsage == x509.ExtKeyUsageCodeSigning {
-							found = true
-							break
-						}
-					}
-					if !found {
-						t.Error("expected ExtKeyUsageCodeSigning to be set")
-					}
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, cert)
+				if tt.tmpl.CertLifetime != "" {
+					duration, _ := time.ParseDuration(tt.tmpl.CertLifetime)
+					require.WithinDuration(t, time.Now().UTC(), cert.NotBefore, time.Second*5)
+					require.WithinDuration(t, time.Now().UTC().Add(duration), cert.NotAfter, time.Second*5)
 				}
 			}
 		})
 	}
 }
 
-func TestSetKeyUsagesAndExtKeyUsages(t *testing.T) {
+func TestSetCertificateUsages(t *testing.T) {
 	cert := &x509.Certificate{}
 
-	SetKeyUsages(cert, []string{"certSign", "crlSign", "digitalSignature"})
+	SetCertificateUsages(cert, []string{"certSign", "crlSign", "digitalSignature"}, nil)
 	if cert.KeyUsage&x509.KeyUsageCertSign == 0 {
 		t.Error("expected KeyUsageCertSign to be set")
 	}
@@ -595,25 +545,350 @@ func TestSetKeyUsagesAndExtKeyUsages(t *testing.T) {
 		t.Error("expected KeyUsageDigitalSignature to be set")
 	}
 
-	SetExtKeyUsages(cert, []string{"CodeSigning"})
-	found := false
-	for _, usage := range cert.ExtKeyUsage {
-		if usage == x509.ExtKeyUsageCodeSigning {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("expected ExtKeyUsageCodeSigning to be set")
-	}
-
 	newCert := &x509.Certificate{}
-	SetKeyUsages(newCert, nil)
-	SetExtKeyUsages(newCert, nil)
+	SetCertificateUsages(newCert, nil, nil)
 	if newCert.KeyUsage != x509.KeyUsage(0) {
-		t.Error("expected KeyUsage to be cleared")
+		t.Error("expected no key usages to be set")
 	}
 	if len(newCert.ExtKeyUsage) != 0 {
-		t.Error("expected ExtKeyUsage to be cleared")
+		t.Error("expected no extended key usages to be set")
+	}
+
+	// Test extended key usages
+	SetCertificateUsages(newCert, nil, []string{"CodeSigning"})
+	if len(newCert.ExtKeyUsage) != 1 {
+		t.Error("expected one extended key usage to be set")
+	}
+	if newCert.ExtKeyUsage[0] != x509.ExtKeyUsageCodeSigning {
+		t.Error("expected CodeSigning extended key usage to be set")
+	}
+}
+
+func TestValidateTemplateWithDurationAndTimestamps(t *testing.T) {
+	tests := []struct {
+		name      string
+		tmpl      *CertificateTemplate
+		parent    *x509.Certificate
+		certType  string
+		wantError string
+	}{
+		{
+			name: "valid_duration_based_template",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "8760h", // 1 year
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true},
+			},
+			certType: "root",
+		},
+		{
+			name: "invalid_duration_format",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "1y", // invalid format
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true},
+			},
+			certType:  "root",
+			wantError: "invalid certLife format",
+		},
+		{
+			name: "negative_duration",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "-8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true},
+			},
+			certType:  "root",
+			wantError: "certLife must be positive",
+		},
+		{
+			name: "mixed_time_specifications",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true},
+			},
+			certType: "root",
+		},
+		{
+			name: "duration_based_leaf_with_parent",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Leaf"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: false},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test CA",
+				},
+				NotBefore: time.Now().Add(-time.Hour),
+				NotAfter:  time.Now().Add(time.Hour * 24 * 365 * 2), // 2 years
+			},
+			certType: "leaf",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplate(tt.tmpl, tt.parent, tt.certType)
+			if tt.wantError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateTemplateWithExtendedKeyUsage(t *testing.T) {
+	tests := []struct {
+		name      string
+		template  *CertificateTemplate
+		parent    *x509.Certificate
+		certType  string
+		wantError string
+	}{
+		{
+			name: "valid_leaf_with_code_signing",
+			template: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Leaf"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "24h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning", "TimeStamping"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: false, MaxPathLen: 0},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test CA",
+				},
+				NotBefore: time.Now().Add(-1 * time.Hour),
+				NotAfter:  time.Now().Add(48 * time.Hour),
+				IsCA:      true,
+			},
+			certType:  "leaf",
+			wantError: "",
+		},
+		{
+			name: "leaf_with_multiple_ext_key_usages",
+			template: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Leaf"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "24h",
+				KeyUsage:     []string{"digitalSignature"},
+				ExtKeyUsage:  []string{"CodeSigning", "TimeStamping", "ServerAuth"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: false, MaxPathLen: 0},
+			},
+			parent: &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test CA",
+				},
+				NotBefore: time.Now().Add(-1 * time.Hour),
+				NotAfter:  time.Now().Add(48 * time.Hour),
+				IsCA:      true,
+			},
+			certType:  "leaf",
+			wantError: "",
+		},
+		{
+			name: "root_with_ext_key_usage",
+			template: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test Root CA"},
+				Issuer: struct {
+					CommonName string `json:"commonName"`
+				}{CommonName: "Test Root CA"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign", "crlSign"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true, MaxPathLen: 1},
+			},
+			parent:    nil,
+			certType:  "root",
+			wantError: "root certificates should not have extended key usage",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplate(tt.template, tt.parent, tt.certType)
+			if tt.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			}
+		})
+	}
+}
+
+func TestCreateCertificateFromTemplateWithExtendedFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		tmpl      *CertificateTemplate
+		parent    *x509.Certificate
+		wantError bool
+		checkFunc func(*testing.T, *x509.Certificate)
+	}{
+		{
+			name: "full_subject_fields",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{
+					Country:            []string{"US", "CA"},
+					Organization:       []string{"Test Org", "Another Org"},
+					OrganizationalUnit: []string{"Unit 1", "Unit 2"},
+					CommonName:         "Test Cert",
+				},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"digitalSignature", "certSign"},
+				ExtKeyUsage:  []string{"CodeSigning"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true, MaxPathLen: 1},
+			},
+			checkFunc: func(t *testing.T, cert *x509.Certificate) {
+				assert.Equal(t, []string{"US", "CA"}, cert.Subject.Country)
+				assert.Equal(t, []string{"Test Org", "Another Org"}, cert.Subject.Organization)
+				assert.Equal(t, []string{"Unit 1", "Unit 2"}, cert.Subject.OrganizationalUnit)
+				assert.Equal(t, "Test Cert", cert.Subject.CommonName)
+				assert.True(t, cert.IsCA)
+				assert.Equal(t, 1, cert.MaxPathLen)
+				assert.True(t, cert.KeyUsage&x509.KeyUsageDigitalSignature != 0)
+				assert.True(t, cert.KeyUsage&x509.KeyUsageCertSign != 0)
+				assert.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageCodeSigning)
+			},
+		},
+		{
+			name: "zero_max_path_len",
+			tmpl: &CertificateTemplate{
+				Subject: struct {
+					Country            []string `json:"country,omitempty"`
+					Organization       []string `json:"organization,omitempty"`
+					OrganizationalUnit []string `json:"organizationalUnit,omitempty"`
+					CommonName         string   `json:"commonName"`
+				}{CommonName: "Test CA"},
+				CertLifetime: "8760h",
+				KeyUsage:     []string{"certSign"},
+				BasicConstraints: struct {
+					IsCA       bool `json:"isCA"`
+					MaxPathLen int  `json:"maxPathLen"`
+				}{IsCA: true, MaxPathLen: 0},
+			},
+			checkFunc: func(t *testing.T, cert *x509.Certificate) {
+				assert.True(t, cert.IsCA)
+				assert.Equal(t, 0, cert.MaxPathLen)
+				assert.True(t, cert.MaxPathLenZero)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert, err := CreateCertificateFromTemplate(tt.tmpl, tt.parent)
+			if tt.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, cert)
+				if tt.checkFunc != nil {
+					tt.checkFunc(t, cert)
+				}
+			}
+		})
 	}
 }

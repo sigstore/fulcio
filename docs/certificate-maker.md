@@ -5,6 +5,8 @@ This tool creates root, intermediate (optional), and leaf certificates for Fulci
 - Two-level chain (root -> leaf)
 - Three-level chain (root -> intermediate -> leaf)
 
+Relies on [x509util](https://pkg.go.dev/go.step.sm/crypto/x509util) which builds X.509 certificates from JSON templates.
+
 ## Requirements
 
 - Access to one of the supported KMS providers (AWS, Google Cloud, Azure, HashiCorp Vault)
@@ -46,12 +48,17 @@ Available flags:
 ### Environment Variables
 
 - `KMS_TYPE`: KMS provider type ("awskms", "gcpkms", "azurekms", "hashivault")
+
 - `ROOT_KEY_ID`: Key identifier for root certificate
 - `KMS_INTERMEDIATE_KEY_ID`: Key identifier for intermediate certificate
 - `LEAF_KEY_ID`: Key identifier for leaf certificate
+
 - `AWS_REGION`: AWS Region (required for AWS KMS)
+
 - `AZURE_TENANT_ID`: Azure tenant ID
+
 - `GCP_CREDENTIALS_FILE`: Path to credentials file (for Google Cloud KMS)
+
 - `VAULT_ADDR`: HashiCorp Vault address
 - `VAULT_TOKEN`: HashiCorp Vault token
 

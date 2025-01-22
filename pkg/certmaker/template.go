@@ -38,8 +38,7 @@ type CertificateTemplate struct {
 	Issuer struct {
 		CommonName string `json:"commonName"`
 	} `json:"issuer"`
-	NotBefore        string   `json:"notBefore"`
-	NotAfter         string   `json:"notAfter"`
+	CertLifetime     string   `json:"certLife"` // e.g. "8760h" for 1 year
 	KeyUsage         []string `json:"keyUsage"`
 	BasicConstraints struct {
 		IsCA       bool `json:"isCA"`
@@ -83,21 +82,21 @@ func ParseTemplate(filename string, parent *x509.Certificate) (*x509.Certificate
 
 // ValidateTemplate performs validation checks on the certificate template.
 func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certType string) error {
-	if tmpl.NotBefore == "" || tmpl.NotAfter == "" {
-		return fmt.Errorf("notBefore and notAfter times must be specified")
+	var notBefore, notAfter time.Time
+
+	if tmpl.CertLifetime == "" {
+		return fmt.Errorf("certLife must be specified")
 	}
 
-	notBefore, err := time.Parse(time.RFC3339, tmpl.NotBefore)
+	duration, err := time.ParseDuration(tmpl.CertLifetime)
 	if err != nil {
-		return fmt.Errorf("invalid notBefore time format: %w", err)
+		return fmt.Errorf("invalid certLife format: %w", err)
 	}
-	notAfter, err := time.Parse(time.RFC3339, tmpl.NotAfter)
-	if err != nil {
-		return fmt.Errorf("invalid notAfter time format: %w", err)
+	if duration <= 0 {
+		return fmt.Errorf("certLife must be positive")
 	}
-	if notBefore.After(notAfter) {
-		return fmt.Errorf("NotBefore time must be before NotAfter time")
-	}
+	notBefore = time.Now().UTC()
+	notAfter = notBefore.Add(duration)
 
 	if tmpl.Subject.CommonName == "" {
 		return fmt.Errorf("template subject.commonName cannot be empty")
@@ -110,6 +109,9 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certT
 		}
 		if tmpl.Issuer.CommonName == "" {
 			return fmt.Errorf("template issuer.commonName cannot be empty for root certificate")
+		}
+		if len(tmpl.ExtKeyUsage) > 0 {
+			return fmt.Errorf("root certificates should not have extended key usage")
 		}
 		// For root certificates, the SKID and AKID should match
 		if len(tmpl.Extensions) > 0 {
@@ -188,21 +190,40 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certT
 	return nil
 }
 
+// SetCertificateUsages applies both basic key usages and extended key usages to the certificate.
+// Supports basic usages: certSign, crlSign, digitalSignature
+// Supports extended usages: CodeSigning
+func SetCertificateUsages(cert *x509.Certificate, keyUsages []string, extKeyUsages []string) {
+	// Set basic key usages
+	for _, usage := range keyUsages {
+		switch usage {
+		case "certSign":
+			cert.KeyUsage |= x509.KeyUsageCertSign
+		case "crlSign":
+			cert.KeyUsage |= x509.KeyUsageCRLSign
+		case "digitalSignature":
+			cert.KeyUsage |= x509.KeyUsageDigitalSignature
+		}
+	}
+
+	// Set extended key usages
+	for _, usage := range extKeyUsages {
+		if usage == "CodeSigning" {
+			cert.ExtKeyUsage = append(cert.ExtKeyUsage, x509.ExtKeyUsageCodeSigning)
+		}
+	}
+}
+
 // CreateCertificateFromTemplate creates an x509.Certificate from the provided template
 func CreateCertificateFromTemplate(tmpl *CertificateTemplate, parent *x509.Certificate) (*x509.Certificate, error) {
-	notBefore, err := time.Parse(time.RFC3339, tmpl.NotBefore)
-	if err != nil {
-		return nil, fmt.Errorf("invalid notBefore time format: %w", err)
-	}
+	var notBefore, notAfter time.Time
 
-	notAfter, err := time.Parse(time.RFC3339, tmpl.NotAfter)
+	duration, err := time.ParseDuration(tmpl.CertLifetime)
 	if err != nil {
-		return nil, fmt.Errorf("invalid notAfter time format: %w", err)
+		return nil, fmt.Errorf("invalid certLife format: %w", err)
 	}
-
-	if notBefore.After(notAfter) {
-		return nil, fmt.Errorf("NotBefore time must be before NotAfter time")
-	}
+	notBefore = time.Now().UTC()
+	notAfter = notBefore.Add(duration)
 
 	cert := &x509.Certificate{
 		Subject: pkix.Name{
@@ -229,35 +250,9 @@ func CreateCertificateFromTemplate(tmpl *CertificateTemplate, parent *x509.Certi
 		cert.MaxPathLenZero = tmpl.BasicConstraints.MaxPathLen == 0
 	}
 
-	SetKeyUsages(cert, tmpl.KeyUsage)
-	SetExtKeyUsages(cert, tmpl.ExtKeyUsage)
+	SetCertificateUsages(cert, tmpl.KeyUsage, tmpl.ExtKeyUsage)
 
 	return cert, nil
-}
-
-// SetKeyUsages applies the specified key usage to cert(s)
-// supporting certSign, crlSign, and digitalSignature usages.
-func SetKeyUsages(cert *x509.Certificate, usages []string) {
-	for _, usage := range usages {
-		switch usage {
-		case "certSign":
-			cert.KeyUsage |= x509.KeyUsageCertSign
-		case "crlSign":
-			cert.KeyUsage |= x509.KeyUsageCRLSign
-		case "digitalSignature":
-			cert.KeyUsage |= x509.KeyUsageDigitalSignature
-		}
-	}
-}
-
-// SetExtKeyUsages applies the specified extended key usage flags to the cert(s).
-// Currently only supports CodeSigning usage.
-func SetExtKeyUsages(cert *x509.Certificate, usages []string) {
-	for _, usage := range usages {
-		if usage == "CodeSigning" {
-			cert.ExtKeyUsage = append(cert.ExtKeyUsage, x509.ExtKeyUsageCodeSigning)
-		}
-	}
 }
 
 // Helper function to check if a key usage is present
