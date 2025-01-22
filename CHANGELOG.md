@@ -1,3 +1,22 @@
+# v1.6.6
+
+## Features
+
+* Configure additional certificate extensions for Buildkite (#1903)
+* Relax gomod (#1909)
+* update builder to use go1.23.4 (#1883)
+* config: Add IBM OIDC provider (#1892)
+* Add Kaggle identity provider (#1850)
+
+## Contributors
+
+* Bob Callaway
+* Carlos Tadeu Panato Junior
+* Hayden B
+* James Healy
+* Stefan Berger
+* Trishank Karthik Kuppusamy
+
 # v1.6.5
 
 ## Features

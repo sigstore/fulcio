@@ -10,6 +10,7 @@ package protobuf
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -24,73 +25,74 @@ import (
 )
 
 // Suppress "imported and not used" errors
-var _ codes.Code
-var _ io.Reader
-var _ status.Status
-var _ = runtime.String
-var _ = utilities.NewDoubleArray
-var _ = metadata.Join
+var (
+	_ codes.Code
+	_ io.Reader
+	_ status.Status
+	_ = errors.New
+	_ = runtime.String
+	_ = utilities.NewDoubleArray
+	_ = metadata.Join
+)
 
 func request_CA_CreateSigningCertificate_0(ctx context.Context, marshaler runtime.Marshaler, client CAClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CreateSigningCertificateRequest
-	var metadata runtime.ServerMetadata
-
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+	var (
+		protoReq CreateSigningCertificateRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.CreateSigningCertificate(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_CA_CreateSigningCertificate_0(ctx context.Context, marshaler runtime.Marshaler, server CAServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CreateSigningCertificateRequest
-	var metadata runtime.ServerMetadata
-
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+	var (
+		protoReq CreateSigningCertificateRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.CreateSigningCertificate(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshaler, client CAClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetTrustBundleRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetTrustBundleRequest
+		metadata runtime.ServerMetadata
+	)
 	msg, err := client.GetTrustBundle(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshaler, server CAServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetTrustBundleRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetTrustBundleRequest
+		metadata runtime.ServerMetadata
+	)
 	msg, err := server.GetTrustBundle(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_CA_GetConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, client CAClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetConfigurationRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetConfigurationRequest
+		metadata runtime.ServerMetadata
+	)
 	msg, err := client.GetConfiguration(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_CA_GetConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, server CAServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetConfigurationRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetConfigurationRequest
+		metadata runtime.ServerMetadata
+	)
 	msg, err := server.GetConfiguration(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 // RegisterCAHandlerServer registers the http handlers for service CA to "mux".
@@ -99,16 +101,13 @@ func local_request_CA_GetConfiguration_0(ctx context.Context, marshaler runtime.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterCAHandlerFromEndpoint instead.
 // GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server CAServer) error {
-
-	mux.Handle("POST", pattern_CA_CreateSigningCertificate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_CA_CreateSigningCertificate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -120,20 +119,15 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_CreateSigningCertificate_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_CA_GetTrustBundle_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_CA_GetTrustBundle_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -145,20 +139,15 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_GetTrustBundle_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_CA_GetConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_CA_GetConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetConfiguration", runtime.WithHTTPPathPattern("/api/v2/configuration"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetConfiguration", runtime.WithHTTPPathPattern("/api/v2/configuration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -170,9 +159,7 @@ func RegisterCAHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_GetConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
 
 	return nil
@@ -199,7 +186,6 @@ func RegisterCAHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, e
 			}
 		}()
 	}()
-
 	return RegisterCAHandler(ctx, mux, conn)
 }
 
@@ -215,14 +201,11 @@ func RegisterCAHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.Cl
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "CAClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client CAClient) error {
-
-	mux.Handle("POST", pattern_CA_CreateSigningCertificate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_CA_CreateSigningCertificate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/CreateSigningCertificate", runtime.WithHTTPPathPattern("/api/v2/signingCert"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -233,18 +216,13 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_CreateSigningCertificate_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_CA_GetTrustBundle_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_CA_GetTrustBundle_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetTrustBundle", runtime.WithHTTPPathPattern("/api/v2/trustBundle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -255,18 +233,13 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_GetTrustBundle_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_CA_GetConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_CA_GetConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetConfiguration", runtime.WithHTTPPathPattern("/api/v2/configuration"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/dev.sigstore.fulcio.v2.CA/GetConfiguration", runtime.WithHTTPPathPattern("/api/v2/configuration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -277,26 +250,19 @@ func RegisterCAHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_CA_GetConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
 	return nil
 }
 
 var (
 	pattern_CA_CreateSigningCertificate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v2", "signingCert"}, ""))
-
-	pattern_CA_GetTrustBundle_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v2", "trustBundle"}, ""))
-
-	pattern_CA_GetConfiguration_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v2", "configuration"}, ""))
+	pattern_CA_GetTrustBundle_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v2", "trustBundle"}, ""))
+	pattern_CA_GetConfiguration_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v2", "configuration"}, ""))
 )
 
 var (
 	forward_CA_CreateSigningCertificate_0 = runtime.ForwardResponseMessage
-
-	forward_CA_GetTrustBundle_0 = runtime.ForwardResponseMessage
-
-	forward_CA_GetConfiguration_0 = runtime.ForwardResponseMessage
+	forward_CA_GetTrustBundle_0           = runtime.ForwardResponseMessage
+	forward_CA_GetConfiguration_0         = runtime.ForwardResponseMessage
 )
