@@ -103,122 +103,138 @@ func (m *mockSignerVerifier) Status() error {
 	return nil
 }
 
+func (m *mockSignerVerifier) CryptoSigner(_ context.Context, _ func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+	if m.err != nil {
+		return nil, nil, m.err
+	}
+
+	switch k := m.key.(type) {
+	case *ecdsa.PrivateKey:
+		return k, crypto.SHA256, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported key type")
+	}
+}
+
 var (
 	originalInitKMS = InitKMS
 )
 
 func TestValidateKMSConfig(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    KMSConfig
-		wantError string
+		name    string
+		config  KMSConfig
+		wantErr string
 	}{
 		{
-			name: "empty_KMS_type",
-			config: KMSConfig{
-				RootKeyID: "test-key",
-			},
-			wantError: "KMS type cannot be empty",
+			name:    "empty KMS type",
+			config:  KMSConfig{},
+			wantErr: "KMS type cannot be empty",
 		},
 		{
-			name: "missing_key_IDs",
+			name: "missing key IDs",
 			config: KMSConfig{
-				Type: "awskms",
+				Type:    "awskms",
+				Options: map[string]string{"aws-region": "us-west-2"},
 			},
-			wantError: "at least one of RootKeyID or LeafKeyID must be specified",
+			wantErr: "RootKeyID must be specified",
 		},
 		{
-			name: "AWS_KMS_missing_region",
+			name: "missing leaf key ID",
 			config: KMSConfig{
 				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				Options:   map[string]string{"aws-region": "us-west-2"},
+				RootKeyID: "alias/test-key",
 			},
-			wantError: "region is required for AWS KMS",
+			wantErr: "LeafKeyID must be specified",
 		},
 		{
-			name: "Azure_KMS_missing_tenant_ID",
+			name: "AWS KMS missing region",
+			config: KMSConfig{
+				Type:      "awskms",
+				RootKeyID: "alias/test-key",
+				LeafKeyID: "alias/test-leaf-key",
+			},
+			wantErr: "aws-region is required for AWS KMS",
+		},
+		{
+			name: "Azure KMS missing tenant ID",
 			config: KMSConfig{
 				Type:      "azurekms",
 				RootKeyID: "azurekms:name=test-key;vault=test-vault",
 				Options:   map[string]string{},
 			},
-			wantError: "tenant-id is required for Azure KMS",
+			wantErr: "tenant-id is required for Azure KMS",
 		},
 		{
-			name: "Azure_KMS_missing_vault_parameter",
+			name: "Azure KMS missing vault parameter",
 			config: KMSConfig{
 				Type:      "azurekms",
 				RootKeyID: "azurekms:name=test-key",
-				Options: map[string]string{
-					"tenant-id": "test-tenant",
-				},
+				Options:   map[string]string{"azure-tenant-id": "test-tenant"},
 			},
-			wantError: "azurekms RootKeyID must contain ';vault=' parameter",
+			wantErr: "azurekms RootKeyID must contain ';vault=' parameter",
 		},
 		{
-			name: "unsupported_KMS_type",
+			name: "unsupported KMS type",
 			config: KMSConfig{
 				Type:      "unsupported",
 				RootKeyID: "test-key",
 			},
-			wantError: "unsupported KMS type",
+			wantErr: "unsupported KMS type",
 		},
 		{
-			name: "GCP_KMS_missing_cryptoKeyVersions",
+			name: "GCP KMS missing cryptoKeyVersions",
 			config: KMSConfig{
 				Type:      "gcpkms",
-				RootKeyID: "projects/test-project/locations/global/keyRings/test-keyring/cryptoKeys/test-key",
+				RootKeyID: "projects/test-project/locations/global/keyRings/test-ring/cryptoKeys/test-key",
 			},
-			wantError: "gcpkms RootKeyID must contain '/cryptoKeyVersions/'",
+			wantErr: "gcpkms RootKeyID must contain '/cryptoKeyVersions/'",
 		},
 		{
-			name: "GCP_KMS_invalid_key_format",
+			name: "GCP KMS invalid key format",
 			config: KMSConfig{
 				Type:      "gcpkms",
-				RootKeyID: "invalid-key",
+				RootKeyID: "invalid-format",
 			},
-			wantError: "gcpkms RootKeyID must start with 'projects/'",
+			wantErr: "gcpkms RootKeyID must start with 'projects/'",
 		},
 		{
-			name: "HashiVault_KMS_missing_options",
+			name: "HashiVault KMS missing options",
 			config: KMSConfig{
 				Type:      "hashivault",
-				RootKeyID: "transit/keys/my-key",
+				RootKeyID: "transit/keys/test-key",
 			},
-			wantError: "options map is required for HashiVault KMS",
+			wantErr: "options map is required for HashiVault KMS",
 		},
 		{
-			name: "HashiVault_KMS_missing_token",
+			name: "HashiVault KMS missing token",
 			config: KMSConfig{
 				Type:      "hashivault",
-				RootKeyID: "transit/keys/my-key",
-				Options: map[string]string{
-					"address": "http://vault:8200",
-				},
+				RootKeyID: "transit/keys/test-key",
+				Options:   map[string]string{"vault-address": "http://vault:8200"},
 			},
-			wantError: "token is required for HashiVault KMS",
+			wantErr: "token is required for HashiVault KMS",
 		},
 		{
-			name: "HashiVault_KMS_missing_address",
+			name: "HashiVault KMS missing address",
 			config: KMSConfig{
 				Type:      "hashivault",
-				RootKeyID: "transit/keys/my-key",
-				Options: map[string]string{
-					"token": "test-token",
-				},
+				RootKeyID: "transit/keys/test-key",
+				Options:   map[string]string{"vault-token": "test-token"},
 			},
-			wantError: "address is required for HashiVault KMS",
+			wantErr: "address is required for HashiVault KMS",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateKMSConfig(tt.config)
-			if tt.wantError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantError)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
 			} else {
-				require.NoError(t, err)
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
 			}
 		})
 	}
@@ -317,7 +333,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "leaf_key_initialization_error",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "invalid-key",
 			},
@@ -369,7 +385,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "leaf_public_key_error",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -424,7 +440,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "intermediate_key_initialization_error",
 			config: KMSConfig{
 				Type:              "awskms",
-				Region:            "us-west-2",
+				Options:           map[string]string{"region": "us-west-2"},
 				RootKeyID:         "alias/root-key",
 				IntermediateKeyID: "invalid-key",
 				LeafKeyID:         "alias/leaf-key",
@@ -491,7 +507,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "intermediate_public_key_error",
 			config: KMSConfig{
 				Type:              "awskms",
-				Region:            "us-west-2",
+				Options:           map[string]string{"region": "us-west-2"},
 				RootKeyID:         "alias/root-key",
 				IntermediateKeyID: "alias/intermediate-key",
 				LeafKeyID:         "alias/leaf-key",
@@ -561,7 +577,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "invalid_leaf_template",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -591,7 +607,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "successful_certificate_creation",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -639,7 +655,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "invalid_template_path",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "awskms:///arn:aws:kms:us-west-2:123456789012:key/root-key",
 				LeafKeyID: "awskms:///arn:aws:kms:us-west-2:123456789012:key/leaf-key",
 			},
@@ -669,7 +685,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "invalid_root_template_path",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -701,7 +717,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "root_cert_write_error",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -748,7 +764,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "leaf_cert_write_error",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -795,7 +811,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "signing_error",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -843,7 +859,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "intermediate_cert_write_error",
 			config: KMSConfig{
 				Type:              "awskms",
-				Region:            "us-west-2",
+				Options:           map[string]string{"region": "us-west-2"},
 				RootKeyID:         "alias/root-key",
 				IntermediateKeyID: "alias/intermediate-key",
 				LeafKeyID:         "alias/leaf-key",
@@ -904,7 +920,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "invalid_cert_path",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -946,7 +962,7 @@ func TestCreateCertificates(t *testing.T) {
 			name: "invalid_leaf_template_path#01",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"region": "us-west-2"},
 				RootKeyID: "alias/root-key",
 				LeafKeyID: "alias/leaf-key",
 			},
@@ -1061,7 +1077,8 @@ func TestInitKMS(t *testing.T) {
 		{
 			name: "missing_key_IDs",
 			config: KMSConfig{
-				Type: "awskms",
+				Type:    "awskms",
+				Options: map[string]string{"region": "us-west-2"},
 			},
 			wantError: true,
 		},
@@ -1088,7 +1105,7 @@ func TestInitKMS(t *testing.T) {
 				Type:      "azurekms",
 				RootKeyID: "azurekms:name=test-key",
 				Options: map[string]string{
-					"tenant-id": "test-tenant",
+					"azure-tenant-id": "test-tenant",
 				},
 			},
 			wantError: true,
@@ -1105,8 +1122,8 @@ func TestInitKMS(t *testing.T) {
 			name: "aws_kms_valid_config",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
 				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				Options:   map[string]string{"aws-region": "us-west-2"},
 			},
 			wantError: true,
 		},
@@ -1115,8 +1132,9 @@ func TestInitKMS(t *testing.T) {
 			config: KMSConfig{
 				Type:      "azurekms",
 				RootKeyID: "azurekms:name=test-key;vault=test-vault",
+				LeafKeyID: "azurekms:name=test-leaf-key;vault=test-vault",
 				Options: map[string]string{
-					"tenant-id": "test-tenant",
+					"azure-tenant-id": "test-tenant",
 				},
 			},
 			wantError: false,
@@ -1126,6 +1144,7 @@ func TestInitKMS(t *testing.T) {
 			config: KMSConfig{
 				Type:      "gcpkms",
 				RootKeyID: "projects/test-project/locations/global/keyRings/test-keyring/cryptoKeys/test-key/cryptoKeyVersions/1",
+				LeafKeyID: "projects/test-project/locations/global/keyRings/test-keyring/cryptoKeys/test-leaf-key/cryptoKeyVersions/1",
 			},
 			wantError: false,
 		},
@@ -1135,8 +1154,8 @@ func TestInitKMS(t *testing.T) {
 				Type:      "hashivault",
 				RootKeyID: "transit/keys/my-key",
 				Options: map[string]string{
-					"token":   "test-token",
-					"address": "http://vault:8200",
+					"vault-token":   "test-token",
+					"vault-address": "http://vault:8200",
 				},
 			},
 			wantError: true,
@@ -1145,7 +1164,7 @@ func TestInitKMS(t *testing.T) {
 			name: "aws_kms_nil_signer",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
+				Options:   map[string]string{"aws-region": "us-west-2"},
 				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/test-key",
 			},
 			wantError: true,
@@ -1154,27 +1173,37 @@ func TestInitKMS(t *testing.T) {
 			name: "aws_kms_with_endpoint",
 			config: KMSConfig{
 				Type:      "awskms",
-				Region:    "us-west-2",
 				RootKeyID: "alias/test-key",
+				LeafKeyID: "alias/test-leaf-key",
+				Options:   map[string]string{"aws-region": "us-west-2"},
 			},
 			wantError: false,
 		},
 		{
-			name: "azure_kms_with_valid_format",
+			name: "aws_kms_with_alias",
 			config: KMSConfig{
-				Type:      "azurekms",
-				RootKeyID: "azurekms:name=test-key;vault=test-vault",
-				Options: map[string]string{
-					"tenant-id": "test-tenant",
-				},
+				Type:      "awskms",
+				RootKeyID: "alias/test-key",
+				LeafKeyID: "alias/test-leaf-key",
+				Options:   map[string]string{"aws-region": "us-west-2"},
 			},
 			wantError: false,
+		},
+		{
+			name: "aws_kms_with_arn",
+			config: KMSConfig{
+				Type:      "awskms",
+				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/test-key",
+				Options:   map[string]string{"aws-region": "us-west-2"},
+			},
+			wantError: true,
 		},
 		{
 			name: "gcp_kms_with_cryptoKeyVersions",
 			config: KMSConfig{
 				Type:      "gcpkms",
-				RootKeyID: "projects/project-id/locations/global/keyRings/keyring-name/cryptoKeys/key-name/cryptoKeyVersions/1",
+				RootKeyID: "projects/test-project/locations/global/keyRings/test-keyring/cryptoKeys/test-key/cryptoKeyVersions/1",
+				LeafKeyID: "projects/test-project/locations/global/keyRings/test-keyring/cryptoKeys/test-leaf-key/cryptoKeyVersions/1",
 			},
 			wantError: false,
 		},
@@ -1184,27 +1213,9 @@ func TestInitKMS(t *testing.T) {
 				Type:      "hashivault",
 				RootKeyID: "transit/keys/test-key",
 				Options: map[string]string{
-					"token":   "test-token",
-					"address": "http://vault:8200",
+					"vault-token":   "test-token",
+					"vault-address": "http://vault:8200",
 				},
-			},
-			wantError: true,
-		},
-		{
-			name: "aws_kms_with_alias",
-			config: KMSConfig{
-				Type:      "awskms",
-				Region:    "us-west-2",
-				RootKeyID: "alias/test-key",
-			},
-			wantError: false,
-		},
-		{
-			name: "aws_kms_with_arn",
-			config: KMSConfig{
-				Type:      "awskms",
-				Region:    "us-west-2",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/test-key",
 			},
 			wantError: true,
 		},
@@ -1222,8 +1233,8 @@ func TestInitKMS(t *testing.T) {
 				Type:      "hashivault",
 				RootKeyID: "hashivault://transit/keys/test-key",
 				Options: map[string]string{
-					"token":   "test-token",
-					"address": "http://vault:8200",
+					"vault-token":   "test-token",
+					"vault-address": "http://vault:8200",
 				},
 			},
 			wantError: true,
@@ -1504,9 +1515,9 @@ func TestCreateCertificatesTemplateValidation(t *testing.T) {
 
 	config := KMSConfig{
 		Type:      "awskms",
-		Region:    "us-west-2",
 		RootKeyID: "alias/root-key",
 		LeafKeyID: "alias/leaf-key",
+		Options:   map[string]string{"aws-region": "us-west-2"},
 	}
 
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

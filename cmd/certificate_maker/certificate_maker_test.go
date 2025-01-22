@@ -28,70 +28,111 @@ import (
 )
 
 func TestGetConfigValue(t *testing.T) {
-	tests := []struct {
+	// KMS provider flags
+	var (
+		kmsType          string
+		awsKMSRegion     string
+		azureKMSTenantID string
+		gcpKMSCredsFile  string
+		hashiVaultToken  string
+		hashiVaultAddr   string
+
+		// Root certificate flags
+		rootKeyID        string
+		rootTemplatePath string
+		rootCertPath     string
+
+		// Intermediate certificate flags
+		intermediateKeyID        string
+		intermediateTemplatePath string
+		intermediateCertPath     string
+
+		// Leaf certificate flags
+		leafKeyID        string
+		leafTemplatePath string
+		leafCertPath     string
+	)
+
+	cmd := &cobra.Command{
+		Run: func(_ *cobra.Command, _ []string) {
+		},
+	}
+
+	// KMS provider flags
+	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type")
+	cmd.Flags().StringVar(&awsKMSRegion, "aws-region", "", "AWS KMS region")
+	cmd.Flags().StringVar(&azureKMSTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
+	cmd.Flags().StringVar(&gcpKMSCredsFile, "gcp-credentials-file", "", "Path to credentials file for GCP KMS")
+	cmd.Flags().StringVar(&hashiVaultToken, "vault-token", "", "HashiVault token")
+	cmd.Flags().StringVar(&hashiVaultAddr, "vault-address", "", "HashiVault server address")
+
+	// Root certificate flags
+	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
+	cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
+	cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "Output path for root certificate")
+
+	// Intermediate certificate flags
+	cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
+	cmd.Flags().StringVar(&intermediateTemplatePath, "intermediate-template", "", "Path to intermediate certificate template")
+	cmd.Flags().StringVar(&intermediateCertPath, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+
+	// Leaf certificate flags
+	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
+	cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "Path to leaf certificate template")
+	cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "Output path for leaf certificate")
+
+	viper.Reset()
+	viper.BindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
+	viper.BindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
+	viper.BindPFlag("azure-tenant-id", cmd.Flags().Lookup("azure-tenant-id"))
+	viper.BindPFlag("gcp-credentials-file", cmd.Flags().Lookup("gcp-credentials-file"))
+	viper.BindPFlag("vault-token", cmd.Flags().Lookup("vault-token"))
+	viper.BindPFlag("vault-address", cmd.Flags().Lookup("vault-address"))
+	viper.BindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
+	viper.BindPFlag("intermediate-key-id", cmd.Flags().Lookup("intermediate-key-id"))
+	viper.BindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
+
+	type testCase struct {
 		name      string
-		flagValue string
-		envVar    string
-		envValue  string
-		want      string
-	}{
+		args      []string
+		wantValue string
+		flag      string
+	}
+
+	tests := []testCase{
 		{
-			name:      "flag value takes precedence",
-			flagValue: "flag-value",
-			envVar:    "TEST_ENV",
-			envValue:  "env-value",
-			want:      "flag-value",
+			name:      "get KMS type from flag",
+			args:      []string{"--kms-type", "awskms"},
+			flag:      "kms-type",
+			wantValue: "awskms",
 		},
 		{
-			name:      "env value used when flag empty",
-			flagValue: "",
-			envVar:    "TEST_ENV",
-			envValue:  "env-value",
-			want:      "env-value",
+			name:      "get AWS region from flag",
+			args:      []string{"--aws-region", "us-west-2"},
+			flag:      "aws-region",
+			wantValue: "us-west-2",
 		},
 		{
-			name:      "empty when both unset",
-			flagValue: "",
-			envVar:    "TEST_ENV",
-			envValue:  "",
-			want:      "",
+			name:      "get Azure tenant ID from flag",
+			args:      []string{"--azure-tenant-id", "tenant-123"},
+			flag:      "azure-tenant-id",
+			wantValue: "tenant-123",
 		},
 		{
-			name:      "GCP credentials file from env",
-			flagValue: "",
-			envVar:    "GCP_CREDENTIALS_FILE",
-			envValue:  "/path/to/creds.json",
-			want:      "/path/to/creds.json",
-		},
-		{
-			name:      "Azure tenant ID from env",
-			flagValue: "",
-			envVar:    "AZURE_TENANT_ID",
-			envValue:  "tenant-123",
-			want:      "tenant-123",
-		},
-		{
-			name:      "AWS KMS region from env",
-			flagValue: "",
-			envVar:    "AWS_REGION",
-			envValue:  "us-west-2",
-			want:      "us-west-2",
+			name:      "get GCP credentials file from flag",
+			args:      []string{"--gcp-credentials-file", "/path/to/creds.json"},
+			flag:      "gcp-credentials-file",
+			wantValue: "/path/to/creds.json",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.envValue != "" {
-				os.Setenv(tt.envVar, tt.envValue)
-				defer os.Unsetenv(tt.envVar)
-			}
-			viper.Reset()
-			viper.BindEnv(tt.envVar)
-			if tt.flagValue != "" {
-				viper.Set(tt.envVar, tt.flagValue)
-			}
-			got := viper.GetString(tt.envVar)
-			assert.Equal(t, tt.want, got)
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
+			require.NoError(t, err)
+			got := viper.GetString(tt.flag)
+			assert.Equal(t, tt.wantValue, got)
 		})
 	}
 }
@@ -185,7 +226,7 @@ func TestRunCreate(t *testing.T) {
 				"--leaf-template", leafTmplPath,
 			},
 			wantError: true,
-			errMsg:    "no such file or directory",
+			errMsg:    "template not found at nonexistent.json",
 		},
 		{
 			name: "missing leaf template",
@@ -198,7 +239,7 @@ func TestRunCreate(t *testing.T) {
 				"--leaf-template", "nonexistent.json",
 			},
 			wantError: true,
-			errMsg:    "no such file or directory",
+			errMsg:    "template not found at nonexistent.json",
 		},
 		{
 			name: "GCP KMS with credentials file",
@@ -223,7 +264,7 @@ func TestRunCreate(t *testing.T) {
 				"--leaf-template", leafTmplPath,
 			},
 			wantError: true,
-			errMsg:    "tenant-id is required",
+			errMsg:    "tenant-id is required for Azure KMS",
 		},
 		{
 			name: "AWS KMS test",
@@ -274,59 +315,84 @@ func TestRunCreate(t *testing.T) {
 				RunE: runCreate,
 			}
 
-			cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type")
-			cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
-			cmd.Flags().StringVar(&kmsKeyID, "kms-key-id", "", "KMS key identifier")
-			cmd.Flags().StringVar(&kmsTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
-			cmd.Flags().StringVar(&kmsCredsFile, "gcp-credentials-file", "", "Path to credentials file for GCP KMS")
-			cmd.Flags().StringVar(&kmsVaultToken, "vault-token", "", "HashiVault token")
-			cmd.Flags().StringVar(&kmsVaultAddr, "vault-address", "", "HashiVault server address")
-			cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
-			cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
-			cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
-			cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "Path to leaf certificate template")
-			cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "Output path for root certificate")
-			cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "Output path for leaf certificate")
-			cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
-			cmd.Flags().StringVar(&intermediateTemplate, "intermediate-template", "", "Path to intermediate certificate template")
-			cmd.Flags().StringVar(&intermediateCert, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+			// KMS provider flags
+			cmd.Flags().String("kms-type", "", "KMS provider type")
+			cmd.Flags().String("aws-region", "", "AWS KMS region")
+			cmd.Flags().String("azure-tenant-id", "", "Azure KMS tenant ID")
+			cmd.Flags().String("gcp-credentials-file", "", "Path to credentials file for GCP KMS")
+			cmd.Flags().String("vault-token", "", "HashiVault token")
+			cmd.Flags().String("vault-address", "", "HashiVault server address")
+
+			// Root certificate flags
+			cmd.Flags().String("root-key-id", "", "KMS key identifier for root certificate")
+			cmd.Flags().String("root-template", "", "Path to root certificate template")
+			cmd.Flags().String("root-cert", "root.pem", "Output path for root certificate")
+
+			// Intermediate certificate flags
+			cmd.Flags().String("intermediate-key-id", "", "KMS key identifier for intermediate certificate")
+			cmd.Flags().String("intermediate-template", "", "Path to intermediate certificate template")
+			cmd.Flags().String("intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+
+			// Leaf certificate flags
+			cmd.Flags().String("leaf-key-id", "", "KMS key identifier for leaf certificate")
+			cmd.Flags().String("leaf-template", "", "Path to leaf certificate template")
+			cmd.Flags().String("leaf-cert", "leaf.pem", "Output path for leaf certificate")
 
 			viper.Reset()
 			viper.BindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
 			viper.BindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
-			viper.BindPFlag("kms-key-id", cmd.Flags().Lookup("kms-key-id"))
 			viper.BindPFlag("azure-tenant-id", cmd.Flags().Lookup("azure-tenant-id"))
 			viper.BindPFlag("gcp-credentials-file", cmd.Flags().Lookup("gcp-credentials-file"))
 			viper.BindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
 			viper.BindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
 			viper.BindPFlag("vault-token", cmd.Flags().Lookup("vault-token"))
 			viper.BindPFlag("vault-address", cmd.Flags().Lookup("vault-address"))
+			viper.BindPFlag("root-template", cmd.Flags().Lookup("root-template"))
+			viper.BindPFlag("leaf-template", cmd.Flags().Lookup("leaf-template"))
+			viper.BindPFlag("intermediate-template", cmd.Flags().Lookup("intermediate-template"))
 
 			switch tt.name {
 			case "invalid KMS type":
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			case "missing_root_template":
 				viper.Set("kms-type", "awskms")
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", "nonexistent.json")
+				viper.Set("leaf-template", leafTmplPath)
 			case "missing_leaf_template":
 				viper.Set("kms-type", "awskms")
 				viper.Set("leaf-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", "nonexistent.json")
 			case "GCP_KMS_with_credentials_file":
 				viper.Set("kms-type", "gcpkms")
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			case "Azure_KMS_without_tenant_ID":
 				viper.Set("kms-type", "azurekms")
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			case "AWS_KMS_test":
 				viper.Set("kms-type", "awskms")
+				viper.Set("aws-region", "us-west-2")
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			case "HashiVault_KMS_without_token":
 				viper.Set("kms-type", "hashivault")
 				viper.Set("root-key-id", "dummy-key")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			case "HashiVault_KMS_without_address":
 				viper.Set("kms-type", "hashivault")
 				viper.Set("root-key-id", "dummy-key")
 				viper.Set("vault-token", "dummy-token")
+				viper.Set("root-template", rootTmplPath)
+				viper.Set("leaf-template", leafTmplPath)
 			}
 
 			cmd.SetArgs(tt.args)
@@ -350,10 +416,16 @@ func TestCreateCommand(t *testing.T) {
 		},
 	}
 
-	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS type")
-	cmd.Flags().StringVar(&kmsRegion, "aws-region", "", "AWS KMS region")
-	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "Root key ID")
-	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "Leaf key ID")
+	cmd.Flags().String("kms-type", "", "KMS type")
+	cmd.Flags().String("aws-region", "", "AWS KMS region")
+	cmd.Flags().String("root-key-id", "", "Root key ID")
+	cmd.Flags().String("leaf-key-id", "", "Leaf key ID")
+
+	viper.Reset()
+	viper.BindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
+	viper.BindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
+	viper.BindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
+	viper.BindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
 
 	err := cmd.Execute()
 	require.NoError(t, err)
@@ -366,18 +438,10 @@ func TestCreateCommand(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	if kmsType != "awskms" {
-		assert.Equal(t, "awskms", kmsType)
-	}
-	if kmsRegion != "us-west-2" {
-		t.Errorf("got kmsRegion %v, want us-west-2", kmsRegion)
-	}
-	if rootKeyID != "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab" {
-		t.Errorf("got rootKeyID %v, want arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab", rootKeyID)
-	}
-	if leafKeyID != "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654" {
-		t.Errorf("got leafKeyID %v, want arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654", leafKeyID)
-	}
+	assert.Equal(t, "awskms", viper.GetString("kms-type"))
+	assert.Equal(t, "us-west-2", viper.GetString("aws-region"))
+	assert.Equal(t, "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab", viper.GetString("root-key-id"))
+	assert.Equal(t, "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654", viper.GetString("leaf-key-id"))
 }
 
 func TestRootCommand(t *testing.T) {

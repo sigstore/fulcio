@@ -111,6 +111,23 @@ func ValidateTemplate(tmpl *CertificateTemplate, parent *x509.Certificate, certT
 		if tmpl.Issuer.CommonName == "" {
 			return fmt.Errorf("template issuer.commonName cannot be empty for root certificate")
 		}
+		// For root certificates, the SKID and AKID should match
+		if len(tmpl.Extensions) > 0 {
+			var hasAKID, hasSKID bool
+			var akidValue, skidValue string
+			for _, ext := range tmpl.Extensions {
+				if ext.ID == "2.5.29.35" { // AKID OID
+					hasAKID = true
+					akidValue = ext.Value
+				} else if ext.ID == "2.5.29.14" { // SKID OID
+					hasSKID = true
+					skidValue = ext.Value
+				}
+			}
+			if hasAKID && hasSKID && akidValue != skidValue {
+				return fmt.Errorf("root certificate SKID and AKID must match")
+			}
+		}
 	case "intermediate":
 		if parent == nil {
 			return fmt.Errorf("parent certificate is required for non-root certificates")
