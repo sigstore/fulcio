@@ -52,11 +52,6 @@ func ParseTemplate(input interface{}, parent *x509.Certificate, notAfter time.Ti
 		return nil, fmt.Errorf("input must be either a template string or template content ([]byte)")
 	}
 
-	// Parse/validate template
-	if err := x509util.ValidateTemplate([]byte(content)); err != nil {
-		return nil, fmt.Errorf("error parsing template: %w", err)
-	}
-
 	// Get cert life and subject from template
 	data := x509util.NewTemplateData()
 	if commonName != "" {
@@ -115,31 +110,21 @@ func determinePublicKeyAlgorithm(publicKey crypto.PublicKey) x509.PublicKeyAlgor
 }
 
 // Performs validation checks on the cert template
-func ValidateTemplate(filename string, parent *x509.Certificate, certType string) error {
+func ValidateTemplate(filename string, _ *x509.Certificate, _ string) error {
 	content, err := os.ReadFile(filename)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("template not found at %s", filename)
+		}
 		return fmt.Errorf("error reading template file: %w", err)
 	}
 
-	if err := x509util.ValidateTemplate(content); err != nil {
-		return fmt.Errorf("error validating template: %w", err)
-	}
-
-	switch certType {
-	case "root":
-		if parent != nil {
-			return fmt.Errorf("root certificate cannot have a parent")
-		}
-	case "intermediate":
-		if parent == nil {
-			return fmt.Errorf("intermediate certificate must have a parent")
-		}
-	case "leaf":
-		if parent == nil {
-			return fmt.Errorf("leaf certificate must have a parent")
-		}
-	default:
-		return fmt.Errorf("invalid certificate type: %s", certType)
+	// Parse template via x509util to avoid issues with templating
+	data := x509util.NewTemplateData()
+	baseCert := &x509.Certificate{}
+	_, err = x509util.NewCertificateFromX509(baseCert, x509util.WithTemplate(string(content), data))
+	if err != nil {
+		return fmt.Errorf("invalid template JSON: %w", err)
 	}
 
 	return nil

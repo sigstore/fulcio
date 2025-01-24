@@ -169,11 +169,35 @@ func TestRunCreate(t *testing.T) {
 		}
 	}`
 
+	intermediateTemplate := `{
+		"subject": {
+			"commonName": "Test Intermediate CA"
+		},
+		"notBefore": "2024-01-01T00:00:00Z",
+		"notAfter": "2025-01-01T00:00:00Z",
+		"keyUsage": ["certSign", "crlSign"],
+		"basicConstraints": {
+			"isCA": true,
+			"maxPathLen": 0
+		}
+	}`
+
+	invalidIntermediateTemplate := `{
+		"invalid": json
+		"missing": comma
+	}`
+
 	rootTmplPath := filepath.Join(tmpDir, "root-template.json")
 	leafTmplPath := filepath.Join(tmpDir, "leaf-template.json")
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate-template.json")
+	invalidIntermediateTmplPath := filepath.Join(tmpDir, "invalid-intermediate-template.json")
 	err = os.WriteFile(rootTmplPath, []byte(rootTemplate), 0600)
 	require.NoError(t, err)
 	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600)
+	require.NoError(t, err)
+	err = os.WriteFile(intermediateTmplPath, []byte(intermediateTemplate), 0600)
+	require.NoError(t, err)
+	err = os.WriteFile(invalidIntermediateTmplPath, []byte(invalidIntermediateTemplate), 0600)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -307,6 +331,38 @@ func TestRunCreate(t *testing.T) {
 			wantError: true,
 			errMsg:    "vault-address is required for HashiVault KMS",
 		},
+		{
+			name: "nonexistent intermediate template",
+			args: []string{
+				"test-cn",
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "alias/test-key",
+				"--leaf-key-id", "alias/test-key",
+				"--intermediate-key-id", "alias/test-key",
+				"--root-template", rootTmplPath,
+				"--leaf-template", leafTmplPath,
+				"--intermediate-template", "nonexistent.json",
+			},
+			wantError: true,
+			errMsg:    "intermediate template error: template not found at nonexistent.json",
+		},
+		{
+			name: "invalid intermediate template json",
+			args: []string{
+				"test-cn",
+				"--kms-type", "awskms",
+				"--aws-region", "us-west-2",
+				"--root-key-id", "alias/test-key",
+				"--leaf-key-id", "alias/test-key",
+				"--intermediate-key-id", "alias/test-key",
+				"--root-template", rootTmplPath,
+				"--leaf-template", leafTmplPath,
+				"--intermediate-template", invalidIntermediateTmplPath,
+			},
+			wantError: true,
+			errMsg:    "intermediate template error: invalid template JSON",
+		},
 	}
 
 	for _, tt := range tests {
@@ -409,22 +465,70 @@ func TestRootCommand(t *testing.T) {
 }
 
 func setupTestCommand() *cobra.Command {
+	var (
+		kmsType          string
+		awsKMSRegion     string
+		azureKMSTenantID string
+		gcpKMSCredsFile  string
+		hashiVaultToken  string
+		hashiVaultAddr   string
+
+		rootKeyID        string
+		rootTemplatePath string
+		rootCertPath     string
+
+		intermediateKeyID        string
+		intermediateTemplatePath string
+		intermediateCertPath     string
+
+		leafKeyID        string
+		leafTemplatePath string
+		leafCertPath     string
+	)
+
 	cmd := &cobra.Command{
-		Use: "test",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return nil
-		},
+		RunE: runCreate,
 	}
 
-	cmd.Flags().String("kms-type", "", "KMS type")
-	cmd.Flags().String("aws-region", "", "AWS KMS region")
-	cmd.Flags().String("azure-tenant-id", "", "Azure KMS tenant ID")
-	cmd.Flags().String("vault-token", "", "HashiVault token")
-	cmd.Flags().String("vault-address", "", "HashiVault address")
-	cmd.Flags().String("root-key-id", "", "Root key ID")
-	cmd.Flags().String("leaf-key-id", "", "Leaf key ID")
-	cmd.Flags().String("root-template", "", "Root template path")
-	cmd.Flags().String("leaf-template", "", "Leaf template path")
+	cmd.Flags().StringVar(&kmsType, "kms-type", "", "KMS provider type")
+	cmd.Flags().StringVar(&awsKMSRegion, "aws-region", "", "AWS KMS region")
+	cmd.Flags().StringVar(&azureKMSTenantID, "azure-tenant-id", "", "Azure KMS tenant ID")
+	cmd.Flags().StringVar(&gcpKMSCredsFile, "gcp-credentials-file", "", "Path to credentials file for GCP KMS")
+	cmd.Flags().StringVar(&hashiVaultToken, "vault-token", "", "HashiVault token")
+	cmd.Flags().StringVar(&hashiVaultAddr, "vault-address", "", "HashiVault server address")
+
+	cmd.Flags().StringVar(&rootKeyID, "root-key-id", "", "KMS key identifier for root certificate")
+	cmd.Flags().StringVar(&rootTemplatePath, "root-template", "", "Path to root certificate template")
+	cmd.Flags().StringVar(&rootCertPath, "root-cert", "root.pem", "Output path for root certificate")
+
+	cmd.Flags().StringVar(&intermediateKeyID, "intermediate-key-id", "", "KMS key identifier for intermediate certificate")
+	cmd.Flags().StringVar(&intermediateTemplatePath, "intermediate-template", "", "Path to intermediate certificate template")
+	cmd.Flags().StringVar(&intermediateCertPath, "intermediate-cert", "intermediate.pem", "Output path for intermediate certificate")
+
+	cmd.Flags().StringVar(&leafKeyID, "leaf-key-id", "", "KMS key identifier for leaf certificate")
+	cmd.Flags().StringVar(&leafTemplatePath, "leaf-template", "", "Path to leaf certificate template")
+	cmd.Flags().StringVar(&leafCertPath, "leaf-cert", "leaf.pem", "Output path for leaf certificate")
+
+	viper.Reset()
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	mustBindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
+	mustBindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
+	mustBindPFlag("azure-tenant-id", cmd.Flags().Lookup("azure-tenant-id"))
+	mustBindPFlag("gcp-credentials-file", cmd.Flags().Lookup("gcp-credentials-file"))
+	mustBindPFlag("vault-token", cmd.Flags().Lookup("vault-token"))
+	mustBindPFlag("vault-address", cmd.Flags().Lookup("vault-address"))
+	mustBindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
+	mustBindPFlag("root-template", cmd.Flags().Lookup("root-template"))
+	mustBindPFlag("root-cert", cmd.Flags().Lookup("root-cert"))
+	mustBindPFlag("intermediate-key-id", cmd.Flags().Lookup("intermediate-key-id"))
+	mustBindPFlag("intermediate-template", cmd.Flags().Lookup("intermediate-template"))
+	mustBindPFlag("intermediate-cert", cmd.Flags().Lookup("intermediate-cert"))
+	mustBindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
+	mustBindPFlag("leaf-template", cmd.Flags().Lookup("leaf-template"))
+	mustBindPFlag("leaf-cert", cmd.Flags().Lookup("leaf-cert"))
 
 	return cmd
 }
@@ -564,124 +668,122 @@ func TestEnvironmentVariableOverrides(t *testing.T) {
 }
 
 func TestTemplateValidationInRunCreate(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "template-test-*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	tempDir := t.TempDir()
+
+	validRootPath := filepath.Join(tempDir, "valid-root.json")
+	validLeafPath := filepath.Join(tempDir, "valid-leaf.json")
+	invalidRootPath := filepath.Join(tempDir, "invalid-root.json")
+	invalidLeafPath := filepath.Join(tempDir, "invalid-leaf.json")
 
 	validTemplate := `{
 		"subject": {
 			"commonName": "Test CA"
 		},
-		"issuer": {
-			"commonName": "Test CA"
-		},
-		"keyUsage": ["certSign", "crlSign"],
-		"basicConstraints": {
-			"isCA": true,
-			"maxPathLen": 1
+		"validity": {
+			"duration": "24h"
 		}
 	}`
 
-	validPath := filepath.Join(tmpDir, "valid.json")
-	invalidPath := filepath.Join(tmpDir, "invalid.json")
-	err = os.WriteFile(validPath, []byte(validTemplate), 0600)
-	require.NoError(t, err)
-	err = os.WriteFile(invalidPath, []byte("invalid json"), 0600)
-	require.NoError(t, err)
+	invalidTemplate := `{
+		"invalid": "json"
+		"missing": "comma"
+	}`
+
+	if err := os.WriteFile(validRootPath, []byte(validTemplate), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(validLeafPath, []byte(validTemplate), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(invalidRootPath, []byte(invalidTemplate), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(invalidLeafPath, []byte(invalidTemplate), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
-		name      string
-		args      []string
-		wantError string
+		name string
+		args []string
+		env  map[string]string
+		want string
 	}{
 		{
 			name: "valid template paths",
 			args: []string{
-				"test-cn",
+				"--root-template", validRootPath,
+				"--leaf-template", validLeafPath,
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
-				"--root-key-id", "alias/test-key",
-				"--leaf-key-id", "alias/test-key",
-				"--root-template", validPath,
-				"--leaf-template", validPath,
 			},
-			wantError: "error getting root public key",
+			want: "error getting root public key",
 		},
 		{
 			name: "nonexistent root template",
 			args: []string{
-				"test-cn",
+				"--root-template", "nonexistent.json",
+				"--leaf-template", validLeafPath,
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
-				"--root-key-id", "alias/test-key",
-				"--leaf-key-id", "alias/test-key",
-				"--root-template", "nonexistent.json",
-				"--leaf-template", validPath,
 			},
-			wantError: "template not found at nonexistent.json",
+			want: "template not found at nonexistent.json",
 		},
 		{
 			name: "invalid root template json",
 			args: []string{
-				"test-cn",
+				"--root-template", invalidRootPath,
+				"--leaf-template", validLeafPath,
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
-				"--root-key-id", "alias/test-key",
-				"--leaf-key-id", "alias/test-key",
-				"--root-template", invalidPath,
-				"--leaf-template", validPath,
 			},
-			wantError: "invalid JSON in template file",
+			want: "invalid template JSON",
 		},
 		{
 			name: "nonexistent leaf template",
 			args: []string{
-				"test-cn",
+				"--root-template", validRootPath,
+				"--leaf-template", "nonexistent.json",
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
-				"--root-key-id", "alias/test-key",
-				"--leaf-key-id", "alias/test-key",
-				"--root-template", validPath,
-				"--leaf-template", "nonexistent.json",
 			},
-			wantError: "template not found at nonexistent.json",
+			want: "template not found at nonexistent.json",
 		},
 		{
 			name: "invalid leaf template json",
 			args: []string{
-				"test-cn",
+				"--root-template", validRootPath,
+				"--leaf-template", invalidLeafPath,
+				"--root-key-id", "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+				"--leaf-key-id", "arn:aws:kms:us-west-2:123456789012:key/9876fedc-ba98-7654-3210-fedcba987654",
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
-				"--root-key-id", "alias/test-key",
-				"--leaf-key-id", "alias/test-key",
-				"--root-template", validPath,
-				"--leaf-template", invalidPath,
 			},
-			wantError: "invalid JSON in template file",
+			want: "invalid template JSON",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-			viper.AutomaticEnv()
-			viper.SetEnvPrefix("")
-			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
 			cmd := setupTestCommand()
-			cmd.RunE = runCreate
-
-			mustBindPFlag("kms-type", cmd.Flags().Lookup("kms-type"))
-			mustBindPFlag("aws-region", cmd.Flags().Lookup("aws-region"))
-			mustBindPFlag("root-key-id", cmd.Flags().Lookup("root-key-id"))
-			mustBindPFlag("leaf-key-id", cmd.Flags().Lookup("leaf-key-id"))
-			mustBindPFlag("root-template", cmd.Flags().Lookup("root-template"))
-			mustBindPFlag("leaf-template", cmd.Flags().Lookup("leaf-template"))
-
 			cmd.SetArgs(tt.args)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
 			err := cmd.Execute()
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantError)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("got error %q, want %q", err.Error(), tt.want)
+			}
 		})
 	}
 }

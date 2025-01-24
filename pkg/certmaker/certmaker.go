@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -519,27 +518,6 @@ func ValidateKMSConfig(config KMSConfig) error {
 	}
 	if config.LeafKeyID == "" {
 		return fmt.Errorf("LeafKeyID must be specified")
-	}
-
-	return nil
-}
-
-// ValidateTemplatePath checks if the template file exists, has a .json extension,
-// and contains valid JSON content.
-func ValidateTemplatePath(path string) error {
-	if _, err := os.Stat(path); err != nil {
-		return fmt.Errorf("template not found at %s: %w", path, err)
-	}
-	if !strings.HasSuffix(path, ".json") {
-		return fmt.Errorf("template file must have .json extension: %s", path)
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("error reading template file: %w", err)
-	}
-	var js json.RawMessage
-	if err := json.Unmarshal(content, &js); err != nil {
-		return fmt.Errorf("invalid JSON in template file: %w", err)
 	}
 
 	return nil

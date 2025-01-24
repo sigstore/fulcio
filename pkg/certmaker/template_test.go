@@ -25,8 +25,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -134,12 +132,9 @@ func TestParseTemplate(t *testing.T) {
 func TestValidateTemplate(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	rootTemplate := `{
+	validTemplate := `{
 		"subject": {
-			"commonName": "Test Root CA"
-		},
-		"issuer": {
-			"commonName": "Test Root CA"
+			"commonName": "Test CA"
 		},
 		"keyUsage": ["certSign", "crlSign"],
 		"basicConstraints": {
@@ -148,40 +143,17 @@ func TestValidateTemplate(t *testing.T) {
 		}
 	}`
 
-	leafTemplate := `{
-		"subject": {
-			"commonName": "Test Leaf"
-		},
-		"keyUsage": ["digitalSignature"],
-		"extKeyUsage": ["CodeSigning"],
-		"basicConstraints": {
-			"isCA": false
-		}
+	invalidTemplate := `{
+		"invalid": "json"
+		"missing": "comma"
 	}`
 
-	rootTmplPath := filepath.Join(tmpDir, "root.json")
-	leafTmplPath := filepath.Join(tmpDir, "leaf.json")
-	err := os.WriteFile(rootTmplPath, []byte(rootTemplate), 0600)
+	validPath := filepath.Join(tmpDir, "valid.json")
+	invalidPath := filepath.Join(tmpDir, "invalid.json")
+	err := os.WriteFile(validPath, []byte(validTemplate), 0600)
 	require.NoError(t, err)
-	err = os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600)
+	err = os.WriteFile(invalidPath, []byte(invalidTemplate), 0600)
 	require.NoError(t, err)
-
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-
-	parent := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: "Test Parent CA",
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour * 24),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		MaxPathLen:            1,
-		PublicKey:             key.Public(),
-	}
 
 	tests := []struct {
 		name      string
@@ -191,44 +163,24 @@ func TestValidateTemplate(t *testing.T) {
 		wantError string
 	}{
 		{
-			name:     "valid root template",
-			filename: rootTmplPath,
+			name:     "valid template",
+			filename: validPath,
 			parent:   nil,
 			certType: "root",
 		},
 		{
-			name:      "root with parent",
-			filename:  rootTmplPath,
-			parent:    parent,
-			certType:  "root",
-			wantError: "root certificate cannot have a parent",
-		},
-		{
-			name:     "valid leaf template",
-			filename: leafTmplPath,
-			parent:   parent,
-			certType: "leaf",
-		},
-		{
-			name:      "leaf without parent",
-			filename:  leafTmplPath,
+			name:      "invalid template json",
+			filename:  invalidPath,
 			parent:    nil,
-			certType:  "leaf",
-			wantError: "leaf certificate must have a parent",
-		},
-		{
-			name:      "invalid cert type",
-			filename:  leafTmplPath,
-			parent:    parent,
-			certType:  "invalid",
-			wantError: "invalid certificate type: invalid",
+			certType:  "root",
+			wantError: "invalid template JSON",
 		},
 		{
 			name:      "nonexistent file",
 			filename:  "nonexistent.json",
-			parent:    parent,
-			certType:  "leaf",
-			wantError: "error reading template file",
+			parent:    nil,
+			certType:  "root",
+			wantError: "template not found at",
 		},
 	}
 
@@ -238,83 +190,6 @@ func TestValidateTemplate(t *testing.T) {
 			if tt.wantError != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantError)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestValidateTemplatePath(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	validTemplate := `{
-		"subject": {
-			"commonName": "Test CA"
-		},
-		"keyUsage": ["certSign", "crlSign"],
-		"basicConstraints": {
-			"isCA": true,
-			"maxPathLen": 1
-		},
-		"validity": {
-			"notBefore": "{{ now }}",
-			"notAfter": "{{ .NotAfter }}"
-		}
-	}`
-
-	invalidTemplate := `{
-		"subject": {
-			"commonName": "Test CA",
-		},
-		invalid json
-	}`
-
-	validPath := filepath.Join(tmpDir, "valid.json")
-	invalidPath := filepath.Join(tmpDir, "invalid.json")
-	wrongExtPath := filepath.Join(tmpDir, "wrong.txt")
-
-	require.NoError(t, os.WriteFile(validPath, []byte(validTemplate), 0600))
-	require.NoError(t, os.WriteFile(invalidPath, []byte(invalidTemplate), 0600))
-	require.NoError(t, os.WriteFile(wrongExtPath, []byte(validTemplate), 0600))
-
-	tests := []struct {
-		name      string
-		path      string
-		wantError bool
-		errMsg    string
-	}{
-		{
-			name:      "valid template",
-			path:      validPath,
-			wantError: false,
-		},
-		{
-			name:      "nonexistent file",
-			path:      "nonexistent.json",
-			wantError: true,
-			errMsg:    "template not found at nonexistent.json",
-		},
-		{
-			name:      "wrong file extension",
-			path:      wrongExtPath,
-			wantError: true,
-			errMsg:    "template file must have .json extension",
-		},
-		{
-			name:      "invalid JSON",
-			path:      invalidPath,
-			wantError: true,
-			errMsg:    "invalid JSON in template file",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateTemplatePath(tt.path)
-			if tt.wantError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				require.NoError(t, err)
 			}

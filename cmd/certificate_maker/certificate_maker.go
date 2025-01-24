@@ -191,17 +191,24 @@ func runCreate(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize KMS: %w", err)
 	}
 
-	// Validate template paths if provided
+	// Get template paths
 	rootTemplate := viper.GetString("root-template")
+	intermediateTemplate := viper.GetString("intermediate-template")
 	leafTemplate := viper.GetString("leaf-template")
 
+	// Validate template paths if provided
 	if rootTemplate != "" {
-		if err := certmaker.ValidateTemplatePath(rootTemplate); err != nil {
+		if err := certmaker.ValidateTemplate(rootTemplate, nil, "root"); err != nil {
 			return fmt.Errorf("root template error: %w", err)
 		}
 	}
+	if intermediateTemplate != "" {
+		if err := certmaker.ValidateTemplate(intermediateTemplate, nil, "intermediate"); err != nil {
+			return fmt.Errorf("intermediate template error: %w", err)
+		}
+	}
 	if leafTemplate != "" {
-		if err := certmaker.ValidateTemplatePath(leafTemplate); err != nil {
+		if err := certmaker.ValidateTemplate(leafTemplate, nil, "leaf"); err != nil {
 			return fmt.Errorf("leaf template error: %w", err)
 		}
 	}
