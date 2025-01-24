@@ -1,23 +1,9 @@
 {
     "subject": {
-        "country": [
-            ""
-        ],
-        "organization": [
-            ""
-        ],
-        "organizationalUnit": [
-            ""
-        ],
-        "commonName": ""
-    },
-    "issuer": {
-        "commonName": ""
-    },
-    "certLife": "43800h",
-    "basicConstraints": {
-        "isCA": true,
-        "maxPathLen": 0
+        "country": [],
+        "organization": [],
+        "organizationalUnit": [],
+        "commonName": "{{ .Subject.CommonName }}"
     },
     "keyUsage": [
         "certSign",
@@ -25,5 +11,9 @@
     ],
     "extKeyUsage": [
         "CodeSigning"
-    ]
+    ],
+    "basicConstraints": {
+        "isCA": true,
+        "maxPathLen": 0
+    }
 }

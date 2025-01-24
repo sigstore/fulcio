@@ -1,20 +1,10 @@
 {
   "subject": {
-    "country": [
-      ""
-    ],
-    "organization": [
-      ""
-    ],
-    "organizationalUnit": [
-      ""
-    ],
-    "commonName": ""
+    "country": [],
+    "organization": [],
+    "organizationalUnit": [],
+    "commonName": "{{ .Subject.CommonName }}"
   },
-  "issuer": {
-    "commonName": ""
-  },
-  "certLife": "87600h",
   "keyUsage": [
     "certSign",
     "crlSign"

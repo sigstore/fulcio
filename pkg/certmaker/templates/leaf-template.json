@@ -1,27 +1,18 @@
 {
     "subject": {
-        "country": [
-            ""
-        ],
-        "organization": [
-            ""
-        ],
-        "organizationalUnit": [
-            ""
-        ],
-        "commonName": ""
-    },
-    "issuer": {
-        "commonName": ""
-    },
-    "certLife": "8760h",
-    "basicConstraints": {
-        "isCA": false
+        "country": [],
+        "organization": [],
+        "organizationalUnit": [],
+        "commonName": "{{ .Subject.CommonName }}"
     },
     "keyUsage": [
         "digitalSignature"
     ],
     "extKeyUsage": [
         "CodeSigning"
-    ]
+    ],
+    "basicConstraints": {
+        "isCA": false,
+        "maxPathLen": 0
+    }
 }

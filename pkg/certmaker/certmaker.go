@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
@@ -49,6 +50,7 @@ type CryptoSignerVerifier interface {
 
 // KMSConfig holds config for KMS providers.
 type KMSConfig struct {
+	CommonName        string
 	Type              string
 	RootKeyID         string
 	IntermediateKeyID string
@@ -145,15 +147,10 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	rootTemplatePath, leafTemplatePath string,
 	rootCertPath, leafCertPath string,
-	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string) error {
+	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string,
+	rootLifetime, intermediateLifetime, leafLifetime time.Duration) error {
 
 	// Create root cert
-	rootTmpl, err := ParseTemplate(rootTemplatePath, nil)
-	if err != nil {
-		return fmt.Errorf("error parsing root template: %w", err)
-	}
-
-	// Get public key from signer
 	rootPubKey, err := sv.PublicKey()
 	if err != nil {
 		return fmt.Errorf("error getting root public key: %w", err)
@@ -167,6 +164,29 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	rootSigner, _, err := cryptoSV.CryptoSigner(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("error getting root crypto signer: %w", err)
+	}
+
+	// Use default root template if none provided
+	var rootTemplate interface{}
+	if rootTemplatePath == "" {
+		defaultTemplate, err := GetDefaultTemplate("root")
+		if err != nil {
+			return fmt.Errorf("error getting default root template: %w", err)
+		}
+		rootTemplate = defaultTemplate
+	} else {
+		// Read from FS if path is provided
+		content, err := os.ReadFile(rootTemplatePath)
+		if err != nil {
+			return fmt.Errorf("root template error: template not found at %s: %w", rootTemplatePath, err)
+		}
+		rootTemplate = string(content)
+	}
+
+	rootNotAfter := time.Now().UTC().Add(rootLifetime)
+	rootTmpl, err := ParseTemplate(rootTemplate, nil, rootNotAfter, rootPubKey, config.CommonName)
+	if err != nil {
+		return fmt.Errorf("error parsing root template: %w", err)
 	}
 
 	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
@@ -183,12 +203,6 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 
 	if intermediateKeyID != "" {
 		// Create intermediate cert if key ID is provided
-		intermediateTmpl, err := ParseTemplate(intermediateTemplatePath, rootCert)
-		if err != nil {
-			return fmt.Errorf("error parsing intermediate template: %w", err)
-		}
-
-		// Initialize new KMS for intermediate key
 		intermediateConfig := config
 		intermediateConfig.RootKeyID = intermediateKeyID
 		intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
@@ -201,14 +215,36 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 			return fmt.Errorf("error getting intermediate public key: %w", err)
 		}
 
-		// Get crypto.Signer for intermediate
 		intermediateCryptoSV, ok := intermediateSV.(CryptoSignerVerifier)
 		if !ok {
 			return fmt.Errorf("intermediate signer does not implement CryptoSigner")
 		}
+
 		intermediateSigner, _, err := intermediateCryptoSV.CryptoSigner(context.Background(), nil)
 		if err != nil {
 			return fmt.Errorf("error getting intermediate crypto signer: %w", err)
+		}
+
+		var intermediateTemplate interface{}
+		if intermediateTemplatePath == "" {
+			defaultTemplate, err := GetDefaultTemplate("intermediate")
+			if err != nil {
+				return fmt.Errorf("error getting default intermediate template: %w", err)
+			}
+			intermediateTemplate = defaultTemplate
+		} else {
+			// Read from FS if path is provided
+			content, err := os.ReadFile(intermediateTemplatePath)
+			if err != nil {
+				return fmt.Errorf("intermediate template error: template not found at %s: %w", intermediateTemplatePath, err)
+			}
+			intermediateTemplate = string(content)
+		}
+
+		intermediateNotAfter := time.Now().UTC().Add(intermediateLifetime)
+		intermediateTmpl, err := ParseTemplate(intermediateTemplate, rootCert, intermediateNotAfter, intermediatePubKey, config.CommonName)
+		if err != nil {
+			return fmt.Errorf("error parsing intermediate template: %w", err)
 		}
 
 		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
@@ -228,12 +264,6 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	}
 
 	// Create leaf cert
-	leafTmpl, err := ParseTemplate(leafTemplatePath, signingCert)
-	if err != nil {
-		return fmt.Errorf("error parsing leaf template: %w", err)
-	}
-
-	// Initialize new KMS for leaf key
 	leafConfig := config
 	leafConfig.RootKeyID = config.LeafKeyID
 	leafSV, err := InitKMS(context.Background(), leafConfig)
@@ -246,14 +276,36 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		return fmt.Errorf("error getting leaf public key: %w", err)
 	}
 
-	// Get crypto.Signer for leaf
 	leafCryptoSV, ok := leafSV.(CryptoSignerVerifier)
 	if !ok {
 		return fmt.Errorf("leaf signer does not implement CryptoSigner")
 	}
+
 	_, _, err = leafCryptoSV.CryptoSigner(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("error getting leaf crypto signer: %w", err)
+	}
+
+	var leafTemplate interface{}
+	if leafTemplatePath == "" {
+		defaultTemplate, err := GetDefaultTemplate("leaf")
+		if err != nil {
+			return fmt.Errorf("error getting default leaf template: %w", err)
+		}
+		leafTemplate = defaultTemplate
+	} else {
+		// Read from FS if path is provided
+		content, err := os.ReadFile(leafTemplatePath)
+		if err != nil {
+			return fmt.Errorf("leaf template error: template not found at %s: %w", leafTemplatePath, err)
+		}
+		leafTemplate = string(content)
+	}
+
+	leafNotAfter := time.Now().UTC().Add(leafLifetime)
+	leafTmpl, err := ParseTemplate(leafTemplate, signingCert, leafNotAfter, leafPubKey, config.CommonName)
+	if err != nil {
+		return fmt.Errorf("error parsing leaf template: %w", err)
 	}
 
 	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
@@ -268,42 +320,41 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	return nil
 }
 
-// WriteCertificateToFile writes an X.509 certificate to a PEM-encoded file
+// Writes cert to a PEM-encoded file
 func WriteCertificateToFile(cert *x509.Certificate, filename string) error {
 	if cert == nil {
-		return fmt.Errorf("certificate cannot be nil")
+		return fmt.Errorf("certificate is nil")
 	}
 	if len(cert.Raw) == 0 {
 		return fmt.Errorf("certificate has no raw data")
 	}
-	certPEM := &pem.Block{
+
+	block := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
 	}
 
-	file, err := os.Create(filename)
+	f, err := os.Create(filename)
 	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", filename, err)
+		return err
 	}
-	defer file.Close()
+	defer f.Close()
 
-	if err := pem.Encode(file, certPEM); err != nil {
-		return fmt.Errorf("failed to write certificate to file %s: %w", filename, err)
-	}
-
-	// Determine cert type
-	certType := "root"
-	if !cert.IsCA {
-		certType = "leaf"
-	} else if cert.MaxPathLen == 0 {
-		certType = "intermediate"
+	// get cert type
+	certType := "leaf"
+	if cert.IsCA {
+		if cert.CheckSignatureFrom(cert) == nil {
+			certType = "root"
+		} else {
+			certType = "intermediate"
+		}
 	}
 
-	fmt.Printf("Your %s certificate has been saved in %s.\n", certType, filename)
-	return nil
+	fmt.Printf("Saved %s cert to %s\n", certType, filename)
+	return pem.Encode(f, block)
 }
 
-// ValidateKMSConfig ensures all required KMS configuration parameters are present
+// Ensures all required KMS config params are present
 func ValidateKMSConfig(config KMSConfig) error {
 	if config.Type == "" {
 		return fmt.Errorf("KMS type cannot be empty")
@@ -349,6 +400,9 @@ func ValidateKMSConfig(config KMSConfig) error {
 
 	case "gcpkms":
 		// GCP KMS validation
+		if config.Options == nil || config.Options["gcp-credentials-file"] == "" {
+			return fmt.Errorf("gcp-credentials-file is required for GCP KMS")
+		}
 		validateGCPKeyID := func(keyID, keyType string) error {
 			if keyID == "" {
 				return nil
