@@ -1,0 +1,18 @@
+{
+    "subject": {
+        "country": [],
+        "organization": [],
+        "organizationalUnit": [],
+        "commonName": "{{ .Subject.CommonName }}"
+    },
+    "keyUsage": [
+        "digitalSignature"
+    ],
+    "extKeyUsage": [
+        "CodeSigning"
+    ],
+    "basicConstraints": {
+        "isCA": false,
+        "maxPathLen": 0
+    }
+}

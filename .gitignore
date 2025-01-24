@@ -38,3 +38,7 @@ hack/tools/bin
 
 # vscode
 .vscode/
+
+# macOS
+.DS_Store
+fulcio-certificate-maker

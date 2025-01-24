@@ -1,0 +1,19 @@
+{
+    "subject": {
+        "country": [],
+        "organization": [],
+        "organizationalUnit": [],
+        "commonName": "{{ .Subject.CommonName }}"
+    },
+    "keyUsage": [
+        "certSign",
+        "crlSign"
+    ],
+    "extKeyUsage": [
+        "CodeSigning"
+    ],
+    "basicConstraints": {
+        "isCA": true,
+        "maxPathLen": 0
+    }
+}

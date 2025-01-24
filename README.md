@@ -75,6 +75,16 @@ mygUY7Ii2zbdCdliiow=
 -----END CERTIFICATE-----
 ```
 
+### Certificate Maker
+
+The Fulcio's Certificate Maker is a tool for creating Fulcio compliant certificate chains. It supports:
+
+* Two-level chains (root -> leaf)
+* Three-level chains (root -> intermediate -> leaf)
+* Multiple KMS providers (AWS, Google Cloud, Azure, HashiCorp Vault)
+
+For detailed usage instructions and examples, see the [Certificate Maker documentation](docs/certificate-maker.md).
+
 ### Verifying releases
 
 You can also verify signed releases (`fulcio-<os>.sig`) using the artifact signing key:
