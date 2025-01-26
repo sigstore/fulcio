@@ -20,8 +20,13 @@ package certmaker
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -521,4 +526,54 @@ func ValidateKMSConfig(config KMSConfig) error {
 	}
 
 	return nil
+}
+
+// ToSignatureAlgorithm returns the x509.SignatureAlgorithm for the given public key and signature algorithm.
+func ToSignatureAlgorithm(pubKey crypto.PublicKey, sigAlg x509.SignatureAlgorithm) (x509.SignatureAlgorithm, error) {
+	if pubKey == nil {
+		return x509.UnknownSignatureAlgorithm, errors.New("public key is nil")
+	}
+
+	switch pub := pubKey.(type) {
+	case *rsa.PublicKey:
+		if sigAlg == 0 {
+			sigAlg = x509.SHA256WithRSA // Default for RSA
+		}
+		switch sigAlg {
+		case x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA,
+			x509.SHA256WithRSAPSS, x509.SHA384WithRSAPSS, x509.SHA512WithRSAPSS:
+			return sigAlg, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported RSA signature algorithm: %s", sigAlg.String())
+		}
+
+	case *ecdsa.PublicKey:
+		if sigAlg == 0 {
+			switch pub.Curve {
+			case elliptic.P256():
+				sigAlg = x509.ECDSAWithSHA256
+			case elliptic.P384():
+				sigAlg = x509.ECDSAWithSHA384
+			case elliptic.P521():
+				sigAlg = x509.ECDSAWithSHA512
+			default:
+				return x509.UnknownSignatureAlgorithm, errors.New("unsupported elliptic curve for ECDSA")
+			}
+		}
+		switch sigAlg {
+		case x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512:
+			return sigAlg, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported ECDSA signature algorithm: %s", sigAlg.String())
+		}
+
+	case ed25519.PublicKey:
+		if sigAlg == 0 || sigAlg == x509.PureEd25519 {
+			return x509.PureEd25519, nil
+		}
+		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported Ed25519 signature algorithm: %s", sigAlg.String())
+
+	default:
+		return x509.UnknownSignatureAlgorithm, errors.New("unsupported public key type")
+	}
 }

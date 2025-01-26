@@ -19,8 +19,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -511,6 +513,88 @@ func TestWriteCertificateToFile(t *testing.T) {
 				block, _ := pem.Decode(data)
 				require.NotNil(t, block)
 				require.Equal(t, "CERTIFICATE", block.Type)
+			}
+		})
+	}
+}
+func TestToSignatureAlgorithm(t *testing.T) {
+	tests := []struct {
+		name    string
+		pubKey  crypto.PublicKey
+		sigAlg  x509.SignatureAlgorithm
+		wantAlg x509.SignatureAlgorithm
+		wantErr string
+	}{
+		{
+			name:    "nil_public_key",
+			pubKey:  nil,
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.UnknownSignatureAlgorithm,
+			wantErr: "public key is nil",
+		},
+		{
+			name:    "unsupported_public_key_type",
+			pubKey:  struct{}{},
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.UnknownSignatureAlgorithm,
+			wantErr: "unsupported public key type",
+		},
+		{
+			name:    "default_RSA",
+			pubKey:  &rsa.PublicKey{},
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.SHA256WithRSA,
+		},
+		{
+			name:    "SHA256WithRSA",
+			pubKey:  &rsa.PublicKey{},
+			sigAlg:  x509.SHA256WithRSA,
+			wantAlg: x509.SHA256WithRSA,
+		},
+		{
+			name:    "unsupported_RSA_algorithm",
+			pubKey:  &rsa.PublicKey{},
+			sigAlg:  x509.DSAWithSHA256,
+			wantAlg: x509.UnknownSignatureAlgorithm,
+			wantErr: "unsupported RSA signature algorithm: DSA-SHA256",
+		},
+		{
+			name:    "default_ECDSA_P256",
+			pubKey:  &ecdsa.PublicKey{Curve: elliptic.P256()},
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.ECDSAWithSHA256,
+		},
+		{
+			name:    "unsupported_ECDSA_curve",
+			pubKey:  &ecdsa.PublicKey{Curve: elliptic.P224()},
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.UnknownSignatureAlgorithm,
+			wantErr: "unsupported elliptic curve for ECDSA",
+		},
+		{
+			name:    "default_Ed25519",
+			pubKey:  ed25519.PublicKey{},
+			sigAlg:  x509.UnknownSignatureAlgorithm,
+			wantAlg: x509.PureEd25519,
+		},
+		{
+			name:    "unsupported_Ed25519_algorithm",
+			pubKey:  ed25519.PublicKey{},
+			sigAlg:  x509.SHA256WithRSA,
+			wantAlg: x509.UnknownSignatureAlgorithm,
+			wantErr: "unsupported Ed25519 signature algorithm: SHA256-RSA",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			alg, err := ToSignatureAlgorithm(tt.pubKey, tt.sigAlg)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantAlg, alg)
 			}
 		})
 	}
