@@ -22,7 +22,6 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -193,6 +192,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		return fmt.Errorf("error parsing root template: %w", err)
 	}
 
+	rootTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(rootSigner, crypto.SHA256)
+	if err != nil {
+		return fmt.Errorf("error determining signature algorithm: %w", err)
+	}
+
 	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
 	if err != nil {
 		return fmt.Errorf("error creating root certificate: %w", err)
@@ -249,6 +253,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		intermediateTmpl, err := ParseTemplate(intermediateTemplate, rootCert, intermediateNotAfter, intermediatePubKey, config.CommonName)
 		if err != nil {
 			return fmt.Errorf("error parsing intermediate template: %w", err)
+		}
+
+		intermediateTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(intermediateSigner, crypto.SHA256)
+		if err != nil {
+			return fmt.Errorf("error determining signature algorithm: %w", err)
 		}
 
 		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
@@ -310,6 +319,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	leafTmpl, err := ParseTemplate(leafTemplate, signingCert, leafNotAfter, leafPubKey, config.CommonName)
 	if err != nil {
 		return fmt.Errorf("error parsing leaf template: %w", err)
+	}
+
+	leafTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(signingKey, crypto.SHA256)
+	if err != nil {
+		return fmt.Errorf("error determining signature algorithm: %w", err)
 	}
 
 	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
@@ -528,52 +542,46 @@ func ValidateKMSConfig(config KMSConfig) error {
 	return nil
 }
 
-// ToSignatureAlgorithm returns the x509.SignatureAlgorithm for the given public key and signature algorithm.
-func ToSignatureAlgorithm(pubKey crypto.PublicKey, sigAlg x509.SignatureAlgorithm) (x509.SignatureAlgorithm, error) {
-	if pubKey == nil {
-		return x509.UnknownSignatureAlgorithm, errors.New("public key is nil")
+// ToSignatureAlgorithm returns the x509.SignatureAlgorithm for the given signer and hash algorithm.
+func ToSignatureAlgorithm(signer crypto.Signer, hash crypto.Hash) (x509.SignatureAlgorithm, error) {
+	if signer == nil {
+		return x509.UnknownSignatureAlgorithm, errors.New("signer is nil")
 	}
 
-	switch pub := pubKey.(type) {
+	pub := signer.Public()
+	switch pub := pub.(type) {
 	case *rsa.PublicKey:
-		if sigAlg == 0 {
-			sigAlg = x509.SHA256WithRSA // Default for RSA
-		}
-		switch sigAlg {
-		case x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA,
-			x509.SHA256WithRSAPSS, x509.SHA384WithRSAPSS, x509.SHA512WithRSAPSS:
-			return sigAlg, nil
+		switch hash {
+		case crypto.SHA256:
+			return x509.SHA256WithRSA, nil
+		case crypto.SHA384:
+			return x509.SHA384WithRSA, nil
+		case crypto.SHA512:
+			return x509.SHA512WithRSA, nil
+		case crypto.SHA1:
+			return x509.SHA1WithRSA, nil
+		case crypto.MD5:
+			return x509.MD5WithRSA, nil
 		default:
-			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported RSA signature algorithm: %s", sigAlg.String())
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for RSA: %v", hash)
 		}
-
 	case *ecdsa.PublicKey:
-		if sigAlg == 0 {
-			switch pub.Curve {
-			case elliptic.P256():
-				sigAlg = x509.ECDSAWithSHA256
-			case elliptic.P384():
-				sigAlg = x509.ECDSAWithSHA384
-			case elliptic.P521():
-				sigAlg = x509.ECDSAWithSHA512
-			default:
-				return x509.UnknownSignatureAlgorithm, errors.New("unsupported elliptic curve for ECDSA")
-			}
-		}
-		switch sigAlg {
-		case x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512:
-			return sigAlg, nil
+		switch hash {
+		case crypto.SHA256:
+			return x509.ECDSAWithSHA256, nil
+		case crypto.SHA384:
+			return x509.ECDSAWithSHA384, nil
+		case crypto.SHA512:
+			return x509.ECDSAWithSHA512, nil
+		case crypto.SHA1:
+			return x509.ECDSAWithSHA1, nil
 		default:
-			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported ECDSA signature algorithm: %s", sigAlg.String())
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for ECDSA: %v", hash)
 		}
-
 	case ed25519.PublicKey:
-		if sigAlg == 0 || sigAlg == x509.PureEd25519 {
-			return x509.PureEd25519, nil
-		}
-		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported Ed25519 signature algorithm: %s", sigAlg.String())
-
+		// Ed25519 has a fixed signature so we don't need to check the hash
+		return x509.PureEd25519, nil
 	default:
-		return x509.UnknownSignatureAlgorithm, errors.New("unsupported public key type")
+		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported public key type: %T", pub)
 	}
 }
