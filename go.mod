@@ -43,7 +43,7 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.217.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20241219192143-6b3ec007d9bb
-	google.golang.org/grpc v1.69.4
+	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.3
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.9.0
