@@ -1,11 +1,8 @@
-# Fulcio Certificate Maker
+# Certificate Maker
 
-This tool creates root, intermediate (optional), and leaf certificates for Fulcio ([certificate requirements](certificate-specification.md)):
+This tool creates certificates (root, intermediate, and leaf) that meet Fulcio's ([certificate requirements](certificate-specification.md)).
 
-- Two-level chain (root -> leaf)
-- Three-level chain (root -> intermediate -> leaf)
-
-Relies on [x509util](https://pkg.go.dev/go.step.sm/crypto/x509util) which builds X.509 certificates from JSON templates. The tool includes embedded default templates that are compiled into the binary, making it ready to use without external template files.
+It relies on [x509util](https://pkg.go.dev/go.step.sm/crypto/x509util) which builds X.509 certificates from JSON templates. The tool includes embedded default templates that are compiled into the binary, making it ready to use without external template files.
 
 ## Requirements
 
@@ -30,7 +27,7 @@ The tool can be configured using either command-line flags or environment variab
 The `create` command accepts an optional positional argument for the common name:
 
 ```bash
-certificate-maker create [common-name]
+./certificate-maker create [common-name]
 ```
 
 If no common name is provided, the values from the templates will be used.
@@ -266,7 +263,7 @@ Certificate:
 Example with AWS KMS:
 
 ```bash
-certificate-maker create "https://fulcio.example.com" \
+./certificate-maker create "https://fulcio.example.com" \
   --kms-type awskms \
   --aws-region us-east-1 \
   --root-key-id alias/fulcio-root \
@@ -280,7 +277,7 @@ certificate-maker create "https://fulcio.example.com" \
 Example with Azure KMS:
 
 ```bash
-certificate-maker create "https://fulcio.example.com" \
+./certificate-maker create "https://fulcio.example.com" \
   --kms-type azurekms \
   --azure-tenant-id 1b4a4fed-fed8-4823-a8a0-3d5cea83d122 \
   --root-key-id "azurekms:name=sigstore-key;vault=sigstore-key" \
@@ -297,7 +294,7 @@ certificate-maker create "https://fulcio.example.com" \
 Example with GCP KMS:
 
 ```bash
-certificate-maker create "https://fulcio.example.com" \
+./certificate-maker create "https://fulcio.example.com" \
   --kms-type gcpkms \
   --gcp-credentials-file ~/.config/gcloud/application_default_credentials.json \
   --root-key-id  projects/<project_id>/locations/<location>/keyRings/<keyring>/cryptoKeys/fulcio-key1/cryptoKeyVersions/<version> \
@@ -314,7 +311,7 @@ certificate-maker create "https://fulcio.example.com" \
 Example with HashiCorp Vault KMS:
 
 ```bash
-certificate-maker create "https://fulcio.example.com" \
+./certificate-maker create "https://fulcio.example.com" \
   --kms-type hashivault \
   --vault-address http://vault:8200 \
   --vault-token token \
