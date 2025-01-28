@@ -16,9 +16,12 @@ package ca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"strings"
 	"testing"
@@ -135,5 +138,145 @@ func TestVerifyCertChain(t *testing.T) {
 	err = VerifyCertChain([]*x509.Certificate{}, subKey)
 	if err == nil || !strings.Contains(err.Error(), "certificate chain must contain at least one certificate") {
 		t.Fatalf("expected error verifying with empty chain: %v", err)
+	}
+}
+
+func TestToSignatureAlgorithm(t *testing.T) {
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate RSA key: %v", err)
+	}
+
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate ECDSA key: %v", err)
+	}
+
+	_, ed25519Key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate Ed25519 key: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		signer  crypto.Signer
+		hash    crypto.Hash
+		want    x509.SignatureAlgorithm
+		wantErr bool
+	}{
+		{
+			name:    "RSA with SHA256",
+			signer:  rsaKey,
+			hash:    crypto.SHA256,
+			want:    x509.SHA256WithRSA,
+			wantErr: false,
+		},
+		{
+			name:    "RSA with SHA384",
+			signer:  rsaKey,
+			hash:    crypto.SHA384,
+			want:    x509.SHA384WithRSA,
+			wantErr: false,
+		},
+		{
+			name:    "RSA with SHA512",
+			signer:  rsaKey,
+			hash:    crypto.SHA512,
+			want:    x509.SHA512WithRSA,
+			wantErr: false,
+		},
+		{
+			name:    "RSA with SHA1",
+			signer:  rsaKey,
+			hash:    crypto.SHA1,
+			want:    x509.SHA1WithRSA,
+			wantErr: false,
+		},
+		{
+			name:    "RSA with MD5",
+			signer:  rsaKey,
+			hash:    crypto.MD5,
+			want:    x509.MD5WithRSA,
+			wantErr: false,
+		},
+		{
+			name:    "RSA with unsupported hash",
+			signer:  rsaKey,
+			hash:    crypto.MD4,
+			want:    x509.UnknownSignatureAlgorithm,
+			wantErr: true,
+		},
+
+		{
+			name:    "ECDSA with SHA256",
+			signer:  ecdsaKey,
+			hash:    crypto.SHA256,
+			want:    x509.ECDSAWithSHA256,
+			wantErr: false,
+		},
+		{
+			name:    "ECDSA with SHA384",
+			signer:  ecdsaKey,
+			hash:    crypto.SHA384,
+			want:    x509.ECDSAWithSHA384,
+			wantErr: false,
+		},
+		{
+			name:    "ECDSA with SHA512",
+			signer:  ecdsaKey,
+			hash:    crypto.SHA512,
+			want:    x509.ECDSAWithSHA512,
+			wantErr: false,
+		},
+		{
+			name:    "ECDSA with SHA1",
+			signer:  ecdsaKey,
+			hash:    crypto.SHA1,
+			want:    x509.ECDSAWithSHA1,
+			wantErr: false,
+		},
+		{
+			name:    "ECDSA with unsupported hash",
+			signer:  ecdsaKey,
+			hash:    crypto.MD5,
+			want:    x509.UnknownSignatureAlgorithm,
+			wantErr: true,
+		},
+
+		{
+			name:    "Ed25519 with any hash",
+			signer:  ed25519Key,
+			hash:    crypto.SHA256,
+			want:    x509.PureEd25519,
+			wantErr: false,
+		},
+		{
+			name:    "Ed25519 with different hash",
+			signer:  ed25519Key,
+			hash:    crypto.SHA512,
+			want:    x509.PureEd25519,
+			wantErr: false,
+		},
+
+		{
+			name:    "nil signer",
+			signer:  nil,
+			hash:    crypto.SHA256,
+			want:    x509.UnknownSignatureAlgorithm,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ToSignatureAlgorithm(tt.signer, tt.hash)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToSignatureAlgorithm() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ToSignatureAlgorithm() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

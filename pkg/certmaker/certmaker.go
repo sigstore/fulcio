@@ -20,17 +20,14 @@ package certmaker
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"go.step.sm/crypto/x509util"
@@ -192,7 +189,7 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		return fmt.Errorf("error parsing root template: %w", err)
 	}
 
-	rootTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(rootSigner, crypto.SHA256)
+	rootTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(rootSigner, crypto.SHA256)
 	if err != nil {
 		return fmt.Errorf("error determining signature algorithm: %w", err)
 	}
@@ -255,7 +252,7 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 			return fmt.Errorf("error parsing intermediate template: %w", err)
 		}
 
-		intermediateTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(intermediateSigner, crypto.SHA256)
+		intermediateTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(intermediateSigner, crypto.SHA256)
 		if err != nil {
 			return fmt.Errorf("error determining signature algorithm: %w", err)
 		}
@@ -321,7 +318,7 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		return fmt.Errorf("error parsing leaf template: %w", err)
 	}
 
-	leafTmpl.SignatureAlgorithm, err = ToSignatureAlgorithm(signingKey, crypto.SHA256)
+	leafTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(signingKey, crypto.SHA256)
 	if err != nil {
 		return fmt.Errorf("error determining signature algorithm: %w", err)
 	}
@@ -540,48 +537,4 @@ func ValidateKMSConfig(config KMSConfig) error {
 	}
 
 	return nil
-}
-
-// ToSignatureAlgorithm returns the x509.SignatureAlgorithm for the given signer and hash algorithm.
-func ToSignatureAlgorithm(signer crypto.Signer, hash crypto.Hash) (x509.SignatureAlgorithm, error) {
-	if signer == nil {
-		return x509.UnknownSignatureAlgorithm, errors.New("signer is nil")
-	}
-
-	pub := signer.Public()
-	switch pub := pub.(type) {
-	case *rsa.PublicKey:
-		switch hash {
-		case crypto.SHA256:
-			return x509.SHA256WithRSA, nil
-		case crypto.SHA384:
-			return x509.SHA384WithRSA, nil
-		case crypto.SHA512:
-			return x509.SHA512WithRSA, nil
-		case crypto.SHA1:
-			return x509.SHA1WithRSA, nil
-		case crypto.MD5:
-			return x509.MD5WithRSA, nil
-		default:
-			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for RSA: %v", hash)
-		}
-	case *ecdsa.PublicKey:
-		switch hash {
-		case crypto.SHA256:
-			return x509.ECDSAWithSHA256, nil
-		case crypto.SHA384:
-			return x509.ECDSAWithSHA384, nil
-		case crypto.SHA512:
-			return x509.ECDSAWithSHA512, nil
-		case crypto.SHA1:
-			return x509.ECDSAWithSHA1, nil
-		default:
-			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for ECDSA: %v", hash)
-		}
-	case ed25519.PublicKey:
-		// Ed25519 has a fixed signature so we don't need to check the hash
-		return x509.PureEd25519, nil
-	default:
-		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported public key type: %T", pub)
-	}
 }

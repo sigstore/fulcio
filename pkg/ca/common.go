@@ -18,8 +18,12 @@ package ca
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/identity"
@@ -104,4 +108,48 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 	}
 
 	return cryptoutils.ValidatePubKey(signer.Public())
+}
+
+// ToSignatureAlgorithm returns the x509.SignatureAlgorithm for the given signer and hash algorithm.
+func ToSignatureAlgorithm(signer crypto.Signer, hash crypto.Hash) (x509.SignatureAlgorithm, error) {
+	if signer == nil {
+		return x509.UnknownSignatureAlgorithm, errors.New("signer is nil")
+	}
+
+	pub := signer.Public()
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		switch hash {
+		case crypto.SHA256:
+			return x509.SHA256WithRSA, nil
+		case crypto.SHA384:
+			return x509.SHA384WithRSA, nil
+		case crypto.SHA512:
+			return x509.SHA512WithRSA, nil
+		case crypto.SHA1:
+			return x509.SHA1WithRSA, nil
+		case crypto.MD5:
+			return x509.MD5WithRSA, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for RSA: %v", hash)
+		}
+	case *ecdsa.PublicKey:
+		switch hash {
+		case crypto.SHA256:
+			return x509.ECDSAWithSHA256, nil
+		case crypto.SHA384:
+			return x509.ECDSAWithSHA384, nil
+		case crypto.SHA512:
+			return x509.ECDSAWithSHA512, nil
+		case crypto.SHA1:
+			return x509.ECDSAWithSHA1, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for ECDSA: %v", hash)
+		}
+	case ed25519.PublicKey:
+		// Ed25519 has a fixed signature so we don't need to check the hash
+		return x509.PureEd25519, nil
+	default:
+		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported public key type: %T", pub)
+	}
 }

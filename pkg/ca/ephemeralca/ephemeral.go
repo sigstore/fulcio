@@ -16,6 +16,7 @@
 package ephemeralca
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -59,6 +60,11 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true, MaxPathLen: 1,
+	}
+
+	rootCA.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(signer, crypto.SHA256)
+	if err != nil {
+		return nil, err
 	}
 
 	caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, signer.Public(), signer)

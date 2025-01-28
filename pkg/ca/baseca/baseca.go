@@ -57,6 +57,11 @@ func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.
 		Value:    asn1.NullBytes,
 	})
 
+	cert.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(privateKey, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
 		return nil, err
@@ -115,6 +120,12 @@ func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSign
 
 	cert := precert.PreCert
 	cert.ExtraExtensions = exts
+
+	cert.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(precert.PrivateKey, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, precert.CertChain[0], precert.PreCert.PublicKey, precert.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -130,6 +141,11 @@ func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Pri
 	}
 
 	certChain, privateKey := bca.GetSignerWithChain()
+
+	cert.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(privateKey, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
