@@ -16,11 +16,24 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	lru "github.com/hashicorp/golang-lru"
@@ -700,6 +713,148 @@ func TestVerifierCache(t *testing.T) {
 	}
 	if !reflect.DeepEqual(v, expiryVerifier) {
 		t.Fatal("got unexpected verifier")
+	}
+}
+
+func TestVerifierCacheWithCustomCA(t *testing.T) {
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(2024),
+		Subject: pkix.Name{
+			CommonName: "Test CA",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(1, 0, 0),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+	}
+
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	})
+
+	serverCert := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "localhost",
+		},
+		DNSNames:    []string{"localhost"},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(1, 0, 0),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+
+	serverPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverCertBytes, err := x509.CreateCertificate(
+		rand.Reader,
+		serverCert,
+		ca,
+		&serverPrivKey.PublicKey,
+		caPrivKey,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverCertPEM := new(bytes.Buffer)
+	pem.Encode(serverCertPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: serverCertBytes,
+	})
+
+	serverKeyPEM := new(bytes.Buffer)
+	pem.Encode(serverKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivKey),
+	})
+
+	serverTLSCert, err := tls.X509KeyPair(serverCertPEM.Bytes(), serverKeyPEM.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var server *httptest.Server
+	server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"issuer":   server.URL,
+				"jwks_uri": server.URL + "/keys",
+			})
+		case "/keys":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"keys": []interface{}{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	server.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	cache, err := lru.New2Q(100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// use custom CA for OIDC issuer
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			server.URL: {
+				IssuerURL: server.URL,
+				ClientID:  "sigstore",
+				CACert:    caPEM.String(),
+			},
+		},
+		verifiers: make(map[string][]*verifierWithConfig),
+		lru:       cache,
+	}
+
+	verifier, ok := fc.GetVerifier(server.URL)
+	if !ok {
+		t.Fatal("expected to get verifier")
+	}
+	if verifier == nil {
+		t.Fatal("expected non-nil verifier")
+	}
+
+	cachedVerifier, ok := fc.GetVerifier(server.URL)
+	if !ok {
+		t.Fatal("expected to get cached verifier")
+	}
+	if !reflect.DeepEqual(verifier, cachedVerifier) {
+		t.Fatal("cached verifier doesn't match original verifier")
+	}
+
+	verifierWithOptions, ok := fc.GetVerifier(server.URL, WithSkipExpiryCheck())
+	if !ok {
+		t.Fatal("expected to get verifier with options")
+	}
+	if reflect.DeepEqual(verifier, verifierWithOptions) {
+		t.Fatal("verifier with options shouldn't match original verifier")
 	}
 }
 
