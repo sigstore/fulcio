@@ -87,6 +87,9 @@ clean: ## Clean the workspace
 	rm -rf dist
 	rm -rf fulcio
 	rm -rf certificate-maker
+	rm -rf root.pem
+	rm -rf intermediate.pem
+	rm -rf leaf.pem
 
 clean-gen: clean
 	rm -rf $(shell find pkg/generated -iname "*.go") *.swagger.json
