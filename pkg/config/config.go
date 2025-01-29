@@ -212,14 +212,23 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 			return nil, false
 		}
 
-		transportClone = originalTransport.(*http.Transport).Clone()
-		transportClone.TLSClientConfig.RootCAs = rootCAs
+		// If the transport is nil, it will panic. Use the default transport if it is nil.
+		if t, ok := originalTransport.(*http.Transport); ok {
+			transportClone = t.Clone()
+			transportClone.TLSClientConfig.RootCAs = rootCAs
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 	defer cancel()
 
-	client := &http.Client{Transport: transportClone}
+	var client *http.Client
+	if transportClone != nil {
+		client = &http.Client{Transport: transportClone}
+	} else {
+		client = http.DefaultClient
+	}
+
 	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), issuerURL)
 	if err != nil {
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
