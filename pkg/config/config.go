@@ -116,6 +116,11 @@ type OIDCIssuer struct {
 	// Optional, the contact for the issuer team
 	// Usually it is a email
 	Contact string `json:"Contact,omitempty" yaml:"contact,omitempty"`
+
+	// CACert is an optional parameter that holds the CA certificate in PEM format.
+	// This is used to trust the TLS certificate signed by an internal CA when interacting
+	// with some OIDC providers, preventing x509 certificate verification failures.
+	CACert string `json:"CACert,omitempty" yaml:"ca-cert,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -176,7 +181,6 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	for _, o := range opts {
 		o(cfg)
 	}
-	// Look up our fixed issuer verifiers
 	v, ok := fc.verifiers[issuerURL]
 	if ok {
 		for _, c := range v {
@@ -186,7 +190,6 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 		}
 	}
 
-	// Look in the LRU cache for a verifier
 	untyped, ok := fc.lru.Get(issuerURL)
 	if ok {
 		v := untyped.([]*verifierWithConfig)
@@ -197,12 +200,27 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 		}
 	}
 
-	// If this issuer hasn't been recently used, or we have special config options, then create a new verifier
-	// and add it to the LRU cache.
+	// clone rather than modifying the default transport
+	var transportClone *http.Transport
+	if iss.CACert != "" {
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		if ok := rootCAs.AppendCertsFromPEM([]byte(iss.CACert)); !ok {
+			log.Logger.Warnf("Failed to append custom CA cert for issuer URL %q", issuerURL)
+			return nil, false
+		}
+
+		transportClone = originalTransport.(*http.Transport).Clone()
+		transportClone.TLSClientConfig.RootCAs = rootCAs
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 	defer cancel()
-	provider, err := oidc.NewProvider(ctx, issuerURL)
+
+	client := &http.Client{Transport: transportClone}
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), issuerURL)
 	if err != nil {
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
