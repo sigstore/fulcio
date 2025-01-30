@@ -23,27 +23,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
-	"encoding/json"
-	"encoding/pem"
-	"errors"
-	"fmt"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
 
-	"chainguard.dev/sdk/uidp"
-	"github.com/go-jose/go-jose/v4"
-	"github.com/go-jose/go-jose/v4/jwt"
-	ctclient "github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
+	"github.com/sigstore/fulcio/pkg/config"
+	"github.com/sigstore/fulcio/pkg/generated/protobuf"
+	"github.com/sigstore/fulcio/pkg/identity"
+	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -93,7 +80,11 @@ func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogC
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
 	ip := NewIssuerPool(cfg)
-	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, ip))
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.KnownSignatureAlgorithm{v1.KnownSignatureAlgorithm_ECDSA_SHA2_256_NISTP256, v1.KnownSignatureAlgorithm_RSA_SIGN_PKCS1_2048_SHA256})
+	if err != nil {
+		t.Error(err)
+	}
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, algorithmRegistry, ip))
 	go func() {
 		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("Server exited with error: %v", err)
@@ -1791,6 +1782,94 @@ func TestAPIWithIssuerClaimConfig(t *testing.T) {
 	}
 }
 
+// Tests API with an RSA key
+func TestAPIWithRSA(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
+	}
+	hash := sha256.Sum256([]byte(emailSubject))
+	proof, err := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, hash[:])
+	if err != nil {
+		t.Fatalf("SignPKCS1v15() = %v", err)
+	}
+	pemBytes := string(cryptoutils.PEMEncode(cryptoutils.PublicKeyPEMType, pubBytes))
+
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pemBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, emailIssuer, t)
+
+	// Expect email subject
+	if len(leafCert.EmailAddresses) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	if leafCert.EmailAddresses[0] != emailSubject {
+		t.Fatalf("subjects do not match: Expected %v, got %v", emailSubject, leafCert.EmailAddresses[0])
+	}
+}
+
 // Tests API with challenge sent as CSR
 func TestAPIWithCSRChallenge(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
@@ -1847,6 +1926,89 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 		Bytes: derCSR,
 	})
 
+	// Hit the API to have it sign our certificate.
+	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: pemCSR,
+		},
+	})
+	if err != nil {
+		t.Fatalf("SigningCert() = %v", err)
+	}
+
+	leafCert := verifyResponse(resp, eca, emailIssuer, t)
+
+	// Expect email subject
+	if len(leafCert.EmailAddresses) != 1 {
+		t.Fatalf("unexpected length of leaf certificate URIs, expected 1, got %d", len(leafCert.URIs))
+	}
+	if leafCert.EmailAddresses[0] != emailSubject {
+		t.Fatalf("subjects do not match: Expected %v, got %v", emailSubject, leafCert.EmailAddresses[0])
+	}
+}
+
+// Tests API with challenge sent as CSR with an RSA key
+func TestAPIWithCSRChallengeRSA(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	if err != nil {
+		t.Fatalf("error creating CSR: %v", err)
+	}
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+
+	// Hit the API to have it sign our certificate.
 	// Hit the API to have it sign our certificate.
 	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
 		Credentials: &protobuf.Credentials{
@@ -2092,6 +2254,87 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 	}
 }
 
+// Tests API with an ECDSA key with an unpermitted curve
+func TestAPIWithInvalidPublicKey(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports these issuers.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	// Generate an ECDSA key with an unpermitted curve
+	priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("x509.MarshalPKIXPublicKey() = %v", err)
+	}
+	hash := sha256.Sum256([]byte(emailSubject))
+	proof, err := ecdsa.SignASN1(rand.Reader, priv, hash[:])
+	if err != nil {
+		t.Fatalf("SignASN1() = %v", err)
+	}
+	pemBytes := string(cryptoutils.PEMEncode(cryptoutils.PublicKeyPEMType, pubBytes))
+
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey: &protobuf.PublicKey{
+					Content: pemBytes,
+				},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "Signing algorithm not permitted") {
+		t.Fatalf("expected signing algorithm not permitted, got %v", err)
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
 // Tests API with an invalid CSR.
 func TestAPIWithInvalidCSR(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
@@ -2225,6 +2468,81 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "The signature supplied in the request could not be verified") {
 		t.Fatalf("expected invalid signature error, got %v", err)
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
+// Tests API with CSR, containing ECDSA key with unpermitted curve
+func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports this issuer.
+	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer)))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		t.Fatalf("error generating private key: %v", err)
+	}
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	if err != nil {
+		t.Fatalf("error creating CSR: %v", err)
+	}
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+
+	// Hit the API to have it sign our certificate.
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: pemCSR,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "Signing algorithm not permitted") {
+		t.Fatalf("expected signing algorithm not permitted, got %v", err)
 	}
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
