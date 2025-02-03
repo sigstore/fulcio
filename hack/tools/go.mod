@@ -6,7 +6,7 @@ require (
 	github.com/googleapis/api-linter v1.68.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
-	google.golang.org/protobuf v1.36.3
+	google.golang.org/protobuf v1.36.4
 )
 
 require (
