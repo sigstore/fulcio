@@ -19,6 +19,7 @@
 package app
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
@@ -124,6 +126,11 @@ func runCreateCACmd(cmd *cobra.Command, args []string) { //nolint: revive
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true, MaxPathLen: 1,
+	}
+
+	rootCA.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(privKey, crypto.SHA256)
+	if err != nil {
+		log.Logger.Fatal(err)
 	}
 
 	caBytes, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, pubKey, privKey)

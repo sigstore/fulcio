@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"go.step.sm/crypto/x509util"
@@ -188,6 +189,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		return fmt.Errorf("error parsing root template: %w", err)
 	}
 
+	rootTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(rootSigner, crypto.SHA256)
+	if err != nil {
+		return fmt.Errorf("error determining signature algorithm: %w", err)
+	}
+
 	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
 	if err != nil {
 		return fmt.Errorf("error creating root certificate: %w", err)
@@ -244,6 +250,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		intermediateTmpl, err := ParseTemplate(intermediateTemplate, rootCert, intermediateNotAfter, intermediatePubKey, config.CommonName)
 		if err != nil {
 			return fmt.Errorf("error parsing intermediate template: %w", err)
+		}
+
+		intermediateTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(intermediateSigner, crypto.SHA256)
+		if err != nil {
+			return fmt.Errorf("error determining signature algorithm: %w", err)
 		}
 
 		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
@@ -305,6 +316,11 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	leafTmpl, err := ParseTemplate(leafTemplate, signingCert, leafNotAfter, leafPubKey, config.CommonName)
 	if err != nil {
 		return fmt.Errorf("error parsing leaf template: %w", err)
+	}
+
+	leafTmpl.SignatureAlgorithm, err = ca.ToSignatureAlgorithm(signingKey, crypto.SHA256)
+	if err != nil {
+		return fmt.Errorf("error determining signature algorithm: %w", err)
 	}
 
 	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)

@@ -17,11 +17,15 @@ package test
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
+	"fmt"
 	"math/big"
 	"time"
 )
@@ -48,6 +52,12 @@ _, err := leafCert.Verify(opts)
 */
 
 func createCertificate(template *x509.Certificate, parent *x509.Certificate, pub interface{}, priv crypto.Signer) (*x509.Certificate, error) {
+	signatureAlgorithm, err := toSignatureAlgorithm(priv, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+
+	template.SignatureAlgorithm = signatureAlgorithm
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
 	if err != nil {
 		return nil, err
@@ -220,4 +230,47 @@ func GenerateLeafCert(subject string, oidcIssuer string, parentTemplate *x509.Ce
 	}
 
 	return cert, priv, nil
+}
+
+func toSignatureAlgorithm(signer crypto.Signer, hash crypto.Hash) (x509.SignatureAlgorithm, error) {
+	if signer == nil {
+		return x509.UnknownSignatureAlgorithm, errors.New("signer is nil")
+	}
+
+	pub := signer.Public()
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		switch hash {
+		case crypto.SHA256:
+			return x509.SHA256WithRSA, nil
+		case crypto.SHA384:
+			return x509.SHA384WithRSA, nil
+		case crypto.SHA512:
+			return x509.SHA512WithRSA, nil
+		case crypto.SHA1:
+			return x509.SHA1WithRSA, nil
+		case crypto.MD5:
+			return x509.MD5WithRSA, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for RSA: %v", hash)
+		}
+	case *ecdsa.PublicKey:
+		switch hash {
+		case crypto.SHA256:
+			return x509.ECDSAWithSHA256, nil
+		case crypto.SHA384:
+			return x509.ECDSAWithSHA384, nil
+		case crypto.SHA512:
+			return x509.ECDSAWithSHA512, nil
+		case crypto.SHA1:
+			return x509.ECDSAWithSHA1, nil
+		default:
+			return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported hash algorithm for ECDSA: %v", hash)
+		}
+	case ed25519.PublicKey:
+		// Ed25519 has a fixed signature so we don't need to check the hash
+		return x509.PureEd25519, nil
+	default:
+		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported public key type: %T", pub)
+	}
 }
