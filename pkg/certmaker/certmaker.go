@@ -279,16 +279,6 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 			return fmt.Errorf("error getting leaf public key: %w", err)
 		}
 
-		leafCryptoSV, ok := leafSV.(CryptoSignerVerifier)
-		if !ok {
-			return fmt.Errorf("leaf signer does not implement CryptoSigner")
-		}
-
-		_, _, err = leafCryptoSV.CryptoSigner(context.Background(), nil)
-		if err != nil {
-			return fmt.Errorf("error getting leaf crypto signer: %w", err)
-		}
-
 		var leafTemplate interface{}
 		if leafTemplatePath == "" {
 			defaultTemplate, err := GetDefaultTemplate("leaf")
