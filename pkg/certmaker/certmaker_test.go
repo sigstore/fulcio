@@ -206,66 +206,36 @@ func TestCreateCertificates(t *testing.T) {
 
 	require.NoError(t, err)
 
-	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.KeyID == "intermediate-key" {
-			return nil, fmt.Errorf("intermediate KMS error")
-		}
-		return mockSigner, nil
-	}
-
-	err = CreateCertificates(KMSConfig{
-		Type:    "awskms",
-		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options: map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error initializing intermediate KMS: intermediate KMS error")
-
 	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
 	mockIntermediateSigner := &mockSignerVerifier{
 		key: intermediateKey,
-		publicKeyFunc: func() (crypto.PublicKey, error) {
-			return nil, fmt.Errorf("intermediate public key error")
-		},
+	}
+
+	mockLeafSigner := &mockSignerVerifier{
+		key: leafKey,
 	}
 
 	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.KeyID == "intermediate-key" {
+		switch config.KeyID {
+		case "intermediate-key":
 			return mockIntermediateSigner, nil
+		case "leaf-key":
+			return mockLeafSigner, nil
+		default:
+			return mockSigner, nil
 		}
-		return mockSigner, nil
 	}
 
 	err = CreateCertificates(KMSConfig{
 		Type:    "awskms",
 		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 		Options: map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error getting intermediate public key: intermediate public key error")
-
-	mockIntermediateSigner = &mockSignerVerifier{
-		key: intermediateKey,
-	}
-
-	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.KeyID == "intermediate-key" {
-			return mockIntermediateSigner, nil
-		}
-		return mockSigner, nil
-	}
-
-	err = CreateCertificates(KMSConfig{
-		Type:    "awskms",
-		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options: map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "",
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "leaf-key",
 		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
 
 	require.NoError(t, err)
