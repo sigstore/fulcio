@@ -18,7 +18,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -38,7 +37,7 @@ var (
 	version string
 
 	rootCmd = &cobra.Command{
-		Use:     "fulcio-certificate-maker",
+		Use:     "certificate-maker",
 		Short:   "Create certificate chains for Fulcio",
 		Long:    `A tool for creating root, intermediate, and leaf certificates for Fulcio with code signing capabilities`,
 		Version: version,
@@ -50,7 +49,7 @@ var (
 		Long: `Create a certificate chain with the specified common name.
 The common name will be used as the Subject Common Name for the certificates.
 If no common name is provided, the values from the templates will be used.
-Example: fulcio-certificate-maker create "https://fulcio.example.com"`,
+Example: certificate-maker create "https://fulcio.example.com"`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: runCreate,
 	}
@@ -137,8 +136,6 @@ func init() {
 
 func runCreate(_ *cobra.Command, args []string) error {
 	defer func() { rootCmd.SilenceUsage = true }()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	// Get common name from args if provided, otherwise templates used
 	var commonName string
@@ -148,12 +145,10 @@ func runCreate(_ *cobra.Command, args []string) error {
 
 	// Build KMS config from flags and environment
 	config := certmaker.KMSConfig{
-		CommonName:        commonName,
-		Type:              viper.GetString("kms-type"),
-		RootKeyID:         viper.GetString("root-key-id"),
-		IntermediateKeyID: viper.GetString("intermediate-key-id"),
-		LeafKeyID:         viper.GetString("leaf-key-id"),
-		Options:           make(map[string]string),
+		CommonName: commonName,
+		Type:       viper.GetString("kms-type"),
+		KeyID:      viper.GetString("root-key-id"),
+		Options:    make(map[string]string),
 	}
 
 	// Handle KMS provider options
@@ -186,11 +181,6 @@ func runCreate(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	km, err := certmaker.InitKMS(ctx, config)
-	if err != nil {
-		return fmt.Errorf("failed to initialize KMS: %w", err)
-	}
-
 	// Get template paths
 	rootTemplate := viper.GetString("root-template")
 	intermediateTemplate := viper.GetString("intermediate-template")
@@ -213,7 +203,7 @@ func runCreate(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	return certmaker.CreateCertificates(km, config,
+	return certmaker.CreateCertificates(config,
 		rootTemplate,
 		leafTemplate,
 		viper.GetString("root-cert"),
@@ -221,6 +211,7 @@ func runCreate(_ *cobra.Command, args []string) error {
 		viper.GetString("intermediate-key-id"),
 		viper.GetString("intermediate-template"),
 		viper.GetString("intermediate-cert"),
+		viper.GetString("leaf-key-id"),
 		viper.GetDuration("root-lifetime"),
 		viper.GetDuration("intermediate-lifetime"),
 		viper.GetDuration("leaf-lifetime"))
