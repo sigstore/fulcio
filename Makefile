@@ -46,6 +46,13 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
+# It should be blank for default builds
+FORMATED_LABEL ?=
+
+GITHUB_RUN_NUMBER ?= "local"
+
+FULL_TAG := "0.$(shell date +%Y%m%d).$(GITHUB_RUN_NUMBER)-ref.$(GIT_VERSION)"
+
 # Binaries
 PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
 PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
@@ -129,8 +136,8 @@ $(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
 ko:
 	# fulcio
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare \
-		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
+	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve $(FORMATED_LABEL) --bare \
+		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --tags $(FULL_TAG) \
 		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
 
 .PHONY: ko-local
