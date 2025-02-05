@@ -2009,7 +2009,6 @@ func TestAPIWithCSRChallengeRSA(t *testing.T) {
 	})
 
 	// Hit the API to have it sign our certificate.
-	// Hit the API to have it sign our certificate.
 	resp, err := client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
 		Credentials: &protobuf.Credentials{
 			Credentials: &protobuf.Credentials_OidcIdentityToken{
