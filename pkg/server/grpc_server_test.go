@@ -23,14 +23,27 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
 
-	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
-	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/generated/protobuf"
-	"github.com/sigstore/fulcio/pkg/identity"
-	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/sigstore/sigstore/pkg/signature"
+	"chainguard.dev/sdk/uidp"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
+	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -46,6 +59,8 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/grpc/resolver"
+	"github.com/sigstore/sigstore/pkg/signature"
+	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 )
 
 const (
@@ -80,7 +95,7 @@ func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogC
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
 	ip := NewIssuerPool(cfg)
-	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.KnownSignatureAlgorithm{v1.KnownSignatureAlgorithm_ECDSA_SHA2_256_NISTP256, v1.KnownSignatureAlgorithm_RSA_SIGN_PKCS1_2048_SHA256})
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256})
 	if err != nil {
 		t.Error(err)
 	}
@@ -1630,7 +1645,7 @@ func TestAPIWithChainguard(t *testing.T) {
 		Audience: jwt.Audience{"sigstore"},
 	}).Claims(&claims).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
@@ -1809,14 +1824,14 @@ func TestAPIWithRSA(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -1979,14 +1994,14 @@ func TestAPIWithCSRChallengeRSA(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -2280,14 +2295,14 @@ func TestAPIWithInvalidPublicKey(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()
@@ -2500,14 +2515,14 @@ func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
 		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		Subject:  emailSubject,
 		Audience: jwt.Audience{"sigstore"},
-	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).CompactSerialize()
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
 	if err != nil {
-		t.Fatalf("CompactSerialize() = %v", err)
+		t.Fatalf("Serialize() = %v", err)
 	}
 
 	ctClient, eca := createCA(cfg, t)
 	ctx := context.Background()
-	server, conn := setupGRPCForTest(ctx, t, cfg, ctClient, eca)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
 	defer func() {
 		server.Stop()
 		conn.Close()

@@ -49,7 +49,7 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
-	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.KnownSignatureAlgorithm{})
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -99,7 +99,7 @@ func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
-	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.KnownSignatureAlgorithm{})
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
 	if err != nil {
 		t.Error(err)
 	}

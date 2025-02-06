@@ -50,7 +50,7 @@ func TestDuplex(t *testing.T) {
 		t.Fatal(err)
 	}
 	metricsPort := 2114
-	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.KnownSignatureAlgorithm{})
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
 	if err != nil {
 		t.Error(err)
 	}
