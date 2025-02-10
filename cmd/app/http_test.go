@@ -32,6 +32,8 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
+	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/spf13/viper"
 
 	"google.golang.org/grpc"
@@ -47,7 +49,11 @@ func setupHTTPServer(t *testing.T) (httpServer, string) {
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
-	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, nil)
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
+	if err != nil {
+		t.Error(err)
+	}
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, algorithmRegistry, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -93,7 +99,11 @@ func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
 
 	viper.Set("grpc-host", "")
 	viper.Set("grpc-port", 0)
-	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, nil)
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
+	if err != nil {
+		t.Error(err)
+	}
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, algorithmRegistry, nil)
 	if err != nil {
 		t.Error(err)
 	}
