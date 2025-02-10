@@ -57,10 +57,10 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"google.golang.org/grpc/resolver"
-	"github.com/sigstore/sigstore/pkg/signature"
 	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature"
+	"google.golang.org/grpc/resolver"
 )
 
 const (
