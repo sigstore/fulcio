@@ -41,4 +41,4 @@ hack/tools/bin
 
 # macOS
 .DS_Store
-fulcio-certificate-maker
+certificate-maker

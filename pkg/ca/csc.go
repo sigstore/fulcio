@@ -68,9 +68,6 @@ func CreateCSCFromDER(cert []byte, chain []*x509.Certificate) (*CodeSigningCerti
 
 	// convert to X509 and store both formats
 	c.FinalChain = chain
-	if err != nil {
-		return nil, err
-	}
 	for _, chainCert := range c.FinalChain {
 		c.finalChainPEM = append(c.finalChainPEM, strings.TrimSpace(string(cryptoutils.PEMEncode(cryptoutils.CertificatePEMType, chainCert.Raw))))
 	}

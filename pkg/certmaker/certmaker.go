@@ -49,12 +49,10 @@ type CryptoSignerVerifier interface {
 
 // KMSConfig holds config for KMS providers.
 type KMSConfig struct {
-	CommonName        string
-	Type              string
-	RootKeyID         string
-	IntermediateKeyID string
-	LeafKeyID         string
-	Options           map[string]string
+	CommonName string
+	Type       string
+	KeyID      string
+	Options    map[string]string
 }
 
 // InitKMS initializes KMS provider based on the given config, KMSConfig.
@@ -68,7 +66,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 
 	switch config.Type {
 	case "awskms":
-		ref := fmt.Sprintf("awskms:///%s", config.RootKeyID)
+		ref := fmt.Sprintf("awskms:///%s", config.KeyID)
 		if awsRegion := config.Options["aws-region"]; awsRegion != "" {
 			os.Setenv("AWS_REGION", awsRegion)
 		}
@@ -78,7 +76,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		}
 
 	case "gcpkms":
-		ref := fmt.Sprintf("gcpkms://%s", config.RootKeyID)
+		ref := fmt.Sprintf("gcpkms://%s", config.KeyID)
 		if gcpCredsFile := config.Options["gcp-credentials-file"]; gcpCredsFile != "" {
 			os.Setenv("GCP_CREDENTIALS_FILE", gcpCredsFile)
 		}
@@ -88,13 +86,13 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		}
 
 	case "azurekms":
-		keyURI := config.RootKeyID
-		if strings.HasPrefix(config.RootKeyID, "azurekms:name=") {
-			nameStart := strings.Index(config.RootKeyID, "name=") + 5
-			vaultIndex := strings.Index(config.RootKeyID, ";vault=")
+		keyURI := config.KeyID
+		if strings.HasPrefix(config.KeyID, "azurekms:name=") {
+			nameStart := strings.Index(config.KeyID, "name=") + 5
+			vaultIndex := strings.Index(config.KeyID, ";vault=")
 			if vaultIndex != -1 {
-				keyName := strings.TrimSpace(config.RootKeyID[nameStart:vaultIndex])
-				vaultName := strings.TrimSpace(config.RootKeyID[vaultIndex+7:])
+				keyName := strings.TrimSpace(config.KeyID[nameStart:vaultIndex])
+				vaultName := strings.TrimSpace(config.KeyID[vaultIndex+7:])
 				keyURI = fmt.Sprintf("azurekms://%s.vault.azure.net/%s", vaultName, keyName)
 			}
 		}
@@ -111,7 +109,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		}
 
 	case "hashivault":
-		keyURI := fmt.Sprintf("hashivault://%s", config.RootKeyID)
+		keyURI := fmt.Sprintf("hashivault://%s", config.KeyID)
 		if config.Options != nil {
 			if vaultToken := config.Options["vault-token"]; vaultToken != "" {
 				os.Setenv("VAULT_TOKEN", vaultToken)
@@ -141,15 +139,23 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 }
 
 // CreateCertificates creates certificates using the provided KMS and templates.
-// It creates 3 certificates (root -> intermediate -> leaf) if intermediateKeyID is provided,
-// otherwise creates just 2 certs (root -> leaf).
-func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
+// Root certificate is always required.
+// Intermediate and leaf certificates are optional based on provided key IDs and templates.
+func CreateCertificates(config KMSConfig,
 	rootTemplatePath, leafTemplatePath string,
 	rootCertPath, leafCertPath string,
 	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string,
+	leafKeyID string,
 	rootLifetime, intermediateLifetime, leafLifetime time.Duration) error {
 
-	// Create root cert
+	// Initialize root KMS signer
+	rootConfig := config
+	sv, err := InitKMS(context.Background(), rootConfig)
+	if err != nil {
+		return fmt.Errorf("error initializing root KMS: %w", err)
+	}
+
+	// Create root cert (required)
 	rootPubKey, err := sv.PublicKey()
 	if err != nil {
 		return fmt.Errorf("error getting root public key: %w", err)
@@ -171,6 +177,9 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		defaultTemplate, err := GetDefaultTemplate("root")
 		if err != nil {
 			return fmt.Errorf("error getting default root template: %w", err)
+		}
+		if defaultTemplate == "" {
+			return fmt.Errorf("root template is required but no template was provided")
 		}
 		rootTemplate = defaultTemplate
 	} else {
@@ -200,10 +209,10 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 	var signingCert *x509.Certificate
 	var signingKey crypto.Signer
 
+	// Create intermediate cert (optional)
 	if intermediateKeyID != "" {
-		// Create intermediate cert if key ID is provided
 		intermediateConfig := config
-		intermediateConfig.RootKeyID = intermediateKeyID
+		intermediateConfig.KeyID = intermediateKeyID
 		intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
 		if err != nil {
 			return fmt.Errorf("error initializing intermediate KMS: %w", err)
@@ -262,58 +271,50 @@ func CreateCertificates(sv signature.SignerVerifier, config KMSConfig,
 		signingKey = rootSigner
 	}
 
-	// Create leaf cert
-	leafConfig := config
-	leafConfig.RootKeyID = config.LeafKeyID
-	leafSV, err := InitKMS(context.Background(), leafConfig)
-	if err != nil {
-		return fmt.Errorf("error initializing leaf KMS: %w", err)
-	}
-
-	leafPubKey, err := leafSV.PublicKey()
-	if err != nil {
-		return fmt.Errorf("error getting leaf public key: %w", err)
-	}
-
-	leafCryptoSV, ok := leafSV.(CryptoSignerVerifier)
-	if !ok {
-		return fmt.Errorf("leaf signer does not implement CryptoSigner")
-	}
-
-	_, _, err = leafCryptoSV.CryptoSigner(context.Background(), nil)
-	if err != nil {
-		return fmt.Errorf("error getting leaf crypto signer: %w", err)
-	}
-
-	var leafTemplate interface{}
-	if leafTemplatePath == "" {
-		defaultTemplate, err := GetDefaultTemplate("leaf")
+	// Create leaf cert (optional)
+	if leafKeyID != "" {
+		leafConfig := config
+		leafConfig.KeyID = leafKeyID
+		leafSV, err := InitKMS(context.Background(), leafConfig)
 		if err != nil {
-			return fmt.Errorf("error getting default leaf template: %w", err)
+			return fmt.Errorf("error initializing leaf KMS: %w", err)
 		}
-		leafTemplate = defaultTemplate
-	} else {
-		// Read from FS if path is provided
-		content, err := os.ReadFile(leafTemplatePath)
+
+		leafPubKey, err := leafSV.PublicKey()
 		if err != nil {
-			return fmt.Errorf("leaf template error: template not found at %s: %w", leafTemplatePath, err)
+			return fmt.Errorf("error getting leaf public key: %w", err)
 		}
-		leafTemplate = string(content)
-	}
 
-	leafNotAfter := time.Now().UTC().Add(leafLifetime)
-	leafTmpl, err := ParseTemplate(leafTemplate, signingCert, leafNotAfter, leafPubKey, config.CommonName)
-	if err != nil {
-		return fmt.Errorf("error parsing leaf template: %w", err)
-	}
+		var leafTemplate interface{}
+		if leafTemplatePath == "" {
+			defaultTemplate, err := GetDefaultTemplate("leaf")
+			if err != nil {
+				return fmt.Errorf("error getting default leaf template: %w", err)
+			}
+			leafTemplate = defaultTemplate
+		} else {
+			// Read from FS if path is provided
+			content, err := os.ReadFile(leafTemplatePath)
+			if err != nil {
+				return fmt.Errorf("leaf template error: template not found at %s: %w", leafTemplatePath, err)
+			}
+			leafTemplate = string(content)
+		}
 
-	leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
-	if err != nil {
-		return fmt.Errorf("error creating leaf certificate: %w", err)
-	}
+		leafNotAfter := time.Now().UTC().Add(leafLifetime)
+		leafTmpl, err := ParseTemplate(leafTemplate, signingCert, leafNotAfter, leafPubKey, config.CommonName)
+		if err != nil {
+			return fmt.Errorf("error parsing leaf template: %w", err)
+		}
 
-	if err := WriteCertificateToFile(leafCert, leafCertPath); err != nil {
-		return fmt.Errorf("error writing leaf certificate: %w", err)
+		leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
+		if err != nil {
+			return fmt.Errorf("error creating leaf certificate: %w", err)
+		}
+
+		if err := WriteCertificateToFile(leafCert, leafCertPath); err != nil {
+			return fmt.Errorf("error writing leaf certificate: %w", err)
+		}
 	}
 
 	return nil
@@ -339,7 +340,7 @@ func WriteCertificateToFile(cert *x509.Certificate, filename string) error {
 	}
 	defer f.Close()
 
-	// get cert type
+	// Get certificate type
 	certType := "leaf"
 	if cert.IsCA {
 		if cert.CheckSignatureFrom(cert) == nil {
@@ -357,6 +358,11 @@ func WriteCertificateToFile(cert *x509.Certificate, filename string) error {
 func ValidateKMSConfig(config KMSConfig) error {
 	if config.Type == "" {
 		return fmt.Errorf("KMS type cannot be empty")
+	}
+
+	// Root key is always required
+	if config.KeyID == "" {
+		return fmt.Errorf("KeyID must be specified")
 	}
 
 	switch config.Type {
@@ -387,21 +393,12 @@ func ValidateKMSConfig(config KMSConfig) error {
 			}
 			return nil
 		}
-		if err := validateAWSKeyID(config.RootKeyID, "RootKeyID"); err != nil {
-			return err
-		}
-		if err := validateAWSKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
-			return err
-		}
-		if err := validateAWSKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+		if err := validateAWSKeyID(config.KeyID, "KeyID"); err != nil {
 			return err
 		}
 
 	case "gcpkms":
 		// GCP KMS validation
-		if config.Options == nil || config.Options["gcp-credentials-file"] == "" {
-			return fmt.Errorf("gcp-credentials-file is required for GCP KMS")
-		}
 		validateGCPKeyID := func(keyID, keyType string) error {
 			if keyID == "" {
 				return nil
@@ -423,13 +420,7 @@ func ValidateKMSConfig(config KMSConfig) error {
 			}
 			return nil
 		}
-		if err := validateGCPKeyID(config.RootKeyID, "RootKeyID"); err != nil {
-			return err
-		}
-		if err := validateGCPKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
-			return err
-		}
-		if err := validateGCPKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+		if err := validateGCPKeyID(config.KeyID, "KeyID"); err != nil {
 			return err
 		}
 
@@ -461,13 +452,7 @@ func ValidateKMSConfig(config KMSConfig) error {
 			}
 			return nil
 		}
-		if err := validateAzureKeyID(config.RootKeyID, "RootKeyID"); err != nil {
-			return err
-		}
-		if err := validateAzureKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
-			return err
-		}
-		if err := validateAzureKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+		if err := validateAzureKeyID(config.KeyID, "KeyID"); err != nil {
 			return err
 		}
 
@@ -498,26 +483,12 @@ func ValidateKMSConfig(config KMSConfig) error {
 			}
 			return nil
 		}
-		if err := validateHashiVaultKeyID(config.RootKeyID, "RootKeyID"); err != nil {
-			return err
-		}
-		if err := validateHashiVaultKeyID(config.IntermediateKeyID, "IntermediateKeyID"); err != nil {
-			return err
-		}
-		if err := validateHashiVaultKeyID(config.LeafKeyID, "LeafKeyID"); err != nil {
+		if err := validateHashiVaultKeyID(config.KeyID, "KeyID"); err != nil {
 			return err
 		}
 
 	default:
 		return fmt.Errorf("unsupported KMS type: %s", config.Type)
-	}
-
-	// Check that both key IDs are specified
-	if config.RootKeyID == "" {
-		return fmt.Errorf("RootKeyID must be specified")
-	}
-	if config.LeafKeyID == "" {
-		return fmt.Errorf("LeafKeyID must be specified")
 	}
 
 	return nil

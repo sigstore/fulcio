@@ -1,9 +1,6 @@
-@sigstore/fulcio-codeowners
+* @sigstore/fulcio-codeowners
 
-# The CODEOWNERS are managed via a GitHub team, but the current list is (in alphabetical order):
-
-# bobcallaway
-# dlorenc
-# haydentherapper
-# lukehinds
-# mattmoor
+/.github/ @sigstore/dep-maintainers
+/release/ @sigstore/dep-maintainers
+go.mod @sigstore/dep-maintainers
+go.sum @sigstore/dep-maintainers

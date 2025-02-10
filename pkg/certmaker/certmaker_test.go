@@ -152,12 +152,11 @@ func TestCreateCertificates(t *testing.T) {
 		return mockSigner, nil
 	}
 
-	err := CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "",
+	err := CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
 		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
 
 	require.Error(t, err)
@@ -177,12 +176,11 @@ func TestCreateCertificates(t *testing.T) {
 		return mockSigner, nil
 	}
 
-	err = CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "",
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
 		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
 
 	require.Error(t, err)
@@ -199,79 +197,45 @@ func TestCreateCertificates(t *testing.T) {
 		return mockSigner, nil
 	}
 
-	err = CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "",
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
 		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
 
 	require.NoError(t, err)
-
-	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.RootKeyID == "intermediate-key" {
-			return nil, fmt.Errorf("intermediate KMS error")
-		}
-		return mockSigner, nil
-	}
-
-	err = CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath,
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error initializing intermediate KMS: intermediate KMS error")
 
 	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
 	mockIntermediateSigner := &mockSignerVerifier{
 		key: intermediateKey,
-		publicKeyFunc: func() (crypto.PublicKey, error) {
-			return nil, fmt.Errorf("intermediate public key error")
-		},
+	}
+
+	mockLeafSigner := &mockSignerVerifier{
+		key: leafKey,
 	}
 
 	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.RootKeyID == "intermediate-key" {
+		switch config.KeyID {
+		case "intermediate-key":
 			return mockIntermediateSigner, nil
+		case "leaf-key":
+			return mockLeafSigner, nil
+		default:
+			return mockSigner, nil
 		}
-		return mockSigner, nil
 	}
 
-	err = CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath,
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error getting intermediate public key: intermediate public key error")
-
-	mockIntermediateSigner = &mockSignerVerifier{
-		key: intermediateKey,
-	}
-
-	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
-		if config.RootKeyID == "intermediate-key" {
-			return mockIntermediateSigner, nil
-		}
-		return mockSigner, nil
-	}
-
-	err = CreateCertificates(mockSigner, KMSConfig{
-		Type:      "awskms",
-		RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-		Options:   map[string]string{"aws-region": "us-west-2"},
-	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath,
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "leaf-key",
 		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
 
 	require.NoError(t, err)
@@ -293,36 +257,32 @@ func TestValidateKMSConfig(t *testing.T) {
 		{
 			name: "valid AWS config",
 			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
+				Type:    "awskms",
+				KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+				Options: map[string]string{"aws-region": "us-west-2"},
 			},
 		},
 		{
 			name: "valid GCP config",
 			config: KMSConfig{
-				Type:      "gcpkms",
-				RootKeyID: "projects/my-project/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1",
-				LeafKeyID: "projects/my-project/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1",
-				Options:   map[string]string{"gcp-credentials-file": "/path/to/creds.json"},
+				Type:    "gcpkms",
+				KeyID:   "projects/my-project/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1",
+				Options: map[string]string{"gcp-credentials-file": "/path/to/creds.json"},
 			},
 		},
 		{
 			name: "valid Azure config",
 			config: KMSConfig{
-				Type:      "azurekms",
-				RootKeyID: "azurekms:name=key1;vault=vault1",
-				LeafKeyID: "azurekms:name=key2;vault=vault1",
-				Options:   map[string]string{"azure-tenant-id": "tenant-id"},
+				Type:    "azurekms",
+				KeyID:   "azurekms:name=key1;vault=vault1",
+				Options: map[string]string{"azure-tenant-id": "tenant-id"},
 			},
 		},
 		{
 			name: "valid HashiVault config",
 			config: KMSConfig{
-				Type:      "hashivault",
-				RootKeyID: "transit/keys/root-key",
-				LeafKeyID: "transit/keys/leaf-key",
+				Type:  "hashivault",
+				KeyID: "transit/keys/root-key",
 				Options: map[string]string{
 					"vault-token":   "token",
 					"vault-address": "http://localhost:8200",
@@ -332,27 +292,24 @@ func TestValidateKMSConfig(t *testing.T) {
 		{
 			name: "missing AWS region",
 			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
+				Type:  "awskms",
+				KeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 			},
 			wantError: "aws-region is required for AWS KMS",
 		},
 		{
 			name: "missing Azure tenant ID",
 			config: KMSConfig{
-				Type:      "azurekms",
-				RootKeyID: "azurekms:name=key1;vault=vault1",
-				LeafKeyID: "azurekms:name=key2;vault=vault1",
+				Type:  "azurekms",
+				KeyID: "azurekms:name=key1;vault=vault1",
 			},
 			wantError: "options map is required for Azure KMS",
 		},
 		{
 			name: "missing HashiVault token",
 			config: KMSConfig{
-				Type:      "hashivault",
-				RootKeyID: "transit/keys/root-key",
-				LeafKeyID: "transit/keys/leaf-key",
+				Type:  "hashivault",
+				KeyID: "transit/keys/root-key",
 				Options: map[string]string{
 					"vault-address": "http://localhost:8200",
 				},
@@ -362,9 +319,8 @@ func TestValidateKMSConfig(t *testing.T) {
 		{
 			name: "missing HashiVault address",
 			config: KMSConfig{
-				Type:      "hashivault",
-				RootKeyID: "transit/keys/root-key",
-				LeafKeyID: "transit/keys/leaf-key",
+				Type:  "hashivault",
+				KeyID: "transit/keys/root-key",
 				Options: map[string]string{
 					"vault-token": "token",
 				},
@@ -374,82 +330,66 @@ func TestValidateKMSConfig(t *testing.T) {
 		{
 			name: "unsupported KMS type",
 			config: KMSConfig{
-				Type:      "unsupported",
-				RootKeyID: "key1",
-				LeafKeyID: "key2",
+				Type:  "unsupported",
+				KeyID: "key1",
 			},
 			wantError: "unsupported KMS type: unsupported",
 		},
 		{
 			name: "invalid AWS key ID format",
 			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "invalid-key-id",
-				LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
+				Type:    "awskms",
+				KeyID:   "invalid-key-id",
+				Options: map[string]string{"aws-region": "us-west-2"},
 			},
-			wantError: "awskms RootKeyID must start with 'arn:aws:kms:' or 'alias/'",
+			wantError: "awskms KeyID must start with 'arn:aws:kms:' or 'alias/'",
 		},
 		{
 			name: "AWS key ID region mismatch",
 			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012",
-				LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
+				Type:    "awskms",
+				KeyID:   "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012",
+				Options: map[string]string{"aws-region": "us-west-2"},
 			},
 			wantError: "region in ARN (us-east-1) does not match configured region (us-west-2)",
 		},
 		{
 			name: "invalid GCP key ID format",
 			config: KMSConfig{
-				Type:      "gcpkms",
-				RootKeyID: "invalid/key/path",
-				LeafKeyID: "projects/my-project/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1",
-				Options:   map[string]string{"gcp-credentials-file": "/path/to/creds.json"},
+				Type:    "gcpkms",
+				KeyID:   "invalid/key/path",
+				Options: map[string]string{"gcp-credentials-file": "/path/to/creds.json"},
 			},
-			wantError: "gcpkms RootKeyID must start with 'projects/'",
+			wantError: "gcpkms KeyID must start with 'projects/'",
 		},
 		{
 			name: "invalid Azure key ID format",
 			config: KMSConfig{
-				Type:      "azurekms",
-				RootKeyID: "invalid-key-id",
-				LeafKeyID: "azurekms:name=key2;vault=vault1",
-				Options:   map[string]string{"azure-tenant-id": "tenant-id"},
+				Type:    "azurekms",
+				KeyID:   "invalid-key-id",
+				Options: map[string]string{"azure-tenant-id": "tenant-id"},
 			},
-			wantError: "azurekms RootKeyID must start with 'azurekms:name='",
+			wantError: "azurekms KeyID must start with 'azurekms:name='",
 		},
 		{
 			name: "invalid HashiVault key ID format",
 			config: KMSConfig{
-				Type:      "hashivault",
-				RootKeyID: "invalid/path",
-				LeafKeyID: "transit/keys/leaf-key",
+				Type:  "hashivault",
+				KeyID: "invalid/path",
 				Options: map[string]string{
 					"vault-token":   "token",
 					"vault-address": "http://localhost:8200",
 				},
 			},
-			wantError: "hashivault RootKeyID must be in format: transit/keys/keyname",
+			wantError: "hashivault KeyID must be in format: transit/keys/keyname",
 		},
 		{
-			name: "missing root key ID",
+			name: "missing key ID",
 			config: KMSConfig{
-				Type:      "awskms",
-				LeafKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
+				Type:    "awskms",
+				Options: map[string]string{"aws-region": "us-west-2"},
 			},
-			wantError: "RootKeyID must be specified",
-		},
-		{
-			name: "missing leaf key ID",
-			config: KMSConfig{
-				Type:      "awskms",
-				RootKeyID: "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
-				Options:   map[string]string{"aws-region": "us-west-2"},
-			},
-			wantError: "LeafKeyID must be specified",
+			wantError: "KeyID must be specified",
 		},
 	}
 
