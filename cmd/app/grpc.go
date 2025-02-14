@@ -26,6 +26,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/sigstore/sigstore/pkg/signature"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -155,7 +157,7 @@ func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
 	}))
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, ip identity.IssuerPool) (*grpcServer, error) {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	serverOpts := []grpc.ServerOption{
@@ -186,7 +188,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 
 	myServer := grpc.NewServer(serverOpts...)
 
-	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, ip)
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, algorithmRegistry, ip)
 
 	health.RegisterHealthServer(myServer, grpcCAServer)
 	// Register your gRPC service implementations.
