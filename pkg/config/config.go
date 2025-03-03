@@ -17,6 +17,7 @@ package config
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -116,6 +117,11 @@ type OIDCIssuer struct {
 	// Optional, the contact for the issuer team
 	// Usually it is a email
 	Contact string `json:"Contact,omitempty" yaml:"contact,omitempty"`
+
+	// CACert is an optional parameter that holds the CA certificate in PEM format.
+	// This is used to trust the TLS certificate signed by an internal CA when interacting
+	// with some OIDC providers, preventing x509 certificate verification failures.
+	CACert string `json:"CACert,omitempty" yaml:"ca-cert,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -200,9 +206,32 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	// If this issuer hasn't been recently used, or we have special config options, then create a new verifier
 	// and add it to the LRU cache.
 
+	var client *http.Client
+	if iss.CACert != "" {
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		if ok := rootCAs.AppendCertsFromPEM([]byte(iss.CACert)); !ok {
+			log.Logger.Warnf("Failed to append custom CA cert for issuer URL %q", issuerURL)
+			return nil, false
+		}
+
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:    rootCAs,
+				MinVersion: tls.VersionTLS12,
+			},
+		}
+		client = &http.Client{Transport: transport}
+	} else {
+		client = http.DefaultClient
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 	defer cancel()
-	provider, err := oidc.NewProvider(ctx, issuerURL)
+
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), issuerURL)
 	if err != nil {
 		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
@@ -343,6 +372,13 @@ func validateConfig(conf *FulcioConfig) error {
 	}
 
 	for _, issuer := range conf.OIDCIssuers {
+		if issuer.CACert != "" {
+			rootCAs := x509.NewCertPool()
+			if ok := rootCAs.AppendCertsFromPEM([]byte(issuer.CACert)); !ok {
+				return fmt.Errorf("failed to parse CA certificate for issuer %s", issuer.IssuerURL)
+			}
+		}
+
 		if issuer.IssuerClaim != "" && issuer.Type != IssuerTypeEmail {
 			return errors.New("only email issuers can use issuer claim mapping")
 		}
@@ -420,6 +456,13 @@ func validateConfig(conf *FulcioConfig) error {
 	}
 
 	for _, metaIssuer := range conf.MetaIssuers {
+		if metaIssuer.CACert != "" {
+			rootCAs := x509.NewCertPool()
+			if ok := rootCAs.AppendCertsFromPEM([]byte(metaIssuer.CACert)); !ok {
+				return fmt.Errorf("failed to parse CA certificate for meta issuer %s", metaIssuer.IssuerURL)
+			}
+		}
+
 		if metaIssuer.Type == IssuerTypeSpiffe {
 			// This would establish a many to one relationship for OIDC issuers
 			// to trust domains so we fail early and reject this configuration.
