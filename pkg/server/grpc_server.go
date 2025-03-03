@@ -18,7 +18,6 @@ package server
 import (
 	"context"
 	"crypto"
-	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -141,15 +140,20 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
 
-		// Check proof of possession signature
-		if err := challenges.CheckSignature(publicKey, proofOfPossession, principal.Name(ctx)); err != nil {
-			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
+		proofOfPossessionAlgo, err := signature.GetDefaultAlgorithmDetails(publicKey)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 		}
+		verifier, err := signature.LoadDefaultVerifier(publicKey)
+		if err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
+		}
+		// TODO: Ideally this comes from the verifier
+		hashFunc = proofOfPossessionAlgo.GetHashType()
 
-		// The proof of possession signature always uses SHA-256, unless the key algorithm is ED25519
-		hashFunc = crypto.SHA256
-		if _, ok := publicKey.(ed25519.PublicKey); ok {
-			hashFunc = crypto.Hash(0)
+		// Check proof of possession signature
+		if err := challenges.CheckSignatureWithVerifier(verifier, proofOfPossession, principal.Name(ctx)); err != nil {
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidSignature)
 		}
 	}
 

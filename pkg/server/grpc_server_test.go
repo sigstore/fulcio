@@ -2341,8 +2341,8 @@ func TestAPIWithInvalidPublicKey(t *testing.T) {
 			},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "Signing algorithm not permitted") {
-		t.Fatalf("expected signing algorithm not permitted, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "signature supplied in the request could not be verified") {
+		t.Fatalf("expected signature could not be verified, got %v", err)
 	}
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
