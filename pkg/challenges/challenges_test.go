@@ -18,13 +18,15 @@ package challenges
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
+	"strings"
 	"testing"
 
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 func failErr(t *testing.T, err error) {
@@ -33,55 +35,110 @@ func failErr(t *testing.T, err error) {
 	}
 }
 
-func TestCheckSignatureECDSA(t *testing.T) {
-
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	failErr(t, err)
-
-	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
-		t.Fatal("check should have failed")
+func TestCheckSignature(t *testing.T) {
+	tts := []struct {
+		name         string
+		keys         func() (crypto.PublicKey, crypto.PrivateKey)
+		hashFunc     crypto.Hash
+		signHashFunc crypto.Hash
+	}{
+		{
+			name: "ecdsa-p256",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA256,
+			signHashFunc: crypto.SHA256,
+		},
+		{
+			name: "ecdsa-p384",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA384,
+			signHashFunc: crypto.SHA384,
+		},
+		{
+			name: "ecdsa-p521",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA512,
+			signHashFunc: crypto.SHA512,
+		},
+		{
+			name: "rsa-2048",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := rsa.GenerateKey(rand.Reader, 2048)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA256,
+			signHashFunc: crypto.SHA256,
+		},
+		{
+			name: "rsa-3072",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := rsa.GenerateKey(rand.Reader, 3072)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA256,
+			signHashFunc: crypto.SHA256,
+		},
+		{
+			name: "rsa-4096",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				priv, _ := rsa.GenerateKey(rand.Reader, 4096)
+				return priv.Public(), priv
+			},
+			hashFunc:     crypto.SHA256,
+			signHashFunc: crypto.SHA256,
+		},
+		{
+			name: "ed25519",
+			keys: func() (crypto.PublicKey, crypto.PrivateKey) {
+				pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+				return pub, priv
+			},
+			hashFunc:     crypto.SHA512,
+			signHashFunc: crypto.Hash(0),
+		},
 	}
 
-	h := sha256.Sum256([]byte(email))
-	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
-	failErr(t, err)
+	for _, tt := range tts {
+		t.Run(tt.name, func(t *testing.T) {
+			pub, priv := tt.keys()
 
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
-		t.Fatal(err)
-	}
+			email := "test@gmail.com"
+			if err := CheckSignature(pub, []byte("foo"), email); err == nil {
+				t.Fatal("check should have failed")
+			}
 
-	// Nil key should fail
-	if err := CheckSignature(nil, signature, email); err == nil {
-		t.Error("nil public key should raise error")
-	}
+			signerVerifier, err := signature.LoadSignerVerifier(priv, tt.signHashFunc)
+			failErr(t, err)
 
-	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
-		t.Fatal("check should have failed")
-	}
-}
+			signature, err := signerVerifier.SignMessage(strings.NewReader(email))
+			failErr(t, err)
 
-func TestCheckSignatureRSA(t *testing.T) {
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	failErr(t, err)
+			if err := CheckSignatureWithVerifier(signerVerifier, signature, email); err != nil {
+				t.Fatal(err)
+			}
+			if err := CheckSignature(pub, signature, email); err != nil {
+				t.Fatal(err)
+			}
 
-	email := "test@gmail.com"
-	if err := CheckSignature(&priv.PublicKey, []byte("foo"), email); err == nil {
-		t.Fatal("check should have failed")
-	}
+			// Nil key should fail
+			if err := CheckSignature(nil, signature, email); err == nil {
+				t.Error("nil public key should raise error")
+			}
 
-	h := sha256.Sum256([]byte(email))
-	signature, err := priv.Sign(rand.Reader, h[:], crypto.SHA256)
-	failErr(t, err)
-
-	if err := CheckSignature(&priv.PublicKey, signature, email); err != nil {
-		t.Fatal(err)
-	}
-
-	// Try a bad email but "good" signature
-	if err := CheckSignature(&priv.PublicKey, signature, "bad@email.com"); err == nil {
-		t.Fatal("check should have failed")
+			// Try a bad email but "good" signature
+			if err := CheckSignature(pub, signature, "bad@email.com"); err == nil {
+				t.Fatal("check should have failed")
+			}
+		})
 	}
 }
 

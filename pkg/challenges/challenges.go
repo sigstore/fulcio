@@ -44,11 +44,17 @@ import (
 // CheckSignature verifies a challenge, a signature over the subject or email
 // of an OIDC token
 func CheckSignature(pub crypto.PublicKey, proof []byte, subject string) error {
-	verifier, err := signature.LoadVerifier(pub, crypto.SHA256)
+	verifier, err := signature.LoadDefaultVerifier(pub)
 	if err != nil {
 		return err
 	}
 
+	return CheckSignatureWithVerifier(verifier, proof, subject)
+}
+
+// CheckSignatureWithVerifier verifies a challenge, a signature over the subject
+// or email of an OIDC token
+func CheckSignatureWithVerifier(verifier signature.Verifier, proof []byte, subject string) error {
 	return verifier.VerifySignature(bytes.NewReader(proof), strings.NewReader(subject))
 }
 
