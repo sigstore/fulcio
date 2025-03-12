@@ -49,7 +49,9 @@ services:
       - dex-idp
     read_only: true
   dex-idp:
-    image: dexidp/dex:v2.30.0
+    build:
+      context: .
+      dockerfile: Dockerfile.dex-idp
     user: root
     command: [
       "dex",
