@@ -33,9 +33,8 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -160,6 +159,10 @@ func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
 func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
+	reg := server.InitMetrics()
+	grpcMetrics := grpc_prometheus.NewServerMetrics(grpc_prometheus.WithServerHandlingTimeHistogram())
+	reg.MustRegister(grpcMetrics)
+
 	serverOpts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(
 			grpcmw.ChainUnaryServer(
@@ -167,7 +170,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 				middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 				grpc_zap.UnaryServerInterceptor(logger, opts...),
 				PassFulcioConfigThruContext(cfg),
-				grpc_prometheus.UnaryServerInterceptor,
+				grpcMetrics.UnaryServerInterceptor(),
 			)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: viper.GetDuration("idle-connection-timeout"),
@@ -193,16 +196,10 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 	health.RegisterHealthServer(myServer, grpcCAServer)
 	// Register your gRPC service implementations.
 	gw.RegisterCAServer(myServer, grpcCAServer)
+	grpcMetrics.InitializeMetrics(myServer)
 
 	grpcServerEndpoint := fmt.Sprintf("%s:%s", viper.GetString("grpc-host"), viper.GetString("grpc-port"))
 	return &grpcServer{myServer, grpcServerEndpoint, grpcCAServer, tlsCertWatcher}, nil
-}
-
-func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
-	grpcMetrics := grpc_prometheus.DefaultServerMetrics
-	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
-	grpc_prometheus.Register(g.Server)
 }
 
 func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
@@ -274,13 +271,17 @@ func (g *grpcServer) ExposesGRPCTLS() bool {
 func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v2Server gw.CAServer) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
+	reg := server.InitMetrics()
+	grpcMetrics := grpc_prometheus.NewServerMetrics(grpc_prometheus.WithServerHandlingTimeHistogram())
+	reg.MustRegister(grpcMetrics)
+
 	myServer := grpc.NewServer(grpc.UnaryInterceptor(
 		grpcmw.ChainUnaryServer(
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
 			PassFulcioConfigThruContext(cfg),
-			grpc_prometheus.UnaryServerInterceptor,
+			grpcMetrics.UnaryServerInterceptor(),
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
@@ -288,6 +289,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v
 
 	// Register your gRPC service implementations.
 	gw_legacy.RegisterCAServer(myServer, legacyGRPCCAServer)
+	grpcMetrics.InitializeMetrics(myServer)
 
 	return &grpcServer{myServer, unixDomainSocket, v2Server, nil}, nil
 }

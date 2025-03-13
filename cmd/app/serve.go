@@ -42,10 +42,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
@@ -361,13 +360,11 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
-	reg := prometheus.NewRegistry()
-
 	grpcServer, err := createGRPCServer(cfg, ctClient, baseca, algorithmRegistry, ip)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
-	grpcServer.setupPrometheus(reg)
+
 	grpcServer.startTCPListener(&wg)
 
 	legacyGRPCServer, err := createLegacyGRPCServer(cfg, viper.GetString("legacy-unix-domain-socket"), grpcServer.caService)
@@ -444,6 +441,11 @@ func checkServeCmdConfigFile() error {
 func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, host string, port, metricsPort int, ip identity.IssuerPool) error {
 	logger, opts := log.SetupGRPCLogging()
 
+	// configure Prometheus
+	reg := server.InitMetrics()
+	grpcMetrics := grpc_prometheus.NewServerMetrics(grpc_prometheus.WithServerHandlingTimeHistogram())
+	reg.MustRegister(grpcMetrics)
+
 	d := duplex.New(
 		port,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -456,11 +458,13 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
 			PassFulcioConfigThruContext(cfg),
-			grpc_prometheus.UnaryServerInterceptor,
+			grpcMetrics.UnaryServerInterceptor(),
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)),
 		runtime.WithForwardResponseOption(setResponseCodeModifier),
 	)
+
+	grpcMetrics.InitializeMetrics(d.Server)
 
 	// GRPC server
 	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, algorithmRegistry, ip)
@@ -475,13 +479,6 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	if err := d.RegisterHandler(ctx, legacy.RegisterCAHandlerFromEndpoint); err != nil {
 		return fmt.Errorf("registering legacy grpc ca handler: %w", err)
 	}
-
-	// Prometheus
-	reg := prometheus.NewRegistry()
-	grpcMetrics := grpc_prometheus.DefaultServerMetrics
-	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
-	grpc_prometheus.Register(d.Server)
 
 	// Register prometheus handle.
 	d.RegisterListenAndServeMetrics(metricsPort, false)
