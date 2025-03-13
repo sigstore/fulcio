@@ -61,8 +61,6 @@ services:
     restart: always # keep the server running
     ports:
       - "8888:8888"
-    volumes:
-      - ./config/dex:/etc/config/:ro
     healthcheck:
       test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:8888/auth/healthz"]
       interval: 10s
