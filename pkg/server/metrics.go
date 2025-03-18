@@ -16,39 +16,54 @@
 package server
 
 import (
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"sigs.k8s.io/release-utils/version"
 )
 
 var (
-	metricNewEntries = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fulcio_new_certs",
-		Help: "The total number of certificates generated",
-	})
-
-	MetricLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fulcio_api_latency",
-		Help: "API Latency on calls",
-	}, []string{"code", "method"})
-
-	RequestsCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "http_requests_total",
-		Help: "Count all HTTP requests",
-	}, []string{"code", "method"})
-
-	_ = promauto.NewGaugeFunc(
-		prometheus.GaugeOpts{
-			Namespace: "fulcio",
-			Name:      "build_info",
-			Help:      "A metric with a constant '1' value labeled by version, revision, branch, and goversion from which fulcio was built.",
-			ConstLabels: prometheus.Labels{
-				"version":    version.GetVersionInfo().GitVersion,
-				"revision":   version.GetVersionInfo().GitCommit,
-				"build_date": version.GetVersionInfo().BuildDate,
-				"goversion":  version.GetVersionInfo().GoVersion,
-			},
-		},
-		func() float64 { return 1 },
-	)
+	metricNewEntries prometheus.Counter
+	MetricLatency    *prometheus.HistogramVec
+	RequestsCount    *prometheus.CounterVec
 )
+
+// InitMetrics will create a single registry to share across the application
+func InitMetrics() *prometheus.Registry {
+	return sync.OnceValue[*prometheus.Registry](func() *prometheus.Registry {
+
+		reg := prometheus.NewRegistry()
+		metricsFactory := promauto.With(reg)
+		metricNewEntries = metricsFactory.NewCounter(prometheus.CounterOpts{
+			Name: "fulcio_new_certs",
+			Help: "The total number of certificates generated",
+		})
+
+		MetricLatency = metricsFactory.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "fulcio_api_latency",
+			Help: "API Latency on calls",
+		}, []string{"code", "method"})
+
+		RequestsCount = metricsFactory.NewCounterVec(prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Count all HTTP requests",
+		}, []string{"code", "method"})
+
+		_ = metricsFactory.NewGaugeFunc(
+			prometheus.GaugeOpts{
+				Namespace: "fulcio",
+				Name:      "build_info",
+				Help:      "A metric with a constant '1' value labeled by version, revision, branch, and goversion from which fulcio was built.",
+				ConstLabels: prometheus.Labels{
+					"version":    version.GetVersionInfo().GitVersion,
+					"revision":   version.GetVersionInfo().GitCommit,
+					"build_date": version.GetVersionInfo().BuildDate,
+					"goversion":  version.GetVersionInfo().GoVersion,
+				},
+			},
+			func() float64 { return 1 },
+		)
+		return reg
+	})()
+}
