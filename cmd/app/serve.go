@@ -37,7 +37,6 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 
 	"chainguard.dev/go-grpc-kit/pkg/duplex"
-	"github.com/goadesign/goa/grpc/middleware"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -65,6 +64,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"goa.design/goa/v3/grpc/middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
