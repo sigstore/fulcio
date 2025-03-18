@@ -19,11 +19,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/goadesign/goa/grpc/middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"goa.design/goa/v3/grpc/middleware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
