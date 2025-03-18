@@ -31,9 +31,9 @@ const (
 	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
 	failedToMarshalCert    = "Error marshaling code signing certificate"
 	insecurePublicKey      = "The public key supplied in the request is insecure"
-	//nolint
-	invalidCredentials = "There was an error processing the credentials for this request"
-	// nolint
+	// nolint:gosec // false positive G101
+	invalidCredentials = "There was an error processing the credentials for this request" //lint:ignore U1000 Used in past
+	// nolint:gosec // false positive G101
 	invalidIdentityToken                    = "There was an error processing the identity token"
 	genericCAError                          = "error communicating with CA backend"
 	retrieveTrustBundleCAError              = "error retrieving trust bundle from CA backend"

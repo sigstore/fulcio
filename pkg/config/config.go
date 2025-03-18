@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -72,7 +72,7 @@ type FulcioConfig struct {
 	// verifiers is a fixed mapping from our OIDCIssuers to their OIDC verifiers.
 	verifiers map[string][]*verifierWithConfig
 	// lru is an LRU cache of recently used verifiers for our meta issuers.
-	lru *lru.TwoQueueCache
+	lru *lru.TwoQueueCache[string, []*verifierWithConfig]
 }
 
 type IssuerMetadata struct {
@@ -193,9 +193,8 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	}
 
 	// Look in the LRU cache for a verifier
-	untyped, ok := fc.lru.Get(issuerURL)
+	v, ok = fc.lru.Get(issuerURL)
 	if ok {
-		v := untyped.([]*verifierWithConfig)
 		for _, c := range v {
 			if reflect.DeepEqual(c.Config, cfg) {
 				return c.IDTokenVerifier, true
@@ -238,7 +237,7 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	}
 
 	vwf := &verifierWithConfig{provider.Verifier(cfg), cfg}
-	if untyped == nil {
+	if v == nil {
 		v = []*verifierWithConfig{vwf}
 	} else {
 		v = append(v, vwf)
@@ -327,7 +326,7 @@ func (fc *FulcioConfig) prepare() error {
 		}
 	}
 
-	cache, err := lru.New2Q(100 /* size */)
+	cache, err := lru.New2Q[string, []*verifierWithConfig](100 /* size */)
 	if err != nil {
 		return fmt.Errorf("lru: %w", err)
 	}

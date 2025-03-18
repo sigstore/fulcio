@@ -36,7 +36,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 )
 
@@ -649,7 +649,7 @@ func TestToIssuers(t *testing.T) {
 }
 
 func TestVerifierCache(t *testing.T) {
-	cache, err := lru.New2Q(100 /* size */)
+	cache, err := lru.New2Q[string, []*verifierWithConfig](100 /* size */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -815,7 +815,7 @@ func TestVerifierCacheWithCustomCA(t *testing.T) {
 	server.StartTLS()
 	defer server.Close()
 
-	cache, err := lru.New2Q(100)
+	cache, err := lru.New2Q[string, []*verifierWithConfig](100)
 	if err != nil {
 		t.Fatal(err)
 	}

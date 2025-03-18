@@ -73,7 +73,7 @@ func main() {
 // Make sure latency is a Histogram, and it has a POST with a 201.
 func checkLatency(latency *dto.MetricFamily) error {
 	if *latency.Type != *dto.MetricType_HISTOGRAM.Enum() {
-		return fmt.Errorf("Wrong type, wanted %+v, got: %+v", dto.MetricType_HISTOGRAM.Enum(), latency.Type)
+		return fmt.Errorf("wrong type, wanted %+v, got: %+v", dto.MetricType_HISTOGRAM.Enum(), latency.Type)
 	}
 
 	for _, metric := range latency.Metric {
@@ -89,24 +89,24 @@ func checkLatency(latency *dto.MetricFamily) error {
 		}
 		if code == "201" && method == "post" {
 			if *metric.Histogram.SampleCount != 1 {
-				return fmt.Errorf("Unexpected samplecount, wanted 1, got %d", *metric.Histogram.SampleCount)
+				return fmt.Errorf("unexpected samplecount, wanted 1, got %d", *metric.Histogram.SampleCount)
 			}
 			return nil
 		}
 	}
 
-	return fmt.Errorf("Got multiple entries, or none for metric, wanted one, got: %+v", latency.Metric)
+	return fmt.Errorf("got multiple entries, or none for metric, wanted one, got: %+v", latency.Metric)
 }
 
 func checkCertCount(certCount *dto.MetricFamily) error {
 	if *certCount.Type != *dto.MetricType_COUNTER.Enum() {
-		return fmt.Errorf("Wrong type, wanted %+v, got: %+v", dto.MetricType_COUNTER.Enum(), certCount.Type)
+		return fmt.Errorf("wrong type, wanted %+v, got: %+v", dto.MetricType_COUNTER.Enum(), certCount.Type)
 	}
 	if len(certCount.Metric) != 1 {
-		return fmt.Errorf("Got multiple entries, or none for metric, wanted one, got: %+v", certCount.Metric)
+		return fmt.Errorf("got multiple entries, or none for metric, wanted one, got: %+v", certCount.Metric)
 	}
 	if *certCount.Metric[0].Counter.Value < 1 {
-		return fmt.Errorf("Got incorrect cert count, wanted one, got: %f", *certCount.Metric[0].Counter.Value)
+		return fmt.Errorf("got incorrect cert count, wanted one, got: %f", *certCount.Metric[0].Counter.Value)
 	}
 	return nil
 }
