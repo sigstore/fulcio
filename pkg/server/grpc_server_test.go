@@ -2555,7 +2555,7 @@ func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
 			CertificateSigningRequest: pemCSR,
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "Signing algorithm not permitted") {
+	if err == nil || !strings.Contains(err.Error(), "signing algorithm not permitted") {
 		t.Fatalf("expected signing algorithm not permitted, got %v", err)
 	}
 	if status.Code(err) != codes.InvalidArgument {

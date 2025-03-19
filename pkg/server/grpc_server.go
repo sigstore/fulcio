@@ -163,7 +163,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 	}
 	if !isPermitted {
-		err = fmt.Errorf("Signing algorithm not permitted: %T, %s", publicKey, hashFunc)
+		err = fmt.Errorf("signing algorithm not permitted: %T, %s", publicKey, hashFunc)
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 	}
 
@@ -179,7 +179,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 			if _, ok := err.(certauth.ValidationError); ok {
 				return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 			}
-			err = fmt.Errorf("Error creating certificate: %w", err)
+			err = fmt.Errorf("error creating certificate: %w", err)
 			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
 			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 		}
@@ -230,7 +230,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 			if _, ok := err.(certauth.ValidationError); ok {
 				return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
 			}
-			err = fmt.Errorf("Error creating a pre-certificate and chain: %w", err)
+			err = fmt.Errorf("error creating a pre-certificate and chain: %w", err)
 			// otherwise return a 500 error to reflect that it is a transient server issue that the client can't resolve
 			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 		}
@@ -241,7 +241,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 		}
 		csc, err = sctCa.IssueFinalCertificate(ctx, precert, sct)
 		if err != nil {
-			err = fmt.Errorf("Error issuing final certificate using the pre-certificate with CA backend: %w", err)
+			err = fmt.Errorf("error issuing final certificate using the pre-certificate with CA backend: %w", err)
 			return nil, handleFulcioGRPCError(ctx, codes.Internal, err, genericCAError)
 		}
 
