@@ -18,118 +18,66 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"errors"
+	"crypto/elliptic"
 	"fmt"
 	"math/big"
 
-	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
+	"github.com/tink-crypto/tink-go/v2/insecuresecretdataaccess"
 	"github.com/tink-crypto/tink-go/v2/keyset"
-	commonpb "github.com/tink-crypto/tink-go/v2/proto/common_go_proto"
-	ecdsapb "github.com/tink-crypto/tink-go/v2/proto/ecdsa_go_proto"
-	ed25519pb "github.com/tink-crypto/tink-go/v2/proto/ed25519_go_proto"
-	tinkpb "github.com/tink-crypto/tink-go/v2/proto/tink_go_proto"
-	signatureSubtle "github.com/tink-crypto/tink-go/v2/signature/subtle"
-	"github.com/tink-crypto/tink-go/v2/subtle"
-	"google.golang.org/protobuf/proto"
+	tinkecdsa "github.com/tink-crypto/tink-go/v2/signature/ecdsa"
+	tinked25519 "github.com/tink-crypto/tink-go/v2/signature/ed25519"
 )
 
-var (
-	ecdsaSignerKeyVersion   = 0
-	ecdsaSignerTypeURL      = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
-	ed25519SignerKeyVersion = 0
-	ed25519SignerTypeURL    = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
-)
-
-// KeyHandleToSigner converts a key handle to the crypto.Signer interface.
-// Heavily pulls from Tink's signature and subtle packages.
-func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
-	// extract the key material from the key handle
-	ks := insecurecleartextkeyset.KeysetMaterial(kh)
-
-	k := getPrimaryKey(ks)
-	if k == nil {
-		return nil, errors.New("no enabled key found in keyset")
-	}
-
-	switch k.GetTypeUrl() {
-	case ecdsaSignerTypeURL:
-		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/signer_key_manager.go#L48
-		privKey := new(ecdsapb.EcdsaPrivateKey)
-		if err := proto.Unmarshal(k.GetValue(), privKey); err != nil {
-			return nil, fmt.Errorf("error unmarshalling ecdsa private key: %w", err)
-		}
-		if err := validateEcdsaPrivKey(privKey); err != nil {
-			return nil, fmt.Errorf("error validating ecdsa private key: %w", err)
-		}
-		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/subtle/ecdsa_signer.go#L37
-		_, curve, _ := getECDSAParamNames(privKey.PublicKey.Params)
-		p := new(ecdsa.PrivateKey)
-		c := subtle.GetCurve(curve)
-		if c == nil {
-			return nil, errors.New("tink ecdsa signer: invalid curve")
-		}
-		p.Curve = c
-		p.D = new(big.Int).SetBytes(privKey.GetKeyValue())
-		p.X, p.Y = c.ScalarBaseMult(privKey.GetKeyValue())
-		return p, nil
-	case ed25519SignerTypeURL:
-		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ed25519/signer_key_manager.go#L47
-		privKey := new(ed25519pb.Ed25519PrivateKey)
-		if err := proto.Unmarshal(k.GetValue(), privKey); err != nil {
-			return nil, fmt.Errorf("error unmarshalling ed25519 private key: %w", err)
-		}
-		if err := validateEd25519PrivKey(privKey); err != nil {
-			return nil, fmt.Errorf("error validating ed25519 private key: %w", err)
-		}
-		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/subtle/ed25519_signer.go#L27
-		p := ed25519.NewKeyFromSeed(privKey.GetKeyValue())
-		return p, nil
+func curveFromTinkECDSACurveType(curveType tinkecdsa.CurveType) (elliptic.Curve, error) {
+	switch curveType {
+	case tinkecdsa.NistP256:
+		return elliptic.P256(), nil
+	case tinkecdsa.NistP384:
+		return elliptic.P384(), nil
+	case tinkecdsa.NistP521:
+		return elliptic.P521(), nil
 	default:
-		return nil, fmt.Errorf("unsupported key type: %s", k.GetTypeUrl())
+		// Should never happen.
+		return nil, fmt.Errorf("unsupported curve: %v", curveType)
 	}
 }
 
-// getPrimaryKey returns the first enabled key from a keyset.
-func getPrimaryKey(ks *tinkpb.Keyset) *tinkpb.KeyData {
-	for _, k := range ks.GetKey() {
-		if k.GetKeyId() == ks.GetPrimaryKeyId() && k.GetStatus() == tinkpb.KeyStatusType_ENABLED {
-			return k.GetKeyData()
+// KeyHandleToSigner constructs a [crypto.Signer] from a Tink [keyset.Handle]'s
+// primary key.
+//
+// NOTE: Tink validates keys on [keyset.Handle] creation.
+func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
+	primary, err := kh.Primary()
+	if err != nil {
+		return nil, err
+	}
+
+	switch privateKey := primary.Key().(type) {
+	case *tinkecdsa.PrivateKey:
+		publicKey, err := privateKey.PublicKey()
+		if err != nil {
+			return nil, err
 		}
-	}
-	return nil
-}
+		ecdsaPublicKey := publicKey.(*tinkecdsa.PublicKey)
 
-// validateEcdsaPrivKey validates the given ECDSAPrivateKey.
-// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/signer_key_manager.go#L151
-func validateEcdsaPrivKey(key *ecdsapb.EcdsaPrivateKey) error {
-	if err := keyset.ValidateKeyVersion(key.Version, uint32(ecdsaSignerKeyVersion)); err != nil {
-		return fmt.Errorf("ecdsa: invalid key version in key: %s", err)
-	}
-	if err := keyset.ValidateKeyVersion(key.GetPublicKey().GetVersion(), uint32(ecdsaSignerKeyVersion)); err != nil {
-		return fmt.Errorf("ecdsa: invalid public version in key: %s", err)
-	}
-	hash, curve, encoding := getECDSAParamNames(key.PublicKey.Params)
-	return signatureSubtle.ValidateECDSAParams(hash, curve, encoding)
-}
+		curve, err := curveFromTinkECDSACurveType(ecdsaPublicKey.Parameters().(*tinkecdsa.Parameters).CurveType())
+		if err != nil {
+			return nil, err
+		}
 
-// getECDSAParamNames returns the string representations of each parameter in
-// the given ECDSAParams.
-// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ecdsa/proto.go#L24
-func getECDSAParamNames(params *ecdsapb.EcdsaParams) (string, string, string) {
-	hashName := commonpb.HashType_name[int32(params.GetHashType())]
-	curveName := commonpb.EllipticCurveType_name[int32(params.GetCurve())]
-	encodingName := ecdsapb.EcdsaSignatureEncoding_name[int32(params.GetEncoding())]
-	return hashName, curveName, encodingName
-}
-
-// validateEd25519PrivKey validates the given ED25519PrivateKey.
-// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ed25519/signer_key_manager.go#L157
-func validateEd25519PrivKey(key *ed25519pb.Ed25519PrivateKey) error {
-	if err := keyset.ValidateKeyVersion(key.Version, uint32(ed25519SignerKeyVersion)); err != nil {
-		return fmt.Errorf("ed25519: invalid key: %w", err)
+		// Encoded as: 0x04 || X || Y.
+		// See https://github.com/tink-crypto/tink-go/blob/v2.3.0/signature/ecdsa/key.go#L335
+		publicPoint := ecdsaPublicKey.PublicPoint()
+		xy := publicPoint[1:]
+		pk := new(ecdsa.PrivateKey)
+		pk.Curve = curve
+		pk.X = new(big.Int).SetBytes(xy[:len(xy)/2])
+		pk.Y = new(big.Int).SetBytes(xy[len(xy)/2:])
+		pk.D = new(big.Int).SetBytes(privateKey.PrivateKeyValue().Data(insecuresecretdataaccess.Token{}))
+		return pk, err
+	case *tinked25519.PrivateKey:
+		return ed25519.NewKeyFromSeed(privateKey.PrivateKeyBytes().Data(insecuresecretdataaccess.Token{})), err
+	default:
+		return nil, fmt.Errorf("unsupported key type: %T", primary.Key())
 	}
-	if len(key.KeyValue) != ed25519.SeedSize {
-		return fmt.Errorf("ed25519: invalid key length, got %d", len(key.KeyValue))
-	}
-	return nil
 }
