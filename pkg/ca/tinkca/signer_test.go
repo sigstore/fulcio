@@ -24,73 +24,76 @@ import (
 	"testing"
 
 	"github.com/tink-crypto/tink-go/v2/keyset"
-	"github.com/tink-crypto/tink-go/v2/proto/tink_go_proto"
+	tinkpb "github.com/tink-crypto/tink-go/v2/proto/tink_go_proto"
 	"github.com/tink-crypto/tink-go/v2/signature"
 )
 
-type TestStruct struct {
-	keyTemplate *tink_go_proto.KeyTemplate
-	h           hash.Hash
-}
-
 func TestKeyHandleToSignerECDSA(t *testing.T) {
-	supportedKeyTypes := []TestStruct{
+	for _, tc := range []struct {
+		name        string
+		keyTemplate *tinkpb.KeyTemplate
+		h           hash.Hash
+	}{
 		{
+			name:        "ECDSA-P256-SHA256",
 			keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate(),
 			h:           sha256.New(),
 		},
 		{
+			name:        "ECDSA-P384-SHA512",
 			keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate(),
 			h:           sha512.New(),
 		},
 		{
+			name:        "ECDSA-P521-SHA512",
 			keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate(),
 			h:           sha512.New(),
 		},
-	}
-	for _, kt := range supportedKeyTypes {
-		kh, err := keyset.NewHandle(kt.keyTemplate)
-		if err != nil {
-			t.Fatalf("error creating ECDSA key handle: %v", err)
-		}
-		// convert to crypto.Signer interface
-		signer, err := KeyHandleToSigner(kh)
-		if err != nil {
-			t.Fatalf("error converting ECDSA key handle to signer: %v", err)
-		}
-		msg := []byte("hello there")
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kh, err := keyset.NewHandle(tc.keyTemplate)
+			if err != nil {
+				t.Fatalf("error creating ECDSA key handle: %v", err)
+			}
+			// convert to crypto.Signer interface
+			signer, err := KeyHandleToSigner(kh)
+			if err != nil {
+				t.Fatalf("error converting ECDSA key handle to signer: %v", err)
+			}
+			msg := []byte("hello there")
 
-		// sign with key handle, verify with signer public key
-		tinkSigner, err := signature.NewSigner(kh)
-		if err != nil {
-			t.Fatalf("error creating tink signer: %v", err)
-		}
-		sig, err := tinkSigner.Sign(msg)
-		if err != nil {
-			t.Fatalf("error signing with tink signer: %v", err)
-		}
-		kt.h.Write(msg)
-		digest := kt.h.Sum(nil)
-		if !ecdsa.VerifyASN1(signer.Public().(*ecdsa.PublicKey), digest, sig) {
-			t.Fatalf("signature from tink signer did not match")
-		}
+			// sign with key handle, verify with signer public key
+			tinkSigner, err := signature.NewSigner(kh)
+			if err != nil {
+				t.Fatalf("error creating tink signer: %v", err)
+			}
+			sig, err := tinkSigner.Sign(msg)
+			if err != nil {
+				t.Fatalf("error signing with tink signer: %v", err)
+			}
+			tc.h.Write(msg)
+			digest := tc.h.Sum(nil)
+			if !ecdsa.VerifyASN1(signer.Public().(*ecdsa.PublicKey), digest, sig) {
+				t.Fatalf("signature from tink signer did not match")
+			}
 
-		// sign with signer, verify with key handle
-		sig, err = ecdsa.SignASN1(rand.Reader, signer.(*ecdsa.PrivateKey), digest)
-		if err != nil {
-			t.Fatalf("error signing with crypto signer: %v", err)
-		}
-		pubkh, err := kh.Public()
-		if err != nil {
-			t.Fatalf("error fetching public key handle: %v", err)
-		}
-		v, err := signature.NewVerifier(pubkh)
-		if err != nil {
-			t.Fatalf("error creating tink verifier: %v", err)
-		}
-		if err := v.Verify(sig, msg); err != nil {
-			t.Fatalf("error verifying with tink verifier: %v", err)
-		}
+			// sign with signer, verify with key handle
+			sig, err = ecdsa.SignASN1(rand.Reader, signer.(*ecdsa.PrivateKey), digest)
+			if err != nil {
+				t.Fatalf("error signing with crypto signer: %v", err)
+			}
+			pubkh, err := kh.Public()
+			if err != nil {
+				t.Fatalf("error fetching public key handle: %v", err)
+			}
+			v, err := signature.NewVerifier(pubkh)
+			if err != nil {
+				t.Fatalf("error creating tink verifier: %v", err)
+			}
+			if err := v.Verify(sig, msg); err != nil {
+				t.Fatalf("error verifying with tink verifier: %v", err)
+			}
+		})
 	}
 }
 
@@ -134,5 +137,15 @@ func TestKeyHandleToSignerED25519(t *testing.T) {
 	}
 	if err := v.Verify(sig, msg); err != nil {
 		t.Fatalf("error verifying with tink verifier: %v", err)
+	}
+}
+
+func TestKeyHandleToSignerFailsWithInvalidKeyType(t *testing.T) {
+	kh, err := keyset.NewHandle(signature.RSA_SSA_PKCS1_3072_SHA256_F4_RAW_Key_Template())
+	if err != nil {
+		t.Fatalf("keyset.NewHandle() err = %v, want nil", err)
+	}
+	if _, err := KeyHandleToSigner(kh); err == nil {
+		t.Errorf("KeyHandleToSigner(kh) err = nil, want error")
 	}
 }
