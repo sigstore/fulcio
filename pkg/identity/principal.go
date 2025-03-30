@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 )
 
-// Deprecated: Use ciPrincipal instead
 type Principal interface {
 	// Name is the email or subject of OIDC ID token. This value must match the
 	// value signed in the proof of private key possession challenge.

@@ -26,6 +26,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
+// Deprecated: Use ciprovider.ciPrincipal instead
 type jobPrincipal struct {
 	// Subject matches the 'sub' claim from the OIDC ID token this is what is
 	// signed as proof of possession for Buildkite job identities
@@ -40,6 +41,7 @@ type jobPrincipal struct {
 	url string
 }
 
+// Deprecated: Use ciprovider.WorkflowPrincipalFromIDToken instead
 func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
 		OrganizationSlug string `json:"organization_slug"`

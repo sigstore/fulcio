@@ -20,7 +20,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/config"
 )
 
-// Deprecated: Use ciProviderIssuer instead
 type Issuer interface {
 	// Match checks if this issuer can authenticate tokens from a given issuer URL
 	Match(ctx context.Context, url string) bool

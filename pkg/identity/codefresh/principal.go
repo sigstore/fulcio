@@ -30,6 +30,7 @@ const (
 	DefaultPlatformURL string = "https://g.codefresh.io"
 )
 
+// Deprecated: Use ciprovider.ciPrincipal instead
 type workflowPrincipal struct {
 	// Subject matches the 'sub' claim from the OIDC ID token this is what is signed as proof of possession for Codefresh workflow identities
 	subject string
@@ -79,6 +80,7 @@ func (w workflowPrincipal) Name(_ context.Context) string {
 	return w.subject
 }
 
+// Deprecated: Use ciprovider.WorkflowPrincipalFromIDToken instead
 func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
 		AccountID         string `json:"account_id"`
