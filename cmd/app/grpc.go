@@ -222,7 +222,7 @@ func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
 		<-sigint
 
 		// received an interrupt signal, shut down
-		g.Server.GracefulStop()
+		g.GracefulStop()
 		close(idleConnsClosed)
 		log.Logger.Info("stopped grpc server")
 	}()
@@ -232,7 +232,7 @@ func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {
 		if g.tlsCertWatcher != nil {
 			defer g.tlsCertWatcher.Close()
 		}
-		if err := g.Server.Serve(lis); err != nil {
+		if err := g.Serve(lis); err != nil {
 			log.Logger.Fatalf("error shutting down grpcServer: %w", err)
 		}
 		<-idleConnsClosed
@@ -263,7 +263,7 @@ func (g *grpcServer) startUnixListener() {
 
 		log.Logger.Infof("listening on grpc at %s", unixAddr.String())
 
-		log.Logger.Fatal(g.Server.Serve(lis))
+		log.Logger.Fatal(g.Serve(lis))
 	}()
 }
 

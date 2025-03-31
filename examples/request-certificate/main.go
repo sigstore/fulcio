@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	fulcioUrl    = "https://fulcio.sigstore.dev"
+	fulcioURL    = "https://fulcio.sigstore.dev"
 	oidcIssuer   = "https://oauth2.sigstore.dev/auth"
 	oidcClientID = "sigstore"
 )
@@ -87,11 +87,13 @@ func NewClient(fulcioURL string) (fulciopb.CAClient, error) {
 	dialOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	hostWithPort := fmt.Sprintf("%s:80", fulcioServer.Host)
 	if fulcioServer.Scheme == "https" {
-		dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))
+		dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}))
 		hostWithPort = fmt.Sprintf("%s:443", fulcioServer.Host)
 	}
 
-	conn, err := grpc.Dial(hostWithPort, dialOpt)
+	conn, err := grpc.NewClient(hostWithPort, dialOpt)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +106,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fClient, err := NewClient(fulcioUrl)
+	fClient, err := NewClient(fulcioURL)
 	if err != nil {
 		log.Fatal(err)
 	}
