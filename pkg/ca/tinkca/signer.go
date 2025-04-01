@@ -68,9 +68,9 @@ func KeyHandleToSigner(kh *keyset.Handle) (crypto.Signer, error) {
 		if c == nil {
 			return nil, errors.New("tink ecdsa signer: invalid curve")
 		}
-		p.PublicKey.Curve = c
+		p.Curve = c
 		p.D = new(big.Int).SetBytes(privKey.GetKeyValue())
-		p.PublicKey.X, p.PublicKey.Y = c.ScalarBaseMult(privKey.GetKeyValue())
+		p.X, p.Y = c.ScalarBaseMult(privKey.GetKeyValue())
 		return p, nil
 	case ed25519SignerTypeURL:
 		// https://github.com/tink-crypto/tink-go/blob/0aadc94a816408c4bdf95885b3c9860ecfd55fc0/signature/ed25519/signer_key_manager.go#L47

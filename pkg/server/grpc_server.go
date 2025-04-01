@@ -87,7 +87,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 	}
 
 	// Authenticate OIDC ID token by checking signature
-	principal, err := g.IssuerPool.Authenticate(ctx, token)
+	principal, err := g.Authenticate(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
 	}
