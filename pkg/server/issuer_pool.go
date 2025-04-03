@@ -57,15 +57,15 @@ func getIssuer(meta string, i config.OIDCIssuer) identity.Issuer {
 	case config.IssuerTypeEmail:
 		return email.Issuer(issuerURL)
 	case config.IssuerTypeGithubWorkflow:
-		return github.Issuer(issuerURL)
+		return github.Issuer(issuerURL) // nolint
 	case config.IssuerTypeCIProvider:
 		return ciprovider.Issuer(issuerURL)
 	case config.IssuerTypeGitLabPipeline:
-		return gitlabcom.Issuer(issuerURL)
+		return gitlabcom.Issuer(issuerURL) // nolint
 	case config.IssuerTypeBuildkiteJob:
-		return buildkite.Issuer(issuerURL)
+		return buildkite.Issuer(issuerURL) // nolint
 	case config.IssuerTypeCodefreshWorkflow:
-		return codefresh.Issuer(issuerURL)
+		return codefresh.Issuer(issuerURL) // nolint
 	case config.IssuerTypeChainguard:
 		return chainguard.Issuer(issuerURL)
 	case config.IssuerTypeKubernetes:

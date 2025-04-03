@@ -25,6 +25,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
+// Deprecated: Use ciprovider.ciPrincipal instead
 type workflowPrincipal struct {
 	// Subject matches the 'sub' claim from the OIDC ID token this is what is
 	// signed as proof of possession for Github workflow identities
@@ -87,6 +88,7 @@ type workflowPrincipal struct {
 	runAttempt string
 }
 
+// Deprecated: Use ciprovider.WorkflowPrincipalFromIDToken instead
 func WorkflowPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.Principal, error) {
 	var claims struct {
 		JobWorkflowRef       string `json:"job_workflow_ref"`

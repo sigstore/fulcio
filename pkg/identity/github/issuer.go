@@ -23,10 +23,12 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity/base"
 )
 
+// Deprecated: Use ciprovider.ciProviderIssuer instead
 type githubIssuer struct {
 	identity.Issuer
 }
 
+// Deprecated: Use ciprovider.Issuer instead
 func Issuer(issuerURL string) identity.Issuer {
 	return &githubIssuer{base.Issuer(issuerURL)}
 }
