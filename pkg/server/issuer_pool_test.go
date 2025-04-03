@@ -92,7 +92,7 @@ func TestGetIssuer(t *testing.T) {
 				IssuerURL: "github.com",
 				Type:      "github-workflow",
 			},
-			expected: github.Issuer("github.com"),
+			expected: github.Issuer("github.com"), // nolint
 		}, {
 			description: "spiffe",
 			issuer: config.OIDCIssuer{

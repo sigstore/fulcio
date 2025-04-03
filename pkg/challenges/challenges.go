@@ -67,15 +67,15 @@ func PrincipalFromIDToken(ctx context.Context, tok *oidc.IDToken) (identity.Prin
 	var err error
 	switch iss.Type {
 	case config.IssuerTypeBuildkiteJob:
-		principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok)
+		principal, err = buildkite.JobPrincipalFromIDToken(ctx, tok) // nolint
 	case config.IssuerTypeGitLabPipeline:
-		principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok)
+		principal, err = gitlabcom.JobPrincipalFromIDToken(ctx, tok) // nolint
 	case config.IssuerTypeEmail:
 		principal, err = email.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeSpiffe:
 		principal, err = spiffe.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeGithubWorkflow:
-		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok)
+		principal, err = github.WorkflowPrincipalFromIDToken(ctx, tok) // nolint
 	case config.IssuerTypeKubernetes:
 		principal, err = kubernetes.PrincipalFromIDToken(ctx, tok)
 	case config.IssuerTypeURI:
