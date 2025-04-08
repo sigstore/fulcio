@@ -64,6 +64,7 @@ func request_CA_GetTrustBundle_0(ctx context.Context, marshaler runtime.Marshale
 		protoReq GetTrustBundleRequest
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.GetTrustBundle(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -82,6 +83,7 @@ func request_CA_GetConfiguration_0(ctx context.Context, marshaler runtime.Marsha
 		protoReq GetConfigurationRequest
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.GetConfiguration(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
