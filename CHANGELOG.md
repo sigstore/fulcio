@@ -1,3 +1,34 @@
+# v1.7.0
+
+v1.7.0 includes a change to how proof of possession signatures are verified.
+Fulcio has updated the expected hashing algorithm for ECDSA P-384 and P-521
+signatures to be SHA-384 and SHA-512, in line with CSR signature verification.
+Cosign is actively being updated to support this for when signing with a
+managed key and requesting a certificate.
+
+## Features
+
+* Allow configurable client signing algorithms (#1938)
+* Use different hash in proof of possession based on key (#1959)
+* Tls verification on OIDC issuers (#1932)
+* feat: adds cert-utility. (#1870)
+* feat: makes leaf optional and other changes.  (#1931)
+
+## Bug Fixes
+
+* Remove err impossible condition: nil != nil (#1934)
+* mark principal and issuer class under pkg/identity as deprecated (#1980)
+
+## Contributors
+
+* Carlos Tadeu Panato Junior
+* Hayden B
+* ian hundere
+* Praful Khanduri
+* Ramon Petgrave
+* Riccardo Schirone
+* Sujal Gupta
+
 # v1.6.6
 
 ## Features
