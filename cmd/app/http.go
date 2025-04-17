@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -63,8 +64,14 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
-	grpcHealthEndpoint := fmt.Sprintf("localhost:%s", viper.GetString("grpc-port"))
-	cc, err := grpc.NewClient(grpcHealthEndpoint, opts...)
+
+	_, port, err := net.SplitHostPort(grpcServer.grpcServerEndpoint)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+
+	grpcServerEndpoint := fmt.Sprintf("localhost:%s", port)
+	cc, err := grpc.NewClient(grpcServerEndpoint, opts...)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
@@ -73,7 +80,7 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 		runtime.WithForwardResponseOption(setResponseCodeModifier),
 		runtime.WithHealthzEndpoint(health.NewHealthClient(cc)))
 
-	if err := gw.RegisterCAHandlerFromEndpoint(ctx, mux, grpcServer.grpcServerEndpoint, opts); err != nil {
+	if err := gw.RegisterCAHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts); err != nil {
 		log.Logger.Fatal(err)
 	}
 
