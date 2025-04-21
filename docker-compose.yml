@@ -112,9 +112,9 @@ services:
     restart: always # keep the MySQL server running
     healthcheck:
       test: ["CMD", "/etc/init.d/mysql", "status"]
-      interval: 30s
+      interval: 10s
       timeout: 3s
-      retries: 3
+      retries: 9
       start_period: 90s
     volumes:
       - mysql:/var/lib/mysql
