@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM dexidp/dex:v2.42.0@sha256:1b4a6eee8550240b0faedad04d984ca939513650e1d9bd423502c67355e3822f
+FROM dexidp/dex:v2.42.1@sha256:8186d6dd81f400bf0424a4c978c8217736822fcbdf65ba454d025fbf2c0ff300
 
 COPY ./config/dex /etc/config/
