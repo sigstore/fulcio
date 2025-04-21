@@ -46,7 +46,8 @@ services:
       retries: 3
       start_period: 5s
     depends_on:
-      - dex-idp
+      dex-idp:
+        condition: service_healthy
     read_only: true
   dex-idp:
     build:
@@ -72,8 +73,10 @@ services:
       context: .
       dockerfile: Dockerfile.ctfe_init
     depends_on:
-      - trillian-log-server
-      - fulcio-server
+      trillian-log-server:
+        condition: service_started
+      fulcio-server:
+        condition: service_healthy
     volumes:
       - ctfeConfig:/etc/config/:rw
   ct_server:
@@ -109,10 +112,10 @@ services:
     restart: always # keep the MySQL server running
     healthcheck:
       test: ["CMD", "/etc/init.d/mysql", "status"]
-      interval: 30s
+      interval: 10s
       timeout: 3s
-      retries: 3
-      start_period: 10s
+      retries: 9
+      start_period: 90s
     volumes:
       - mysql:/var/lib/mysql
   trillian-log-server:
@@ -129,7 +132,8 @@ services:
       - "8095:8090"
       - "8096:8091"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
   trillian-log-signer:
     image: gcr.io/trillian-opensource-ci/log_signer
     command: [
@@ -144,7 +148,8 @@ services:
     ports:
       - "8097:8096"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
 volumes:
   ctfeConfig: {}
   mysql: {}
