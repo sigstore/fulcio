@@ -84,9 +84,9 @@ jobs:
       - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
 
       - name: Setup Cluster
-        uses: chainguard-dev/actions/setup-kind@29fb6e979a0b3efc79748a17e8cec08d0594cbfd # main
+        uses: chainguard-dev/actions/setup-kind@be6c67b5b374ed43d908ac017ff9b04c271ad3d8 # v1.0.3
         with:
-          k8s-version: 1.26.x
+          k8s-version: 1.31.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
 
       - name: Generate temporary CA files
@@ -172,18 +172,15 @@ jobs:
                 automountServiceAccountToken: false
                 containers:
                 - name: check-oidc
-                  image: gcr.io/projectsigstore/cosign:v1.12.0
+                  image: ghcr.io/sigstore/cosign/cosign:v2.5.0-dev@sha256:d6786d0b31f9577ed6cc1f7fb5080f2335f0cbff2cfceffef5043ee83ebc3a6e
                   args: [
                     "sign",
                     "--fulcio-url=http://fulcio-server.fulcio-system.svc",
                     "--insecure-skip-verify=true",
                     "--upload=false",
+                    "--yes",
                     "${DIGEST}",
                   ]
-
-                  env:
-                  - name: COSIGN_EXPERIMENTAL
-                    value: "true"
                   volumeMounts:
                   - name: oidc-info
                     mountPath: /var/run/sigstore/cosign
@@ -222,4 +219,4 @@ jobs:
 
       - name: Collect diagnostics and upload
         if: ${{ failure() }}
-        uses: chainguard-dev/actions/kind-diag@29fb6e979a0b3efc79748a17e8cec08d0594cbfd # main
+        uses: chainguard-dev/actions/kind-diag@be6c67b5b374ed43d908ac017ff9b04c271ad3d8 # v1.0.3
