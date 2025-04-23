@@ -43,8 +43,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
       timeout: 3s
-      retries: 3
-      start_period: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       dex-idp:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
     volumes:
       - ctfeConfig:/etc/config/:rw
   ct_server:
-    image: gcr.io/trillian-opensource-ci/ctfe
+    image: ghcr.io/sigstore/scaffolding/ct_server:v0.7.22@sha256:30e9085cf0204dc326af2026127a86b955c3d599e37f2b972fe3182e42d572c4
     volumes:
       - ctfeConfig:/etc/config/:ro
       - ./config/tls:/config/tls:z
@@ -103,7 +103,8 @@ services:
     ports:
       - "6962:6962"
   mysql:
-    image: gcr.io/trillian-opensource-ci/db_server:3c8193ebb2d7fedb44d18e9c810d0d2e4dbb7e4d
+    platform: linux/amd64
+    image: gcr.io/trillian-opensource-ci/db_server:v1.7.1@sha256:ae8a6772975720e8b7f0b96bdac1787123c4183b7e33c9bc84768a3f2b99b2bb
     environment:
       - MYSQL_ROOT_PASSWORD=zaphod
       - MYSQL_DATABASE=test
@@ -111,7 +112,7 @@ services:
       - MYSQL_PASSWORD=zaphod
     restart: always # keep the MySQL server running
     healthcheck:
-      test: ["CMD", "/etc/init.d/mysql", "status"]
+      test: ["CMD", "mysqladmin", "-h", "localhost", "-u$MYSQL_USER",  "-p$MYSQL_ROOT_PASSWORD", "-s", "ping"]
       interval: 10s
       timeout: 3s
       retries: 9
@@ -119,7 +120,7 @@ services:
     volumes:
       - mysql:/var/lib/mysql
   trillian-log-server:
-    image: gcr.io/trillian-opensource-ci/log_server
+    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.1@sha256:8ae059cbde81aadc80aa07fb3a8e84f43a8d87e9f7e820c48dd33f6288b232fe
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
@@ -135,7 +136,7 @@ services:
       mysql:
         condition: service_healthy
   trillian-log-signer:
-    image: gcr.io/trillian-opensource-ci/log_signer
+    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.1@sha256:46de4e7eec9944567f688dff946569f0725e48eeb4b07093a5f3aa11c130627f
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
