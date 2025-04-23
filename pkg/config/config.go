@@ -32,12 +32,12 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/goccy/go-yaml"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"gopkg.in/yaml.v3"
 )
 
 const defaultOIDCDiscoveryTimeout = 10 * time.Second

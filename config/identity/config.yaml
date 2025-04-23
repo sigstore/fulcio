@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-define:
-  - &github-type "github-workflow"
-  - &gitlab-type "gitlab-pipeline"
-  - &codefresh-type "codefresh-workflow"
-  - &buildkite-type "buildkite-job"
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -28,7 +23,7 @@ oidc-issuers:
     issuer-url: https://agent.buildkite.com
     client-id: sigstore
     type: ci-provider
-    ci-provider: *buildkite-type
+    ci-provider: "buildkite-job"
     contact: support@buildkite.com
     description: "Buildkite Agent OIDC tokens for job identity"
   https://auth.eclipse.org/auth/realms/sigstore:
@@ -41,21 +36,21 @@ oidc-issuers:
     issuer-url: https://dev.gitlab.org
     client-id: sigstore
     type: ci-provider
-    ci-provider: *gitlab-type
+    ci-provider: "gitlab-pipeline"
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://gitlab.archlinux.org:
     issuer-url: https://gitlab.archlinux.org
     client-id: sigstore
     type: ci-provider
-    ci-provider: *gitlab-type
+    ci-provider: "gitlab-pipeline"
     contact: sigstore@archlinux.org
     description: "GitLab OIDC tokens for job identity"
   https://gitlab.com:
     issuer-url: https://gitlab.com
     client-id: sigstore
     type: ci-provider
-    ci-provider: *gitlab-type
+    ci-provider: "gitlab-pipeline"
     contact: support@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://issuer.enforce.dev:
@@ -87,21 +82,21 @@ oidc-issuers:
     issuer-url: https://oidc.codefresh.io
     client-id: sigstore
     type: ci-provider
-    ci-provider: *codefresh-type
+    ci-provider: "codefresh-workflow"
     contact: support@codefresh.io
     description: "Codefresh OIDC tokens for job identity"
   https://ops.gitlab.net:
     issuer-url: https://ops.gitlab.net
     client-id: sigstore
     type: ci-provider
-    ci-provider: *gitlab-type
+    ci-provider: "gitlab-pipeline"
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
   https://token.actions.githubusercontent.com:
     issuer-url: https://token.actions.githubusercontent.com
     client-id: sigstore
     type: ci-provider
-    ci-provider: *github-type
+    ci-provider: "github-workflow"
     contact: tac@sigstore.dev
     description: "GitHub Actions OIDC auth"
   https://sigstore.verify.ibm.com/oauth2:
@@ -126,9 +121,9 @@ meta-issuers:
   https://token.actions.githubusercontent.com/*:
     client-id: sigstore
     type: ci-provider
-    ci-provider: *github-type
+    ci-provider: "github-workflow"
 ci-issuer-metadata:
-  *github-type:
+  "github-workflow":
     default-template-values:
       # url: URL of issuer, https://github.com
       url: "https://github.com"
@@ -170,7 +165,7 @@ ci-issuer-metadata:
       # repository_visibility: Visibility of the source repo
       source-repository-visibility-at-signing: "repository_visibility"
     subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
-  *gitlab-type:
+  "gitlab-pipeline":
     default-template-values:
       url: "https://gitlab.com"
     extension-templates:
@@ -207,7 +202,7 @@ ci-issuer-metadata:
       # project_visibility: Visibility of the source project
       source-repository-visibility-at-signing: "project_visibility"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
-  *codefresh-type:
+  "codefresh-workflow":
     default-template-values:
       # We are setting the default value for "platform_url" as the ci-provider
       # principal gives priority to the claimed value over the default
@@ -239,7 +234,7 @@ ci-issuer-metadata:
       # account_id: Codefresh account id
       run-invocation-uri: "{{.platform_url}}/build/{{ .workflow_id }}"
     subject-alternative-name-template: "{{.platform_url}}/{{.account_name}}/{{.pipeline_name}}:{{.account_id}}/{{.pipeline_id}}"
-  *buildkite-type:
+  "buildkite-job":
     default-template-values:
       url: "https://buildkite.com"
     extension-templates:
