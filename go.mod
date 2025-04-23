@@ -31,7 +31,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.3
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.3
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.12
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
 	github.com/spiffe/go-spiffe/v2 v2.5.0
@@ -47,7 +47,7 @@ require (
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
-	sigs.k8s.io/release-utils v0.9.0
+	sigs.k8s.io/release-utils v0.11.1
 )
 
 require (
