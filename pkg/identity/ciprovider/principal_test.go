@@ -71,7 +71,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			claims, err := json.Marshal(map[string]interface{}{
+			claims, err := json.Marshal(map[string]any{
 				"issuer":                "https://token.actions.githubusercontent.com",
 				"event_name":            "trigger",
 				"sha":                   "sha",
@@ -138,11 +138,11 @@ func withClaims(token *oidc.IDToken, data []byte) {
 
 func TestName(t *testing.T) {
 	tests := map[string]struct {
-		Claims     map[string]interface{}
+		Claims     map[string]any
 		ExpectName string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   "0",
@@ -216,7 +216,7 @@ func TestName(t *testing.T) {
 
 func TestGetTokenClaims(t *testing.T) {
 
-	tokenClaims := map[string]interface{}{
+	tokenClaims := map[string]any{
 		"aud":                "sigstore",
 		"exp":                "0",
 		"iss":                "https://example.com",
@@ -231,7 +231,7 @@ func TestGetTokenClaims(t *testing.T) {
 
 	tests := map[string]struct {
 		Claim          string
-		InputClaims    map[string]interface{}
+		InputClaims    map[string]any
 		ExpectedResult string
 		ExpectErr      bool
 	}{
@@ -333,6 +333,7 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		"ref_gitlab":            "main",
 		"ref_type_tag":          "tag",
 		"ref_tag":               "1.0.0",
+		"html_claim":            "<alert()/>",
 		"claim_foo":             "bar",
 	}
 	issuerMetadata := map[string]string{
@@ -350,6 +351,12 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		`Valid template`: {
 			Template:       "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 			ExpectedResult: "https://github.com/sigstore/fulcio/actions/runs/42/attempts/1",
+			ExpectErr:      false,
+		},
+		// Tests fix for https://github.com/pypa/gh-action-pypi-publish/issues/355
+		`Template with HTML`: {
+			Template:       "{{ .html_claim }}",
+			ExpectedResult: "<alert()/>",
 			ExpectErr:      false,
 		},
 		`Empty template`: {
@@ -432,7 +439,7 @@ func TestEmbed(t *testing.T) {
 		WantFacts map[string]func(x509.Certificate) error
 		Principal ciPrincipal
 	}{
-		`Github workflow challenge should have all Github workflow extensions and issuer set`: {
+		`GitHub workflow challenge should have all GitHub workflow extensions and issuer set`: {
 			WantFacts: map[string]func(x509.Certificate) error{
 				`Certifificate should have correct issuer`:                       factDeprecatedExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, "https://token.actions.githubusercontent.com"),
 				`Certificate has correct trigger extension`:                      factDeprecatedExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 2}, "trigger"),
@@ -491,7 +498,7 @@ func TestEmbed(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			var cert x509.Certificate
-			claims, err := json.Marshal(map[string]interface{}{
+			claims, err := json.Marshal(map[string]any{
 				"event_name":            "trigger",
 				"sha":                   "sha",
 				"workflow":              "workflowname",

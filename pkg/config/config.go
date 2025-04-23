@@ -22,13 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -526,7 +526,7 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
 		v := reflect.ValueOf(ciIssuerMetadata.ExtensionTemplates)
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			s := v.Field(i).String()
 			err := checkParse(s)
 			if err != nil {
