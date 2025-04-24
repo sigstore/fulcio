@@ -20,19 +20,20 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	"maps"
 	"math"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
-func mapValuesToString(claims map[string]interface{}) map[string]string {
+func mapValuesToString(claims map[string]any) map[string]string {
 	newMap := make(map[string]string)
 	for k, v := range claims {
 		vType := reflect.ValueOf(v)
@@ -53,7 +54,7 @@ func mapValuesToString(claims map[string]interface{}) map[string]string {
 }
 
 func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
-	var tokenClaims map[string]interface{}
+	var tokenClaims map[string]any
 	if err := token.Claims(&tokenClaims); err != nil {
 		return nil, err
 	}
@@ -73,12 +74,8 @@ func applyTemplateOrReplace(
 	// with the default data.
 	// The claimed data will have priority over the default data.
 	mergedData := make(map[string]string)
-	for k, v := range issuerMetadata {
-		mergedData[k] = v
-	}
-	for k, v := range tokenClaims {
-		mergedData[k] = v
-	}
+	maps.Copy(mergedData, issuerMetadata)
+	maps.Copy(mergedData, tokenClaims)
 
 	if strings.Contains(extValueTemplate, "{{") {
 		var doc bytes.Buffer
@@ -165,7 +162,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	// Type of the reflect value is needed as it is necessary
 	// for getting the field name.
 	vType := v.Type()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		s := v.Field(i).String() // value of each field, e.g the template string
 		// We check the field name to avoid to apply the template for the Issuer
 		// Issuer field should always come from the token issuer
