@@ -1,3 +1,14 @@
+# v1.7.1
+
+v1.7.1 contains a bug fix for extensions for CI providers where the OIDC claims
+include HTML escape characters. If a client attempted to verify an extension value,
+verification would fail unless an HTML-escaped string was used in the comparison.
+Extension values will no longer be escaped.
+
+## Bug Fixes:
+
+* Do not HTML-escape extension values (#2023)
+
 # v1.7.0
 
 v1.7.0 includes a change to how proof of possession signatures are verified.

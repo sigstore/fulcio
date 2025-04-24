@@ -309,6 +309,10 @@ func (g *grpcaCAServer) Check(_ context.Context, _ *health.HealthCheckRequest) (
 	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
 }
 
+func (g *grpcaCAServer) List(_ context.Context, _ *health.HealthListRequest) (*health.HealthListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
 func (g *grpcaCAServer) Watch(_ *health.HealthCheckRequest, _ health.Health_WatchServer) error {
 	return status.Error(codes.Unimplemented, "unimplemented")
 }
