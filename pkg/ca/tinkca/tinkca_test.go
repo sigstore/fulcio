@@ -26,6 +26,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	_ "github.com/sigstore/sigstore/pkg/signature/kms/fake"
+	tinkUtils "github.com/sigstore/sigstore/pkg/signature/tink"
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/signature"
@@ -45,7 +46,7 @@ func TestNewTinkCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating ECDSA key handle: %v", err)
 	}
-	khsigner, err := KeyHandleToSigner(kh)
+	khsigner, err := tinkUtils.KeyHandleToSigner(kh)
 	if err != nil {
 		t.Fatalf("error converting ECDSA key handle to signer: %v", err)
 	}

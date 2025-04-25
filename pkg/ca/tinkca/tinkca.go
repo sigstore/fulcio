@@ -25,7 +25,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-
+	tinkUtils "github.com/sigstore/sigstore/pkg/signature/tink"
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms"
 	"github.com/tink-crypto/tink-go-gcpkms/v2/integration/gcpkms"
 	"github.com/tink-crypto/tink-go/v2/core/registry"
@@ -61,7 +61,7 @@ func NewTinkCAFromHandle(_ context.Context, tinkKeysetPath, certPath string, pri
 	if err != nil {
 		return nil, err
 	}
-	signer, err := KeyHandleToSigner(kh)
+	signer, err := tinkUtils.KeyHandleToSigner(kh)
 	if err != nil {
 		return nil, err
 	}

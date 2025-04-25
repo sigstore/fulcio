@@ -30,6 +30,7 @@ import (
 	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"github.com/sigstore/fulcio/pkg/ca/tinkca"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	tinkUtils "github.com/sigstore/sigstore/pkg/signature/tink"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -92,7 +93,7 @@ func fetchCACertificate(ctx context.Context, parent, kmsKey, tinkKeysetPath, tin
 		if err != nil {
 			return nil, err
 		}
-		signer, err = tinkca.KeyHandleToSigner(kh)
+		signer, err = tinkUtils.KeyHandleToSigner(kh)
 		if err != nil {
 			return nil, err
 		}
