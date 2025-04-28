@@ -104,7 +104,7 @@ services:
       - "6962:6962"
   mysql:
     platform: linux/amd64
-    image: gcr.io/trillian-opensource-ci/db_server:v1.7.1@sha256:ae8a6772975720e8b7f0b96bdac1787123c4183b7e33c9bc84768a3f2b99b2bb
+    image: gcr.io/trillian-opensource-ci/db_server:v1.7.2@sha256:c3d5e243a2995e6bd83479c59cf5f586244f0988f97429f44e3334da0a95a5d0
     environment:
       - MYSQL_ROOT_PASSWORD=zaphod
       - MYSQL_DATABASE=test
