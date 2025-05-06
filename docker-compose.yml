@@ -112,7 +112,7 @@ services:
       - MYSQL_PASSWORD=zaphod
     restart: always # keep the MySQL server running
     healthcheck:
-      test: ["CMD", "mysqladmin", "-h", "localhost", "-u$MYSQL_USER",  "-p$MYSQL_ROOT_PASSWORD", "-s", "ping"]
+      test: ["CMD", "mysqladmin", "-h", "127.0.0.1", "-u$MYSQL_USER",  "-p$MYSQL_ROOT_PASSWORD", "-s", "ping"]
       interval: 10s
       timeout: 3s
       retries: 9
