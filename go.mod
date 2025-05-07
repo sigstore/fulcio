@@ -39,7 +39,7 @@ require (
 	github.com/tink-crypto/tink-go-awskms/v2 v2.1.0
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.2.0
 	github.com/tink-crypto/tink-go/v2 v2.4.0
-	go.step.sm/crypto v0.61.0
+	go.step.sm/crypto v0.63.0
 	go.uber.org/zap v1.27.0
 	goa.design/goa/v3 v3.20.1
 	google.golang.org/api v0.231.0
