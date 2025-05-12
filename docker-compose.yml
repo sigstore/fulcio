@@ -80,7 +80,7 @@ services:
     volumes:
       - ctfeConfig:/etc/config/:rw
   ct_server:
-    image: ghcr.io/sigstore/scaffolding/ct_server:v0.7.22@sha256:30e9085cf0204dc326af2026127a86b955c3d599e37f2b972fe3182e42d572c4
+    image: ghcr.io/sigstore/scaffolding/ct_server:v0.7.23@sha256:47170e948ac210422de689168a2422c7223f5c45121d910b9168be41deef66d2
     volumes:
       - ctfeConfig:/etc/config/:ro
       - ./config/tls:/config/tls:z
@@ -120,7 +120,7 @@ services:
     volumes:
       - mysql:/var/lib/mysql
   trillian-log-server:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.1@sha256:8ae059cbde81aadc80aa07fb3a8e84f43a8d87e9f7e820c48dd33f6288b232fe
+    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.2@sha256:ff64f73b4a8acae7546ecfb5b73c90933b614130a3b43c764a35535e4f60451b
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
@@ -136,7 +136,7 @@ services:
       mysql:
         condition: service_healthy
   trillian-log-signer:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.1@sha256:46de4e7eec9944567f688dff946569f0725e48eeb4b07093a5f3aa11c130627f
+    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.2@sha256:bfcc659dc08f87a0f4a4797edf88c93426a95f0d004032779a028bdce7b7e821
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
