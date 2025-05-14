@@ -442,7 +442,7 @@ func checkServeCmdConfigFile() error {
 	return nil
 }
 
-func duplexHealthz(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
+func duplexHealthz(_ context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
 	cc, err := grpc.NewClient(endpoint, opts...)
 	if err != nil {
 		return err
