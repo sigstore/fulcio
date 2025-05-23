@@ -67,6 +67,7 @@ import (
 	"goa.design/goa/v3/grpc/middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -441,6 +442,16 @@ func checkServeCmdConfigFile() error {
 	return nil
 }
 
+func duplexHealthz(_ context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
+	cc, err := grpc.NewClient(endpoint, opts...)
+	if err != nil {
+		return err
+	}
+	registerHealthz := runtime.WithHealthzEndpoint(health.NewHealthClient(cc))
+	registerHealthz(mux)
+	return nil
+}
+
 func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, host string, port, metricsPort int, ip identity.IssuerPool) error {
 	logger, opts := log.SetupGRPCLogging()
 
@@ -482,6 +493,12 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	grpcMetrics.EnableHandlingTimeHistogram()
 	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
 	grpc_prometheus.Register(d.Server)
+
+	// Healthz
+	health.RegisterHealthServer(d.Server, grpcCAServer)
+	if err := d.RegisterHandler(ctx, duplexHealthz); err != nil {
+		return fmt.Errorf("registering healthz endpoint: %w", err)
+	}
 
 	// Register prometheus handle.
 	d.RegisterListenAndServeMetrics(metricsPort, false)
