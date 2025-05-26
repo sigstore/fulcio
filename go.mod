@@ -39,10 +39,10 @@ require (
 	github.com/tink-crypto/tink-go/v2 v2.4.0
 	go.step.sm/crypto v0.64.0
 	go.uber.org/zap v1.27.0
-	goa.design/goa/v3 v3.21.0
+	goa.design/goa/v3 v3.21.1
 	google.golang.org/api v0.234.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2
-	google.golang.org/grpc v1.72.1
+	google.golang.org/grpc v1.72.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.11.1
