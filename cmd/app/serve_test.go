@@ -119,4 +119,15 @@ func TestDuplex(t *testing.T) {
 			t.Fatalf("didn't get expected metrics output: %s", string(contents))
 		}
 	})
+
+	t.Run("healthz", func(t *testing.T) {
+		url := fmt.Sprintf("http://localhost:%d/healthz", port)
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if code := resp.StatusCode; code != 200 {
+			t.Fatalf("/healthz returned status code %d, want 200", code)
+		}
+	})
 }
