@@ -37,7 +37,7 @@ require (
 	github.com/tink-crypto/tink-go-awskms/v2 v2.1.0
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.2.0
 	github.com/tink-crypto/tink-go/v2 v2.4.0
-	go.step.sm/crypto v0.64.0
+	go.step.sm/crypto v0.66.0
 	go.uber.org/zap v1.27.0
 	goa.design/goa/v3 v3.21.1
 	google.golang.org/api v0.234.0
@@ -54,12 +54,12 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
-	cloud.google.com/go/kms v1.21.2 // indirect
+	cloud.google.com/go/kms v1.22.0 // indirect
 	cloud.google.com/go/longrunning v0.6.7 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.3.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.1.1 // indirect
