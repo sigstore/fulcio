@@ -35,7 +35,7 @@ Then, obtain trusted root keys for Sigstore. You will use the 5th iteration of S
 a backwards incompatible change.
 
 ```
-curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/main/ceremony/2022-10-18/repository/5.root.json
+curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/main/metadata/root_history/5.root.json
 ```
 
 Initialize the TUF client with the previously obtained root and the remote repository, https://tuf-repo-cdn.sigstore.dev,
