@@ -64,6 +64,12 @@ oidc-issuers:
     type: chainguard-identity
     contact: mattmoor@chainguard.dev
     description: "Chainguard identity tokens"
+  https://issuer.chainops.dev:
+    issuer-url: https://issuer.chainops.dev
+    client-id: sigstore
+    type: chainguard-identity
+    contact: priya@chainguard.dev
+    description: "Chainguard identity tokens"
   https://issuer.hello.coop:
     issuer-url: https://issuer.hello.coop
     client-id: sigstore
