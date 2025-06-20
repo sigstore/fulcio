@@ -83,7 +83,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ct_server
-    user: root
     volumes:
       - ctfeConfig:/etc/config/:ro
       - ./config/tls:/config/tls:z
