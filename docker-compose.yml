@@ -80,7 +80,9 @@ services:
     volumes:
       - ctfeConfig:/etc/config/:rw
   ct_server:
-    image: ghcr.io/sigstore/scaffolding/ct_server:v0.7.23@sha256:47170e948ac210422de689168a2422c7223f5c45121d910b9168be41deef66d2
+    build:
+      context: .
+      dockerfile: Dockerfile.ct_server
     volumes:
       - ctfeConfig:/etc/config/:ro
       - ./config/tls:/config/tls:z
@@ -92,6 +94,12 @@ services:
         "--tls_key", "/config/tls/tls.key",
         "--alsologtostderr",
     ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-k", "https://localhost:6962/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 15s
     restart: always # retry while ctfe_init is running
     depends_on:
       trillian-log-server:
