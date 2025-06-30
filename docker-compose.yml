@@ -144,7 +144,7 @@ services:
       mysql:
         condition: service_healthy
   trillian-log-signer:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.2@sha256:bfcc659dc08f87a0f4a4797edf88c93426a95f0d004032779a028bdce7b7e821
+    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.2@sha256:65ed1871a11d4bf2c1d0b7c1f8b5fbc90f842788edc577b90adb024dec03dbe2
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
