@@ -44,6 +44,9 @@ func request_CA_CreateSigningCertificate_0(ctx context.Context, marshaler runtim
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
 	msg, err := client.CreateSigningCertificate(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -65,7 +68,9 @@ func request_CA_GetRootCertificate_0(ctx context.Context, marshaler runtime.Mars
 		protoReq emptypb.Empty
 		metadata runtime.ServerMetadata
 	)
-	io.Copy(io.Discard, req.Body)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
 	msg, err := client.GetRootCertificate(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
