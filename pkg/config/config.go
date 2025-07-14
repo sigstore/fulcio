@@ -205,26 +205,10 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	// If this issuer hasn't been recently used, or we have special config options, then create a new verifier
 	// and add it to the LRU cache.
 
-	var client *http.Client
-	if iss.CACert != "" {
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		if ok := rootCAs.AppendCertsFromPEM([]byte(iss.CACert)); !ok {
-			log.Logger.Warnf("Failed to append custom CA cert for issuer URL %q", issuerURL)
-			return nil, false
-		}
-
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    rootCAs,
-				MinVersion: tls.VersionTLS12,
-			},
-		}
-		client = &http.Client{Transport: transport}
-	} else {
-		client = http.DefaultClient
+	client, err := httpClientForIssuer(iss)
+	if err != nil {
+		log.Logger.Warnf("error building http client for issuer %q: %s", iss.IssuerURL, err)
+		return nil, false
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
@@ -232,7 +216,7 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 
 	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), issuerURL)
 	if err != nil {
-		log.Logger.Warnf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
+		log.Logger.Errorf("Failed to create provider for issuer URL %q: %v", issuerURL, err)
 		return nil, false
 	}
 
@@ -286,6 +270,27 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 	return issuers
 }
 
+func httpClientForIssuer(iss OIDCIssuer) (*http.Client, error) {
+	if iss.CACert != "" {
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		if ok := rootCAs.AppendCertsFromPEM([]byte(iss.CACert)); !ok {
+			return nil, fmt.Errorf("failed to append custom CA cert for issuer URL %q", iss.IssuerURL)
+		}
+
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:    rootCAs,
+				MinVersion: tls.VersionTLS12,
+			},
+		}
+		return &http.Client{Transport: transport}, nil
+	}
+	return http.DefaultClient, nil
+}
+
 func (fc *FulcioConfig) prepare() error {
 	if _, ok := fc.GetIssuer("https://kubernetes.default.svc"); ok {
 		// Add the Kubernetes cluster's CA to the system CA pool, and to
@@ -317,7 +322,12 @@ func (fc *FulcioConfig) prepare() error {
 	for _, iss := range fc.OIDCIssuers {
 		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
 		defer cancel()
-		provider, err := oidc.NewProvider(ctx, iss.IssuerURL)
+		client, err := httpClientForIssuer(iss)
+		if err != nil {
+			log.Logger.Errorf("error creating http client for issuer URL %q: %v", iss.IssuerURL, err)
+			continue
+		}
+		provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), iss.IssuerURL)
 		if err != nil {
 			log.Logger.Errorf("error creating provider for issuer URL %q: %v", iss.IssuerURL, err)
 		} else {
@@ -517,7 +527,6 @@ func FromContext(ctx context.Context) *FulcioConfig {
 // It checks that the templates defined are parseable
 // We should check it during the service bootstrap to avoid errors further
 func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
-
 	checkParse := func(temp string) error {
 		t := template.New("").Option("missingkey=error")
 		_, err := t.Parse(temp)
