@@ -305,8 +305,8 @@ github.com/segmentio/ksuid v1.0.4 h1:sBo2BdShXjmcugAMwjugoGUdUV0pcxY5mW4xKRn3v4c
 github.com/segmentio/ksuid v1.0.4/go.mod h1:/XUiZBD3kVx5SmUOl55voK5yeAbBNNIed+2O73XgrPE=
 github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
-github.com/sigstore/protobuf-specs v0.4.3 h1:kRgJ+ciznipH9xhrkAbAEHuuxD3GhYnGC873gZpjJT4=
-github.com/sigstore/protobuf-specs v0.4.3/go.mod h1:+gXR+38nIa2oEupqDdzg4qSBT0Os+sP7oYv6alWewWc=
+github.com/sigstore/protobuf-specs v0.5.0 h1:F8YTI65xOHw70NrvPwJ5PhAzsvTnuJMGLkA4FIkofAY=
+github.com/sigstore/protobuf-specs v0.5.0/go.mod h1:+gXR+38nIa2oEupqDdzg4qSBT0Os+sP7oYv6alWewWc=
 github.com/sigstore/sigstore v1.9.5 h1:Wm1LT9yF4LhQdEMy5A2JeGRHTrAWGjT3ubE5JUSrGVU=
 github.com/sigstore/sigstore v1.9.5/go.mod h1:VtxgvGqCmEZN9X2zhFSOkfXxvKUjpy8RpUW39oCtoII=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.5 h1:qp2VFyKuFQvTGmZwk5Q7m5nE4NwnF9tHwkyz0gtWAck=
