@@ -51,6 +51,17 @@ type verifierWithConfig struct {
 	*oidc.Config
 }
 
+type bearerTokenTransport struct {
+	Transport http.RoundTripper
+	Token     string
+}
+
+func (t *bearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	return t.Transport.RoundTrip(req)
+}
+
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
 
@@ -292,47 +303,20 @@ func httpClientForIssuer(iss OIDCIssuer) (*http.Client, error) {
 }
 
 func (fc *FulcioConfig) prepare() error {
-	if _, ok := fc.GetIssuer("https://kubernetes.default.svc"); ok {
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := os.ReadFile(k8sCA)
-		if err != nil {
-			return fmt.Errorf("read file: %w", err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return fmt.Errorf("unable to append certs")
-		}
-
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	} else {
-		// If we parse a config that doesn't include a cluster issuer
-		// signed with the cluster'sCA, then restore the original transport
-		// (in case we overwrote it)
-		http.DefaultTransport = originalTransport
-	}
-
 	fc.verifiers = make(map[string][]*verifierWithConfig, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
-		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
-		defer cancel()
-		client, err := httpClientForIssuer(iss)
-		if err != nil {
-			log.Logger.Errorf("error creating http client for issuer URL %q: %v", iss.IssuerURL, err)
+		if err := fc.insertVerifier(iss); err != nil {
+			log.Logger.Errorf("error creating provider for issuer URL %q: %v", iss.IssuerURL, err)
 			continue
 		}
-		provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), iss.IssuerURL)
-		if err != nil {
-			log.Logger.Errorf("error creating provider for issuer URL %q: %v", iss.IssuerURL, err)
-		} else {
-			cfg := &oidc.Config{ClientID: iss.ClientID}
-			fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
+	}
+
+	_, verifierPresent := fc.verifiers[k8sIssuerURL]
+	k8sIssuer, issuerConfigured := fc.GetIssuer(k8sIssuerURL)
+	if issuerConfigured && !verifierPresent {
+		// configure static validator for k8s that cover metaIssuers
+		if err := fc.insertVerifier(k8sIssuer); err != nil {
+			log.Logger.Errorf("error creating provider for issuer URL %q: %v", k8sIssuer.IssuerURL, err)
 		}
 	}
 
@@ -341,6 +325,65 @@ func (fc *FulcioConfig) prepare() error {
 		return fmt.Errorf("lru: %w", err)
 	}
 	fc.lru = cache
+	return nil
+}
+
+var (
+	k8sCA = "/var/run/fulcio/ca.crt"
+	// k8sTokenFile specifies the standard path where Kubernetes automatically
+	// mounts the projected service account token for a pod.
+	// This path is publicly known and not a sensitive credential itself,
+	// hence the Gosec G101 warning is a false positive and is suppressed.
+	// #nosec G101
+	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	k8sIssuerURL = "https://kubernetes.default.svc"
+)
+
+func (fc *FulcioConfig) insertVerifier(iss OIDCIssuer) error {
+	var client *http.Client
+	if iss.IssuerURL == k8sIssuerURL {
+		// Add the Kubernetes cluster's CA to the client's CA pool
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		certs, err := os.ReadFile(k8sCA)
+		if err != nil {
+			return fmt.Errorf("unable to read cluster CA file: %w", err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return fmt.Errorf("unable to append cluster certs")
+		}
+
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig.RootCAs = rootCAs
+
+		// add the authentication header
+		tokenBytes, err := os.ReadFile(k8sTokenFile)
+		if err != nil {
+			return fmt.Errorf("unable to read cluster token file: %w", err)
+		}
+
+		client = &http.Client{Transport: &bearerTokenTransport{
+			Transport: transport,
+			Token:     string(tokenBytes),
+		}}
+
+	} else {
+		var err error
+		client, err = httpClientForIssuer(iss)
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
+	defer cancel()
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), iss.IssuerURL)
+	if err != nil {
+		return err
+	} else {
+		cfg := &oidc.Config{ClientID: iss.ClientID}
+		fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
+	}
 	return nil
 }
 
@@ -506,8 +549,6 @@ var DefaultConfig = &FulcioConfig{
 		},
 	},
 }
-
-var originalTransport = http.DefaultTransport
 
 type configKey struct{}
 
