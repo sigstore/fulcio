@@ -31,7 +31,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -717,79 +720,10 @@ func TestVerifierCache(t *testing.T) {
 }
 
 func TestVerifierCacheWithCustomCA(t *testing.T) {
-	ca := &x509.Certificate{
-		SerialNumber: big.NewInt(2024),
-		Subject: pkix.Name{
-			CommonName: "Test CA",
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(1, 0, 0),
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-	}
-
-	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	caPEM, serverTLSCert, err := createServerTLS()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	caPEM := new(bytes.Buffer)
-	pem.Encode(caPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: caBytes,
-	})
-
-	serverCert := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: "localhost",
-		},
-		DNSNames:    []string{"localhost"},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
-		NotBefore:   time.Now(),
-		NotAfter:    time.Now().AddDate(1, 0, 0),
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	}
-
-	serverPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	serverCertBytes, err := x509.CreateCertificate(
-		rand.Reader,
-		serverCert,
-		ca,
-		&serverPrivKey.PublicKey,
-		caPrivKey,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	serverCertPEM := new(bytes.Buffer)
-	pem.Encode(serverCertPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: serverCertBytes,
-	})
-
-	serverKeyPEM := new(bytes.Buffer)
-	pem.Encode(serverKeyPEM, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivKey),
-	})
-
-	serverTLSCert, err := tls.X509KeyPair(serverCertPEM.Bytes(), serverKeyPEM.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	var server *httptest.Server
 	server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -856,6 +790,229 @@ func TestVerifierCacheWithCustomCA(t *testing.T) {
 	if reflect.DeepEqual(verifier, verifierWithOptions) {
 		t.Fatal("verifier with options shouldn't match original verifier")
 	}
+}
+
+func TestVerifyK8sDefaultIssuer(t *testing.T) {
+	var (
+		crtFile, tokenFile *os.File
+		err                error
+	)
+	caPEM, serverTLSCert, err := createServerTLS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if crtFile, err = mockFile("ca-*.crt", caPEM.String()); err != nil {
+		t.Fatal(err)
+	}
+	const token = "faketoken"
+	if tokenFile, err = mockFile("token-*", token); err != nil {
+		t.Fatal(err)
+	}
+
+	var server *httptest.Server
+	counter := atomic.Uint64{}
+	authorized := atomic.Bool{}
+	server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		counter.Add(1)
+		if v := r.Header.Get("Authorization"); v == "" {
+			authorized.Store(false)
+		} else {
+			authorized.Store(true)
+			if v != fmt.Sprintf("Bearer %s", token) {
+				t.Fatal("Authorization header doesn't match the token")
+			}
+
+		}
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"issuer":   server.URL,
+				"jwks_uri": server.URL + "/keys",
+			})
+		case "/keys":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"keys": []interface{}{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	server.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	k8sCA = crtFile.Name()
+	tokenFilePath := tokenFile.Name()
+	k8sIssuerURL = server.URL
+
+	metaIssuer := strings.ReplaceAll(server.URL, "127.0.0.1", "*.*.*.*")
+
+	tests := []struct {
+		name          string
+		fc            *FulcioConfig
+		authorized    bool
+		tokenFilePath string
+	}{
+		{
+			name:          "OIDCIssuer",
+			authorized:    true,
+			tokenFilePath: tokenFilePath,
+			fc: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					k8sIssuerURL: {
+						IssuerURL: k8sIssuerURL,
+						ClientID:  "sigstore",
+						Type:      IssuerTypeKubernetes,
+					},
+				},
+			},
+		},
+		{
+			name:          "MetaIssuer",
+			authorized:    true,
+			tokenFilePath: tokenFilePath,
+			fc: &FulcioConfig{
+				MetaIssuers: map[string]OIDCIssuer{
+					metaIssuer: {
+						ClientID: "sigstore",
+						Type:     IssuerTypeKubernetes,
+					},
+				},
+			},
+		},
+		{
+			name:          "Unauthorized",
+			authorized:    false,
+			tokenFilePath: "/fake",
+			fc: &FulcioConfig{
+				OIDCIssuers: map[string]OIDCIssuer{
+					k8sIssuerURL: {
+						IssuerURL: k8sIssuerURL,
+						ClientID:  "sigstore",
+						Type:      IssuerTypeKubernetes,
+					},
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			k8sTokenFile = test.tokenFilePath
+			c := counter.Load()
+			if err = test.fc.prepare(); err != nil {
+				t.Fatal(err)
+			}
+
+			_, ok := test.fc.GetVerifier(k8sIssuerURL)
+			if !ok {
+				t.Fatal("expected to get verifier")
+			}
+
+			if counter.Load() <= c {
+				t.Fatal("Server API was not requested")
+			}
+
+			if authorized.Load() != test.authorized {
+				t.Fatal("Authorization header misbehaving")
+			}
+		})
+	}
+
+}
+
+func createServerTLS() (caPEM *bytes.Buffer, serverTLSCert tls.Certificate, err error) {
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(2024),
+		Subject: pkix.Name{
+			CommonName: "Test CA",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(1, 0, 0),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+	}
+
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return
+	}
+
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return
+	}
+
+	caPEM = new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	})
+
+	serverCert := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "localhost",
+		},
+		DNSNames:    []string{"localhost"},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(1, 0, 0),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+
+	serverPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return
+	}
+
+	serverCertBytes, err := x509.CreateCertificate(
+		rand.Reader,
+		serverCert,
+		ca,
+		&serverPrivKey.PublicKey,
+		caPrivKey,
+	)
+	if err != nil {
+		return
+	}
+
+	serverCertPEM := new(bytes.Buffer)
+	pem.Encode(serverCertPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: serverCertBytes,
+	})
+
+	serverKeyPEM := new(bytes.Buffer)
+	pem.Encode(serverKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivKey),
+	})
+
+	serverTLSCert, err = tls.X509KeyPair(serverCertPEM.Bytes(), serverKeyPEM.Bytes())
+	if err != nil {
+		return
+	}
+	return
+}
+
+func mockFile(pattern, content string) (*os.File, error) {
+	tmpFile, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tmpFile.WriteString(content)
+	if err != nil {
+		return nil, err
+	}
+	_ = tmpFile.Close()
+	return tmpFile, nil
 }
 
 type mockKeySet struct {
