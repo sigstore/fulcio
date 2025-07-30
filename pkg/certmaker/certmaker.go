@@ -471,14 +471,12 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			parts := strings.Split(keyID, "/")
-			if len(parts) < 3 {
-				return fmt.Errorf("hashivault %s must be in format: transit/keys/keyname", keyType)
+			// HashiVault KMS expects just the key name, not the full transit path
+			// The Sigstore library constructs the full path internally
+			if strings.Contains(keyID, "/") {
+				return fmt.Errorf("hashivault %s should be just the key name (e.g., 'my-key'), not a path", keyType)
 			}
-			if parts[0] != "transit" || parts[1] != "keys" {
-				return fmt.Errorf("hashivault %s must start with 'transit/keys/'", keyType)
-			}
-			if parts[2] == "" {
+			if keyID == "" {
 				return fmt.Errorf("key name cannot be empty for %s", keyType)
 			}
 			return nil
