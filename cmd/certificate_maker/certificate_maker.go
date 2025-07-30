@@ -80,6 +80,7 @@ func init() {
 	mustBindEnv("gcp-credentials-file", "GCP_CREDENTIALS_FILE")
 	mustBindEnv("vault-token", "VAULT_TOKEN")
 	mustBindEnv("vault-address", "VAULT_ADDR")
+	mustBindEnv("vault-namespace", "VAULT_NAMESPACE")
 	mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
 	mustBindEnv("intermediate-key-id", "KMS_INTERMEDIATE_KEY_ID")
 	mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
@@ -93,6 +94,7 @@ func init() {
 	createCmd.Flags().String("gcp-credentials-file", "", "Path to credentials file for GCP KMS")
 	createCmd.Flags().String("vault-token", "", "HashiVault token")
 	createCmd.Flags().String("vault-address", "", "HashiVault server address")
+	createCmd.Flags().String("vault-namespace", "", "HashiVault namespace (for Vault Enterprise)")
 
 	// Root certificate flags
 	createCmd.Flags().String("root-key-id", "", "KMS key identifier for root certificate")
@@ -120,6 +122,7 @@ func init() {
 	mustBindPFlag("gcp-credentials-file", createCmd.Flags().Lookup("gcp-credentials-file"))
 	mustBindPFlag("vault-token", createCmd.Flags().Lookup("vault-token"))
 	mustBindPFlag("vault-address", createCmd.Flags().Lookup("vault-address"))
+	mustBindPFlag("vault-namespace", createCmd.Flags().Lookup("vault-namespace"))
 	mustBindPFlag("root-key-id", createCmd.Flags().Lookup("root-key-id"))
 	mustBindPFlag("root-template", createCmd.Flags().Lookup("root-template"))
 	mustBindPFlag("root-cert", createCmd.Flags().Lookup("root-cert"))
@@ -178,6 +181,9 @@ func runCreate(_ *cobra.Command, args []string) error {
 		}
 		if vaultAddr := viper.GetString("vault-address"); vaultAddr != "" {
 			config.Options["vault-address"] = vaultAddr
+		}
+		if vaultNamespace := viper.GetString("vault-namespace"); vaultNamespace != "" {
+			config.Options["vault-namespace"] = vaultNamespace
 		}
 	}
 

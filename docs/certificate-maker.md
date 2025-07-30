@@ -45,6 +45,7 @@ Available flags:
 - `--gcp-credentials-file`: Path to credentials file (for Google Cloud KMS)
 - `--vault-address`: HashiCorp Vault address
 - `--vault-token`: HashiCorp Vault token
+- `--vault-namespace`: HashiCorp Vault namespace (for Vault Enterprise)
 
 - `--root-template`: Path to root certificate template
 - `--root-lifetime`: Root certificate lifetime (default: 87600h, 10 years)
@@ -74,6 +75,7 @@ Available flags:
 
 - `VAULT_ADDR`: HashiCorp Vault address
 - `VAULT_TOKEN`: HashiCorp Vault token
+- `VAULT_NAMESPACE`: HashiCorp Vault namespace (if using Vault Enterprise with namespaces)
 
 ### Certificate Templates
 
@@ -124,12 +126,25 @@ export AZURE_TENANT_ID=83j229-83j229-83j229-83j229-83j229
 
 ```shell
 export KMS_TYPE=hashivault
-export ROOT_KEY_ID=transit/keys/root-key
-export KMS_INTERMEDIATE_KEY_ID=transit/keys/intermediate-key
-export LEAF_KEY_ID=transit/keys/leaf-key
-export VAULT_ADDR=http://vault:8200
-export VAULT_TOKEN=token
+# Key IDs should be just the key name, not the full transit path
+export ROOT_KEY_ID=root-key
+export KMS_INTERMEDIATE_KEY_ID=intermediate-key
+export LEAF_KEY_ID=leaf-key
+export VAULT_ADDR=https://vault.example.com:8200
+export VAULT_TOKEN=your-vault-token
+# Optional: Set namespace if using Vault Enterprise
+export VAULT_NAMESPACE=admin/your-namespace
 ```
+
+**Important Notes for HashiVault:**
+
+- Key IDs should be just the key name (e.g., `root-key`), not the full transit path (`transit/keys/root-key`)
+- The Sigstore library automatically constructs the full path internally
+- Use HTTPS for production Vault deployments
+- Set `VAULT_NAMESPACE` if your keys are in a specific Vault namespace
+- Ensure your Vault token has the following permissions:
+  - `read` capability on `transit/keys/<key-name>` (to fetch public keys)
+  - `update` capability on `transit/sign/<key-name>` (to perform signing operations)
 
 ### Example Certificate Outputs
 
@@ -311,13 +326,37 @@ Example with GCP KMS:
 Example with HashiCorp Vault KMS:
 
 ```bash
+# Set environment variables (recommended approach)
+export VAULT_ADDR=https://vault.example.com:8200
+export VAULT_TOKEN=your-vault-token
+# Optional: Set namespace if using Vault Enterprise
+export VAULT_NAMESPACE=admin/your-namespace
+
+# Run the certificate maker
 ./certificate-maker create "https://fulcio.example.com" \
   --kms-type hashivault \
-  --vault-address http://vault:8200 \
-  --vault-token token \
-  --root-key-id "transit/keys/root-key" \
-  --leaf-key-id "transit/keys/leaf-key" \
-  --intermediate-key-id "transit/keys/intermediate-key" \
+  --root-key-id "root-key" \
+  --leaf-key-id "leaf-key" \
+  --intermediate-key-id "intermediate-key" \
+  --root-cert root.pem \
+  --leaf-cert leaf.pem \
+  --intermediate-cert intermediate.pem \
+  --root-lifetime 87600h \
+  --intermediate-lifetime 43800h \
+  --leaf-lifetime 8760h
+```
+
+**Alternative with command-line flags:**
+
+```bash
+./certificate-maker create "https://fulcio.example.com" \
+  --kms-type hashivault \
+  --vault-address https://vault.example.com:8200 \
+  --vault-token your-vault-token \
+  --vault-namespace admin/your-namespace \
+  --root-key-id "root-key" \
+  --leaf-key-id "leaf-key" \
+  --intermediate-key-id "intermediate-key" \
   --root-cert root.pem \
   --leaf-cert leaf.pem \
   --intermediate-cert intermediate.pem \

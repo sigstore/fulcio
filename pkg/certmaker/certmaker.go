@@ -117,6 +117,9 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 			if vaultAddr := config.Options["vault-address"]; vaultAddr != "" {
 				os.Setenv("VAULT_ADDR", vaultAddr)
 			}
+			if vaultNamespace := config.Options["vault-namespace"]; vaultNamespace != "" {
+				os.Setenv("VAULT_NAMESPACE", vaultNamespace)
+			}
 		}
 
 		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
@@ -471,8 +474,6 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			// HashiVault KMS expects just the key name, not the full transit path
-			// The Sigstore library constructs the full path internally
 			if strings.Contains(keyID, "/") {
 				return fmt.Errorf("hashivault %s should be just the key name (e.g., 'my-key'), not a path", keyType)
 			}
