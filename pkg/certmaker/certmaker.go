@@ -117,6 +117,9 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 			if vaultAddr := config.Options["vault-address"]; vaultAddr != "" {
 				os.Setenv("VAULT_ADDR", vaultAddr)
 			}
+			if vaultNamespace := config.Options["vault-namespace"]; vaultNamespace != "" {
+				os.Setenv("VAULT_NAMESPACE", vaultNamespace)
+			}
 		}
 
 		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
@@ -471,14 +474,10 @@ func ValidateKMSConfig(config KMSConfig) error {
 			if keyID == "" {
 				return nil
 			}
-			parts := strings.Split(keyID, "/")
-			if len(parts) < 3 {
-				return fmt.Errorf("hashivault %s must be in format: transit/keys/keyname", keyType)
+			if strings.Contains(keyID, "/") {
+				return fmt.Errorf("hashivault %s should be just the key name (e.g., 'my-key'), not a path", keyType)
 			}
-			if parts[0] != "transit" || parts[1] != "keys" {
-				return fmt.Errorf("hashivault %s must start with 'transit/keys/'", keyType)
-			}
-			if parts[2] == "" {
+			if keyID == "" {
 				return fmt.Errorf("key name cannot be empty for %s", keyType)
 			}
 			return nil

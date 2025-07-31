@@ -282,7 +282,7 @@ func TestValidateKMSConfig(t *testing.T) {
 			name: "valid HashiVault config",
 			config: KMSConfig{
 				Type:  "hashivault",
-				KeyID: "transit/keys/root-key",
+				KeyID: "root-key",
 				Options: map[string]string{
 					"vault-token":   "token",
 					"vault-address": "http://localhost:8200",
@@ -381,7 +381,7 @@ func TestValidateKMSConfig(t *testing.T) {
 					"vault-address": "http://localhost:8200",
 				},
 			},
-			wantError: "hashivault KeyID must be in format: transit/keys/keyname",
+			wantError: "hashivault KeyID should be just the key name",
 		},
 		{
 			name: "missing key ID",
