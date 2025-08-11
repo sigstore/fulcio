@@ -43,9 +43,9 @@ require (
 	google.golang.org/api v0.244.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250721164621-a45f3dfb1074
 	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/yaml.v3 v3.0.1
-	sigs.k8s.io/release-utils v0.12.0
+	sigs.k8s.io/release-utils v0.12.1
 )
 
 require (
