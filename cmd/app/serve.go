@@ -42,6 +42,7 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
@@ -60,11 +61,13 @@ import (
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/server"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature/kms/gcp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"goa.design/goa/v3/grpc/middleware"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	health "google.golang.org/grpc/health/grpc_health_v1"
@@ -103,6 +106,8 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Bool("fileca-watch", true, "Watch filesystem for updates")
 	cmd.Flags().String("kms-resource", "", "KMS key resource path. Must be prefixed with awskms://, azurekms://, gcpkms://, or hashivault://")
 	cmd.Flags().String("kms-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for KMS-backed CA")
+	cmd.Flags().Uint("gcp-kms-retries", 0, "Number of retries for GCP KMS requests")
+	cmd.Flags().Uint("gcp-kms-timeout", 0, "sets the RPC timeout per call for GCP KMS requests in seconds, defaults to 0 (no timeout)")
 	cmd.Flags().String("tink-kms-resource", "", "KMS key resource path for encrypted Tink keyset. Must be prefixed with gcp-kms:// or aws-kms://")
 	cmd.Flags().String("tink-cert-chain-path", "", "Path to PEM-encoded CA certificate chain for Tink-backed CA")
 	cmd.Flags().String("tink-keyset-path", "", "Path to KMS-encrypted keyset for Tink-backed CA")
@@ -287,7 +292,10 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		if err != nil {
 			log.Logger.Fatalf("error loading the PEM certificates from the kms certificate chain from '%s': %v", viper.GetString("kms-cert-chain-path"), err)
 		}
-		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), certs)
+		opts := make([]signature.RPCOption, 0)
+		callOpts := []grpc_retry.CallOption{grpc_retry.WithMax(viper.GetUint("gcp-kms-retries")), grpc_retry.WithPerRetryTimeout(time.Duration(viper.GetUint("gcp-kms-timeout")) * time.Second)}
+		opts = append(opts, gcp.WithGoogleAPIClientOption(option.WithGRPCDialOption(grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(callOpts...)))))
+		baseca, err = kmsca.NewKMSCA(cmd.Context(), viper.GetString("kms-resource"), certs, opts...)
 	case "tinkca":
 		baseca, err = tinkca.NewTinkCA(cmd.Context(),
 			viper.GetString("tink-kms-resource"), viper.GetString("tink-keyset-path"), viper.GetString("tink-cert-chain-path"))
