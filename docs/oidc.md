@@ -25,6 +25,86 @@ To add a new OIDC issuer:
 
 See [this example](https://github.com/sigstore/fulcio/pull/890), although it is out of date as you'll now need to create an issuer type.
 
+## Authorization rules
+
+Fulcio supports optional claims-based authorization that can be configured per OIDC issuer to restrict certificate issuance based on token claims.
+
+### Configuration
+
+Authorization rules are configured in the `authorization-rules` section of each OIDC issuer:
+
+```yaml
+oidc-issuers:
+  https://token.actions.githubusercontent.com:
+    issuer-url: https://token.actions.githubusercontent.com
+    client-id: sigstore
+    type: github-workflow
+    authorization-rules:
+      - name: "Allow specific repositories"
+        logic: "AND"
+        conditions:
+          - field: "repository_owner"
+            pattern: "^myorg$"
+          - field: "repository"
+            pattern: "^myorg/(prod-api|staging-api)$"
+```
+
+### Rule evaluation
+
+- Rules are evaluated after successful OIDC authentication
+- If ANY rule matches, authorization passes
+- If NO rules match, authorization fails (HTTP 403)
+- If NO rules are configured, authorization is skipped
+
+### Common patterns
+
+Note: we assume that the OIDC tokens expose the claims used in those examples.
+
+**Repository-based access**:
+```yaml
+authorization-rules:
+  - name: "Production repositories"
+    logic: "AND"
+    conditions:
+      - field: "repository_owner"
+        pattern: "^myorg$"
+      - field: "repository"
+        pattern: "^myorg/(api|web|mobile)$"
+```
+
+**User-based access**:
+```yaml
+authorization-rules:
+  - name: "Admin users"
+    logic: "OR"
+    conditions:
+      - field: "role"
+        pattern: "^administrator$"
+      - field: "sub"
+        pattern: "^admin@myorg\\.com$"
+```
+
+**Environment-based access**:
+```yaml
+authorization-rules:
+  - name: "Production deployments"
+    logic: "AND"
+    conditions:
+      - field: "environment"
+        pattern: "^production$"
+```
+
+### Security considerations
+
+- **Fail-secure by design**: Invalid authorization configurations prevent server startup
+- **No fallback behavior**: Malformed authorization rules never default to allow-all access
+- **Authorization provides defense in depth beyond OIDC authentication** (suitable for private deployments)
+- **Rules use Go regex patterns** (safe from ReDoS attacks)
+- **All authorization decisions are logged for audit**
+- **Failed authorization does not reveal token claims in responses**
+
+See [Authorization documentation](authorization.md) for comprehensive configuration examples and security guidance.
+
 ### How to pick a SAN
 
 SANs are important for users to describe identities across platforms. They are

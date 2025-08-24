@@ -99,7 +99,7 @@ func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogC
 	if err != nil {
 		t.Error(err)
 	}
-	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, algorithmRegistry, ip))
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, algorithmRegistry, ip, nil))
 	go func() {
 		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("Server exited with error: %v", err)

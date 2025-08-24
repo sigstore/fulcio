@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/sigstore/fulcio/pkg/authorization"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -40,6 +41,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"go.uber.org/zap"
 )
 
 type GRPCCAServer interface {
@@ -47,12 +49,13 @@ type GRPCCAServer interface {
 	health.HealthServer
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) GRPCCAServer {
+func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool, auth authorization.Authorizer) GRPCCAServer {
 	return &grpcaCAServer{
 		ct:                ct,
 		ca:                ca,
 		algorithmRegistry: algorithmRegistry,
 		IssuerPool:        ip,
+		authorizer:        auth,
 	}
 }
 
@@ -66,6 +69,7 @@ type grpcaCAServer struct {
 	ca                certauth.CertificateAuthority
 	algorithmRegistry *signature.AlgorithmRegistryConfig
 	identity.IssuerPool
+	authorizer authorization.Authorizer
 }
 
 func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *fulciogrpc.CreateSigningCertificateRequest) (*fulciogrpc.SigningCertificate, error) {
@@ -90,6 +94,14 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 	principal, err := g.Authenticate(ctx, token)
 	if err != nil {
 		return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidIdentityToken)
+	}
+
+	// Perform claims-based authorization if rules are configured
+	if g.authorizer != nil {
+		if err := g.performAuthorization(ctx, token); err != nil {
+			logger.Warn("Authorization failed", zap.Error(err))
+			return nil, handleFulcioGRPCError(ctx, codes.PermissionDenied, err, "authorization failed")
+		}
 	}
 
 	var publicKey crypto.PublicKey
@@ -335,4 +347,49 @@ func getHashFuncForSignatureAlgorithm(signatureAlgorithm x509.SignatureAlgorithm
 		return crypto.Hash(0), nil
 	}
 	return crypto.Hash(0), fmt.Errorf("unrecognized signature algorithm: %s", signatureAlgorithm)
+}
+
+// performAuthorization performs claims-based authorization for the given OIDC token
+func (g *grpcaCAServer) performAuthorization(ctx context.Context, tokenString string) error {
+	logger := log.ContextLogger(ctx)
+
+	// Use the existing Authorize function to verify token and get claims
+	idToken, err := identity.Authorize(ctx, tokenString)
+	if err != nil {
+		return fmt.Errorf("token verification failed during authorization: %w", err)
+	}
+
+	// Extract issuer from the verified token
+	var claims map[string]interface{}
+	if err := idToken.Claims(&claims); err != nil {
+		return fmt.Errorf("failed to extract claims from token: %w", err)
+	}
+
+	issuerURL, ok := claims["iss"].(string)
+	if !ok {
+		return fmt.Errorf("issuer claim not found or invalid in token")
+	}
+
+	// Get the issuer configuration
+	cfg := config.FromContext(ctx)
+	if cfg == nil {
+		return fmt.Errorf("configuration not available in context")
+	}
+
+	issuerConfig, ok := cfg.GetIssuer(issuerURL)
+	if !ok {
+		return fmt.Errorf("issuer not found in configuration: %s", issuerURL)
+	}
+
+	// Perform authorization using the configured authorizer
+	if err := g.authorizer.Authorize(ctx, idToken, issuerConfig); err != nil {
+		logger.Debug("Claims-based authorization failed",
+			zap.String("issuer", issuerURL),
+			zap.Error(err))
+		return err
+	}
+
+	logger.Debug("Claims-based authorization passed",
+		zap.String("issuer", issuerURL))
+	return nil
 }
