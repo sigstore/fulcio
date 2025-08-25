@@ -56,7 +56,7 @@ func TestDuplex(t *testing.T) {
 	}
 
 	go func() {
-		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, algorithmRegistry, "localhost", port, metricsPort, nil); err != nil {
+		if err := StartDuplexServer(ctx, config.DefaultConfig, nil, ca, algorithmRegistry, "localhost", port, metricsPort, nil, nil); err != nil {
 			log.Fatalf("error starting duplex server: %v", err)
 		}
 	}()

@@ -40,16 +40,29 @@ To authenticate the token Fulcio must:
 - Download the issuer's signing keys from the discovery endpoint
 - Verify the ID token signature
 
-## 3 | Verifying the challenge
+## 3 | Authorization (optional)
 
-Once the client has been authenticated, the next step is to verify the client
-is in possession of the private key of the public key they’ve submitted. To do
+After successful authentication, Fulcio can optionally perform claims-based authorization
+if authorization rules are configured for the OIDC issuer. This step evaluates the
+authenticated token's claims against configurable access control rules.
+
+Authorization follows these principles:
+- Invalid authorization configurations prevent server startup
+- If authorization rules are configured and none match the token claims, the request is rejected with HTTP 403 Forbidden
+- If no authorization rules are configured, this step is skipped entirely
+
+See [Authorization documentation](authorization.md) for detailed configuration and examples.
+
+## 4 | Verifying the challenge
+
+Once the client has been authenticated (and optionally authorized), the next step is to verify the client
+is in possession of the private key of the public key they've submitted. To do
 this, Fulcio verifies the signed challenge or CSR. For a signed challenge, this is
 a signature of the `sub` claim. The challenge and CSR are verified using the provided public key.
 
 ![Challenge verification diagram](img/verify-challenge.png)
 
-## 4 | Constructing a certificate
+## 5 | Constructing a certificate
 
 The client is now authenticated and has proved possession of the private key. Fulcio now
 issues a code signing certificate for the identity from the ID token.
@@ -65,7 +78,7 @@ At a high level, this consists of:
 - Setting various X.509 extensions depending on the metadata in
   the OIDC ID token claims (e.g GitHub Actions workflow information)
 
-## 5 | Signing the certificate
+## 6 | Signing the certificate
 
 The code signing certificate is now populated, but needs to be signed
 by the certificate authority. This will form a chain of trust from the issued
@@ -81,11 +94,11 @@ Fulcio supports several signing backends to sign certificates:
   [softHSM](https://www.opendnssec.org/softhsm/) and others
 - [Google CA Service](https://cloud.google.com/certificate-authority-service/docs): A GCP-hosted certificate authority
 - Files: An on-disk password-protected private key
-- Ephemeral (for testing): An in-memory key pair generated on start up 
+- Ephemeral (for testing): An in-memory key pair generated on start up
 
 See [Setting up a Fulcio instance](setup.md) for more details.
 
-## 6 | Certificate Transparency log inclusion
+## 7 | Certificate Transparency log inclusion
 
 As part of certificate issuance, the certificate will be appended to an immutable, append-only,
 cryptographically verifiable certificate transparency (CT) log, which allows for issuance to be
@@ -110,7 +123,7 @@ transparency log. Fulcio's CT Log only stores issued certificates, while Rekor s
 
 See [Certificate Transparency Log Information](ctlog.md) for more details.
 
-## 7 | Return certificate to client
+## 8 | Return certificate to client
 
 Finally, the certificate and SCT are both returned to the client.
 
