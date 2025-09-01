@@ -44,7 +44,7 @@ jobs:
       - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
         name: Install protobuf
         with:
-          version: '31.1'
+          version: '32.0'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
