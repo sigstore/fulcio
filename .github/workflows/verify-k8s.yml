@@ -84,7 +84,7 @@ jobs:
       - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
 
       - name: Setup Cluster
-        uses: chainguard-dev/actions/setup-kind@be7b31a01af8ce7228fe901326f1d223fb788e14 # v1.4.12
+        uses: chainguard-dev/actions/setup-kind@3caedd3784c809ba873cbb8c6a12e2bc6bf6ab09 # v1.4.13
         with:
           k8s-version: 1.31.x
           registry-authority: ${{ env.REGISTRY_NAME }}:${{ env.REGISTRY_PORT }}
@@ -219,4 +219,4 @@ jobs:
 
       - name: Collect diagnostics and upload
         if: ${{ failure() }}
-        uses: chainguard-dev/actions/kind-diag@be7b31a01af8ce7228fe901326f1d223fb788e14 # v1.4.12
+        uses: chainguard-dev/actions/kind-diag@3caedd3784c809ba873cbb8c6a12e2bc6bf6ab09 # v1.4.13
