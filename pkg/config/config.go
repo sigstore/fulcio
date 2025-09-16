@@ -122,6 +122,27 @@ type OIDCIssuer struct {
 	// This is used to trust the TLS certificate signed by an internal CA when interacting
 	// with some OIDC providers, preventing x509 certificate verification failures.
 	CACert string `json:"CACert,omitempty" yaml:"ca-cert,omitempty"`
+
+	// AuthorizationRules contains optional claims-based authorization rules for this issuer
+	AuthorizationRules []AuthorizationRule `json:"AuthorizationRules,omitempty" yaml:"authorization-rules,omitempty"`
+}
+
+// AuthorizationCondition represents a single claim matching condition
+type AuthorizationCondition struct {
+	// Field is the JWT claim field to check
+	Field string `json:"field" yaml:"field"`
+	// Pattern is a regex pattern that the claim value must match
+	Pattern string `json:"pattern" yaml:"pattern"`
+}
+
+// AuthorizationRule represents a logical rule with multiple conditions
+type AuthorizationRule struct {
+	// Name is a human-readable description of this rule
+	Name string `json:"name" yaml:"name"`
+	// Logic specifies how to combine conditions: "AND" (default) or "OR"
+	Logic string `json:"logic,omitempty" yaml:"logic,omitempty"`
+	// Conditions are the individual claim checks that make up this rule
+	Conditions []AuthorizationCondition `json:"conditions" yaml:"conditions"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
