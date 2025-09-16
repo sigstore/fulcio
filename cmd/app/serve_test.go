@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/api"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -38,6 +39,14 @@ import (
 )
 
 func TestDuplex(t *testing.T) {
+	// Use a custom registry to avoid conflicts with global metrics
+	customRegistry := prometheus.NewRegistry()
+	originalRegistry := prometheus.DefaultRegisterer
+	prometheus.DefaultRegisterer = customRegistry
+	defer func() {
+		prometheus.DefaultRegisterer = originalRegistry
+	}()
+
 	// Start a server with duplex on port 8089
 	ctx := context.Background()
 	ca, err := ephemeralca.NewEphemeralCA()
