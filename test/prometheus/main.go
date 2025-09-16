@@ -38,16 +38,13 @@ func parseMF(url string) (map[string]*dto.MetricFamily, error) {
 	}
 	defer resp.Body.Close()
 
-	var parser expfmt.TextParser
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	return parser.TextToMetricFamilies(resp.Body)
 }
 
 func main() {
 	f := flag.String("url", "http://fulcio-server.fulcio-system.svc:2112/metrics", "set url to fetch metrics from")
 	flag.Parse()
-
-	// Set the validation scheme to avoid "unset" validation scheme error
-	model.NameValidationScheme = model.UTF8Validation
 
 	mf, err := parseMF(*f)
 	if err != nil {
