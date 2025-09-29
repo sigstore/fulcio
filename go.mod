@@ -5,7 +5,7 @@ go 1.24.6
 require (
 	chainguard.dev/go-grpc-kit v0.17.15
 	chainguard.dev/sdk v0.1.41
-	cloud.google.com/go/security v1.19.1
+	cloud.google.com/go/security v1.19.2
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
@@ -45,7 +45,7 @@ require (
 	google.golang.org/grpc v1.75.1
 	google.golang.org/protobuf v1.36.9
 	gopkg.in/yaml.v3 v3.0.1
-	sigs.k8s.io/release-utils v0.12.1
+	sigs.k8s.io/release-utils v0.12.2
 )
 
 require (
