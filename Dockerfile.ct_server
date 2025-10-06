@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.24@sha256:82ef780062d6828e3e6b1e9e607097d2096f77ea9f2f921fda6022bef415ce8a AS server
+FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.25@sha256:ba7e3303cae06097fab776e5b45e9ff8aa32ebe05ca472c63ef6e62156e69717 AS server
 
 FROM golang:1.25.1@sha256:d7098379b7da665ab25b99795465ec320b1ca9d4addb9f77409c4827dc904211 AS deploy
 
