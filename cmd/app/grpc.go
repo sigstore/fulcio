@@ -35,6 +35,7 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sigstore/fulcio/pkg/authorization"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -148,6 +149,38 @@ func (c *cachedTLSCert) UpdateCertificate() error {
 	return nil
 }
 
+// setupAuthorization creates and configures the authorization component
+func setupAuthorization(cfg *config.FulcioConfig) authorization.Authorizer {
+	authorizer := authorization.NewDefaultAuthorizer()
+
+	// If no config provided, return default authorizer (no rules)
+	if cfg == nil || cfg.OIDCIssuers == nil {
+		return authorizer
+	}
+
+	// Compile rules for all configured issuers (any authorization configuration error is fatal)
+	for issuerURL, issuerConfig := range cfg.OIDCIssuers {
+		if len(issuerConfig.AuthorizationRules) > 0 {
+			if err := authorizer.CompileRules(issuerURL, issuerConfig.AuthorizationRules); err != nil {
+				log.Logger.Fatalf("Failed to compile authorization rules for issuer %s: %v", issuerURL, err)
+			}
+			log.Logger.Infof("Compiled %d authorization rules for issuer: %s", len(issuerConfig.AuthorizationRules), issuerURL)
+		}
+	}
+
+	// Compile rules for meta issuers (any authorization configuration error is fatal)
+	for metaURL, issuerConfig := range cfg.MetaIssuers {
+		if len(issuerConfig.AuthorizationRules) > 0 {
+			if err := authorizer.CompileRules(metaURL, issuerConfig.AuthorizationRules); err != nil {
+				log.Logger.Fatalf("Failed to compile authorization rules for meta issuer %s: %v", metaURL, err)
+			}
+			log.Logger.Infof("Compiled %d authorization rules for meta issuer: %s", len(issuerConfig.AuthorizationRules), metaURL)
+		}
+	}
+
+	return authorizer
+}
+
 func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(&tls.Config{
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -188,7 +221,9 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 
 	myServer := grpc.NewServer(serverOpts...)
 
-	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, algorithmRegistry, ip)
+	authorizer := setupAuthorization(cfg)
+
+	grpcCAServer := server.NewGRPCCAServer(ctClient, baseca, algorithmRegistry, ip, authorizer)
 
 	health.RegisterHealthServer(myServer, grpcCAServer)
 	// Register your gRPC service implementations.
