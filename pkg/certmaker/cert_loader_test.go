@@ -167,13 +167,14 @@ func TestLoadCertificateFromFile(t *testing.T) {
 			path := tt.setup(tmpDir)
 			cert, err := LoadCertificateFromFile(path)
 
-			if tt.wantError != nil {
+			switch {
+			case tt.wantError != nil:
 				require.Error(t, err)
 				assert.ErrorIs(t, err, tt.wantError)
-			} else if tt.checkCert != nil {
+			case tt.checkCert != nil:
 				require.NoError(t, err)
 				tt.checkCert(t, cert)
-			} else {
+			default:
 				// for malformed certificate test
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to parse X.509 certificate")
@@ -251,7 +252,7 @@ func TestValidateCertificateKeyMatch(t *testing.T) {
 				require.NoError(t, err)
 				return createTestCertificate(t, key)
 			},
-			setupSV: func(t *testing.T, pubKey crypto.PublicKey) *mockSignerVerifier {
+			setupSV: func(t *testing.T, _ crypto.PublicKey) *mockSignerVerifier {
 				// generate a different key
 				differentKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 				require.NoError(t, err)
@@ -270,7 +271,7 @@ func TestValidateCertificateKeyMatch(t *testing.T) {
 				require.NoError(t, err)
 				return createTestCertificate(t, key)
 			},
-			setupSV: func(t *testing.T, pubKey crypto.PublicKey) *mockSignerVerifier {
+			setupSV: func(t *testing.T, _ crypto.PublicKey) *mockSignerVerifier {
 				// return ECDSA key instead of RSA
 				ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 				require.NoError(t, err)
@@ -284,10 +285,10 @@ func TestValidateCertificateKeyMatch(t *testing.T) {
 		},
 		{
 			name: "nil certificate",
-			setupCert: func(t *testing.T) *x509.Certificate {
+			setupCert: func(_ *testing.T) *x509.Certificate {
 				return nil
 			},
-			setupSV: func(t *testing.T, pubKey crypto.PublicKey) *mockSignerVerifier {
+			setupSV: func(_ *testing.T, _ crypto.PublicKey) *mockSignerVerifier {
 				return &mockSignerVerifier{}
 			},
 			wantError: nil, // will get "certificate is nil" error
@@ -299,7 +300,7 @@ func TestValidateCertificateKeyMatch(t *testing.T) {
 				require.NoError(t, err)
 				return createTestCertificate(t, key)
 			},
-			setupSV: func(t *testing.T, pubKey crypto.PublicKey) *mockSignerVerifier {
+			setupSV: func(_ *testing.T, _ crypto.PublicKey) *mockSignerVerifier {
 				return &mockSignerVerifier{
 					publicKeyFunc: func() (crypto.PublicKey, error) {
 						return nil, errors.New("KMS error")
@@ -322,16 +323,17 @@ func TestValidateCertificateKeyMatch(t *testing.T) {
 
 			err := ValidateCertificateKeyMatch(cert, sv)
 
-			if tt.wantError != nil {
+			switch {
+			case tt.wantError != nil:
 				require.Error(t, err)
 				assert.ErrorIs(t, err, tt.wantError)
-			} else if tt.name == "nil certificate" {
+			case tt.name == "nil certificate":
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "certificate is nil")
-			} else if tt.name == "KMS error getting public key" {
+			case tt.name == "KMS error getting public key":
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to get public key from KMS")
-			} else {
+			default:
 				require.NoError(t, err)
 			}
 		})
