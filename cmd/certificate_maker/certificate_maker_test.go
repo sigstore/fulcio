@@ -16,17 +16,42 @@
 package main
 
 import (
+	"context"
+	"crypto"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sigstore/fulcio/pkg/certmaker"
 	"github.com/sigstore/fulcio/pkg/log"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// a test double for signature.SignerVerifier
+type mockSignerVerifier struct{}
+
+func (m *mockSignerVerifier) PublicKey(...signature.PublicKeyOption) (crypto.PublicKey, error) {
+	return nil, errors.New("mock error getting public key")
+}
+
+func (m *mockSignerVerifier) VerifySignature(io.Reader, io.Reader, ...signature.VerifyOption) error {
+	return errors.New("not implemented")
+}
+
+func (m *mockSignerVerifier) SignMessage(io.Reader, ...signature.SignOption) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockSignerVerifier) CryptoSigner(context.Context, func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+	return nil, nil, errors.New("not implemented")
+}
 
 func TestGetConfigValue(t *testing.T) {
 	var (
@@ -718,7 +743,7 @@ func TestTemplateValidationInRunCreate(t *testing.T) {
 				"--kms-type", "awskms",
 				"--aws-region", "us-west-2",
 			},
-			want: "error getting root public key",
+			want: "error getting root crypto signer",
 		},
 		{
 			name: "nonexistent root template",
@@ -772,6 +797,15 @@ func TestTemplateValidationInRunCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// stubs kmsGet to avoid AWS calls
+			if tt.name == "valid template paths" {
+				old := certmaker.InitKMS
+				certmaker.InitKMS = func(_ context.Context, _ certmaker.KMSConfig) (signature.SignerVerifier, error) {
+					return &mockSignerVerifier{}, nil
+				}
+				defer func() { certmaker.InitKMS = old }()
+			}
+
 			cmd := setupTestCommand()
 			cmd.SetArgs(tt.args)
 			for k, v := range tt.env {

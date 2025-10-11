@@ -41,6 +41,9 @@ import (
 	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 )
 
+// variable to allow stubbing in tests
+var kmsGet = kms.Get
+
 // CryptoSignerVerifier extends SignerVerifier with CryptoSigner capability
 type CryptoSignerVerifier interface {
 	signature.SignerVerifier
@@ -70,7 +73,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		if awsRegion := config.Options["aws-region"]; awsRegion != "" {
 			os.Setenv("AWS_REGION", awsRegion)
 		}
-		sv, err = kms.Get(ctx, ref, crypto.SHA256)
+		sv, err = kmsGet(ctx, ref, crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS KMS: %w", err)
 		}
@@ -80,7 +83,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		if gcpCredsFile := config.Options["gcp-credentials-file"]; gcpCredsFile != "" {
 			os.Setenv("GCP_CREDENTIALS_FILE", gcpCredsFile)
 		}
-		sv, err = kms.Get(ctx, ref, crypto.SHA256)
+		sv, err = kmsGet(ctx, ref, crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize GCP KMS: %w", err)
 		}
@@ -103,7 +106,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		}
 		os.Setenv("AZURE_AUTHORITY_HOST", "https://login.microsoftonline.com/")
 
-		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
+		sv, err = kmsGet(ctx, keyURI, crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Azure KMS: %w", err)
 		}
@@ -122,7 +125,7 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 			}
 		}
 
-		sv, err = kms.Get(ctx, keyURI, crypto.SHA256)
+		sv, err = kmsGet(ctx, keyURI, crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize HashiVault KMS: %w", err)
 		}
