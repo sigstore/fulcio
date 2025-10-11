@@ -142,26 +142,23 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 }
 
 // CreateCertificates creates certificates using the provided KMS and templates.
-// Root certificate is always required.
+// Root certificate is always required (either generated or loaded from existingRootCertPath).
 // Intermediate and leaf certificates are optional based on provided key IDs and templates.
+// if existingRootCertPath or existingIntermediateCertPath are provided, those certificates
+// will be loaded and used instead of generating new ones.
 func CreateCertificates(config KMSConfig,
 	rootTemplatePath, leafTemplatePath string,
 	rootCertPath, leafCertPath string,
 	intermediateKeyID, intermediateTemplatePath, intermediateCertPath string,
 	leafKeyID string,
-	rootLifetime, intermediateLifetime, leafLifetime time.Duration) error {
+	rootLifetime, intermediateLifetime, leafLifetime time.Duration,
+	existingRootCertPath, existingIntermediateCertPath string) error {
 
 	// Initialize root KMS signer
 	rootConfig := config
 	sv, err := InitKMS(context.Background(), rootConfig)
 	if err != nil {
 		return fmt.Errorf("error initializing root KMS: %w", err)
-	}
-
-	// Create root cert (required)
-	rootPubKey, err := sv.PublicKey()
-	if err != nil {
-		return fmt.Errorf("error getting root public key: %w", err)
 	}
 
 	// Get crypto.Signer for root
@@ -174,101 +171,167 @@ func CreateCertificates(config KMSConfig,
 		return fmt.Errorf("error getting root crypto signer: %w", err)
 	}
 
-	// Use default root template if none provided
-	var rootTemplate interface{}
-	if rootTemplatePath == "" {
-		defaultTemplate, err := GetDefaultTemplate("root")
+	var rootCert *x509.Certificate
+
+	// Load existing root certificate or generate new one
+	if existingRootCertPath != "" {
+		// Load existing root certificate
+		rootCert, err = LoadCertificateFromFile(existingRootCertPath)
 		if err != nil {
-			return fmt.Errorf("error getting default root template: %w", err)
+			return fmt.Errorf("error loading existing root certificate: %w", err)
 		}
-		if defaultTemplate == "" {
-			return fmt.Errorf("root template is required but no template was provided")
+
+		// Validate that loaded certificate matches root KMS key
+		if err := ValidateCertificateKeyMatch(rootCert, sv); err != nil {
+			return fmt.Errorf("existing root certificate does not match root KMS key: %w", err)
 		}
-		rootTemplate = defaultTemplate
+
+		fmt.Printf("Loaded existing root cert from %s\n", existingRootCertPath)
 	} else {
-		// Read from FS if path is provided
-		content, err := os.ReadFile(rootTemplatePath)
+		// Generate new root certificate
+		rootPubKey, err := sv.PublicKey()
 		if err != nil {
-			return fmt.Errorf("root template error: template not found at %s: %w", rootTemplatePath, err)
+			return fmt.Errorf("error getting root public key: %w", err)
 		}
-		rootTemplate = string(content)
-	}
 
-	rootNotAfter := time.Now().UTC().Add(rootLifetime)
-	rootTmpl, err := ParseTemplate(rootTemplate, nil, rootNotAfter, rootPubKey, config.CommonName)
-	if err != nil {
-		return fmt.Errorf("error parsing root template: %w", err)
-	}
+		// Use default root template if none provided
+		var rootTemplate interface{}
+		if rootTemplatePath == "" {
+			defaultTemplate, err := GetDefaultTemplate("root")
+			if err != nil {
+				return fmt.Errorf("error getting default root template: %w", err)
+			}
+			if defaultTemplate == "" {
+				return fmt.Errorf("root template is required but no template was provided")
+			}
+			rootTemplate = defaultTemplate
+		} else {
+			// Read from FS if path is provided
+			content, err := os.ReadFile(rootTemplatePath)
+			if err != nil {
+				return fmt.Errorf("root template error: template not found at %s: %w", rootTemplatePath, err)
+			}
+			rootTemplate = string(content)
+		}
 
-	rootCert, err := x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
-	if err != nil {
-		return fmt.Errorf("error creating root certificate: %w", err)
-	}
+		rootNotAfter := time.Now().UTC().Add(rootLifetime)
+		rootTmpl, err := ParseTemplate(rootTemplate, nil, rootNotAfter, rootPubKey, config.CommonName)
+		if err != nil {
+			return fmt.Errorf("error parsing root template: %w", err)
+		}
 
-	if err := WriteCertificateToFile(rootCert, rootCertPath); err != nil {
-		return fmt.Errorf("error writing root certificate: %w", err)
+		rootCert, err = x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
+		if err != nil {
+			return fmt.Errorf("error creating root certificate: %w", err)
+		}
+
+		if err := WriteCertificateToFile(rootCert, rootCertPath); err != nil {
+			return fmt.Errorf("error writing root certificate: %w", err)
+		}
 	}
 
 	var signingCert *x509.Certificate
 	var signingKey crypto.Signer
 
-	// Create intermediate cert (optional)
-	if intermediateKeyID != "" {
-		intermediateConfig := config
-		intermediateConfig.KeyID = intermediateKeyID
-		intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
-		if err != nil {
-			return fmt.Errorf("error initializing intermediate KMS: %w", err)
-		}
-
-		intermediatePubKey, err := intermediateSV.PublicKey()
-		if err != nil {
-			return fmt.Errorf("error getting intermediate public key: %w", err)
-		}
-
-		intermediateCryptoSV, ok := intermediateSV.(CryptoSignerVerifier)
-		if !ok {
-			return fmt.Errorf("intermediate signer does not implement CryptoSigner")
-		}
-
-		intermediateSigner, _, err := intermediateCryptoSV.CryptoSigner(context.Background(), nil)
-		if err != nil {
-			return fmt.Errorf("error getting intermediate crypto signer: %w", err)
-		}
-
-		var intermediateTemplate interface{}
-		if intermediateTemplatePath == "" {
-			defaultTemplate, err := GetDefaultTemplate("intermediate")
+	// Create or load intermediate cert (optional)
+	if intermediateKeyID != "" || existingIntermediateCertPath != "" {
+		if existingIntermediateCertPath != "" {
+			// Load existing intermediate certificate
+			intermediateCert, err := LoadCertificateFromFile(existingIntermediateCertPath)
 			if err != nil {
-				return fmt.Errorf("error getting default intermediate template: %w", err)
+				return fmt.Errorf("error loading existing intermediate certificate: %w", err)
 			}
-			intermediateTemplate = defaultTemplate
+
+			// If intermediate key ID is provided, validate cert matches the key
+			if intermediateKeyID != "" {
+				intermediateConfig := config
+				intermediateConfig.KeyID = intermediateKeyID
+				intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
+				if err != nil {
+					return fmt.Errorf("error initializing intermediate KMS: %w", err)
+				}
+
+				if err := ValidateCertificateKeyMatch(intermediateCert, intermediateSV); err != nil {
+					return fmt.Errorf("existing intermediate certificate does not match intermediate KMS key: %w", err)
+				}
+
+				// Get signer for intermediate
+				intermediateCryptoSV, ok := intermediateSV.(CryptoSignerVerifier)
+				if !ok {
+					return fmt.Errorf("intermediate signer does not implement CryptoSigner")
+				}
+				intermediateSigner, _, err := intermediateCryptoSV.CryptoSigner(context.Background(), nil)
+				if err != nil {
+					return fmt.Errorf("error getting intermediate crypto signer: %w", err)
+				}
+
+				signingKey = intermediateSigner
+			} else {
+				// No intermediate key provided - can't sign with this cert
+				// This would be an error case - you need the key to sign
+				return fmt.Errorf("existing intermediate certificate provided but no intermediate-key-id specified - cannot sign without key")
+			}
+
+			signingCert = intermediateCert
+			fmt.Printf("Loaded existing intermediate cert from %s\n", existingIntermediateCertPath)
 		} else {
-			// Read from FS if path is provided
-			content, err := os.ReadFile(intermediateTemplatePath)
+			// Generate new intermediate certificate
+			intermediateConfig := config
+			intermediateConfig.KeyID = intermediateKeyID
+			intermediateSV, err := InitKMS(context.Background(), intermediateConfig)
 			if err != nil {
-				return fmt.Errorf("intermediate template error: template not found at %s: %w", intermediateTemplatePath, err)
+				return fmt.Errorf("error initializing intermediate KMS: %w", err)
 			}
-			intermediateTemplate = string(content)
-		}
 
-		intermediateNotAfter := time.Now().UTC().Add(intermediateLifetime)
-		intermediateTmpl, err := ParseTemplate(intermediateTemplate, rootCert, intermediateNotAfter, intermediatePubKey, config.CommonName)
-		if err != nil {
-			return fmt.Errorf("error parsing intermediate template: %w", err)
-		}
+			intermediatePubKey, err := intermediateSV.PublicKey()
+			if err != nil {
+				return fmt.Errorf("error getting intermediate public key: %w", err)
+			}
 
-		intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
-		if err != nil {
-			return fmt.Errorf("error creating intermediate certificate: %w", err)
-		}
+			intermediateCryptoSV, ok := intermediateSV.(CryptoSignerVerifier)
+			if !ok {
+				return fmt.Errorf("intermediate signer does not implement CryptoSigner")
+			}
 
-		if err := WriteCertificateToFile(intermediateCert, intermediateCertPath); err != nil {
-			return fmt.Errorf("error writing intermediate certificate: %w", err)
-		}
+			intermediateSigner, _, err := intermediateCryptoSV.CryptoSigner(context.Background(), nil)
+			if err != nil {
+				return fmt.Errorf("error getting intermediate crypto signer: %w", err)
+			}
 
-		signingCert = intermediateCert
-		signingKey = intermediateSigner
+			var intermediateTemplate interface{}
+			if intermediateTemplatePath == "" {
+				defaultTemplate, err := GetDefaultTemplate("intermediate")
+				if err != nil {
+					return fmt.Errorf("error getting default intermediate template: %w", err)
+				}
+				intermediateTemplate = defaultTemplate
+			} else {
+				// Read from FS if path is provided
+				content, err := os.ReadFile(intermediateTemplatePath)
+				if err != nil {
+					return fmt.Errorf("intermediate template error: template not found at %s: %w", intermediateTemplatePath, err)
+				}
+				intermediateTemplate = string(content)
+			}
+
+			intermediateNotAfter := time.Now().UTC().Add(intermediateLifetime)
+			intermediateTmpl, err := ParseTemplate(intermediateTemplate, rootCert, intermediateNotAfter, intermediatePubKey, config.CommonName)
+			if err != nil {
+				return fmt.Errorf("error parsing intermediate template: %w", err)
+			}
+
+			intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
+			if err != nil {
+				return fmt.Errorf("error creating intermediate certificate: %w", err)
+			}
+
+			if err := WriteCertificateToFile(intermediateCert, intermediateCertPath); err != nil {
+				return fmt.Errorf("error writing intermediate certificate: %w", err)
+			}
+
+			signingCert = intermediateCert
+			signingKey = intermediateSigner
+		}
 	} else {
 		signingCert = rootCert
 		signingKey = rootSigner
