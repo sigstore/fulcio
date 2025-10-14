@@ -143,6 +143,10 @@ func init() {
 	mustBindPFlag("leaf-lifetime", createCmd.Flags().Lookup("leaf-lifetime"))
 	mustBindPFlag("existing-root-cert", createCmd.Flags().Lookup("existing-root-cert"))
 	mustBindPFlag("existing-intermediate-cert", createCmd.Flags().Lookup("existing-intermediate-cert"))
+
+	// Enforce mutual exclusivity between templates and existing certs
+	createCmd.MarkFlagsMutuallyExclusive("root-template", "existing-root-cert")
+	createCmd.MarkFlagsMutuallyExclusive("intermediate-template", "existing-intermediate-cert")
 }
 
 func runCreate(_ *cobra.Command, args []string) error {
@@ -212,12 +216,6 @@ func runCreate(_ *cobra.Command, args []string) error {
 			}
 			return fmt.Errorf("error accessing existing root certificate file: %w", err)
 		}
-		// Warn if both template and existing cert provided
-		if rootTemplate != "" {
-			log.Logger.Warn("Both --root-template and --existing-root-cert provided; template will be ignored since existing certificate will be used",
-				zap.String("template", rootTemplate),
-				zap.String("existing-cert", existingRootCert))
-		}
 	}
 
 	if existingIntermediateCert != "" {
@@ -226,12 +224,6 @@ func runCreate(_ *cobra.Command, args []string) error {
 				return fmt.Errorf("existing intermediate certificate file not found: %s", existingIntermediateCert)
 			}
 			return fmt.Errorf("error accessing existing intermediate certificate file: %w", err)
-		}
-		// Warn if both template and existing cert provided
-		if intermediateTemplate != "" {
-			log.Logger.Warn("Both --intermediate-template and --existing-intermediate-cert provided; template will be ignored since existing certificate will be used",
-				zap.String("template", intermediateTemplate),
-				zap.String("existing-cert", existingIntermediateCert))
 		}
 	}
 

@@ -198,7 +198,7 @@ func CreateCertificates(config KMSConfig,
 		}
 
 		// Use default root template if none provided
-		var rootTemplate interface{}
+		var rootTemplate any
 		if rootTemplatePath == "" {
 			defaultTemplate, err := GetDefaultTemplate("root")
 			if err != nil {
@@ -301,7 +301,7 @@ func CreateCertificates(config KMSConfig,
 				return fmt.Errorf("error getting intermediate crypto signer: %w", err)
 			}
 
-			var intermediateTemplate interface{}
+			var intermediateTemplate any
 			if intermediateTemplatePath == "" {
 				defaultTemplate, err := GetDefaultTemplate("intermediate")
 				if err != nil {
@@ -354,7 +354,7 @@ func CreateCertificates(config KMSConfig,
 			return fmt.Errorf("error getting leaf public key: %w", err)
 		}
 
-		var leafTemplate interface{}
+		var leafTemplate any
 		if leafTemplatePath == "" {
 			defaultTemplate, err := GetDefaultTemplate("leaf")
 			if err != nil {

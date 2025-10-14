@@ -16,17 +16,14 @@
 package certmaker
 
 import (
-	"bytes"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -34,7 +31,7 @@ var (
 	// returned when certificate file is not found
 	ErrCertificateNotFound = errors.New("certificate file not found")
 
-	// returned when PEM decoding fails
+	// returned when PEM decoding fails or wrong block type
 	ErrInvalidPEM = errors.New("invalid PEM format")
 
 	// returned when PEM block contains no certificate
@@ -47,7 +44,6 @@ var (
 // reads a PEM-encoded X.509 certificate from the
 // specified file path and returns the parsed certificate.
 func LoadCertificateFromFile(path string) (*x509.Certificate, error) {
-	// read cert file
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -56,29 +52,33 @@ func LoadCertificateFromFile(path string) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("failed to read certificate file %s: %w", path, err)
 	}
 
-	// decode PEM block
+	// Minimal validation to preserve existing error semantics
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, fmt.Errorf("%w: file %s contains no valid PEM data", ErrInvalidPEM, path)
 	}
-
-	// verify it's a CERTIFICATE block
 	if block.Type != "CERTIFICATE" {
 		return nil, fmt.Errorf("%w: expected CERTIFICATE block, got %s in file %s", ErrInvalidPEM, block.Type, path)
 	}
-
-	// check cert data
 	if len(block.Bytes) == 0 {
 		return nil, fmt.Errorf("%w: PEM block is empty in file %s", ErrNoCertificateData, path)
 	}
 
-	// parse X.509 cert
-	cert, err := x509.ParseCertificate(block.Bytes)
+	// Use cryptoutils to parse one or more certs, return the first
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse X.509 certificate from %s: %w", path, err)
 	}
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrNoCertificateData, path)
+	}
+	return certs[0], nil
+}
 
-	return cert, nil
+// compares two public keys for equality using cryptoutils.
+// supports RSA, ECDSA, and Ed25519 key types.
+func publicKeysEqual(key1 crypto.PublicKey, key2 crypto.PublicKey) bool {
+	return cryptoutils.EqualKeys(key1, key2) == nil
 }
 
 // verifies that the public key in the given certificate
@@ -100,41 +100,10 @@ func ValidateCertificateKeyMatch(cert *x509.Certificate, sv signature.SignerVeri
 	// get public key from cert
 	certPubKey := cert.PublicKey
 
-	// compare public keys
-	if !publicKeysEqual(certPubKey, kmsPubKey) {
-		return fmt.Errorf("%w: certificate public key does not match KMS key", ErrKeyMismatch)
+	// compare public keys using sigstore cryptoutils
+	if err := cryptoutils.EqualKeys(certPubKey, kmsPubKey); err != nil {
+		return fmt.Errorf("%w: %v", ErrKeyMismatch, err)
 	}
 
 	return nil
-}
-
-// compares two public keys for equality.
-// supports RSA, ECDSA, and Ed25519 key types.
-func publicKeysEqual(key1, key2 crypto.PublicKey) bool {
-	switch k1 := key1.(type) {
-	case *rsa.PublicKey:
-		k2, ok := key2.(*rsa.PublicKey)
-		if !ok {
-			return false
-		}
-		return k1.N.Cmp(k2.N) == 0 && k1.E == k2.E
-
-	case *ecdsa.PublicKey:
-		k2, ok := key2.(*ecdsa.PublicKey)
-		if !ok {
-			return false
-		}
-		return k1.Curve == k2.Curve && k1.X.Cmp(k2.X) == 0 && k1.Y.Cmp(k2.Y) == 0
-
-	case ed25519.PublicKey:
-		k2, ok := key2.(ed25519.PublicKey)
-		if !ok {
-			return false
-		}
-		return bytes.Equal(k1, k2)
-
-	default:
-		// for unknown key types, attempt byte comparison if possible; a fallback that may not work for all key types
-		return false
-	}
 }

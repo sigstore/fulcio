@@ -225,8 +225,8 @@ export LEAF_KEY_ID=alias/fulcio-leaf
 
 **Template Behavior:**
 
-- When using `--existing-root-cert`, any `--root-template` flag is ignored (with a warning)
-- When using `--existing-intermediate-cert`, any `--intermediate-template` flag is ignored
+- `--root-template` and `--existing-root-cert` are mutually exclusive (CLI enforces)
+- `--intermediate-template` and `--existing-intermediate-cert` are mutually exclusive (CLI enforces)
 - The loaded certificate's properties are used instead of template values
 
 **File Validation:**
@@ -274,11 +274,9 @@ export LEAF_KEY_ID=alias/fulcio-leaf
   openssl x509 -in ./existing-root.pem -text -noout
   ```
 
-**Warning: "Both --root-template and --existing-root-cert provided; template will be ignored"**
+**Mutually Exclusive Flags**
 
-- **Cause:** You provided both a template and an existing certificate
-- **Impact:** This is just a warning - the existing certificate takes precedence
-- **Solution:** Remove the template flag if you're reusing a certificate
+- The CLI enforces that you cannot pass both a template flag and an existing certificate flag for the same certificate type. Provide only one of the pair.
 
 ### Provider-Specific Configuration Examples
 
