@@ -22,9 +22,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -157,7 +159,7 @@ func TestCreateCertificates(t *testing.T) {
 		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 		Options: map[string]string{"aws-region": "us-west-2"},
 	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error getting root public key: test error")
@@ -181,7 +183,7 @@ func TestCreateCertificates(t *testing.T) {
 		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 		Options: map[string]string{"aws-region": "us-west-2"},
 	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error getting root crypto signer: crypto signer error")
@@ -202,7 +204,7 @@ func TestCreateCertificates(t *testing.T) {
 		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 		Options: map[string]string{"aws-region": "us-west-2"},
 	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "", "", "", "",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
 
 	require.NoError(t, err)
 
@@ -236,7 +238,7 @@ func TestCreateCertificates(t *testing.T) {
 		KeyID:   "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012",
 		Options: map[string]string{"aws-region": "us-west-2"},
 	}, rootTmplPath, leafTmplPath, rootCertPath, leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "leaf-key",
-		87600*time.Hour, 43800*time.Hour, 8760*time.Hour)
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
 
 	require.NoError(t, err)
 
@@ -246,6 +248,272 @@ func TestCreateCertificates(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(leafCertPath)
 	require.NoError(t, err)
+}
+
+func TestCreateCertificatesWithExistingRoot(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	// create a root certificate to reuse
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockRootSigner := &mockSignerVerifier{key: rootKey}
+	InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+		return mockRootSigner, nil
+	}
+
+	rootTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Test Root CA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(87600 * time.Hour),
+		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:         true,
+		MaxPathLen:   1,
+	}
+	rootCertDER, err := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rootKey.Public(), rootKey)
+	require.NoError(t, err)
+	rootCert, err := x509.ParseCertificate(rootCertDER)
+	require.NoError(t, err)
+
+	existingRootPath := filepath.Join(tmpDir, "existing-root.pem")
+	require.NoError(t, WriteCertificateToFile(rootCert, existingRootPath))
+
+	// test creating intermediate and leaf using existing root
+	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockIntermediateSigner := &mockSignerVerifier{key: intermediateKey}
+	mockLeafSigner := &mockSignerVerifier{key: leafKey}
+
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		switch config.KeyID {
+		case "intermediate-key":
+			return mockIntermediateSigner, nil
+		case "leaf-key":
+			return mockLeafSigner, nil
+		default:
+			return mockRootSigner, nil
+		}
+	}
+
+	intermediateTemplate := `{"subject":{"commonName":"Test Intermediate"},"keyUsage":["certSign"],"basicConstraints":{"isCA":true,"maxPathLen":0}}`
+	leafTemplate := `{"subject":{"commonName":"Test Leaf"},"keyUsage":["digitalSignature"],"extKeyUsage":["CodeSigning"],"basicConstraints":{"isCA":false}}`
+
+	intermediateTmplPath := filepath.Join(tmpDir, "intermediate.json")
+	leafTmplPath := filepath.Join(tmpDir, "leaf.json")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.pem")
+	leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+
+	require.NoError(t, os.WriteFile(intermediateTmplPath, []byte(intermediateTemplate), 0600))
+	require.NoError(t, os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600))
+
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "root-key",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, "", leafTmplPath, "", leafCertPath, "intermediate-key", intermediateTmplPath, intermediateCertPath, "leaf-key",
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, existingRootPath, "")
+
+	require.NoError(t, err)
+	_, err = os.Stat(intermediateCertPath)
+	require.NoError(t, err)
+	_, err = os.Stat(leafCertPath)
+	require.NoError(t, err)
+}
+
+func TestCreateCertificatesWithExistingRootAndIntermediate(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	// creates root cert
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	rootTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Test Root CA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(87600 * time.Hour),
+		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:         true,
+		MaxPathLen:   1,
+	}
+	rootCertDER, err := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rootKey.Public(), rootKey)
+	require.NoError(t, err)
+	rootCert, err := x509.ParseCertificate(rootCertDER)
+	require.NoError(t, err)
+
+	// creates intermediate cert
+	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	intermediateTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "Test Intermediate CA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(43800 * time.Hour),
+		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:         true,
+		MaxPathLen:   0,
+	}
+	intermediateCertDER, err := x509.CreateCertificate(rand.Reader, intermediateTmpl, rootCert, intermediateKey.Public(), rootKey)
+	require.NoError(t, err)
+	intermediateCert, err := x509.ParseCertificate(intermediateCertDER)
+	require.NoError(t, err)
+
+	existingRootPath := filepath.Join(tmpDir, "existing-root.pem")
+	existingIntermediatePath := filepath.Join(tmpDir, "existing-intermediate.pem")
+	require.NoError(t, WriteCertificateToFile(rootCert, existingRootPath))
+	require.NoError(t, WriteCertificateToFile(intermediateCert, existingIntermediatePath))
+
+	// create leaf using existing root and intermediate
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockRootSigner := &mockSignerVerifier{key: rootKey}
+	mockIntermediateSigner := &mockSignerVerifier{key: intermediateKey}
+	mockLeafSigner := &mockSignerVerifier{key: leafKey}
+
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		switch config.KeyID {
+		case "intermediate-key":
+			return mockIntermediateSigner, nil
+		case "leaf-key":
+			return mockLeafSigner, nil
+		default:
+			return mockRootSigner, nil
+		}
+	}
+
+	leafTemplate := `{"subject":{"commonName":"Test Leaf"},"keyUsage":["digitalSignature"],"extKeyUsage":["CodeSigning"],"basicConstraints":{"isCA":false}}`
+	leafTmplPath := filepath.Join(tmpDir, "leaf.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+	require.NoError(t, os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600))
+
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "root-key",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, "", leafTmplPath, "", leafCertPath, "intermediate-key", "", "", "leaf-key",
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, existingRootPath, existingIntermediatePath)
+
+	require.NoError(t, err)
+	_, err = os.Stat(leafCertPath)
+	require.NoError(t, err)
+}
+
+func TestCreateCertificatesWithExistingRootDirectSigning(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	// create root cert
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	rootTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Test Root CA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(87600 * time.Hour),
+		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:         true,
+		MaxPathLen:   1,
+	}
+	rootCertDER, err := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rootKey.Public(), rootKey)
+	require.NoError(t, err)
+	rootCert, err := x509.ParseCertificate(rootCertDER)
+	require.NoError(t, err)
+
+	existingRootPath := filepath.Join(tmpDir, "existing-root.pem")
+	require.NoError(t, WriteCertificateToFile(rootCert, existingRootPath))
+
+	// create leaf directly signed by root (no intermediate)
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockRootSigner := &mockSignerVerifier{key: rootKey}
+	mockLeafSigner := &mockSignerVerifier{key: leafKey}
+
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		if config.KeyID == "leaf-key" {
+			return mockLeafSigner, nil
+		}
+		return mockRootSigner, nil
+	}
+
+	leafTemplate := `{"subject":{"commonName":"Test Leaf"},"keyUsage":["digitalSignature"],"extKeyUsage":["CodeSigning"],"basicConstraints":{"isCA":false}}`
+	leafTmplPath := filepath.Join(tmpDir, "leaf.json")
+	leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+	require.NoError(t, os.WriteFile(leafTmplPath, []byte(leafTemplate), 0600))
+
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "root-key",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, "", leafTmplPath, "", leafCertPath, "", "", "", "leaf-key",
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, existingRootPath, "")
+
+	require.NoError(t, err)
+	_, err = os.Stat(leafCertPath)
+	require.NoError(t, err)
+}
+
+func TestCreateCertificatesWithKeyMismatch(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	// create root cert with one key
+	rootKey1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	rootTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Test Root CA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(87600 * time.Hour),
+		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:         true,
+		MaxPathLen:   1,
+	}
+	rootCertDER, err := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rootKey1.Public(), rootKey1)
+	require.NoError(t, err)
+	rootCert, err := x509.ParseCertificate(rootCertDER)
+	require.NoError(t, err)
+
+	existingRootPath := filepath.Join(tmpDir, "existing-root.pem")
+	require.NoError(t, WriteCertificateToFile(rootCert, existingRootPath))
+
+	// use it with a different KMS key
+	rootKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	mockDifferentSigner := &mockSignerVerifier{key: rootKey2}
+
+	InitKMS = func(_ context.Context, _ KMSConfig) (signature.SignerVerifier, error) {
+		return mockDifferentSigner, nil
+	}
+
+	err = CreateCertificates(KMSConfig{
+		Type:    "awskms",
+		KeyID:   "root-key",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	}, "", "", "", "", "", "", "", "",
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, existingRootPath, "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "existing root certificate does not match root KMS key")
 }
 
 func TestValidateKMSConfig(t *testing.T) {

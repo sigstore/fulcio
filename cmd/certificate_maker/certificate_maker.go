@@ -84,6 +84,8 @@ func init() {
 	mustBindEnv("root-key-id", "KMS_ROOT_KEY_ID")
 	mustBindEnv("intermediate-key-id", "KMS_INTERMEDIATE_KEY_ID")
 	mustBindEnv("leaf-key-id", "KMS_LEAF_KEY_ID")
+	mustBindEnv("existing-root-cert", "EXISTING_ROOT_CERT")
+	mustBindEnv("existing-intermediate-cert", "EXISTING_INTERMEDIATE_CERT")
 
 	rootCmd.AddCommand(createCmd)
 
@@ -116,6 +118,10 @@ func init() {
 	createCmd.Flags().Duration("intermediate-lifetime", 43800*time.Hour, "Intermediate certificate lifetime")
 	createCmd.Flags().Duration("leaf-lifetime", 8760*time.Hour, "Leaf certificate lifetime")
 
+	// Certificate reuse flags
+	createCmd.Flags().String("existing-root-cert", "", "Path to existing root certificate PEM file to reuse (optional)")
+	createCmd.Flags().String("existing-intermediate-cert", "", "Path to existing intermediate certificate PEM file to reuse (optional)")
+
 	mustBindPFlag("kms-type", createCmd.Flags().Lookup("kms-type"))
 	mustBindPFlag("aws-region", createCmd.Flags().Lookup("aws-region"))
 	mustBindPFlag("azure-tenant-id", createCmd.Flags().Lookup("azure-tenant-id"))
@@ -135,6 +141,12 @@ func init() {
 	mustBindPFlag("root-lifetime", createCmd.Flags().Lookup("root-lifetime"))
 	mustBindPFlag("intermediate-lifetime", createCmd.Flags().Lookup("intermediate-lifetime"))
 	mustBindPFlag("leaf-lifetime", createCmd.Flags().Lookup("leaf-lifetime"))
+	mustBindPFlag("existing-root-cert", createCmd.Flags().Lookup("existing-root-cert"))
+	mustBindPFlag("existing-intermediate-cert", createCmd.Flags().Lookup("existing-intermediate-cert"))
+
+	// Enforce mutual exclusivity between templates and existing certs
+	createCmd.MarkFlagsMutuallyExclusive("root-template", "existing-root-cert")
+	createCmd.MarkFlagsMutuallyExclusive("intermediate-template", "existing-intermediate-cert")
 }
 
 func runCreate(_ *cobra.Command, args []string) error {
@@ -192,6 +204,29 @@ func runCreate(_ *cobra.Command, args []string) error {
 	intermediateTemplate := viper.GetString("intermediate-template")
 	leafTemplate := viper.GetString("leaf-template")
 
+	// Get existing certificate paths
+	existingRootCert := viper.GetString("existing-root-cert")
+	existingIntermediateCert := viper.GetString("existing-intermediate-cert")
+
+	// Validate existing certificate files exist before KMS initialization
+	if existingRootCert != "" {
+		if _, err := os.Stat(existingRootCert); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("existing root certificate file not found: %s", existingRootCert)
+			}
+			return fmt.Errorf("error accessing existing root certificate file: %w", err)
+		}
+	}
+
+	if existingIntermediateCert != "" {
+		if _, err := os.Stat(existingIntermediateCert); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("existing intermediate certificate file not found: %s", existingIntermediateCert)
+			}
+			return fmt.Errorf("error accessing existing intermediate certificate file: %w", err)
+		}
+	}
+
 	// Validate template paths if provided
 	if rootTemplate != "" {
 		if err := certmaker.ValidateTemplate(rootTemplate, nil, "root"); err != nil {
@@ -220,7 +255,9 @@ func runCreate(_ *cobra.Command, args []string) error {
 		viper.GetString("leaf-key-id"),
 		viper.GetDuration("root-lifetime"),
 		viper.GetDuration("intermediate-lifetime"),
-		viper.GetDuration("leaf-lifetime"))
+		viper.GetDuration("leaf-lifetime"),
+		existingRootCert,
+		existingIntermediateCert)
 }
 
 func main() {
