@@ -32,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -432,7 +433,7 @@ func TestPublicKeysEqual(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := publicKeysEqual(tt.key1, tt.key2)
+			result := cryptoutils.EqualKeys(tt.key1, tt.key2) == nil
 			assert.Equal(t, tt.equal, result)
 		})
 	}

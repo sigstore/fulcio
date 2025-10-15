@@ -16,7 +16,6 @@
 package certmaker
 
 import (
-	"crypto"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -73,12 +72,6 @@ func LoadCertificateFromFile(path string) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("%w: %s", ErrNoCertificateData, path)
 	}
 	return certs[0], nil
-}
-
-// compares two public keys for equality using cryptoutils.
-// supports RSA, ECDSA, and Ed25519 key types.
-func publicKeysEqual(key1 crypto.PublicKey, key2 crypto.PublicKey) bool {
-	return cryptoutils.EqualKeys(key1, key2) == nil
 }
 
 // verifies that the public key in the given certificate
