@@ -14,7 +14,7 @@
 
 FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.25@sha256:ba7e3303cae06097fab776e5b45e9ff8aa32ebe05ca472c63ef6e62156e69717 AS server
 
-FROM golang:1.25.1@sha256:d7098379b7da665ab25b99795465ec320b1ca9d4addb9f77409c4827dc904211 AS deploy
+FROM golang:1.25.3@sha256:6ea52a02734dd15e943286b048278da1e04eca196a564578d718c7720433dbbe AS deploy
 
 COPY --from=server /ko-app/ct_server /usr/local/bin/ct_server
 
