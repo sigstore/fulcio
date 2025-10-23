@@ -31,8 +31,8 @@ oidc-issuers:
     ci-provider: *buildkite-type
     contact: support@buildkite.com
     description: "Buildkite Agent OIDC tokens for job identity"
-  https://auth.eclipse.org/auth/realms/sigstore:
-    issuer-url: https://auth.eclipse.org/auth/realms/sigstore
+  https://auth.eclipse.org/auth/realms/foundation-service-accounts:
+    issuer-url: https://auth.eclipse.org/auth/realms/foundation-service-accounts
     client-id: sigstore
     type: email
     contact: security@eclipse-foundation.org
