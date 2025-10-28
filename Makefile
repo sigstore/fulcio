@@ -119,7 +119,7 @@ $(PROTOC-GEN-OPENAPIV2): $(TOOLS_DIR)/go.mod
 	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-openapiv2 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 
 $(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/api-linter github.com/googleapis/api-linter/cmd/api-linter
+	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/api-linter github.com/googleapis/api-linter/v2/cmd/api-linter
 
 ## --------------------------------------
 ## Images with ko
