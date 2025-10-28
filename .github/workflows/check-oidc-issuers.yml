@@ -1,0 +1,85 @@
+# Copyright 2025 The Sigstore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This workflow is triggered on a schedule to periodically check the health
+# of the OIDC issuers configured in config/identity/config.yaml.
+# It fetches the /.well-known/openid-configuration for each issuer and
+# creates a GitHub issue if any of them fail to respond with a 200 status.
+name: Check OIDC Issuers
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-issuers:
+    name: Verify OIDC issuer availability
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # Required to file an issue on failure
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Check OIDC issuer configurations
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          ISSUERS=$(yq '.oidc-issuers.*.issuer-url' config/identity/config.yaml)
+
+          for issuer_url in $ISSUERS; do
+            # Some issuer URLs might have a trailing slash, remove it.
+            issuer_url=$(echo "$issuer_url" | sed 's:/*$::')
+            config_url="${issuer_url}/.well-known/openid-configuration"
+            
+            echo "Checking $config_url"
+            
+            # Perform the request and get the HTTP status code
+            status_code=$(curl -s -o /dev/null -w "%{http_code}" --location --max-time 10 "$config_url")
+            
+            if [ "$status_code" -ne 200 ]; then
+              echo "::error::Check for $issuer_url failed with status code $status_code"
+              ISSUE_TITLE="Failed to resolve OIDC configuration for ${issuer_url}"
+              
+              # Check if an open issue with the same title already exists
+              EXISTING_ISSUE=$(gh issue list --search "$ISSUE_TITLE in:title is:open" --json number --jq '.[0].number')
+
+              if [ -z "$EXISTING_ISSUE" ]; then
+                echo "Creating new issue for $issuer_url"
+                gh issue create \
+                  --title "$ISSUE_TITLE" \
+                  --body "The well-known OIDC configuration endpoint for \`${issuer_url}\` returned a non-200 status code: **${status_code}**. Please investigate if the provider is down or if the configuration needs to be updated. Endpoint checked: \`${config_url}\`" \
+                  --label "bug" \
+                  --assignee "sigstore/fulcio-codeowners"
+              else
+                echo "An open issue (#$EXISTING_ISSUE) already exists for $issuer_url"
+              fi
+            else
+              echo "OK: $config_url returned status $status_code"
+            fi
+          done
