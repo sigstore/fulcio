@@ -175,6 +175,8 @@ ci-issuer-metadata:
       run-invocation-uri: "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}"
       # repository_visibility: Visibility of the source repo
       source-repository-visibility-at-signing: "repository_visibility"
+      # environment: Deployment target for workflow
+      deployment-environment: "environment"
     subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
   *gitlab-type:
     default-template-values:
@@ -212,6 +214,8 @@ ci-issuer-metadata:
       run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
       # project_visibility: Visibility of the source project
       source-repository-visibility-at-signing: "project_visibility"
+      # environment: Deployment target for job
+      deployment-environment: "environment"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
   *codefresh-type:
     default-template-values:

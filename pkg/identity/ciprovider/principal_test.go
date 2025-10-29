@@ -59,6 +59,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 						BuildTrigger:                        "event_name",
 						RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 						SourceRepositoryVisibilityAtSigning: "repository_visibility",
+						DeploymentEnvironment:               "environment",
 					},
 					DefaultTemplateValues: map[string]string{
 						"url": "https://github.com",
@@ -89,6 +90,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 				"run_id":                "runID",
 				"run_attempt":           "runAttempt",
 				"repository_visibility": "public",
+				"environment":           "production",
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -163,6 +165,7 @@ func TestName(t *testing.T) {
 				"workflow":              "foo",
 				"workflow_ref":          "sigstore/other/.github/workflows/foo.yaml@refs/heads/main",
 				"workflow_sha":          "example-sha-other",
+				"environment":           "production",
 			},
 			ExpectName: "repo:sigstore/fulcio:ref:refs/heads/main",
 		},
@@ -462,6 +465,7 @@ func TestEmbed(t *testing.T) {
 				`Certificate has correct build trigger extension`:                factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 20}, "trigger"),
 				`Certificate has correct run invocation ID extension`:            factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "https://github.com/repository/actions/runs/runID/attempts/runAttempt"),
 				`Certificate has correct source repository visibility extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "public"),
+				`Certificate has correct environment`:                            factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 23}, "production"),
 			},
 			Principal: ciPrincipal{
 				ClaimsMetadata: config.IssuerMetadata{
@@ -485,6 +489,7 @@ func TestEmbed(t *testing.T) {
 						BuildTrigger:                        "event_name",
 						RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 						SourceRepositoryVisibilityAtSigning: "repository_visibility",
+						DeploymentEnvironment:               "environment",
 					},
 					DefaultTemplateValues: map[string]string{
 						"url": "https://github.com",
@@ -515,6 +520,7 @@ func TestEmbed(t *testing.T) {
 				"run_id":                "runID",
 				"run_attempt":           "runAttempt",
 				"repository_visibility": "public",
+				"environment":           "production",
 			})
 			if err != nil {
 				t.Fatal(err)
