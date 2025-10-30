@@ -64,7 +64,6 @@ import (
 )
 
 const (
-	expectedNoRootMessage      = "rpc error: code = Internal desc = error communicating with CA backend"
 	expectedTrustBundleMessage = "rpc error: code = Internal desc = error retrieving trust bundle from CA backend"
 	bufSize                    = 1024 * 1024
 )
@@ -986,6 +985,7 @@ type githubClaims struct {
 	WorkflowSha          string `json:"workflow_sha"`
 	RunID                string `json:"run_id"`
 	RunAttempt           string `json:"run_attempt"`
+	Environment          string `json:"environment"`
 }
 
 // Tests API for GitHub subject types
@@ -1171,6 +1171,7 @@ func TestAPIWithCiProvider(t *testing.T) {
 		WorkflowSha:          "example-sha-other",
 		RunID:                "42",
 		RunAttempt:           "1",
+		Environment:          "production",
 	}
 	githubSubject := fmt.Sprintf("repo:%s:ref:%s", claims.Repository, claims.Ref)
 	// Create an OIDC token using this issuer's signer.
@@ -1210,6 +1211,7 @@ func TestAPIWithCiProvider(t *testing.T) {
 			BuildTrigger:                        "event_name",
 			RunInvocationURI:                    "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}",
 			SourceRepositoryVisibilityAtSigning: "repository_visibility",
+			DeploymentEnvironment:               "environment",
 		},
 		DefaultTemplateValues: map[string]string{
 			"url": "https://github.com",
@@ -1289,6 +1291,7 @@ func TestAPIWithCiProvider(t *testing.T) {
 		20: claims.EventName,
 		21: url + claims.Repository + "/actions/runs/" + claims.RunID + "/attempts/" + claims.RunAttempt,
 		22: claims.RepositoryVisibility,
+		23: claims.Environment,
 	}
 	for o, value := range expectedExts {
 		ext, found := findCustomExtension(leafCert, asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, o})
