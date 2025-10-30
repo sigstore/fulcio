@@ -51,6 +51,17 @@ type verifierWithConfig struct {
 	*oidc.Config
 }
 
+type bearerTokenTransport struct {
+	Transport http.RoundTripper
+	Token     string
+}
+
+func (t *bearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	return t.Transport.RoundTrip(req)
+}
+
 type FulcioConfig struct {
 	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
 
@@ -271,6 +282,38 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 }
 
 func httpClientForIssuer(iss OIDCIssuer) (*http.Client, error) {
+	transportProvider := func(transport *http.Transport) http.RoundTripper {
+		return transport
+	}
+	if iss.Type == IssuerTypeKubernetes && iss.IssuerURL == k8sIssuerURL {
+		// Add the Kubernetes cluster's CA to the client's CA pool
+		certs, err := os.ReadFile(k8sCA)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read cluster CA file: %w", err)
+		}
+		iss.CACert = string(certs)
+
+		if _, err := os.Stat(k8sTokenFile); err == nil {
+			// add the authentication header
+			tokenBytes, err := os.ReadFile(k8sTokenFile)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read cluster token file: %w", err)
+			}
+			transportProvider = func(transport *http.Transport) http.RoundTripper {
+				return &bearerTokenTransport{
+					Transport: transport,
+					Token:     string(tokenBytes),
+				}
+			}
+		} else {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Logger.Warnf("Kubernetes token file can't be found on path: %s", k8sTokenFile)
+			} else {
+				return nil, err
+			}
+		}
+	}
+
 	if iss.CACert != "" {
 		rootCAs, _ := x509.SystemCertPool()
 		if rootCAs == nil {
@@ -286,53 +329,17 @@ func httpClientForIssuer(iss OIDCIssuer) (*http.Client, error) {
 				MinVersion: tls.VersionTLS12,
 			},
 		}
-		return &http.Client{Transport: transport}, nil
+		return &http.Client{Transport: transportProvider(transport)}, nil
 	}
 	return http.DefaultClient, nil
 }
 
 func (fc *FulcioConfig) prepare() error {
-	if _, ok := fc.GetIssuer("https://kubernetes.default.svc"); ok {
-		// Add the Kubernetes cluster's CA to the system CA pool, and to
-		// the default transport.
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		const k8sCA = "/var/run/fulcio/ca.crt"
-		certs, err := os.ReadFile(k8sCA)
-		if err != nil {
-			return fmt.Errorf("read file: %w", err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return fmt.Errorf("unable to append certs")
-		}
-
-		t := originalTransport.(*http.Transport).Clone()
-		t.TLSClientConfig.RootCAs = rootCAs
-		http.DefaultTransport = t
-	} else {
-		// If we parse a config that doesn't include a cluster issuer
-		// signed with the cluster'sCA, then restore the original transport
-		// (in case we overwrote it)
-		http.DefaultTransport = originalTransport
-	}
-
 	fc.verifiers = make(map[string][]*verifierWithConfig, len(fc.OIDCIssuers))
 	for _, iss := range fc.OIDCIssuers {
-		ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
-		defer cancel()
-		client, err := httpClientForIssuer(iss)
-		if err != nil {
-			log.Logger.Errorf("error creating http client for issuer URL %q: %v", iss.IssuerURL, err)
-			continue
-		}
-		provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), iss.IssuerURL)
-		if err != nil {
+		if err := fc.insertVerifier(iss); err != nil {
 			log.Logger.Errorf("error creating provider for issuer URL %q: %v", iss.IssuerURL, err)
-		} else {
-			cfg := &oidc.Config{ClientID: iss.ClientID}
-			fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
+			continue
 		}
 	}
 
@@ -341,6 +348,34 @@ func (fc *FulcioConfig) prepare() error {
 		return fmt.Errorf("lru: %w", err)
 	}
 	fc.lru = cache
+	return nil
+}
+
+var (
+	k8sCA = "/var/run/fulcio/ca.crt"
+	// k8sTokenFile specifies the standard path where Kubernetes automatically
+	// mounts the projected service account token for a pod.
+	// This path is publicly known and not a sensitive credential itself,
+	// hence the Gosec G101 warning is a false positive and is suppressed.
+	// #nosec G101
+	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	k8sIssuerURL = "https://kubernetes.default.svc"
+)
+
+func (fc *FulcioConfig) insertVerifier(iss OIDCIssuer) error {
+	client, err := httpClientForIssuer(iss)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultOIDCDiscoveryTimeout)
+	defer cancel()
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), iss.IssuerURL)
+	if err != nil {
+		return err
+	}
+	cfg := &oidc.Config{ClientID: iss.ClientID}
+	fc.verifiers[iss.IssuerURL] = []*verifierWithConfig{{provider.Verifier(cfg), cfg}}
 	return nil
 }
 
@@ -506,8 +541,6 @@ var DefaultConfig = &FulcioConfig{
 		},
 	},
 }
-
-var originalTransport = http.DefaultTransport
 
 type configKey struct{}
 
