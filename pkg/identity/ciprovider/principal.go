@@ -149,7 +149,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 			"ExtensionName": "SubjectAlternativeName",
 		})
 	if err != nil {
-		log.Logger.Error("error applying template with claims %v and defaults %v: %v", claims, defaults, err)
+		log.Logger.Errorf("error applying template with claims %v and defaults %v: %v", claims, defaults, err)
 		return err
 	}
 	sanURL, err := url.Parse(subjectAlternativeName)
