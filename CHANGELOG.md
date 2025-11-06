@@ -1,3 +1,26 @@
+# v1.8.0
+
+## Bug Fixes
+
+* fix: K8s API does not accept unauthorized requests (#2111)
+* fix: vault for enterprise expects only the key name (#2117)
+* fix(config): respect cacert on oidc-issuers (#2098)
+* Register `/healthz` endpoint when listening on duplex http/grpc port (#2046)
+
+## Features
+
+* feat: adds cert loading and key-match validation. (#2173)
+* expose gcp kms retry and timeout options (#2132)
+* server: Use warning log level for client errors (#2147)
+* Add workflow to periodically validate OIDC issuers (#2188)
+* Add Chainguard issuer (#2078)
+* Add logging for template error (#2194)
+* Add extension for deployment environment (#2190)
+
+## Removal
+
+* Remove cmd/create_tink_keyset (#2096)
+
 # v1.7.1
 
 v1.7.1 contains a bug fix for extensions for CI providers where the OIDC claims
@@ -5,7 +28,7 @@ include HTML escape characters. If a client attempted to verify an extension val
 verification would fail unless an HTML-escaped string was used in the comparison.
 Extension values will no longer be escaped.
 
-## Bug Fixes:
+## Bug Fixes
 
 * Do not HTML-escape extension values (#2023)
 
