@@ -31,6 +31,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/identity"
+	"github.com/sigstore/fulcio/pkg/log"
 )
 
 func mapValuesToString(claims map[string]any) map[string]string {
@@ -148,6 +149,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 			"ExtensionName": "SubjectAlternativeName",
 		})
 	if err != nil {
+		log.Logger.Errorf("error applying template with claims %v and defaults %v: %v", claims, defaults, err)
 		return err
 	}
 	sanURL, err := url.Parse(subjectAlternativeName)
