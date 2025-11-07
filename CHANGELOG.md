@@ -1,3 +1,7 @@
+# v1.8.1
+
+Same as v1.8.0, but with a fix for the CI build pipeline.
+
 # v1.8.0
 
 ## Bug Fixes
