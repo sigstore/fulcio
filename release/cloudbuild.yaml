@@ -38,13 +38,13 @@ steps:
       - TUF_ROOT=/tmp
     args:
       - 'verify'
-      - 'ghcr.io/gythialy/golang-cross:v1.24.5-0@sha256:492c51e60ed27ff597511b0a24e6c5acb6e3e2e97bb68d7bd35f81a7e3dfa4d0'
+      - 'ghcr.io/gythialy/golang-cross:v1.24.6-0@sha256:961353cc71207c6c50db62a1e01275f3e809493bea34861c4de199f5dc17d665'
       - '--certificate-oidc-issuer'
       - "https://token.actions.githubusercontent.com"
       - '--certificate-identity'
-      - "https://github.com/gythialy/golang-cross/.github/workflows/release-golang-cross.yml@refs/tags/v1.24.5-0"
+      - "https://github.com/gythialy/golang-cross/.github/workflows/release-golang-cross.yml@refs/tags/v1.24.6-0"
 
-  - name: ghcr.io/gythialy/golang-cross:v1.24.5-0@sha256:492c51e60ed27ff597511b0a24e6c5acb6e3e2e97bb68d7bd35f81a7e3dfa4d0
+  - name: ghcr.io/gythialy/golang-cross:v1.24.6-0@sha256:961353cc71207c6c50db62a1e01275f3e809493bea34861c4de199f5dc17d665
     entrypoint: /bin/sh
     dir: "go/src/sigstore/fulcio"
     env:
@@ -67,7 +67,7 @@ steps:
         gcloud auth configure-docker \
         && make release
 
-  - name: ghcr.io/gythialy/golang-cross:v1.24.5-0@sha256:492c51e60ed27ff597511b0a24e6c5acb6e3e2e97bb68d7bd35f81a7e3dfa4d0
+  - name: ghcr.io/gythialy/golang-cross:v1.24.6-0@sha256:961353cc71207c6c50db62a1e01275f3e809493bea34861c4de199f5dc17d665
     entrypoint: 'bash'
     dir: "go/src/sigstore/fulcio"
     env:
