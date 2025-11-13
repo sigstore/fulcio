@@ -73,7 +73,7 @@ func TestMakeX509(t *testing.T) {
 func TestVerifyCertChain(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	subCert, subKey, _ := test.GenerateSubordinateCA(rootCert, rootKey)
-	leafCert, _, _ := test.GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
+	leafCert, _, _ := test.GenerateLeafCert("subject@example.com", "oidc-issuer", subCert, subKey)
 
 	err := VerifyCertChain([]*x509.Certificate{subCert, rootCert}, subKey)
 	if err != nil {
