@@ -31,7 +31,7 @@ To use:
 
 rootCert, rootKey, _ := GenerateRootCA()
 subCert, subKey, _ := GenerateSubordinateCa(rootCert, rootKey)
-leafCert, _, _ := GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
+leafCert, _, _ := GenerateLeafCert("subject@example.com", "oidc-issuer", subCert, subKey)
 
 roots := x509.NewCertPool()
 subs := x509.NewCertPool()
