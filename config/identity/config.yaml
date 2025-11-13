@@ -17,6 +17,7 @@ define:
   - &gitlab-type "gitlab-pipeline"
   - &codefresh-type "codefresh-workflow"
   - &buildkite-type "buildkite-job"
+  - &circleci-type "circleci-job"
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -262,3 +263,18 @@ ci-issuer-metadata:
       # build_source: Event that triggered this workflow run. (valid values: api, ui, webhook, trigger_job, schedule)
       build-trigger: "build_source"
     subject-alternative-name-template: "{{.url}}/{{.organization_slug}}/{{.pipeline_slug}}" # seems correct, do we still need the code in pkg/identity/buildkite/principal.go ?
+  *circleci-type:
+    default-template-values:
+      # principal gives priority to the claimed value over the default
+      platform_url: "https://app.circleci.com"
+      api_url: "https://circleci.com/api/v2"
+      runner_environment: ""
+    extension-templates:
+      # this API call leads back to the exact generated config used for this run
+      build-config-uri: "{{.api_url}}/pipeline/{{.'oidc.circleci.com/pipeline-id'}}/config"
+      # this API call leads back to the definition of the pipeline used for this run
+      # https://circleci.com/api/v2/projects/{project_id}/pipeline-definitions/{pipeline_definition_id}
+      build-signer-uri: "{{.api_url}}/projects/{{.'oidc.circleci.com/project-id'}}/pipeline-definitions/{{.'oidc.circleci.com/pipeline-definition-id'}}"
+      runner-environment: "runner_environment"
+      source-repository-ref: "oidc.circleci.com/vcs-ref"
+      source-repository-uri: "oidc.circleci.com/vcs-origin"
