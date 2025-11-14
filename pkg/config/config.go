@@ -216,7 +216,7 @@ func (fc *FulcioConfig) GetVerifier(issuerURL string, opts ...InsecureOIDCConfig
 	// If this issuer hasn't been recently used, or we have special config options, then create a new verifier
 	// and add it to the LRU cache.
 
-	client, err := httpClientForIssuer(iss)
+	client, err := httpClientForIssuer(fc, iss)
 	if err != nil {
 		log.Logger.Warnf("error building http client for issuer %q: %s", iss.IssuerURL, err)
 		return nil, false
@@ -281,11 +281,13 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 	return issuers
 }
 
-func httpClientForIssuer(iss OIDCIssuer) (*http.Client, error) {
+func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error) {
 	transportProvider := func(transport *http.Transport) http.RoundTripper {
 		return transport
 	}
-	if iss.Type == IssuerTypeKubernetes && iss.IssuerURL == k8sIssuerURL {
+
+	_, hasK8SIssuer := fc.GetIssuer(k8sIssuerURL)
+	if iss.Type == IssuerTypeKubernetes && hasK8SIssuer {
 		// Add the Kubernetes cluster's CA to the client's CA pool
 		certs, err := os.ReadFile(k8sCA)
 		if err != nil {
@@ -363,7 +365,7 @@ var (
 )
 
 func (fc *FulcioConfig) insertVerifier(iss OIDCIssuer) error {
-	client, err := httpClientForIssuer(iss)
+	client, err := httpClientForIssuer(fc, iss)
 	if err != nil {
 		return err
 	}
