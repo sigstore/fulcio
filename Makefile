@@ -20,8 +20,8 @@ all: fulcio
 SHELL:=/usr/bin/env bash
 
 SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go"|grep -v pkg/generated) $(GENSRC)
-TOOLS_DIR := hack/tools
-BIN_DIR := $(abspath $(ROOT_DIR)/bin)
+TOOLS_DIR_GO_MOD := hack/tools/go.mod
+
 
 GO_MODULE=$(shell head -1 go.mod | cut -f2 -d ' ')
 
@@ -45,16 +45,16 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
-$(GENSRC): $(PROTOBUF_DEPS) $(TOOLS_DIR)/go.mod
+$(GENSRC): $(PROTOBUF_DEPS) $(TOOLS_DIR_GO_MOD)
 	mkdir -p pkg/generated/protobuf
-	go tool -C $(TOOLS_DIR) -n api-linter -I ../../third_party/googleapis/ -I ../.. ../../$(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
-	protoc --plugin=protoc-gen-go=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-go) \
+	$$(go tool -modfile=$(TOOLS_DIR_GO_MOD) -n api-linter) -I third_party/googleapis/ -I . $(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
+	protoc --plugin=protoc-gen-go=$$(go tool -modfile=$(TOOLS_DIR_GO_MOD) -n protoc-gen-go) \
 	       --go_opt=module=$(GO_MODULE) --go_out=. \
-	       --plugin=protoc-gen-go-grpc=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-go-grpc) \
+	       --plugin=protoc-gen-go-grpc=$$(go tool -modfile=$(TOOLS_DIR_GO_MOD) -n protoc-gen-go-grpc) \
 	       --go-grpc_opt=module=$(GO_MODULE) --go-grpc_out=. \
-	       --plugin=protoc-gen-grpc-gateway=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-grpc-gateway) \
+	       --plugin=protoc-gen-grpc-gateway=$$(go tool -modfile=$(TOOLS_DIR_GO_MOD) -n protoc-gen-grpc-gateway) \
 	       --grpc-gateway_opt=module=$(GO_MODULE) --grpc-gateway_opt=logtostderr=true --grpc-gateway_out=. \
-	       --plugin=protoc-gen-openapiv2=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-openapiv2) \
+	       --plugin=protoc-gen-openapiv2=$$(go tool -modfile=$(TOOLS_DIR_GO_MOD) -n protoc-gen-openapiv2) \
 	       --openapiv2_out . \
 		   -I third_party/googleapis/ -I . $(PROTOBUF_DEPS)
 
