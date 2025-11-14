@@ -21,7 +21,6 @@ SHELL:=/usr/bin/env bash
 
 SRCS = $(shell find cmd -iname "*.go") $(shell find pkg -iname "*.go"|grep -v pkg/generated) $(GENSRC)
 TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/bin)
 BIN_DIR := $(abspath $(ROOT_DIR)/bin)
 
 GO_MODULE=$(shell head -1 go.mod | cut -f2 -d ' ')
@@ -46,23 +45,16 @@ GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
 
-# Binaries
-PROTOC-GEN-GO := $(TOOLS_BIN_DIR)/protoc-gen-go
-PROTOC-GEN-GO-GRPC := $(TOOLS_BIN_DIR)/protoc-gen-go-grpc
-PROTOC-GEN-GRPC-GATEWAY := $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway
-PROTOC-GEN-OPENAPIV2 := $(TOOLS_BIN_DIR)/protoc-gen-openapiv2
-PROTOC-API-LINTER := $(TOOLS_BIN_DIR)/api-linter
-
-$(GENSRC): $(PROTOC-GEN-GO) $(PROTOC-GEN-GO-GRPC) $(PROTOC-GEN-GRPC-GATEWAY) $(PROTOC-API-LINTER) $(PROTOC-GEN-OPENAPIV2) $(PROTOBUF_DEPS)
+$(GENSRC): $(PROTOBUF_DEPS) $(TOOLS_DIR)/go.mod
 	mkdir -p pkg/generated/protobuf
-	$(PROTOC-API-LINTER) -I third_party/googleapis/ -I . $(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
-	protoc --plugin=protoc-gen-go=$(TOOLS_BIN_DIR)/protoc-gen-go \
+	go tool -C $(TOOLS_DIR) -n api-linter -I ../../third_party/googleapis/ -I ../.. ../../$(PROTOBUF_DEPS) #--set-exit-status # TODO: add strict checking
+	protoc --plugin=protoc-gen-go=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-go) \
 	       --go_opt=module=$(GO_MODULE) --go_out=. \
-	       --plugin=protoc-gen-go-grpc=$(TOOLS_BIN_DIR)/protoc-gen-go-grpc \
+	       --plugin=protoc-gen-go-grpc=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-go-grpc) \
 	       --go-grpc_opt=module=$(GO_MODULE) --go-grpc_out=. \
-	       --plugin=protoc-gen-grpc-gateway=$(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway \
+	       --plugin=protoc-gen-grpc-gateway=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-grpc-gateway) \
 	       --grpc-gateway_opt=module=$(GO_MODULE) --grpc-gateway_opt=logtostderr=true --grpc-gateway_out=. \
-	       --plugin=protoc-gen-openapiv2=$(TOOLS_BIN_DIR)/protoc-gen-openapiv2 \
+	       --plugin=protoc-gen-openapiv2=$$(go tool -C $(TOOLS_DIR) -n protoc-gen-openapiv2) \
 	       --openapiv2_out . \
 		   -I third_party/googleapis/ -I . $(PROTOBUF_DEPS)
 
@@ -75,7 +67,7 @@ gosec: ## Runs gosec
 gen: $(GENSRC)
 
 fulcio: $(SRCS) ## Build Fulcio for local tests
-	go build -trimpath -ldflags "$(LDFLAGS)"
+	go build -trimpath -ldflags "$(LDFLAGS)" ./...
 
 cert-maker: ## Build the Fulcio Certificate Maker tool
 	go build -trimpath -ldflags "$(LDFLAGS)" -o certificate-maker ./cmd/certificate_maker
@@ -101,25 +93,6 @@ up: ## Start docker compose
 debug: ## Start docker compose in debug mode
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml build fulcio-server-debug
 	docker-compose -f docker-compose.yml -f docker-compose.debug.yml up fulcio-server-debug
-
-## --------------------------------------
-## Tooling Binaries
-## --------------------------------------
-
-$(PROTOC-GEN-GO): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
-
-$(PROTOC-GEN-GO-GRPC): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
-
-$(PROTOC-GEN-GRPC-GATEWAY): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
-
-$(PROTOC-GEN-OPENAPIV2): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-openapiv2 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
-
-$(PROTOC-API-LINTER): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -trimpath -tags=tools -o $(TOOLS_BIN_DIR)/api-linter github.com/googleapis/api-linter/v2/cmd/api-linter
 
 ## --------------------------------------
 ## Images with ko
