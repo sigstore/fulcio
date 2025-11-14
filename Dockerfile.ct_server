@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.25@sha256:ba7e3303cae06097fab776e5b45e9ff8aa32ebe05ca472c63ef6e62156e69717 AS server
+FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.29@sha256:10036a9ae81dd0ab237716d7cea7d5be5ddc082634345850af92d1bd7528f6a5 AS server
 
-FROM golang:1.25.3@sha256:6bac879c5b77e0fc9c556a5ed8920e89dab1709bd510a854903509c828f67f96 AS deploy
+FROM golang:1.25.4@sha256:e68f6a00e88586577fafa4d9cefad1349c2be70d21244321321c407474ff9bf2 AS deploy
 
 COPY --from=server /ko-app/ct_server /usr/local/bin/ct_server
 
