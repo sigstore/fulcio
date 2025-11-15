@@ -24,9 +24,11 @@ services:
       "--host=0.0.0.0",
       "--port=5555",
       "--grpc-port=5554",
-      "--ca=ephemeralca",
-      "--ct-log-url=https://ct_server:6962/test",
-      "--ct-log.tls-ca-cert=/config/tls/ca.crt",
+      "--ca=fileca",
+      "--fileca-cert=/etc/fulcio/root.pem",
+      "--fileca-key=/etc/fulcio/root.key",
+      "--fileca-key-passwd=fulcio",
+      "--ct-log-url=http://tesseract:6962",
       # Uncomment this for production logging
       # "--log_type=prod",
       ]
@@ -38,7 +40,7 @@ services:
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud/:z # for GCP authentication
       - ${FULCIO_CONFIG:-./config/identity/config.yaml}:/etc/fulcio-config/config.yaml:z
-      - ./config/tls:/config/tls:z
+      - ./config/fulcio-root:/etc/fulcio:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/healthz"]
       interval: 10s
@@ -68,97 +70,32 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-  ctfe_init:
+  tesseract:
     build:
       context: .
-      dockerfile: Dockerfile.ctfe_init
-    depends_on:
-      trillian-log-server:
-        condition: service_started
-      fulcio-server:
-        condition: service_healthy
+      dockerfile: Dockerfile.tesseract
     volumes:
-      - ctfeConfig:/etc/config/:rw
-  ct_server:
-    build:
-      context: .
-      dockerfile: Dockerfile.ct_server
-    volumes:
-      - ctfeConfig:/etc/config/:ro
-      - ./config/tls:/config/tls:z
+      - ctStorage:/ctfe:z
+      - ./config/ctfe/:/etc/ctfe:ro
+      - ./config/fulcio-root:/etc/fulcio:ro
+    user: root
     command: [
-        "--log_config" ,"/etc/config/ct_server.cfg",
-        "--log_rpc_server", "trillian-log-server:8096",
+        "--private_key", "/etc/ctfe/privkey.pem",
+        "--origin", "tesseract",
+        "--storage_dir", "/ctfe",
+        "--roots_pem_file", "/etc/fulcio/root.pem",
+        "--v", "1",
+        "--ext_key_usages", "CodeSigning",
         "--http_endpoint", "0.0.0.0:6962",
-        "--tls_certificate", "/config/tls/tls.crt",
-        "--tls_key", "/config/tls/tls.key",
-        "--alsologtostderr",
     ]
     healthcheck:
-      test: ["CMD", "curl", "-f", "-k", "https://localhost:6962/healthz"]
+      test: ["CMD", "curl", "-f", "-k", "http://localhost:6962/healthz"]
       interval: 5s
       timeout: 3s
       retries: 15
       start_period: 15s
-    restart: always # retry while ctfe_init is running
-    depends_on:
-      trillian-log-server:
-        condition: service_started
-      trillian-log-signer:
-        condition: service_started
-      ctfe_init:
-        condition: service_completed_successfully
+    restart: always
     ports:
       - "6962:6962"
-  mysql:
-    platform: linux/amd64
-    image: gcr.io/trillian-opensource-ci/db_server:v1.7.2@sha256:c3d5e243a2995e6bd83479c59cf5f586244f0988f97429f44e3334da0a95a5d0
-    environment:
-      - MYSQL_ROOT_PASSWORD=zaphod
-      - MYSQL_DATABASE=test
-      - MYSQL_USER=test
-      - MYSQL_PASSWORD=zaphod
-    restart: always # keep the MySQL server running
-    healthcheck:
-      test: "mysqladmin -h 127.0.0.1 --user=$$MYSQL_USER --password=$$MYSQL_ROOT_PASSWORD -s ping" 
-      interval: 10s
-      timeout: 3s
-      retries: 9
-      start_period: 90s
-    volumes:
-      - mysql:/var/lib/mysql
-  trillian-log-server:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.2@sha256:26d7c5b3cd0ec3a2c95a2ed439754fb8d77402337bc49a4e007bed4fbd915720
-    command: [
-      "--storage_system=mysql",
-      "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
-      "--rpc_endpoint=0.0.0.0:8096",
-      "--http_endpoint=0.0.0.0:8095",
-      "--alsologtostderr",
-    ]
-    restart: always # retry while mysql is starting up
-    ports:
-      - "8095:8090"
-      - "8096:8091"
-    depends_on:
-      mysql:
-        condition: service_healthy
-  trillian-log-signer:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_signer:v1.7.2@sha256:eeca1ab4c2bbfbc7d01370cd27503323622e8e41260513092dc709c274e22e60
-    command: [
-      "--storage_system=mysql",
-      "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
-      "--rpc_endpoint=0.0.0.0:8095",
-      "--http_endpoint=0.0.0.0:8096",
-      "--force_master",
-      "--alsologtostderr",
-    ]
-    restart: always # retry while mysql is starting up
-    ports:
-      - "8097:8096"
-    depends_on:
-      mysql:
-        condition: service_healthy
 volumes:
-  ctfeConfig: {}
-  mysql: {}
+  ctStorage: {}
