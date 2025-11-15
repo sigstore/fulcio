@@ -31,7 +31,11 @@ services:
       "--host=0.0.0.0",
       "--port=5555",
       "--grpc-port=5554",
-      "--ca=ephemeralca",
+      "--ca=fileca",
+      "--fileca-cert=/etc/fulcio/root.pem",
+      "--fileca-key=/etc/fulcio/root.key",
+      "--fileca-key-passwd=fulcio",
+      "--ct-log-url=http://tesseract:6962",
       ]
     restart: always # keep the server running
     ports:
