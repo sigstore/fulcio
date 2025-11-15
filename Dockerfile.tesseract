@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ghcr.io/sigstore/scaffolding/ct_server:v0.7.29@sha256:10036a9ae81dd0ab237716d7cea7d5be5ddc082634345850af92d1bd7528f6a5 AS server
+# Rebuild the tesseract image using the golang case in order to get the curl binary for the docker-compose healthcheck.
+
+FROM ghcr.io/sigstore/scaffolding/tesseract/posix:v0.1.1-0.20251112113307-52b154e44576 AS server
 
 FROM golang:1.25.4@sha256:e68f6a00e88586577fafa4d9cefad1349c2be70d21244321321c407474ff9bf2 AS deploy
 
-COPY --from=server /ko-app/ct_server /usr/local/bin/ct_server
+COPY --from=server /ko-app/posix /usr/local/bin/tesseract
 
-ENTRYPOINT ["ct_server"]
+ENTRYPOINT ["tesseract"]
