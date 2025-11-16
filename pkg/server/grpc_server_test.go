@@ -1214,7 +1214,8 @@ func TestAPIWithCiProvider(t *testing.T) {
 			DeploymentEnvironment:               "environment",
 		},
 		DefaultTemplateValues: map[string]string{
-			"url": "https://github.com",
+			"url":         "https://github.com",
+			"environment": "",
 		},
 		SubjectAlternativeNameTemplate: "{{.url}}/{{.job_workflow_ref}}",
 	}

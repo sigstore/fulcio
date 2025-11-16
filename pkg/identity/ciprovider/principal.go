@@ -62,26 +62,26 @@ func getTokenClaims(token *oidc.IDToken) (map[string]string, error) {
 	return mapValuesToString(tokenClaims), nil
 }
 
-// It makes string interpolation for a given string by using the
-// templates syntax https://pkg.go.dev/text/template
-// logMetadata added as a parameter for having a richer log
+// applyTemplateOrReplace performs string interpolation on a given template string.
+// It uses Go's text/template syntax (https://pkg.go.dev/text/template).
+// The logMetadata parameter is included to provide richer log messages.
 func applyTemplateOrReplace(
 	extValueTemplate string, tokenClaims map[string]string,
 	issuerMetadata map[string]string, logMetadata map[string]string) (string, error) {
 
-	// Here we merge the data from was claimed by the id token with the
-	// default data provided by the yaml file.
-	// The order here matter because we want to override the claimed data
-	// with the default data.
-	// The claimed data will have priority over the default data.
+	// Merge the data from the ID token claims with the default data
+	// from the issuer's metadata configuration.
+	// The order of maps.Copy is important here. We copy tokenClaims last
+	// to ensure that claim data takes priority over the default metadata.
 	mergedData := make(map[string]string)
 	maps.Copy(mergedData, issuerMetadata)
 	maps.Copy(mergedData, tokenClaims)
 
 	if strings.Contains(extValueTemplate, "{{") {
 		var doc bytes.Buffer
-		// This option forces to having the claim that is required
-		// for the template
+		// The "missingkey=error" option ensures that if a claim referenced
+		// in the template is not present in the merged data, template
+		// execution will fail.
 		t := template.New("").Option("missingkey=error")
 		// It shouldn't raise error since we already checked all
 		// templates in validateCIIssuerMetadata functions in config.go
@@ -158,16 +158,16 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
-	// We should use value.Elem() here as we need a
-	// addressable reference of the templates for applying the SetString().
+	// We use value.Elem() here because we need an addressable
+	// reference to the template fields to modify them with SetString().
 	v := reflect.ValueOf(&claimsTemplates).Elem()
-	// Type of the reflect value is needed as it is necessary
-	// for getting the field name.
+	// The type of the reflect value is needed to get the field name
+	// for logging and for checking against the "Issuer" field.
 	vType := v.Type()
 	for i := range v.NumField() {
 		s := v.Field(i).String() // value of each field, e.g the template string
-		// We check the field name to avoid to apply the template for the Issuer
-		// Issuer field should always come from the token issuer
+		// We check the field name to avoid applying the template for the Issuer.
+		// The Issuer field should always come from the token issuer.
 		if strings.TrimSpace(s) == "" || vType.Field(i).Name == "Issuer" {
 			continue
 		}
@@ -182,7 +182,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 		v.Field(i).SetString(extValue)
 	}
 
-	// Guarantees to set the extension issuer as the token issuer
+	// Guarantee that the extension issuer is set to the token issuer,
 	// regardless of whether this field has been set before
 	claimsTemplates.Issuer = principal.Token.Issuer
 	// Embed additional information into custom extensions
