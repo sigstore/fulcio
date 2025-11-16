@@ -138,6 +138,8 @@ ci-issuer-metadata:
     default-template-values:
       # url: URL of issuer, https://github.com
       url: "https://github.com"
+      # Nil default value to handle optional environment claim
+      environment: ""
     extension-templates:
       # event_name: Event that triggered this workflow run. E.g "push", "tag"
       github-workflow-trigger: "event_name"
@@ -175,12 +177,14 @@ ci-issuer-metadata:
       run-invocation-uri: "{{ .url }}/{{ .repository }}/actions/runs/{{ .run_id }}/attempts/{{ .run_attempt }}"
       # repository_visibility: Visibility of the source repo
       source-repository-visibility-at-signing: "repository_visibility"
-      # environment: Deployment target for workflow
+      # environment: Deployment target for workflow (optional)
       deployment-environment: "environment"
     subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
   *gitlab-type:
     default-template-values:
       url: "https://gitlab.com"
+      # Nil default value to handle optional environment claim
+      environment: ""
     extension-templates:
       # url: The URL of the GitLab instance. https://gitlab.com
       # ci_config_ref_uri: Ref of top-level pipeline definition.
@@ -214,7 +218,7 @@ ci-issuer-metadata:
       run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
       # project_visibility: Visibility of the source project
       source-repository-visibility-at-signing: "project_visibility"
-      # environment: Deployment target for job
+      # environment: Deployment target for job (optional)
       deployment-environment: "environment"
     subject-alternative-name-template: "https://{{ .ci_config_ref_uri }}"
   *codefresh-type:
