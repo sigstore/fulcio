@@ -338,6 +338,7 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		"ref_tag":               "1.0.0",
 		"html_claim":            "<alert()/>",
 		"claim_foo":             "bar",
+		"with.dot.and/slash":    "cat",
 	}
 	issuerMetadata := map[string]string{
 		"url":         "https://github.com",
@@ -395,6 +396,11 @@ func TestApplyTemplateOrReplace(t *testing.T) {
 		`If else template using else condition`: {
 			Template:       `refs/{{if eq .ref_type_tag "branch"}}heads/{{ else }}tags/{{end}}{{ .ref_tag }}`,
 			ExpectedResult: "refs/tags/1.0.0",
+			ExpectErr:      false,
+		},
+		`Template with slash and dots in key`: {
+			Template:       `{{ .aud }}/{{(index . "with.dot.and/slash")}}`,
+			ExpectedResult: "sigstore/cat",
 			ExpectErr:      false,
 		},
 		`Raise error for empty key in comparison`: {
