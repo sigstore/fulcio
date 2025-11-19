@@ -267,7 +267,6 @@ ci-issuer-metadata:
     default-template-values:
       # principal gives priority to the claimed value over the default
       api_url: "https://circleci.com/api/v2"
-      runner_environment: ""
     extension-templates:
       # NOTE: Because of how the text/template parsing works with / and . characters,
       # we use " inside our template fragments which is why we use ' to wrap
