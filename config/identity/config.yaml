@@ -124,6 +124,12 @@ meta-issuers:
   https://container.googleapis.com/v1/projects/*/locations/*/clusters/*:
     client-id: sigstore
     type: kubernetes
+  https://oidc.circleci.com/org/*:
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *circleci-type
+    # contact: security@circleci.com
+    # description: "CircleCI OIDC tokens"
   https://oidc.eks.*.amazonaws.com/id/*:
     client-id: sigstore
     type: kubernetes
