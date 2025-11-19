@@ -24,6 +24,7 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/cryptoutils/goodkey"
 )
 
 func MakeX509(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*x509.Certificate, error) {
@@ -103,5 +104,5 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 		return err
 	}
 
-	return cryptoutils.ValidatePubKey(signer.Public())
+	return goodkey.ValidatePubKey(signer.Public())
 }

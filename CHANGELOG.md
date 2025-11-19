@@ -1,3 +1,9 @@
+# v1.8.2
+
+## Testing
+
+* make email address in test cases rfc822 conformant (#2205)
+
 # v1.8.1
 
 Same as v1.8.0, but with a fix for the CI build pipeline.

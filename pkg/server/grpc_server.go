@@ -23,8 +23,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sigstore/sigstore/pkg/signature"
-
 	ctclient "github.com/google/certificate-transparency-go/client"
 	health "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -40,6 +38,8 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/cryptoutils/goodkey"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type GRPCCAServer interface {
@@ -105,7 +105,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 
 		// Parse public key and check for weak key parameters
 		publicKey = csr.PublicKey
-		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+		if err := goodkey.ValidatePubKey(publicKey); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
 
@@ -136,7 +136,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
 		}
-		if err := cryptoutils.ValidatePubKey(publicKey); err != nil {
+		if err := goodkey.ValidatePubKey(publicKey); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
 
