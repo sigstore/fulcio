@@ -38,17 +38,19 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	if err != nil {
 		return nil, err
 	}
-	if !emailVerified {
+
+	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
+	if !ok {
+		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
+	}
+
+	// Check email_verified claim unless the issuer is configured to skip verification
+	if !cfg.SkipEmailVerification && !emailVerified {
 		return nil, errors.New("email_verified claim was false")
 	}
 
 	if !govalidator.IsEmail(emailAddress) {
 		return nil, fmt.Errorf("email address is not valid")
-	}
-
-	cfg, ok := config.FromContext(ctx).GetIssuer(token.Issuer)
-	if !ok {
-		return nil, errors.New("invalid configuration for OIDC ID Token issuer")
 	}
 
 	issuer, err := oauthflow.IssuerFromIDToken(token, cfg.IssuerClaim)
