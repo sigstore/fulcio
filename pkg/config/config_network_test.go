@@ -49,8 +49,8 @@ func TestLoadYamlConfig(t *testing.T) {
 	if got.IssuerURL != "https://accounts.google.com" {
 		t.Errorf("expected https://accounts.google.com, got %s", got.IssuerURL)
 	}
-	if got := len(cfg.OIDCIssuers); got != 1 {
-		t.Errorf("expected 1 issuer, got %d", got)
+	if got := len(cfg.OIDCIssuers); got != 2 {
+		t.Errorf("expected 2 issuers, got %d", got)
 	}
 
 	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")
@@ -102,8 +102,8 @@ func TestLoadJsonConfig(t *testing.T) {
 	if got.IssuerURL != "https://accounts.google.com" {
 		t.Errorf("expected https://accounts.google.com, got %s", got.IssuerURL)
 	}
-	if got := len(cfg.OIDCIssuers); got != 1 {
-		t.Errorf("expected 1 issuer, got %d", got)
+	if got := len(cfg.OIDCIssuers); got != 2 {
+		t.Errorf("expected 2 issuers, got %d", got)
 	}
 
 	got, ok = cfg.GetIssuer("https://oidc.eks.fantasy-land.amazonaws.com/id/CLUSTERIDENTIFIER")

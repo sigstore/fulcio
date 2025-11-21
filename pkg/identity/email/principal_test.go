@@ -153,6 +153,77 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			},
 			WantErr: true,
 		},
+		`Email not verified but skip-email-verification enabled should succeed`: {
+			Claims: map[string]interface{}{
+				"aud":   "sigstore",
+				"iss":   "https://internal.example.com",
+				"sub":   "doesntmatter",
+				"email": "alice@example.com",
+			},
+			Config: config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"https://internal.example.com": {
+						IssuerURL:             "https://internal.example.com",
+						Type:                  config.IssuerTypeEmail,
+						ClientID:              "sigstore",
+						SkipEmailVerification: true,
+					},
+				},
+			},
+			ExpectedPrincipal: principal{
+				issuer:  "https://internal.example.com",
+				address: "alice@example.com",
+			},
+			WantErr: false,
+		},
+		`Email not verified (false) but skip-email-verification enabled should succeed`: {
+			Claims: map[string]interface{}{
+				"aud":            "sigstore",
+				"iss":            "https://internal.example.com",
+				"sub":            "doesntmatter",
+				"email":          "alice@example.com",
+				"email_verified": false,
+			},
+			Config: config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"https://internal.example.com": {
+						IssuerURL:             "https://internal.example.com",
+						Type:                  config.IssuerTypeEmail,
+						ClientID:              "sigstore",
+						SkipEmailVerification: true,
+					},
+				},
+			},
+			ExpectedPrincipal: principal{
+				issuer:  "https://internal.example.com",
+				address: "alice@example.com",
+			},
+			WantErr: false,
+		},
+		`Email verified with skip-email-verification enabled should succeed`: {
+			Claims: map[string]interface{}{
+				"aud":            "sigstore",
+				"iss":            "https://internal.example.com",
+				"sub":            "doesntmatter",
+				"email":          "alice@example.com",
+				"email_verified": true,
+			},
+			Config: config.FulcioConfig{
+				OIDCIssuers: map[string]config.OIDCIssuer{
+					"https://internal.example.com": {
+						IssuerURL:             "https://internal.example.com",
+						Type:                  config.IssuerTypeEmail,
+						ClientID:              "sigstore",
+						SkipEmailVerification: true,
+					},
+				},
+			},
+			ExpectedPrincipal: principal{
+				issuer:  "https://internal.example.com",
+				address: "alice@example.com",
+			},
+			WantErr: false,
+		},
 		`Missing email claim should error`: {
 			Claims: map[string]interface{}{
 				"aud":            "sigstore",

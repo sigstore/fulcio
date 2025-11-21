@@ -245,6 +245,10 @@
         "subjectDomain": {
           "type": "string",
           "description": "The expected subject domain. Only present when the OIDC issuer issues tokens for URI or username identities."
+        },
+        "skipEmailVerification": {
+          "type": "boolean",
+          "description": "Whether to skip email verification for this issuer.\nOnly applicable to email-type issuers from trusted internal identity providers."
         }
       },
       "description": "Metadata about an OIDC issuer."
