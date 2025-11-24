@@ -128,7 +128,7 @@ services:
     volumes:
       - mysql:/var/lib/mysql
   trillian-log-server:
-    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.2@sha256:26d7c5b3cd0ec3a2c95a2ed439754fb8d77402337bc49a4e007bed4fbd915720
+    image: ghcr.io/sigstore/scaffolding/trillian_log_server:v1.7.2@sha256:9c39b2a352512f013452bde7b6eb364590fa3c7fccad5499130b9cf067a1425c
     command: [
       "--storage_system=mysql",
       "--mysql_uri=test:zaphod@tcp(mysql:3306)/test",
