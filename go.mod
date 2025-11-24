@@ -21,7 +21,7 @@ require (
 	github.com/magiconair/properties v1.8.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.67.2
+	github.com/prometheus/common v0.67.4
 	github.com/rs/cors v1.11.1
 	github.com/sigstore/protobuf-specs v0.5.0
 	github.com/sigstore/sigstore v1.10.0
@@ -38,7 +38,7 @@ require (
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.2.0
 	github.com/tink-crypto/tink-go/v2 v2.5.0
 	go.step.sm/crypto v0.74.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	goa.design/goa/v3 v3.22.6
 	google.golang.org/api v0.256.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250929231259-57b25ae835d4
