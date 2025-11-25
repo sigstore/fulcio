@@ -1,0 +1,74 @@
+#
+# Copyright 2025 The Sigstore Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Verify docker compose functionality with cosign
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+
+      - uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Start Fulcio services
+        run: |
+          docker compose up --build --wait -d
+
+      - name: Make trusted root and signing config
+        run: |
+          curl http://localhost:5555/api/v1/rootCert > root.pem
+          cosign trusted-root create \
+            --fulcio="url=http://localhost:5555,certificate-chain=root.pem" \
+            --ctfe="url=http://localhost:6962,public-key=./config/ctfe/pubkey.pem,start-time=2025-11-25T21:41:42+00:00" \
+            --out=trusted-root.json
+          cosign signing-config create \
+            --fulcio="url=http://localhost:5555,api-version=1,start-time=2024-01-01T00:00:00Z,operator=test" \
+            --out=signing-config.json
+
+      - name: Get test OIDC token
+        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@main
+
+      - name: Sign and verify with ID token
+        run: |
+          set -e
+          echo "sample blob" > myblob
+          cosign sign-blob myblob \
+            -y \
+            --identity-token $(cat ./oidc-token.txt) \
+            --trusted-root=trusted-root.json \
+            --signing-config=signing-config.json \
+            --bundle=bundle.json
+          cosign verify-blob myblob \
+            --insecure-ignore-tlog \
+            --trusted-root=trusted-root.json \
+            --certificate-identity=https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            --bundle=bundle.json
