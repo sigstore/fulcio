@@ -133,6 +133,11 @@ type OIDCIssuer struct {
 	// This is used to trust the TLS certificate signed by an internal CA when interacting
 	// with some OIDC providers, preventing x509 certificate verification failures.
 	CACert string `json:"CACert,omitempty" yaml:"ca-cert,omitempty"`
+
+	// SkipEmailVerification skips the email_verified claim check for email-type issuers.
+	// This should only be set to true for trusted internal identity providers (e.g., Microsoft Entra, ADFS)
+	// that perform email verification through their own processes but don't include the email_verified claim.
+	SkipEmailVerification bool `json:"SkipEmailVerification,omitempty" yaml:"skip-email-verification,omitempty"`
 }
 
 func metaRegex(issuer string) (*regexp.Regexp, error) {
@@ -168,12 +173,13 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 			// If it matches, then return a concrete OIDCIssuer
 			// configuration for this issuer URL.
 			return OIDCIssuer{
-				IssuerURL:     issuerURL,
-				ClientID:      iss.ClientID,
-				Type:          iss.Type,
-				IssuerClaim:   iss.IssuerClaim,
-				SubjectDomain: iss.SubjectDomain,
-				CIProvider:    iss.CIProvider,
+				IssuerURL:             issuerURL,
+				ClientID:              iss.ClientID,
+				Type:                  iss.Type,
+				IssuerClaim:           iss.IssuerClaim,
+				SubjectDomain:         iss.SubjectDomain,
+				CIProvider:            iss.CIProvider,
+				SkipEmailVerification: iss.SkipEmailVerification,
 			}, true
 		}
 	}
@@ -256,24 +262,26 @@ func (fc *FulcioConfig) ToIssuers() []*fulciogrpc.OIDCIssuer {
 
 	for _, cfgIss := range fc.OIDCIssuers {
 		issuer := &fulciogrpc.OIDCIssuer{
-			Issuer:            &fulciogrpc.OIDCIssuer_IssuerUrl{IssuerUrl: cfgIss.IssuerURL},
-			Audience:          cfgIss.ClientID,
-			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
-			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
-			IssuerType:        cfgIss.Type.String(),
-			SubjectDomain:     cfgIss.SubjectDomain,
+			Issuer:                &fulciogrpc.OIDCIssuer_IssuerUrl{IssuerUrl: cfgIss.IssuerURL},
+			Audience:              cfgIss.ClientID,
+			SpiffeTrustDomain:     cfgIss.SPIFFETrustDomain,
+			ChallengeClaim:        issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
+			IssuerType:            cfgIss.Type.String(),
+			SubjectDomain:         cfgIss.SubjectDomain,
+			SkipEmailVerification: cfgIss.SkipEmailVerification,
 		}
 		issuers = append(issuers, issuer)
 	}
 
 	for metaIss, cfgIss := range fc.MetaIssuers {
 		issuer := &fulciogrpc.OIDCIssuer{
-			Issuer:            &fulciogrpc.OIDCIssuer_WildcardIssuerUrl{WildcardIssuerUrl: metaIss},
-			Audience:          cfgIss.ClientID,
-			SpiffeTrustDomain: cfgIss.SPIFFETrustDomain,
-			ChallengeClaim:    issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
-			IssuerType:        cfgIss.Type.String(),
-			SubjectDomain:     cfgIss.SubjectDomain,
+			Issuer:                &fulciogrpc.OIDCIssuer_WildcardIssuerUrl{WildcardIssuerUrl: metaIss},
+			Audience:              cfgIss.ClientID,
+			SpiffeTrustDomain:     cfgIss.SPIFFETrustDomain,
+			ChallengeClaim:        issuerToChallengeClaim(cfgIss.Type, cfgIss.ChallengeClaim),
+			IssuerType:            cfgIss.Type.String(),
+			SubjectDomain:         cfgIss.SubjectDomain,
+			SkipEmailVerification: cfgIss.SkipEmailVerification,
 		}
 		issuers = append(issuers, issuer)
 	}

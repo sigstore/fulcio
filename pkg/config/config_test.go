@@ -50,6 +50,12 @@ oidc-issuers:
     client-id: foo
     type: email
     challenge-claim: email
+  https://internal.example.com:
+    issuer-url: https://internal.example.com
+    client-id: foo
+    type: email
+    challenge-claim: email
+    skip-email-verification: true
 meta-issuers:
   https://oidc.eks.*.amazonaws.com/id/*:
     client-id: bar
@@ -68,6 +74,13 @@ var validJSONCfg = `
 			"ClientID": "foo",
 			"Type": "email",
 			"ChallengeClaim": "email"
+		},
+		"https://internal.example.com": {
+			"IssuerURL": "https://internal.example.com",
+			"ClientID": "foo",
+			"Type": "email",
+			"ChallengeClaim": "email",
+			"SkipEmailVerification": true
 		}
 	},
 	"MetaIssuers": {
@@ -508,6 +521,42 @@ func Test_validateAllowedDomain(t *testing.T) {
 				t.Errorf("validateAllowedDomain() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSkipEmailVerificationParsing(t *testing.T) {
+	yamlConfig := `
+oidc-issuers:
+  https://internal.example.com:
+    issuer-url: https://internal.example.com
+    client-id: sigstore
+    type: email
+    skip-email-verification: true
+  https://public.example.com:
+    issuer-url: https://public.example.com
+    client-id: sigstore
+    type: email
+`
+
+	cfg, err := parseConfig([]byte(yamlConfig))
+	if err != nil {
+		t.Fatalf("failed to parse config: %v", err)
+	}
+
+	internalIssuer, ok := cfg.OIDCIssuers["https://internal.example.com"]
+	if !ok {
+		t.Fatal("internal issuer not found")
+	}
+	if !internalIssuer.SkipEmailVerification {
+		t.Error("expected SkipEmailVerification to be true for internal issuer")
+	}
+
+	publicIssuer, ok := cfg.OIDCIssuers["https://public.example.com"]
+	if !ok {
+		t.Fatal("public issuer not found")
+	}
+	if publicIssuer.SkipEmailVerification {
+		t.Error("expected SkipEmailVerification to be false (default) for public issuer")
 	}
 }
 

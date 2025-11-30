@@ -241,4 +241,7 @@ message OIDCIssuer {
     string issuer_type = 6;
     // The expected subject domain. Only present when the OIDC issuer issues tokens for URI or username identities.
     string subject_domain = 7;
+    // Whether to skip email verification for this issuer.
+    // Only applicable to email-type issuers from trusted internal identity providers.
+    bool skip_email_verification = 8;
 }
