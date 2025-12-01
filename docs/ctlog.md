@@ -108,8 +108,6 @@ There are test secrets in `ctfe` for **DEVELOPMENT ONLY**.
 They were generated with:
 
 ```shell
-openssl ec -in <(openssl ecparam -genkey -name prime256v1) -out privkey.pem -des
-openssl ec -in privkey.pem -pubout -out pubkey.pem
+openssl ecparam -name prime256v1 -genkey -noout -out privkey.pem
+openssl ec -in privkey.pem -pubout > pubkey.pem
 ```
-
-The password is `foobar` and is stored in the `ct_server.cfg` file.
