@@ -1,3 +1,19 @@
+# v1.8.3
+
+## Vulnerability Fixes
+
+* https://github.com/sigstore/fulcio/security/advisories/GHSA-f83f-xpx7-ffpw; prevents OOM condition due to malformed OIDC token (#2233)
+
+## Features
+
+* feat: Add support for skipping email_verified claim requirement per issuer (#2220)
+* add meta-issuer circleci block (#2215)
+* add circleci info to fulcio (#2192)
+
+## Testing
+
+* Add basic E2E tests (#2230)
+
 # v1.8.2
 
 ## Testing
