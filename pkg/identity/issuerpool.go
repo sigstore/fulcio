@@ -41,11 +41,11 @@ func (p IssuerPool) Authenticate(ctx context.Context, token string, opts ...conf
 }
 
 func extractIssuerURL(token string) (string, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return "", fmt.Errorf("oidc: malformed jwt, expected 3 parts got %d", len(parts))
+	if strings.Count(token, ".") != 2 {
+		return "", fmt.Errorf("oidc: malformed jwt, token must have 3 parts")
 	}
 
+	parts := strings.SplitN(token, ".", 3)
 	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		return "", fmt.Errorf("oidc: malformed jwt payload: %w", err)
