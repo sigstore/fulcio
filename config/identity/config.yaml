@@ -286,6 +286,7 @@ ci-issuer-metadata:
       # this API call leads back to the definition of the pipeline used for this run
       # https://circleci.com/api/v2/projects/{project_id}/pipeline-definitions/{pipeline_definition_id}
       build-signer-uri: '{{.api_url}}/projects/{{(index . "oidc.circleci.com/project-id")}}/pipeline-definitions/{{(index . "oidc.circleci.com/pipeline-definition-id")}}'
+      run-invocation-uri: '{{.api_url}}/workflow/{{(index . "oidc.circleci.com/workflow-id")}}/job'
       runner-environment: '{{if eq (index . "oidc.circleci.com/ssh-rerun") "true"}}ssh-rerun{{ else }}""{{end}}'
       source-repository-ref: '{{index . "oidc.circleci.com/vcs-ref"}}'
       source-repository-uri: '{{index . "oidc.circleci.com/vcs-origin"}}'
