@@ -1,3 +1,7 @@
+# v1.8.4
+
+Same changelog as v1.8.3, with a few dependency bumps to resolve a breaking API change
+
 # v1.8.3
 
 ## Vulnerability Fixes
