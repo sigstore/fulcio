@@ -37,7 +37,7 @@ import (
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const defaultOIDCDiscoveryTimeout = 10 * time.Second
