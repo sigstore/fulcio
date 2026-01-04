@@ -39,12 +39,12 @@ require (
 	github.com/tink-crypto/tink-go/v2 v2.6.0
 	go.step.sm/crypto v0.75.0
 	go.uber.org/zap v1.27.1
+	go.yaml.in/yaml/v3 v3.0.4
 	goa.design/goa/v3 v3.23.4
 	google.golang.org/api v0.257.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
-	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.12.2
 )
 
@@ -166,4 +166,5 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
