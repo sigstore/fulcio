@@ -97,5 +97,13 @@ services:
     restart: always
     ports:
       - "6962:6962"
+  ct-read:
+    image: nginx:1.29.4@sha256:ca871a86d45a3ec6864dc45f014b11fe626145569ef0e74deaffc95a3b15b430
+    volumes:
+      - ctStorage:/usr/share/nginx/html
+    user: root
+    restart: always
+    ports:
+      - "8000:80"
 volumes:
   ctStorage: {}
