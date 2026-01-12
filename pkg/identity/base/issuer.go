@@ -17,8 +17,6 @@ package base
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -50,24 +48,9 @@ func (e *baseIssuer) Match(_ context.Context, url string) bool {
 	}
 	// If this is a MetaIssuer the issuer URL could be a regex
 	// Check if the regex is valid against the provided url
-	re, err := metaRegex(e.issuerURL)
+	re, err := config.MetaRegex(e.issuerURL)
 	if err != nil {
 		return false
 	}
 	return re.MatchString(url)
-}
-
-func metaRegex(issuer string) (*regexp.Regexp, error) {
-	// Quote all of the "meta" characters like `.` to avoid
-	// those literal characters in the URL matching any character.
-	// This will ALSO quote `*`, so we replace the quoted version.
-	quoted := regexp.QuoteMeta(issuer)
-
-	// Replace the quoted `*` with a regular expression that
-	// will match alpha-numeric parts with common additional
-	// "special" characters.
-	replaced := strings.ReplaceAll(quoted, regexp.QuoteMeta("*"), "[-_a-zA-Z0-9]+")
-
-	// Compile into a regular expression.
-	return regexp.Compile(replaced)
 }

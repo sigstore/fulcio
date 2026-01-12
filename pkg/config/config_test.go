@@ -114,6 +114,9 @@ func TestMetaURLs(t *testing.T) {
 			"https://oidc.eks.us.west.2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB",
 			// Extra slashes
 			"https://oidc.eks.us-west/2.amazonaws.com/id/B02C93B6A2D3/0341AD01E1B6D48164CB",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB",
+			"http://localhost/redirect/https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB",
 		},
 	}, {
 		name:   "GKE meta URL",
@@ -124,12 +127,69 @@ func TestMetaURLs(t *testing.T) {
 		misses: []string{
 			// Extra dots
 			"https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us.west1.b/clusters/tenant-cluster",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster",
+			"http://localhost/redirect/https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster",
+		},
+	}, {
+		name:   "Azure meta URL",
+		issuer: "https://*.oic.prod-aks.azure.com/*",
+		matches: []string{
+			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+		misses: []string{
+			// Extra dots
+			"https://eastus.oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			// Extra slashes
+			"https://eastus/oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"http://localhost/redirect/https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+	}, {
+		name:   "CircleCI meta URL",
+		issuer: "https://oidc.circleci.com/org/*",
+		matches: []string{
+			"https://oidc.circleci.com/org/my-org",
+			"https://oidc.circleci.com/org/12345",
+		},
+		misses: []string{
+			// Extra slashes
+			"https://oidc.circleci.com/org/my-org/extra",
+			// Missing org
+			"https://oidc.circleci.com/org/",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://oidc.circleci.com/org/my-org",
+		},
+	}, {
+		name:   "Azure prod-aks meta URL",
+		issuer: "https://oidc.prod-aks.azure.com/*",
+		matches: []string{
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+		misses: []string{
+			// Extra slashes
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/extra",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+	}, {
+		name:   "GitHub Actions meta URL",
+		issuer: "https://token.actions.githubusercontent.com/*",
+		matches: []string{
+			"https://token.actions.githubusercontent.com/some-enterprise",
+		},
+		misses: []string{
+			// Extra slashes
+			"https://token.actions.githubusercontent.com/some-enterprise/extra",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://token.actions.githubusercontent.com/some-enterprise",
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			re, err := metaRegex(test.issuer)
+			re, err := MetaRegex(test.issuer)
 			if err != nil {
 				t.Errorf("metaRegex() = %v", err)
 			}
