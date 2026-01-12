@@ -1,3 +1,9 @@
+# v1.8.5
+
+## Vulnerability Fixes
+
+* https://github.com/sigstore/fulcio/security/advisories/GHSA-59jp-pj84-45mr - Server-side request forgery via MetaIssuer regex bypass (#2263)
+
 # v1.8.4
 
 Same changelog as v1.8.3, with a few dependency bumps to resolve a breaking API change
