@@ -140,7 +140,7 @@ type OIDCIssuer struct {
 	SkipEmailVerification bool `json:"SkipEmailVerification,omitempty" yaml:"skip-email-verification,omitempty"`
 }
 
-func metaRegex(issuer string) (*regexp.Regexp, error) {
+func MetaRegex(issuer string) (*regexp.Regexp, error) {
 	// Quote all of the "meta" characters like `.` to avoid
 	// those literal characters in the URL matching any character.
 	// This will ALSO quote `*`, so we replace the quoted version.
@@ -150,6 +150,12 @@ func metaRegex(issuer string) (*regexp.Regexp, error) {
 	// will match alpha-numeric parts with common additional
 	// "special" characters.
 	replaced := strings.ReplaceAll(quoted, regexp.QuoteMeta("*"), "[-_a-zA-Z0-9]+")
+
+	// Add anchors to the beginning and end of the regular expression
+	// to prevent matching URLs where the issuer is not the host of the URL,
+	// e.g. http://localhost:3000?https://meta-url-issuer.com/*
+	// Resolves GHSA-59jp-pj84-45mr
+	replaced = "^" + replaced + "$"
 
 	// Compile into a regular expression.
 	return regexp.Compile(replaced)
@@ -165,7 +171,7 @@ func (fc *FulcioConfig) GetIssuer(issuerURL string) (OIDCIssuer, bool) {
 	}
 
 	for meta, iss := range fc.MetaIssuers {
-		re, err := metaRegex(meta)
+		re, err := MetaRegex(meta)
 		if err != nil {
 			continue // Shouldn't happen, we check parsing the config
 		}
