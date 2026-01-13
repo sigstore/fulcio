@@ -132,19 +132,38 @@ func TestMetaURLs(t *testing.T) {
 			"http://localhost/redirect/https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster",
 		},
 	}, {
-		name:   "Azure meta URL",
-		issuer: "https://*.oic.prod-aks.azure.com/*",
+		name:   "Azure meta URL - /tenant-guid/random-guid",
+		issuer: "https://*.oic.prod-aks.azure.com/*/*",
 		matches: []string{
-			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
 		},
 		misses: []string{
 			// Extra dots
-			"https://eastus.oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"https://eastus.oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
 			// Extra slashes
-			"https://eastus/oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"https://eastus/oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			// Not enough parts
+			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
 			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
-			"http://localhost?issuer=https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
-			"http://localhost/redirect/https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"http://localhost?issuer=https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"http://localhost/redirect/https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+	}, {
+		name:   "Azure meta URL - /tenant-guid/random-guid/",
+		issuer: "https://*.oic.prod-aks.azure.com/*/*/",
+		matches: []string{
+			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+		},
+		misses: []string{
+			// No trailing slash
+			"https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			// Extra dots
+			"https://eastus.oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+			// Extra slashes
+			"https://eastus/oic.prod.aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+			"http://localhost/redirect/https://eastus.oic.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
 		},
 	}, {
 		name:   "CircleCI meta URL",
@@ -162,14 +181,42 @@ func TestMetaURLs(t *testing.T) {
 			"http://localhost?issuer=https://oidc.circleci.com/org/my-org",
 		},
 	}, {
-		name:   "Azure prod-aks meta URL",
+		name:   "Azure prod-aks meta URL - /tenant-guid",
 		issuer: "https://oidc.prod-aks.azure.com/*",
 		matches: []string{
 			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
 		},
 		misses: []string{
-			// Extra slashes
+			// Extra part
 			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/extra",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+	}, {
+		name:   "Azure prod-aks meta URL - /tenant-guid/",
+		issuer: "https://oidc.prod-aks.azure.com/*/",
+		matches: []string{
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+		},
+		misses: []string{
+			// No trailing slash
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
+			"http://localhost?issuer=https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+	}, {
+		name:   "Azure prod-aks meta URL - /tenant-guid/random-guid",
+		issuer: "https://oidc.prod-aks.azure.com/*/*",
+		matches: []string{
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+		},
+		misses: []string{
+			// Not enough parts
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
+			// Trailing slash - I haven't found any evidence that this is valid, but if it is, we'll just need to add
+			// another issuer https://oidc.prod-aks.azure.com/*/*/
+			"https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0/",
 			// Issuer is not the URL host (GHSA-59jp-pj84-45mr)
 			"http://localhost?issuer=https://oidc.prod-aks.azure.com/ffffffff-eeee-dddd-cccc-bbbbbbbbbbb0",
 		},

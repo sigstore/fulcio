@@ -118,7 +118,12 @@ oidc-issuers:
     contact: sigstore@ibm.com
     description: "IBM OIDC auth"
 meta-issuers:
-  https://*.oic.prod-aks.azure.com/*:
+  # Matches https://{region}.oic.prod-aks.azure.com/{tenant-guid}/{random-guid}
+  https://*.oic.prod-aks.azure.com/*/*:
+    client-id: sigstore
+    type: kubernetes
+  # Matches https://{region}.oic.prod-aks.azure.com/{tenant-guid}/{random-guid}/
+  https://*.oic.prod-aks.azure.com/*/*/:
     client-id: sigstore
     type: kubernetes
   https://container.googleapis.com/v1/projects/*/locations/*/clusters/*:
@@ -133,7 +138,16 @@ meta-issuers:
   https://oidc.eks.*.amazonaws.com/id/*:
     client-id: sigstore
     type: kubernetes
+  # Matches https://oidc.prod-aks.azure.com/{tenant-guid}
   https://oidc.prod-aks.azure.com/*:
+    client-id: sigstore
+    type: kubernetes
+  # Matches https://oidc.prod-aks.azure.com/{tenant-guid}/
+  https://oidc.prod-aks.azure.com/*/:
+    client-id: sigstore
+    type: kubernetes
+  # Matches https://oidc.prod-aks.azure.com/{tenant-guid}/{random-guid}
+  https://oidc.prod-aks.azure.com/*/*:
     client-id: sigstore
     type: kubernetes
   https://token.actions.githubusercontent.com/*:
