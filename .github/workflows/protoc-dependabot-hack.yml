@@ -15,4 +15,4 @@ jobs:
     steps:
       # update the version in these places manually when Dependabot proposes a change to it here:
       # 1. the version in main.yml used to install protoc
-      - uses: protocolbuffers/protobuf@v33.2
+      - uses: protocolbuffers/protobuf@v33.4
