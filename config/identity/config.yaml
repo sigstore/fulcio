@@ -284,6 +284,7 @@ ci-issuer-metadata:
     default-template-values:
       # principal gives priority to the claimed value over the default
       api_url: "https://circleci.com/api/v2"
+      platform_url: "https://app.circleci.com/"
     extension-templates:
       # NOTE: Because of how the text/template parsing works with / and . characters,
       # we use " inside our template fragments which is why we use ' to wrap
@@ -293,7 +294,7 @@ ci-issuer-metadata:
       # this API call leads back to the definition of the pipeline used for this run
       # https://circleci.com/api/v2/projects/{project_id}/pipeline-definitions/{pipeline_definition_id}
       build-signer-uri: '{{.api_url}}/projects/{{(index . "oidc.circleci.com/project-id")}}/pipeline-definitions/{{(index . "oidc.circleci.com/pipeline-definition-id")}}'
-      run-invocation-uri: '{{.api_url}}/workflow/{{(index . "oidc.circleci.com/workflow-id")}}/job'
+      run-invocation-uri: '{{.platform_url}}/workflow/{{(index . "oidc.circleci.com/workflow-id")}}/job/{{(index . "oidc.circleci.com/job-id")}}'
       runner-environment: '{{if eq (index . "oidc.circleci.com/ssh-rerun") "true"}}ssh-rerun{{ else }}""{{end}}'
       source-repository-ref: '{{index . "oidc.circleci.com/vcs-ref"}}'
       source-repository-uri: '{{index . "oidc.circleci.com/vcs-origin"}}'
