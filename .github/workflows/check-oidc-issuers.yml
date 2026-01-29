@@ -39,11 +39,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
-
       - name: Check OIDC issuer configurations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
