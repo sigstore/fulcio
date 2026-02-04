@@ -47,7 +47,7 @@ jobs:
       image: ghcr.io/gythialy/golang-cross:v1.25.5-0@sha256:3a7d463d9e3438513b6bd597c79f7d5db756023e04718259cc25aabd5d00fc17
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
