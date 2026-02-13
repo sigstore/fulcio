@@ -10,6 +10,6 @@ This doc covers feature stability in `fulcio` as described in the [API Stability
 * Support for various Certificate Authorities (CAs), including Google Private CA Service, PKCS11, and File backed CA
 * Support for SPIFFE challenges and OIDC based email challenges
 * The Go client library defined in `fulcio/pkg`
-* Issuers defined in [fulcio-config.yaml](https://github.com/sigstore/fulcio/blob/main/config/fulcio-config.yaml)
+* Issuers defined in [config.yaml](https://github.com/sigstore/fulcio/blob/main/config/identity/config.yaml) (see [configuration reference](docs/config.md))
 
 ## General Availability

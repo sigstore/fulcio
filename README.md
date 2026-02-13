@@ -143,6 +143,7 @@ In addition to this README file, the docs folder contains the additional documen
 - **hsm-support.md**. Using Fulcio with a pkcs11 capable device such as SoftHSM.
 - **oid-info.md**. Sigstore OID information.  
 - **security-model.md**. Fulcio’s security model and a discussion of short-lived certificates.
+- **config.md**. Configuration reference covering the config file schema, OIDC issuer setup, meta issuers, and CI provider metadata mappings.
 - **setup.md**. Setting up a local Fulcio instance
 
 If you are making changes to any of these subjects, make sure you also edit the appropriate file listed above.
