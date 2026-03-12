@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -157,7 +158,7 @@ type logAdaptor struct {
 	logger *zap.SugaredLogger
 }
 
-func (la logAdaptor) Printf(s string, args ...interface{}) {
+func (la logAdaptor) Printf(s string, args ...any) {
 	la.logger.Infof(s, args...)
 }
 
@@ -431,11 +432,8 @@ func checkServeCmdConfigFile() error {
 		extWithDot := filepath.Ext(abspath)
 		ext := strings.TrimPrefix(extWithDot, ".")
 		var extIsValid bool
-		for _, validExt := range viper.SupportedExts {
-			if ext == validExt {
-				extIsValid = true
-				break
-			}
+		if slices.Contains(viper.SupportedExts, ext) {
+			extIsValid = true
 		}
 		if !extIsValid {
 			return fmt.Errorf("config file must have one of the following extensions: %s", strings.Join(viper.SupportedExts, ", "))

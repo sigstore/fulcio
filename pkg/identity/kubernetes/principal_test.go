@@ -33,15 +33,15 @@ import (
 
 func TestPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims            map[string]interface{}
+		Claims            map[string]any
 		ExpectedPrincipal principal
 		WantErr           bool
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud": []string{"sigstore"},
 				"iss": "https://iss.example.com",
-				"kubernetes.io": map[string]interface{}{
+				"kubernetes.io": map[string]any{
 					"namespace": "foo",
 					"pod": map[string]string{
 						"name": "bar",
@@ -109,14 +109,14 @@ func withClaims(token *oidc.IDToken, data []byte) {
 
 func TestName(t *testing.T) {
 	tests := map[string]struct {
-		Claims       map[string]interface{}
+		Claims       map[string]any
 		ExpectedName string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud": []string{"sigstore"},
 				"iss": "https://iss.example.com",
-				"kubernetes.io": map[string]interface{}{
+				"kubernetes.io": map[string]any{
 					"namespace": "foo",
 					"pod": map[string]string{
 						"name": "bar",

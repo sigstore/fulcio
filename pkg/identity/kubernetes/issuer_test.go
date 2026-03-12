@@ -44,10 +44,10 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: "subject",
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"aud": []string{"sigstore"},
 			"iss": "https://iss.example.com",
-			"kubernetes.io": map[string]interface{}{
+			"kubernetes.io": map[string]any{
 				"namespace": "foo",
 				"pod": map[string]string{
 					"name": "bar",

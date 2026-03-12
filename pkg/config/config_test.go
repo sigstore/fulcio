@@ -891,8 +891,8 @@ func TestVerifierCacheWithCustomCA(t *testing.T) {
 			})
 		case "/keys":
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"keys": []interface{}{},
+			json.NewEncoder(w).Encode(map[string]any{
+				"keys": []any{},
 			})
 		default:
 			http.NotFound(w, r)
@@ -988,8 +988,8 @@ func TestVerifyK8sDefaultIssuer(t *testing.T) {
 			})
 		case "/keys":
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"keys": []interface{}{},
+			json.NewEncoder(w).Encode(map[string]any{
+				"keys": []any{},
 			})
 		default:
 			http.NotFound(w, r)

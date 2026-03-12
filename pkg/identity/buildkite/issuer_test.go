@@ -44,7 +44,7 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: "organization:acme-inc:pipeline:bash-example:ref:refs/heads/main:commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:step:build",
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"aud":               "sigstore",
 			"exp":               0,
 			"iss":               "https://agent.buildkite.com",

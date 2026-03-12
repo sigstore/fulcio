@@ -33,13 +33,13 @@ import (
 
 func TestJobPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims          map[string]interface{}
+		Claims          map[string]any
 		ExpectPrincipal workflowPrincipal
 		WantErr         bool
 		ErrContains     string
 	}{
 		`Valid token - Manual trigger authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":                "account:628a80b693a15c0f9c13ab75:pipeline:65e5a53e52853dc51a5b0cc1:initiator:codefresh-user",
 				"account_id":         "628a80b693a15c0f9c13ab75",
 				"account_name":       "codefresh-account",
@@ -69,7 +69,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Valid token - Git push trigger authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":                "account:628a80b693a15c0f9c13ab75:pipeline:65e5a53e52853dc51a5b0cc1:initiator:codefresh-user:scm_repo_url:https://github.com/codefresh-user/fulcio:scm_user_name:git-user-name:scm_ref:main",
 				"account_id":         "628a80b693a15c0f9c13ab75",
 				"account_name":       "codefresh-account",
@@ -104,7 +104,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Valid token - Git pull request trigger authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":                            "account:628a80b693a15c0f9c13ab75:pipeline:65e6d5551e47e5bc243ca93f:scm_repo_url:https://github.com/test-codefresh/fulcio:scm_user_name:test-codefresh:scm_ref:feat/codefresh-issuer:scm_pull_request_target_branch:main",
 				"account_id":                     "628a80b693a15c0f9c13ab75",
 				"account_name":                   "test-codefresh",
@@ -139,7 +139,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Token missing workflow_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":           "account:628a80b693a15c0f9c13ab75:pipeline:65e5a53e52853dc51a5b0cc1:initiator:codefresh-user",
 				"account_id":    "628a80b693a15c0f9c13ab75",
 				"account_name":  "codefresh-oidc",
@@ -155,7 +155,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "workflow_id",
 		},
 		`Token missing account_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":           "account:628a80b693a15c0f9c13ab75:pipeline:65e5a53e52853dc51a5b0cc1:initiator:codefresh-user",
 				"account_name":  "codefresh-oidc",
 				"pipeline_id":   "65e5a53e52853dc51a5b0cc1",
@@ -170,7 +170,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "account_id",
 		},
 		`Token missing pipeline_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"sub":           "account:628a80b693a15c0f9c13ab75:pipeline:65e5a53e52853dc51a5b0cc1:initiator:codefresh-user",
 				"account_name":  "codefresh-oidc",
 				"account_id":    "628a80b693a15c0f9c13ab75",

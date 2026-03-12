@@ -75,7 +75,7 @@ func init() {
 var lis *bufconn.Listener
 
 func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
 		// from disk, so that we don't need to cycle pods to pick up config updates.
@@ -212,7 +212,7 @@ func TestGetConfiguration(t *testing.T) {
 		t.Fatal("issuer URL could not be parsed", err)
 	}
 
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -284,7 +284,7 @@ func TestGetConfiguration(t *testing.T) {
 		codefreshIssuer, codefreshIssuer,
 		chainguardIssuer, chainguardIssuer,
 		ciProviderIssuer, ciProviderIssuer,
-		k8sIssuer)))
+		k8sIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -374,7 +374,7 @@ func TestGetConfigurationFromYaml(t *testing.T) {
 		t.Fatal("issuer URL could not be parsed", err)
 	}
 
-	yamlBytes := []byte(fmt.Sprintf(`
+	yamlBytes := fmt.Appendf(nil, `
     oidc-issuers:
       %v:
         issuer-url: %q
@@ -423,7 +423,7 @@ func TestGetConfigurationFromYaml(t *testing.T) {
 		gitHubIssuer, gitHubIssuer,
 		gitLabIssuer, gitLabIssuer,
 		codefreshIssuer, codefreshIssuer,
-		k8sIssuer))
+		k8sIssuer)
 
 	cfg, err := config.Read(yamlBytes)
 	if err != nil {
@@ -517,7 +517,7 @@ func TestAPIWithEmail(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -525,7 +525,7 @@ func TestAPIWithEmail(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -604,7 +604,7 @@ func TestAPIWithUsername(t *testing.T) {
 	}
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -613,7 +613,7 @@ func TestAPIWithUsername(t *testing.T) {
 				"Type": "username"
 			}
 		}
-	}`, usernameIssuer, usernameIssuer, issuerDomain.Hostname())))
+	}`, usernameIssuer, usernameIssuer, issuerDomain.Hostname()))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -693,7 +693,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 	uriSigner, uriIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -708,7 +708,7 @@ func TestAPIWithUriSubject(t *testing.T) {
 				"Type": "uri"
 			}
 		}
-	}`, spiffeIssuer, spiffeIssuer, uriIssuer, uriIssuer, uriIssuer)))
+	}`, spiffeIssuer, spiffeIssuer, uriIssuer, uriIssuer, uriIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -799,14 +799,14 @@ func TestAPIWithKubernetes(t *testing.T) {
 	k8sSigner, k8sIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
         "MetaIssuers": {
           %q: {
             "ClientID": "sigstore",
             "Type": "kubernetes"
           }
         }
-	}`, k8sIssuer)))
+	}`, k8sIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -888,7 +888,7 @@ func TestAPIWithBuildkite(t *testing.T) {
 	buildkiteSigner, buildkiteIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -896,7 +896,7 @@ func TestAPIWithBuildkite(t *testing.T) {
 				"Type": "buildkite-job"
 			}
         }
-	}`, buildkiteIssuer, buildkiteIssuer)))
+	}`, buildkiteIssuer, buildkiteIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -993,7 +993,7 @@ func TestAPIWithGitHub(t *testing.T) {
 	githubSigner, githubIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1001,7 +1001,7 @@ func TestAPIWithGitHub(t *testing.T) {
 				"Type": "github-workflow"
 			}
         }
-	}`, githubIssuer, githubIssuer)))
+	}`, githubIssuer, githubIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1141,7 +1141,7 @@ func TestAPIWithGitHub(t *testing.T) {
 func TestAPIWithCiProvider(t *testing.T) {
 	ciProviderSigner, ciProviderIssuer := newOIDCIssuer(t)
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1150,7 +1150,7 @@ func TestAPIWithCiProvider(t *testing.T) {
 				"CIProvider": "github-workflow"
 			}
         }
-	}`, ciProviderIssuer, ciProviderIssuer)))
+	}`, ciProviderIssuer, ciProviderIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1337,7 +1337,7 @@ func TestAPIWithGitLab(t *testing.T) {
 	gitLabSigner, gitLabIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1345,7 +1345,7 @@ func TestAPIWithGitLab(t *testing.T) {
 				"Type": "gitlab-pipeline"
 			}
         }
-	}`, gitLabIssuer, gitLabIssuer)))
+	}`, gitLabIssuer, gitLabIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1485,7 +1485,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 	codefreshSigner, codefreshIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1493,7 +1493,7 @@ func TestAPIWithCodefresh(t *testing.T) {
 				"Type": "codefresh-workflow"
 			}
         }
-	}`, codefreshIssuer, codefreshIssuer)))
+	}`, codefreshIssuer, codefreshIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1612,7 +1612,7 @@ func TestAPIWithChainguard(t *testing.T) {
 	chainguardSigner, chainguardIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1620,7 +1620,7 @@ func TestAPIWithChainguard(t *testing.T) {
 				"Type": "chainguard-identity"
 			}
         }
-	}`, chainguardIssuer, chainguardIssuer)))
+	}`, chainguardIssuer, chainguardIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1728,7 +1728,7 @@ func TestAPIWithIssuerClaimConfig(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1737,7 +1737,7 @@ func TestAPIWithIssuerClaimConfig(t *testing.T) {
 				"IssuerClaim": "$.other_issuer"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1806,7 +1806,7 @@ func TestAPIWithRSA(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1814,7 +1814,7 @@ func TestAPIWithRSA(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1894,7 +1894,7 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1902,7 +1902,7 @@ func TestAPIWithCSRChallenge(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -1976,7 +1976,7 @@ func TestAPIWithCSRChallengeRSA(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -1984,7 +1984,7 @@ func TestAPIWithCSRChallengeRSA(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2058,7 +2058,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2066,7 +2066,7 @@ func TestAPIWithInsecurePublicKey(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2133,7 +2133,7 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2141,7 +2141,7 @@ func TestAPIWithoutPublicKey(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2209,7 +2209,7 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2217,7 +2217,7 @@ func TestAPIWithInvalidChallenge(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2277,7 +2277,7 @@ func TestAPIWithInvalidPublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports these issuers.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2285,7 +2285,7 @@ func TestAPIWithInvalidPublicKey(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2358,7 +2358,7 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2366,7 +2366,7 @@ func TestAPIWithInvalidCSR(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2419,7 +2419,7 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2427,7 +2427,7 @@ func TestAPIWithInvalidCSRSignature(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}
@@ -2497,7 +2497,7 @@ func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
 
 	// Create a FulcioConfig that supports this issuer.
-	cfg, err := config.Read([]byte(fmt.Sprintf(`{
+	cfg, err := config.Read(fmt.Appendf(nil, `{
 		"OIDCIssuers": {
 			%q: {
 				"IssuerURL": %q,
@@ -2505,7 +2505,7 @@ func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
 				"Type": "email"
 			}
 		}
-	}`, emailIssuer, emailIssuer)))
+	}`, emailIssuer, emailIssuer))
 	if err != nil {
 		t.Fatalf("config.Read() = %v", err)
 	}

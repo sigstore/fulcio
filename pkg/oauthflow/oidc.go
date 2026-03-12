@@ -57,7 +57,7 @@ func IssuerFromIDToken(token *oidc.IDToken, claimJSONPath string) (string, error
 	if claimJSONPath == "" {
 		return token.Issuer, nil
 	}
-	v := interface{}(nil)
+	v := any(nil)
 	if err := token.Claims(&v); err != nil {
 		return "", err
 	}

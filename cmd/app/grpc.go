@@ -62,7 +62,7 @@ type grpcServer struct {
 }
 
 func PassFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		// For each request, infuse context with our snapshot of the FulcioConfig.
 		// TODO(mattmoor): Consider periodically (every minute?) refreshing the ConfigMap
 		// from disk, so that we don't need to cycle pods to pick up config updates.
@@ -292,7 +292,7 @@ func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v
 	return &grpcServer{myServer, unixDomainSocket, v2Server, nil}, nil
 }
 
-func panicRecoveryHandler(ctx context.Context, p interface{}) error {
+func panicRecoveryHandler(ctx context.Context, p any) error {
 	log.ContextLogger(ctx).Error(p)
 	return fmt.Errorf("panic: %v", p)
 }

@@ -20,6 +20,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/sigstore/fulcio/pkg/identity"
@@ -89,11 +90,8 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 	// usage is set to satify extended key usage chainging
 	if len(certs) > 1 {
 		var hasExtKeyUsageCodeSigning bool
-		for _, extKeyUsage := range certs[0].ExtKeyUsage {
-			if extKeyUsage == x509.ExtKeyUsageCodeSigning {
-				hasExtKeyUsageCodeSigning = true
-				break
-			}
+		if slices.Contains(certs[0].ExtKeyUsage, x509.ExtKeyUsageCodeSigning) {
+			hasExtKeyUsageCodeSigning = true
 		}
 		if !hasExtKeyUsageCodeSigning {
 			return errors.New(`certificate must have extended key usage code signing set to sign code signing certificates`)

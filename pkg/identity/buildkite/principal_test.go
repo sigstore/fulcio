@@ -33,13 +33,13 @@ import (
 
 func TestJobPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims          map[string]interface{}
+		Claims          map[string]any
 		ExpectPrincipal jobPrincipal
 		WantErr         bool
 		ErrContains     string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":               "sigstore",
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",
@@ -55,7 +55,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Token missing organization_slug claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":           "sigstore",
 				"exp":           0,
 				"iss":           "https://agent.buildkite.com",
@@ -66,7 +66,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "organization_slug",
 		},
 		`Token missing pipeline_slug claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":               "sigstore",
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",
@@ -127,11 +127,11 @@ func withClaims(token *oidc.IDToken, data []byte) {
 
 func TestName(t *testing.T) {
 	tests := map[string]struct {
-		Claims     map[string]interface{}
+		Claims     map[string]any
 		ExpectName string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":               "sigstore",
 				"exp":               0,
 				"iss":               "https://agent.buildkite.com",

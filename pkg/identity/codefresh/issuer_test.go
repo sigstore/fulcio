@@ -44,7 +44,7 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: "account:628a80b693a15c0f9c13ab75:pipeline:65e6d5551e47e5bc243ca93f:scm_repo_url:https://github.com/test-codefresh/fulcio:scm_user_name:test-codefresh:scm_ref:feat/codefresh-issuer:scm_pull_request_target_branch:main",
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"sub":                            "account:628a80b693a15c0f9c13ab75:pipeline:65e6d5551e47e5bc243ca93f:scm_repo_url:https://github.com/test-codefresh/fulcio:scm_user_name:test-codefresh:scm_ref:feat/codefresh-issuer:scm_pull_request_target_branch:main",
 			"account_id":                     "628a80b693a15c0f9c13ab75",
 			"account_name":                   "test-codefresh",
