@@ -41,7 +41,7 @@ const (
 	loadingFulcioConfigurationError         = "error loading fulcio configuration"
 )
 
-func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...interface{}) error {
+func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...any) error {
 	// Use log level "warning" for codes that are likely client errors, see https://grpc.github.io/grpc/core/md_doc_statuscodes.html
 	switch code {
 	case codes.InvalidArgument,
@@ -54,9 +54,9 @@ func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, mess
 		codes.Aborted,
 		codes.ResourceExhausted,
 		codes.Canceled:
-		log.ContextLogger(ctx).Warnw(err.Error(), append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)
+		log.ContextLogger(ctx).Warnw(err.Error(), append([]any{"code", code, "clientMessage", message, "error", err}, fields...)...)
 	default:
-		log.ContextLogger(ctx).Errorw(err.Error(), append([]interface{}{"code", code, "clientMessage", message, "error", err}, fields...)...)
+		log.ContextLogger(ctx).Errorw(err.Error(), append([]any{"code", code, "clientMessage", message, "error", err}, fields...)...)
 	}
 	return status.Error(code, message)
 }

@@ -33,13 +33,13 @@ import (
 
 func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims          map[string]interface{}
+		Claims          map[string]any
 		ExpectPrincipal workflowPrincipal
 		WantErr         bool
 		ErrContains     string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -85,7 +85,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Token missing job_workflow_ref claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -110,7 +110,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "job_workflow_ref",
 		},
 		`Token missing sha should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -135,7 +135,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "sha",
 		},
 		`Token missing event_name claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"exp":                   0,
 				"iss":                   "https://token.actions.githubusercontent.com",
@@ -160,7 +160,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "event_name",
 		},
 		`Token missing repository claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -185,7 +185,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "repository",
 		},
 		`Token missing workflow claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -210,7 +210,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "workflow",
 		},
 		`Token missing ref claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -235,7 +235,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "ref",
 		},
 		`Token missing job_workflow_sha claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -260,7 +260,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "job_workflow_sha",
 		},
 		`Token missing runner_environment claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -285,7 +285,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "runner_environment",
 		},
 		`Token missing repository_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -310,7 +310,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "repository_id",
 		},
 		`Token missing repository_owner claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -335,7 +335,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "repository_owner",
 		},
 		`Token missing repository_owner_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -360,7 +360,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "repository_owner_id",
 		},
 		`Token missing workflow_ref claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -385,7 +385,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "workflow_ref",
 		},
 		`Token missing workflow_sha claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -410,7 +410,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "workflow_sha",
 		},
 		`Token missing run_id claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -435,7 +435,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "run_id",
 		},
 		`Token missing run_attempt claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,
@@ -460,7 +460,7 @@ func TestWorkflowPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "run_attempt",
 		},
 		`Token missing repository_visibility claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                 "sigstore",
 				"event_name":          "push",
 				"exp":                 0,
@@ -534,11 +534,11 @@ func withClaims(token *oidc.IDToken, data []byte) {
 
 func TestName(t *testing.T) {
 	tests := map[string]struct {
-		Claims     map[string]interface{}
+		Claims     map[string]any
 		ExpectName string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                   "sigstore",
 				"event_name":            "push",
 				"exp":                   0,

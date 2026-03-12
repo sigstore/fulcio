@@ -51,7 +51,7 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: id.String(),
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"iss": "https://iss.example.com",
 			"sub": id.String(),
 
@@ -63,7 +63,7 @@ func TestIssuer(t *testing.T) {
 				"sub": fmt.Sprintf("catalog-syncer:%s", group.String()),
 				"aud": "chainguard",
 			},
-			"internal": map[string]interface{}{
+			"internal": map[string]any{
 				"service-principal": "CATALOG_SYNCER",
 			},
 		})

@@ -32,13 +32,13 @@ import (
 
 func TestJobPrincipalFromIDToken(t *testing.T) {
 	tests := map[string]struct {
-		Claims          map[string]interface{}
+		Claims          map[string]any
 		ExpectPrincipal jobPrincipal
 		WantErr         bool
 		ErrContains     string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -81,7 +81,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Token missing pipeline_source claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -102,7 +102,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "pipeline_source",
 		},
 		`Token missing project_path claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -123,7 +123,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "project_path",
 		},
 		`Token missing ci_config_ref_uri claim should be rejected`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -143,7 +143,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			ErrContains: "ci_config_ref_uri",
 		},
 		`Token missing ci_config_sha claim is ok`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -184,7 +184,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Token missing project_visibility is ok`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",
@@ -275,11 +275,11 @@ func withClaims(token *oidc.IDToken, data []byte) {
 
 func TestName(t *testing.T) {
 	tests := map[string]struct {
-		Claims     map[string]interface{}
+		Claims     map[string]any
 		ExpectName string
 	}{
 		`Valid token authenticates with correct claims`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"aud":                "sigstore",
 				"exp":                0,
 				"iss":                "https://gitlab.com",

@@ -44,7 +44,7 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: "repo:sigstore/fulcio:ref:refs/heads/main",
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"namespace_id":       "1730270",
 			"namespace_path":     "cpanato",
 			"project_id":         "42831435",

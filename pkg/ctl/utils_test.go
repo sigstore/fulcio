@@ -37,7 +37,7 @@ func TestBuildCTChain(t *testing.T) {
 		t.Fatalf("CT chain length does not equal certificate chain length, got %v, expected %v", len(ctChain), len(certs))
 	}
 
-	for i := 0; i < len(certs); i++ {
+	for i := range certs {
 		if !reflect.DeepEqual(ctChain[i].Data, certs[i].Raw) {
 			t.Fatal("CT certificate and certificate do not match")
 		}

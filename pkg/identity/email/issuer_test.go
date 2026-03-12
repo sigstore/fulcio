@@ -44,7 +44,7 @@ func TestIssuer(t *testing.T) {
 			Issuer:  "https://iss.example.com",
 			Subject: "subject",
 		}
-		claims, err := json.Marshal(map[string]interface{}{
+		claims, err := json.Marshal(map[string]any{
 			"aud":            "sigstore",
 			"iss":            "https://iss.example.com",
 			"sub":            "doesntmatter",

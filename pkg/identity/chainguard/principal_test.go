@@ -36,13 +36,13 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 	id := group.NewChild()
 
 	tests := map[string]struct {
-		Claims          map[string]interface{}
+		Claims          map[string]any
 		ExpectPrincipal workflowPrincipal
 		WantErr         bool
 		ErrContains     string
 	}{
 		`Service principal token`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"iss": "https://issuer.enforce.dev",
 				"sub": id.String(),
 				// Actor claims track the identity that was used to assume the
@@ -53,7 +53,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 					"sub": fmt.Sprintf("catalog-syncer:%s", group.String()),
 					"aud": "chainguard",
 				},
-				"internal": map[string]interface{}{
+				"internal": map[string]any{
 					"service-principal": "CATALOG_SYNCER",
 				},
 			},
@@ -71,7 +71,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Human SSO token`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"iss": "https://issuer.enforce.dev",
 				"sub": group.String(),
 				// Actor claims track the identity that was used to assume the
@@ -96,7 +96,7 @@ func TestJobPrincipalFromIDToken(t *testing.T) {
 			WantErr: false,
 		},
 		`Human SSO token (with email)`: {
-			Claims: map[string]interface{}{
+			Claims: map[string]any{
 				"iss":            "https://issuer.enforce.dev",
 				"sub":            group.String(),
 				"email":          "jane@doe.dev",

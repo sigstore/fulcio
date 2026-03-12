@@ -40,7 +40,7 @@ var intermediateTemplate string
 //go:embed templates/leaf-template.json
 var leafTemplate string
 
-func ParseTemplate(input interface{}, parent *x509.Certificate, notAfter time.Time, publicKey crypto.PublicKey, commonName string) (*x509.Certificate, error) {
+func ParseTemplate(input any, parent *x509.Certificate, notAfter time.Time, publicKey crypto.PublicKey, commonName string) (*x509.Certificate, error) {
 	var content string
 
 	switch v := input.(type) {
