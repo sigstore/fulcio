@@ -57,6 +57,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://iss.example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},
@@ -84,6 +85,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},
@@ -111,6 +113,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},
@@ -173,6 +176,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://internal.example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},
@@ -197,6 +201,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://internal.example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},
@@ -221,6 +226,7 @@ func TestPrincipalFromIDToken(t *testing.T) {
 			ExpectedPrincipal: principal{
 				issuer:  "https://internal.example.com",
 				address: "alice@example.com",
+				subject: "doesntmatter",
 			},
 			WantErr: false,
 		},

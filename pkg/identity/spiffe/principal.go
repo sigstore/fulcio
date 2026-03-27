@@ -83,7 +83,8 @@ func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 	cert.URIs = []*url.URL{parsed}
 
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: p.issuer,
+		Issuer:  p.issuer,
+		Subject: p.id,
 	}.Render()
 	if err != nil {
 		return err

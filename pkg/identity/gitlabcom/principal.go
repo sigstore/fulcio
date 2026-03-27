@@ -220,6 +220,7 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
 		Issuer:                              p.issuer,
+		Subject:                             p.subject,
 		BuildConfigURI:                      ciConfigRefURL.String(),
 		BuildConfigDigest:                   p.ciConfigSha,
 		BuildSignerURI:                      ciConfigRefURL.String(),

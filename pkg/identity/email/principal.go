@@ -31,6 +31,7 @@ import (
 type principal struct {
 	address string
 	issuer  string
+	subject string
 }
 
 func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Principal, error) {
@@ -61,6 +62,7 @@ func PrincipalFromIDToken(ctx context.Context, token *oidc.IDToken) (identity.Pr
 	return principal{
 		issuer:  issuer,
 		address: emailAddress,
+		subject: token.Subject,
 	}, nil
 }
 
@@ -73,7 +75,8 @@ func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	var err error
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: p.issuer,
+		Issuer:  p.issuer,
+		Subject: p.subject,
 	}.Render()
 	if err != nil {
 		return err

@@ -199,7 +199,8 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: w.issuer,
+		Issuer:  w.issuer,
+		Subject: w.subject,
 		// BEGIN: Deprecated
 		GithubWorkflowTrigger:    w.eventName,
 		GithubWorkflowSHA:        w.sha,
