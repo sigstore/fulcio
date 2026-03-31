@@ -80,7 +80,8 @@ func (w workflowPrincipal) Embed(_ context.Context, cert *x509.Certificate) erro
 	cert.URIs = []*url.URL{baseURL.JoinPath(w.subject)}
 
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: w.issuer,
+		Issuer:  w.issuer,
+		Subject: w.subject,
 
 		// TODO(mattmoor): Embed more of the Chainguard token structure via OIDs.
 	}.Render()

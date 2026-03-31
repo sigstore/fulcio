@@ -75,7 +75,8 @@ func (p principal) Embed(_ context.Context, cert *x509.Certificate) error {
 	exts = append(exts, *ext)
 
 	issuerExt, err := certificate.Extensions{
-		Issuer: p.issuer,
+		Issuer:  p.issuer,
+		Subject: p.username,
 	}.Render()
 	if err != nil {
 		return err

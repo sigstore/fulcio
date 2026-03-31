@@ -58,6 +58,7 @@ func TestExtensions(t *testing.T) {
 				RunInvocationURI:                    "21",     // 1.3.6.1.4.1.57264.1.21
 				SourceRepositoryVisibilityAtSigning: "22",     // 1.3.6.1.4.1.57264.1.22
 				DeploymentEnvironment:               "23",     // 1.3.6.1.4.1.57264.1.23
+				Subject:                             "24",     // 1.3.6.1.4.1.57264.1.24
 			},
 			Expect: []pkix.Extension{
 				{
@@ -147,6 +148,10 @@ func TestExtensions(t *testing.T) {
 				{
 					Id:    OIDDeploymentEnvironment,
 					Value: marshalDERString(t, "23"),
+				},
+				{
+					Id:    OIDTokenSubject,
+					Value: marshalDERString(t, "24"),
 				},
 			},
 			WantErr: false,

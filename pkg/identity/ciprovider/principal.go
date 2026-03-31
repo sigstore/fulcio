@@ -168,7 +168,7 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 		s := v.Field(i).String() // value of each field, e.g the template string
 		// We check the field name to avoid applying the template for the Issuer.
 		// The Issuer field should always come from the token issuer.
-		if strings.TrimSpace(s) == "" || vType.Field(i).Name == "Issuer" {
+		if strings.TrimSpace(s) == "" || vType.Field(i).Name == "Issuer" || vType.Field(i).Name == "Subject" {
 			continue
 		}
 		extValue, err := applyTemplateOrReplace(s, claims, defaults,
@@ -182,9 +182,10 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 		v.Field(i).SetString(extValue)
 	}
 
-	// Guarantee that the extension issuer is set to the token issuer,
-	// regardless of whether this field has been set before
+	// Guarantee that the extension issuer and subject are set to the token values,
+	// regardless of whether these fields have been set before
 	claimsTemplates.Issuer = principal.Token.Issuer
+	claimsTemplates.Subject = principal.Token.Subject
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = claimsTemplates.Render()
 	if err != nil {

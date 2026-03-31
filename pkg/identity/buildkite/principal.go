@@ -80,7 +80,8 @@ func (p jobPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
 
 	// Embed additional information into custom extensions
 	cert.ExtraExtensions, err = certificate.Extensions{
-		Issuer: p.issuer,
+		Issuer:  p.issuer,
+		Subject: p.subject,
 	}.Render()
 	if err != nil {
 		return err
