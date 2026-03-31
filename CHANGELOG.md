@@ -1,3 +1,9 @@
+# v1.8.6
+
+## Features
+
+* Include raw subject in certificates (#2307)
+
 # v1.8.5
 
 ## Vulnerability Fixes
