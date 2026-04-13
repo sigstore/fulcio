@@ -11,7 +11,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-jose/go-jose/v4 v4.1.3
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.67.5
 	github.com/rs/cors v1.11.1
-	github.com/sigstore/protobuf-specs v0.5.0
+	github.com/sigstore/protobuf-specs v0.5.1
 	github.com/sigstore/sigstore v1.10.5
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.5
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.5
@@ -45,7 +45,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260311181403-84a4fc48630c
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
-	sigs.k8s.io/release-utils v0.12.3
+	sigs.k8s.io/release-utils v0.12.4
 )
 
 require (
