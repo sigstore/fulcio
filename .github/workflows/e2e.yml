@@ -53,7 +53,8 @@ jobs:
             --out=signing-config.json
 
       - name: Get test OIDC token
-        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@main
+        run: |
+          curl -o oidc-token.txt "https://storage.googleapis.com/sigstore-conformance-testing-token/untrusted-testing-token.txt"
 
       - name: Sign and verify with ID token
         run: |
@@ -68,6 +69,6 @@ jobs:
           cosign verify-blob myblob \
             --insecure-ignore-tlog \
             --trusted-root=trusted-root.json \
-            --certificate-identity=https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main \
-            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            --certificate-identity=untrusted-sa@sigstore-conformance.iam.gserviceaccount.com \
+            --certificate-oidc-issuer=https://accounts.google.com \
             --bundle=bundle.json
