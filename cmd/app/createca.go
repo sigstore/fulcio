@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ThalesIgnite/crypto11"
+	"github.com/ThalesGroup/crypto11"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"

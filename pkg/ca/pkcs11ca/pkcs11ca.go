@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ThalesIgnite/crypto11"
+	"github.com/ThalesGroup/crypto11"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
 )
