@@ -98,7 +98,7 @@ services:
     ports:
       - "6962:6962"
   ct-read:
-    image: nginx:1.31.0@sha256:06aa3d7be10bc6307990c81bdca075793132e9163391abc370c015e344e23128
+    image: nginx:1.31.1@sha256:5aca99593157f4ae539a5dec1092a0ad8762f8e2eb1789085a13a0f5622369f6
     volumes:
       - ctStorage:/usr/share/nginx/html
     user: root
