@@ -1177,3 +1177,233 @@ type mockKeySet struct {
 func (m *mockKeySet) VerifySignature(_ context.Context, _ string) (payload []byte, err error) {
 	return nil, nil
 }
+
+func TestGetVerifier_CrossHostRedirectBlocked(t *testing.T) {
+	// Server B: Redirect target
+	serverB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":   "https://example.com",
+			"jwks_uri": "https://example.com/keys",
+		})
+	}))
+	defer serverB.Close()
+
+	// Server A: Original issuer, redirects to Server B
+	serverA := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/.well-known/openid-configuration" {
+			http.Redirect(w, r, serverB.URL, http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer serverA.Close()
+
+	cache, err := lru.New2Q[string, []*verifierWithConfig](100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			serverA.URL: {
+				IssuerURL: serverA.URL,
+				ClientID:  "sigstore",
+			},
+		},
+		verifiers: make(map[string][]*verifierWithConfig),
+		lru:       cache,
+	}
+
+	// This discovery fetch should fail because the cross-host redirect is blocked.
+	_, ok := fc.GetVerifier(serverA.URL)
+	if ok {
+		t.Fatal("expected GetVerifier to fail due to blocked cross-host redirect")
+	}
+}
+
+func TestGetVerifier_SameHostRedirectAllowed(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			http.Redirect(w, r, "/discovery", http.StatusFound)
+		case "/discovery":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":   server.URL,
+				"jwks_uri": server.URL + "/keys",
+			})
+		case "/keys":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"keys": []any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	cache, err := lru.New2Q[string, []*verifierWithConfig](100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			server.URL: {
+				IssuerURL: server.URL,
+				ClientID:  "sigstore",
+			},
+		},
+		verifiers: make(map[string][]*verifierWithConfig),
+		lru:       cache,
+	}
+
+	// This discovery fetch should succeed because the redirect stays on the same host.
+	_, ok := fc.GetVerifier(server.URL)
+	if !ok {
+		t.Fatal("expected GetVerifier to succeed with same-host redirect")
+	}
+}
+
+func TestBearerTokenTransport_DifferentHostFails(t *testing.T) {
+	mockTransport := &mockRoundTripper{}
+	transport := &bearerTokenTransport{
+		Transport: mockTransport,
+		Token:     "super-secret-token",
+		IssuerURL: "https://kubernetes.default.svc",
+	}
+
+	// 1. Request to the expected host should have the Bearer token
+	reqSame, _ := http.NewRequest("GET", "https://kubernetes.default.svc/some-endpoint", nil)
+	_, err := transport.RoundTrip(reqSame)
+	if err != nil {
+		t.Fatalf("unexpected error for same-host request: %v", err)
+	}
+	if got := mockTransport.lastHeaders.Get("Authorization"); got != "Bearer super-secret-token" {
+		t.Errorf("expected Authorization header to be 'Bearer super-secret-token', got '%s'", got)
+	}
+
+	// Reset mock transport headers
+	mockTransport.lastHeaders = nil
+
+	// 2. Request to a different host should fail with an error
+	reqDiff, _ := http.NewRequest("GET", "https://attacker.com/some-endpoint", nil)
+	_, err = transport.RoundTrip(reqDiff)
+	if err == nil {
+		t.Error("expected error for cross-host request, got nil")
+	}
+	if mockTransport.lastHeaders != nil {
+		t.Error("expected mock transport to not be called for cross-host request")
+	}
+}
+
+type mockRoundTripper struct {
+	lastHeaders http.Header
+}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.lastHeaders = req.Header
+	return &http.Response{StatusCode: http.StatusOK}, nil
+}
+
+func TestGetVerifier_MetaIssuerK8sTokenNotLeaked(t *testing.T) {
+	// Save globals and restore them after the test
+	origK8sCA := k8sCA
+	origK8sTokenFile := k8sTokenFile
+	origK8sIssuerURL := k8sIssuerURL
+	defer func() {
+		k8sCA = origK8sCA
+		k8sTokenFile = origK8sTokenFile
+		k8sIssuerURL = origK8sIssuerURL
+	}()
+
+	caPEM, serverTLSCert, err := createServerTLS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	crtFile, err := mockFile("ca-*.crt", caPEM.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(crtFile.Name())
+	k8sCA = crtFile.Name()
+
+	const token = "super-secret-local-token"
+	tokenFile, err := mockFile("token-*", token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tokenFile.Name())
+	k8sTokenFile = tokenFile.Name()
+
+	// The local Kubernetes issuer URL
+	k8sIssuerURL = "https://kubernetes.default.svc"
+
+	// Set up a mock external server representing the meta-issuer
+	authorized := atomic.Bool{}
+	var server *httptest.Server
+	server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			authorized.Store(true)
+		}
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"issuer":   server.URL,
+				"jwks_uri": server.URL + "/keys",
+			})
+		case "/keys":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"keys": []any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	server.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	// Create a meta-issuer that matches the mock external server
+	metaIssuer := strings.ReplaceAll(server.URL, "127.0.0.1", "*.*.*.*")
+
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			// Local Kubernetes default issuer exists in config
+			k8sIssuerURL: {
+				IssuerURL: k8sIssuerURL,
+				ClientID:  "sigstore",
+				Type:      IssuerTypeKubernetes,
+			},
+		},
+		MetaIssuers: map[string]OIDCIssuer{
+			metaIssuer: {
+				ClientID: "sigstore",
+				Type:     IssuerTypeKubernetes,
+				CACert:   caPEM.String(),
+			},
+		},
+		verifiers: make(map[string][]*verifierWithConfig),
+	}
+
+	if err := fc.prepare(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fetch verifier for the external meta-issuer server URL
+	_, ok := fc.GetVerifier(server.URL)
+	if !ok {
+		t.Fatal("expected to get verifier")
+	}
+
+	if authorized.Load() {
+		t.Fatal("vulnerability: sensitive local Kubernetes token was leaked to external meta-issuer URL")
+	}
+}
