@@ -35,6 +35,18 @@ func TestNewFileCA(t *testing.T) {
 	}
 }
 
+func TestNewFileCANoPassword(t *testing.T) {
+	_, err := NewFileCA(
+		`testdata/ed25519-pkcs8-cert.pem`,
+		`testdata/ed25519-pkcs8-key.pem`,
+		"",
+		false,
+	)
+	if err != nil {
+		t.Error(`Failed to load file CA with unencrypted key`)
+	}
+}
+
 func TestCertUpdate(t *testing.T) {
 	oldCert := `testdata/ed25519-cert.pem`
 	oldKey := `testdata/ed25519-key.pem`

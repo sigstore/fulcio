@@ -390,7 +390,49 @@ EOF
     rm password.file
 }
 
-generate_ed25519 
+function generate_ecdsa_pkcs8 {
+    openssl ecparam -genkey -name secp384r1 2>/dev/null | \
+        openssl pkcs8 -topk8 -nocrypt -out ecdsa-pkcs8-key.pem 2>/dev/null
+
+    openssl req -new -x509 \
+        -key ecdsa-pkcs8-key.pem \
+        -out ecdsa-pkcs8-cert.pem \
+        -days 36500 \
+        -subj "/CN=ecdsa-pkcs8" \
+        -addext "basicConstraints=critical,CA:TRUE,pathlen:1" \
+        -addext "keyUsage=critical,keyCertSign,cRLSign" \
+        -addext "extendedKeyUsage=codeSigning"
+}
+
+function generate_ed25519_pkcs8 {
+    openssl genpkey -algorithm ed25519 \
+        -out ed25519-pkcs8-key.pem 2>/dev/null
+
+    openssl req -new -x509 \
+        -key ed25519-pkcs8-key.pem \
+        -out ed25519-pkcs8-cert.pem \
+        -days 36500 \
+        -subj "/CN=ed25519-pkcs8" \
+        -addext "basicConstraints=critical,CA:TRUE,pathlen:1" \
+        -addext "keyUsage=critical,keyCertSign,cRLSign" \
+        -addext "extendedKeyUsage=codeSigning"
+}
+
+function generate_rsa4096_pkcs8 {
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 \
+        -out rsa4096-pkcs8-key.pem 2>/dev/null
+
+    openssl req -new -x509 \
+        -key rsa4096-pkcs8-key.pem \
+        -out rsa4096-pkcs8-cert.pem \
+        -days 36500 \
+        -subj "/CN=rsa4096-pkcs8" \
+        -addext "basicConstraints=critical,CA:TRUE,pathlen:1" \
+        -addext "keyUsage=critical,keyCertSign,cRLSign" \
+        -addext "extendedKeyUsage=codeSigning"
+}
+
+generate_ed25519
 generate_ecdsa
 generate_rsa4096
 generate_openssl
@@ -399,3 +441,6 @@ generate_not_a_ca
 generate_intermediate_2_ca
 generate_intermediate_3_ca
 generate_eku_chaining_violation
+generate_ecdsa_pkcs8
+generate_ed25519_pkcs8
+generate_rsa4096_pkcs8
