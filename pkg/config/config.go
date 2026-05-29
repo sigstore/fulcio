@@ -321,7 +321,9 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 	}
 
 	_, hasK8SIssuer := fc.GetIssuer(k8sIssuerURL)
-	if iss.Type == IssuerTypeKubernetes && hasK8SIssuer && iss.IssuerURL == k8sIssuerURL {
+	_, isConfiguredOIDCIssuer := fc.OIDCIssuers[iss.IssuerURL]
+	isTrustedK8sIssuer := isConfiguredOIDCIssuer || iss.IssuerURL == k8sIssuerURL
+	if iss.Type == IssuerTypeKubernetes && hasK8SIssuer && isTrustedK8sIssuer {
 		// Add the Kubernetes cluster's CA to the client's CA pool
 		certs, err := os.ReadFile(k8sCA)
 		if err != nil {

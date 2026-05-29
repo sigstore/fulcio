@@ -1407,3 +1407,96 @@ func TestGetVerifier_MetaIssuerK8sTokenNotLeaked(t *testing.T) {
 		t.Fatal("vulnerability: sensitive local Kubernetes token was leaked to external meta-issuer URL")
 	}
 }
+
+// TestGetVerifier_DirectConfiguredK8sIssuerGetsToken verifies that a
+// directly-configured Kubernetes-type issuer whose URL is not k8sIssuerURL
+// (e.g. "https://kubernetes.default.svc.cluster.local" used by K3s) still
+// receives the in-cluster CA and projected service-account bearer token.
+func TestGetVerifier_DirectConfiguredK8sIssuerGetsToken(t *testing.T) {
+	origK8sCA := k8sCA
+	origK8sTokenFile := k8sTokenFile
+	origK8sIssuerURL := k8sIssuerURL
+	defer func() {
+		k8sCA = origK8sCA
+		k8sTokenFile = origK8sTokenFile
+		k8sIssuerURL = origK8sIssuerURL
+	}()
+
+	caPEM, serverTLSCert, err := createServerTLS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	crtFile, err := mockFile("ca-*.crt", caPEM.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(crtFile.Name())
+	k8sCA = crtFile.Name()
+
+	const token = "super-secret-local-token"
+	tokenFile, err := mockFile("token-*", token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tokenFile.Name())
+	k8sTokenFile = tokenFile.Name()
+
+	authorized := atomic.Bool{}
+	var server *httptest.Server
+	server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer "+token {
+			authorized.Store(true)
+		}
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"issuer":   server.URL,
+				"jwks_uri": server.URL + "/keys",
+			})
+		case "/keys":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"keys": []any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	server.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	k8sIssuerURL = "https://kubernetes.default.svc"
+
+	fc := &FulcioConfig{
+		OIDCIssuers: map[string]OIDCIssuer{
+			// Present only to satisfy the hasK8SIssuer gate; no request is made to it.
+			k8sIssuerURL: {
+				IssuerURL: k8sIssuerURL,
+				ClientID:  "sigstore",
+				Type:      IssuerTypeKubernetes,
+			},
+			server.URL: {
+				IssuerURL: server.URL,
+				ClientID:  "sigstore",
+				Type:      IssuerTypeKubernetes,
+			},
+		},
+		verifiers: make(map[string][]*verifierWithConfig),
+	}
+
+	if err := fc.prepare(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := fc.GetVerifier(server.URL); !ok {
+		t.Fatal("expected to get verifier")
+	}
+
+	if !authorized.Load() {
+		t.Fatal("expected directly-configured non-default Kubernetes issuer to receive the in-cluster bearer token, but it did not")
+	}
+}
