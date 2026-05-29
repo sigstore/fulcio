@@ -18,17 +18,20 @@
 package certmaker
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"text/template"
 	"time"
-
-	"go.step.sm/crypto/x509util"
 )
 
 //go:embed templates/root-template.json
@@ -39,6 +42,25 @@ var intermediateTemplate string
 
 //go:embed templates/leaf-template.json
 var leafTemplate string
+
+type TemplateSubject struct {
+	Country            []string `json:"country"`
+	Organization       []string `json:"organization"`
+	OrganizationalUnit []string `json:"organizationalUnit"`
+	CommonName         string   `json:"commonName"`
+}
+
+type TemplateBasicConstraints struct {
+	IsCA       bool `json:"isCA"`
+	MaxPathLen int  `json:"maxPathLen"`
+}
+
+type TemplateCert struct {
+	Subject          TemplateSubject          `json:"subject"`
+	KeyUsage         []string                 `json:"keyUsage"`
+	ExtKeyUsage      []string                 `json:"extKeyUsage"`
+	BasicConstraints TemplateBasicConstraints `json:"basicConstraints"`
+}
 
 func ParseTemplate(input any, parent *x509.Certificate, notAfter time.Time, publicKey crypto.PublicKey, commonName string) (*x509.Certificate, error) {
 	var content string
@@ -52,36 +74,55 @@ func ParseTemplate(input any, parent *x509.Certificate, notAfter time.Time, publ
 		return nil, fmt.Errorf("input must be either a template string or template content ([]byte)")
 	}
 
-	// Get cert life and subject from template
-	data := x509util.NewTemplateData()
-	if commonName != "" {
-		fmt.Printf("Using CN from CLI: %s\n", commonName)
-		data.SetSubject(x509util.Subject{CommonName: commonName})
-	} else {
-		// Get CN from template
-		cert, err := x509util.NewCertificateFromX509(&x509.Certificate{}, x509util.WithTemplate(content, data))
-		if err == nil && cert != nil {
-			fmt.Printf("Using CN from template: %s\n", cert.Subject.CommonName)
-			data.SetSubject(x509util.Subject{CommonName: cert.Subject.CommonName})
-		} else {
-			fmt.Printf("Using CN from template: <none>\n")
+	tmpl, err := template.New("cert").Parse(content)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing template string: %w", err)
+	}
+
+	var buf bytes.Buffer
+	type tmplData struct {
+		Subject struct {
+			CommonName string
 		}
+	}
+	td := tmplData{}
+	td.Subject.CommonName = commonName
+
+	if err := tmpl.Execute(&buf, td); err != nil {
+		return nil, fmt.Errorf("error executing template: %w", err)
+	}
+
+	var tc TemplateCert
+	if err := json.Unmarshal(buf.Bytes(), &tc); err != nil {
+		return nil, fmt.Errorf("error parsing template: error unmarshaling certificate: %w", err)
 	}
 
 	// Create base cert with public key
-	baseCert := &x509.Certificate{
+	x509Cert := &x509.Certificate{
 		PublicKey:          publicKey,
 		PublicKeyAlgorithm: determinePublicKeyAlgorithm(publicKey),
 		NotBefore:          time.Now().UTC(),
 		NotAfter:           notAfter,
+		Subject: pkix.Name{
+			CommonName:         tc.Subject.CommonName,
+			Country:            tc.Subject.Country,
+			Organization:       tc.Subject.Organization,
+			OrganizationalUnit: tc.Subject.OrganizationalUnit,
+		},
+		IsCA:                  tc.BasicConstraints.IsCA,
+		BasicConstraintsValid: true,
 	}
 
-	cert, err := x509util.NewCertificateFromX509(baseCert, x509util.WithTemplate(content, data))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing template: %w", err)
+	if x509Cert.IsCA {
+		if tc.BasicConstraints.MaxPathLen == 0 {
+			x509Cert.MaxPathLenZero = true
+		} else {
+			x509Cert.MaxPathLen = tc.BasicConstraints.MaxPathLen
+		}
 	}
 
-	x509Cert := cert.GetCertificate()
+	x509Cert.KeyUsage = parseKeyUsages(tc.KeyUsage)
+	x509Cert.ExtKeyUsage = parseExtKeyUsages(tc.ExtKeyUsage)
 
 	// Set parent cert info
 	if parent != nil {
@@ -89,11 +130,57 @@ func ParseTemplate(input any, parent *x509.Certificate, notAfter time.Time, publ
 		x509Cert.AuthorityKeyId = parent.SubjectKeyId
 	}
 
-	// Ensure cert life is set
-	x509Cert.NotBefore = baseCert.NotBefore
-	x509Cert.NotAfter = baseCert.NotAfter
-
 	return x509Cert, nil
+}
+
+func parseKeyUsages(usages []string) x509.KeyUsage {
+	var ku x509.KeyUsage
+	for _, u := range usages {
+		switch strings.ToLower(u) {
+		case "digitalsignature":
+			ku |= x509.KeyUsageDigitalSignature
+		case "contentcommitment", "nonrepudiation":
+			ku |= x509.KeyUsageContentCommitment
+		case "keyencipherment":
+			ku |= x509.KeyUsageKeyEncipherment
+		case "dataencipherment":
+			ku |= x509.KeyUsageDataEncipherment
+		case "keyagreement":
+			ku |= x509.KeyUsageKeyAgreement
+		case "certsign", "keycertsign":
+			ku |= x509.KeyUsageCertSign
+		case "crlsign":
+			ku |= x509.KeyUsageCRLSign
+		case "encipheronly":
+			ku |= x509.KeyUsageEncipherOnly
+		case "decipheronly":
+			ku |= x509.KeyUsageDecipherOnly
+		}
+	}
+	return ku
+}
+
+func parseExtKeyUsages(usages []string) []x509.ExtKeyUsage {
+	var ekus []x509.ExtKeyUsage
+	for _, u := range usages {
+		switch strings.ToLower(u) {
+		case "any":
+			ekus = append(ekus, x509.ExtKeyUsageAny)
+		case "serverauth":
+			ekus = append(ekus, x509.ExtKeyUsageServerAuth)
+		case "clientauth":
+			ekus = append(ekus, x509.ExtKeyUsageClientAuth)
+		case "codesigning":
+			ekus = append(ekus, x509.ExtKeyUsageCodeSigning)
+		case "emailprotection":
+			ekus = append(ekus, x509.ExtKeyUsageEmailProtection)
+		case "timestamping":
+			ekus = append(ekus, x509.ExtKeyUsageTimeStamping)
+		case "ocspsigning":
+			ekus = append(ekus, x509.ExtKeyUsageOCSPSigning)
+		}
+	}
+	return ekus
 }
 
 func determinePublicKeyAlgorithm(publicKey crypto.PublicKey) x509.PublicKeyAlgorithm {
@@ -110,7 +197,7 @@ func determinePublicKeyAlgorithm(publicKey crypto.PublicKey) x509.PublicKeyAlgor
 }
 
 // Performs validation checks on the cert template
-func ValidateTemplate(filename string, _ *x509.Certificate, _ string) error {
+func ValidateTemplate(filename string, parent *x509.Certificate, commonName string) error {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -119,10 +206,7 @@ func ValidateTemplate(filename string, _ *x509.Certificate, _ string) error {
 		return fmt.Errorf("error reading template file: %w", err)
 	}
 
-	// Parse template via x509util to avoid issues with templating
-	data := x509util.NewTemplateData()
-	baseCert := &x509.Certificate{}
-	_, err = x509util.NewCertificateFromX509(baseCert, x509util.WithTemplate(string(content), data))
+	_, err = ParseTemplate(content, parent, time.Now(), nil, commonName)
 	if err != nil {
 		return fmt.Errorf("invalid template JSON: %w", err)
 	}

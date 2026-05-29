@@ -20,6 +20,7 @@ package certmaker
 import (
 	"context"
 	"crypto"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -27,9 +28,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
-	"go.step.sm/crypto/x509util"
 
 	// Initialize AWS KMS provider
 	_ "github.com/sigstore/sigstore/pkg/signature/kms/aws"
@@ -223,7 +224,7 @@ func CreateCertificates(config KMSConfig,
 			return fmt.Errorf("error parsing root template: %w", err)
 		}
 
-		rootCert, err = x509util.CreateCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
+		rootCert, err = createCertificate(rootTmpl, rootTmpl, rootPubKey, rootSigner)
 		if err != nil {
 			return fmt.Errorf("error creating root certificate: %w", err)
 		}
@@ -323,7 +324,7 @@ func CreateCertificates(config KMSConfig,
 				return fmt.Errorf("error parsing intermediate template: %w", err)
 			}
 
-			intermediateCert, err := x509util.CreateCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
+			intermediateCert, err := createCertificate(intermediateTmpl, rootCert, intermediatePubKey, rootSigner)
 			if err != nil {
 				return fmt.Errorf("error creating intermediate certificate: %w", err)
 			}
@@ -376,7 +377,7 @@ func CreateCertificates(config KMSConfig,
 			return fmt.Errorf("error parsing leaf template: %w", err)
 		}
 
-		leafCert, err := x509util.CreateCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
+		leafCert, err := createCertificate(leafTmpl, signingCert, leafPubKey, signingKey)
 		if err != nil {
 			return fmt.Errorf("error creating leaf certificate: %w", err)
 		}
@@ -557,4 +558,30 @@ func ValidateKMSConfig(config KMSConfig) error {
 	}
 
 	return nil
+}
+
+func createCertificate(template, parent *x509.Certificate, pub crypto.PublicKey, signer crypto.Signer) (*x509.Certificate, error) {
+	var err error
+	if template.SerialNumber == nil {
+		template.SerialNumber, err = cryptoutils.GenerateSerialNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if template.SubjectKeyId == nil {
+		template.SubjectKeyId, err = cryptoutils.SKID(pub)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	asn1Data, err := x509.CreateCertificate(rand.Reader, template, parent, pub, signer)
+	if err != nil {
+		return nil, fmt.Errorf("error creating certificate: %w", err)
+	}
+	cert, err := x509.ParseCertificate(asn1Data)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing certificate: %w", err)
+	}
+	return cert, nil
 }

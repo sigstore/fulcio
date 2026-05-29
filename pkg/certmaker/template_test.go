@@ -18,6 +18,7 @@
 package certmaker
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -25,14 +26,15 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.step.sm/crypto/x509util"
 )
 
 func TestParseTemplate(t *testing.T) {
@@ -277,7 +279,7 @@ func TestGetDefaultTemplate(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotEmpty(t, got)
 
-				err = x509util.ValidateTemplate([]byte(got))
+				err = validateTemplate(got)
 				require.NoError(t, err)
 
 				assert.Contains(t, got, "subject")
@@ -293,4 +295,24 @@ func TestGetDefaultTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func validateTemplate(got string) error {
+	tmpl, err := template.New("validate").Parse(got)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	type tmplData struct {
+		Subject struct {
+			CommonName string
+		}
+	}
+	td := tmplData{}
+	td.Subject.CommonName = "mock"
+	if err := tmpl.Execute(&buf, td); err != nil {
+		return err
+	}
+	var tc TemplateCert
+	return json.Unmarshal(buf.Bytes(), &tc)
 }
