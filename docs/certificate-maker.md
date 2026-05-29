@@ -2,7 +2,7 @@
 
 This tool creates certificates (root, intermediate, and leaf) that meet Fulcio's ([certificate requirements](certificate-specification.md)).
 
-It relies on [x509util](https://pkg.go.dev/go.step.sm/crypto/x509util) which builds X.509 certificates from JSON templates. The tool includes embedded default templates that are compiled into the binary, making it ready to use without external template files.
+It builds X.509 certificates from JSON templates using Go standard library template parsing and JSON unmarshaling. The tool includes embedded default templates that are compiled into the binary, making it ready to use without external template files.
 
 ## Requirements
 
