@@ -135,6 +135,10 @@ message PublicKeyRequest {
 message PublicKey {
     /*
      * The cryptographic algorithm to use with the key material
+     *
+     * This field is currently ignored by the server. RSA keys are always
+     * verified as RSA PKCS#1 v1.5 regardless of the value set here. This
+     * will be addressed in a future major version (see issue #1858).
      */
     PublicKeyAlgorithm algorithm = 1;
     /*
@@ -207,6 +211,8 @@ message CertificateChain {
 
 enum PublicKeyAlgorithm {
     PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+    // The server currently treats this as RSA PKCS#1 v1.5, not RSA-PSS.
+    // True RSA-PSS support will be added in a future major version (see issue #1858).
     RSA_PSS                          = 1;
     ECDSA                            = 2;
     ED25519                          = 3;

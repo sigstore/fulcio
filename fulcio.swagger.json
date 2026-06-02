@@ -139,6 +139,7 @@
       "properties": {
         "algorithm": {
           "$ref": "#/definitions/v2PublicKeyAlgorithm",
+          "description": "This field is currently ignored by the server. RSA keys are always\nverified as RSA PKCS#1 v1.5 regardless of the value set here. This\nwill be addressed in a future major version (see issue #1858).",
           "title": "The cryptographic algorithm to use with the key material"
         },
         "content": {
@@ -261,7 +262,8 @@
         "ECDSA",
         "ED25519"
       ],
-      "default": "PUBLIC_KEY_ALGORITHM_UNSPECIFIED"
+      "default": "PUBLIC_KEY_ALGORITHM_UNSPECIFIED",
+      "description": " - RSA_PSS: The server currently treats this as RSA PKCS#1 v1.5, not RSA-PSS.\nTrue RSA-PSS support will be added in a future major version (see issue #1858)."
     },
     "v2PublicKeyRequest": {
       "type": "object",
