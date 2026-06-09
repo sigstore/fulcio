@@ -331,6 +331,12 @@ func getHashFuncForSignatureAlgorithm(signatureAlgorithm x509.SignatureAlgorithm
 		return crypto.SHA384, nil
 	case x509.SHA512WithRSA:
 		return crypto.SHA512, nil
+	case x509.SHA256WithRSAPSS:
+		return crypto.SHA256, nil
+	case x509.SHA384WithRSAPSS:
+		return crypto.SHA384, nil
+	case x509.SHA512WithRSAPSS:
+		return crypto.SHA512, nil
 	case x509.PureEd25519:
 		return crypto.Hash(0), nil
 	}
