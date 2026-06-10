@@ -325,3 +325,25 @@ The token must include the following claims:
 ```
 
 These claims are used to form the SAN URI of the certificate: `https://buildkite.com/acme-inc/super-duper-app`.
+
+### Buddy
+
+The token must include the following claims:
+
+```json
+{
+    "sub": "https://eu.buddy.works/meok/myproject/pipelines/pipeline/45289",
+    "workspace_domain": "meok",
+    "project_name": "myproject",
+    "pipeline_id": 45289,
+    "pipeline_name": "runcmds",
+    "execution_id": "RELEASE-69aff6292d3e5ce26541804d",
+    "triggered_on": "MANUAL",
+    "runner_environment": "platform-hosted",
+    "base_url": "https://eu.buddy.works"
+}
+```
+
+`base_url` is the regional Buddy web app URL (`https://app.buddy.works`, `https://eu.buddy.works`, or `https://asia.buddy.works`). These claims are used to form the SAN URI of the certificate: `{base_url}/{workspace_domain}/{project_name}/pipelines/pipeline/{pipeline_id}`.
+
+`pipeline_id` is unique within a region and never reused, so the SAN always refers to the same pipeline.
