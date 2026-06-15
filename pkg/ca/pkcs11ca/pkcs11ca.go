@@ -33,6 +33,7 @@ type Params struct {
 	ConfigPath string
 	RootID     string
 	CAPath     *string
+	KeyLabel   string
 }
 
 type PKCS11CA struct {
@@ -73,7 +74,11 @@ func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	}
 
 	// get the private key object from HSM
-	signer, err := p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
+	keyLabel := params.KeyLabel
+	if keyLabel == "" {
+		keyLabel = "PKCS11CA"
+	}
+	signer, err := p11Ctx.FindKeyPair(nil, []byte(keyLabel))
 	if err != nil {
 		return nil, err
 	}
