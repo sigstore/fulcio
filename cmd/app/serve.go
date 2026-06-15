@@ -269,6 +269,7 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		params := pkcs11ca.Params{
 			ConfigPath: viper.GetString("pkcs11-config-path"),
 			RootID:     viper.GetString("hsm-caroot-id"),
+			KeyLabel:   viper.GetString("hsm-key-label"),
 		}
 		if viper.IsSet("aws-hsm-root-ca-path") {
 			path := viper.GetString("aws-hsm-root-ca-path")
