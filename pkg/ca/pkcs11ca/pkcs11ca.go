@@ -76,9 +76,8 @@ func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	// get the private key object from HSM
 	keyLabel := params.KeyLabel
 	if keyLabel == "" {
-	    keyLabel = "PKCS11CA"
+		keyLabel = "PKCS11CA"
 	}
-
 	signer, err := p11Ctx.FindKeyPair(nil, []byte(keyLabel))
 	if err != nil {
 		return nil, err
