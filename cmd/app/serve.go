@@ -123,6 +123,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
 	cmd.Flags().Duration("idle-connection-timeout", 30*time.Second, "The time allowed for connections (HTTP or gRPC) to go idle before being closed by the server")
 	cmd.Flags().String("ct-log.tls-ca-cert", "", "Path to TLS CA certificate used to connect to ct-log")
+	cmd.Flags().String("hsm-key-label", "PKCS11CA", "HSM key label for PKCS11 CA")
 	cmd.Flags().StringSlice("client-signing-algorithms", buildDefaultClientSigningAlgorithms([]v1.PublicKeyDetails{
 		v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256,
 		v1.PublicKeyDetails_PKIX_ECDSA_P384_SHA_384,
