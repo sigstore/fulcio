@@ -79,7 +79,7 @@ func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	    keyLabel = "PKCS11CA"
 	}
 
-	signer, err := p11Ctx.FindKeyPair(nil, []byte(params.keyLabel))
+	signer, err := p11Ctx.FindKeyPair(nil, []byte(keyLabel))
 	if err != nil {
 		return nil, err
 	}
