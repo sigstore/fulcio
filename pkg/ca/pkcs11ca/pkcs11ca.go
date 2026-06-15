@@ -73,7 +73,7 @@ func NewPKCS11CA(params Params) (*PKCS11CA, error) {
 	}
 
 	// get the private key object from HSM
-	signer, err := p11Ctx.FindKeyPair(nil, []byte("PKCS11CA"))
+	signer, err := p11Ctx.FindKeyPair(nil, []byte(params.RootID))
 	if err != nil {
 		return nil, err
 	}
