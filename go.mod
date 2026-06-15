@@ -1,13 +1,13 @@
 module github.com/sigstore/fulcio
 
-go 1.25.8
+go 1.26.0
 
 require (
 	chainguard.dev/go-grpc-kit v0.17.17
-	chainguard.dev/sdk v0.1.55
+	chainguard.dev/sdk v0.1.58
 	cloud.google.com/go/security v1.25.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/ThalesGroup/crypto11 v1.6.0
+	github.com/ThalesGroup/crypto11 v1.6.1
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/fsnotify/fsnotify v1.10.1
@@ -21,7 +21,7 @@ require (
 	github.com/magiconair/properties v1.8.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.68.0
+	github.com/prometheus/common v0.68.1
 	github.com/rs/cors v1.11.1
 	github.com/sigstore/protobuf-specs v0.5.1
 	github.com/sigstore/sigstore v1.10.8
@@ -43,7 +43,7 @@ require (
 	google.golang.org/api v0.282.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/grpc v1.81.1
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	sigs.k8s.io/release-utils v0.12.4
 )
 
@@ -112,7 +112,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/letsencrypt/boulder v0.20260309.0 // indirect
-	github.com/miekg/pkcs11 v1.1.1 // indirect
+	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
