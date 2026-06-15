@@ -31,6 +31,7 @@ type Params struct {
 	ConfigPath string
 	RootID     string
 	CAPath     *string
+	KeyLabel   string
 }
 
 // NewPKCS11CA is a placeholder for erroring with a meaningful message if the
