@@ -134,7 +134,9 @@ message PublicKeyRequest {
 
 message PublicKey {
     /*
-     * The cryptographic algorithm to use with the key material
+     * The cryptographic algorithm to use with the key material.
+     * This field is currently ignored; the algorithm is inferred from the
+     * public key when it is parsed.
      */
     PublicKeyAlgorithm algorithm = 1;
     /*
@@ -207,6 +209,13 @@ message CertificateChain {
 
 enum PublicKeyAlgorithm {
     PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+    /*
+     * RSA_PSS is a misnomer: Fulcio currently treats RSA keys as RSA
+     * PKCS#1 v1.5, not RSA-PSS. The signing algorithm is inferred from the
+     * submitted key rather than from this enum, so this value selects RSA
+     * PKCS#1 v1.5. This is kept for backwards compatibility and is expected
+     * to be corrected in a future major version.
+     */
     RSA_PSS                          = 1;
     ECDSA                            = 2;
     ED25519                          = 3;

@@ -139,7 +139,7 @@
       "properties": {
         "algorithm": {
           "$ref": "#/definitions/v2PublicKeyAlgorithm",
-          "title": "The cryptographic algorithm to use with the key material"
+          "description": "The cryptographic algorithm to use with the key material.\nThis field is currently ignored; the algorithm is inferred from the\npublic key when it is parsed."
         },
         "content": {
           "type": "string",
@@ -261,7 +261,8 @@
         "ECDSA",
         "ED25519"
       ],
-      "default": "PUBLIC_KEY_ALGORITHM_UNSPECIFIED"
+      "default": "PUBLIC_KEY_ALGORITHM_UNSPECIFIED",
+      "description": " - RSA_PSS: RSA_PSS is a misnomer: Fulcio currently treats RSA keys as RSA\nPKCS#1 v1.5, not RSA-PSS. The signing algorithm is inferred from the\nsubmitted key rather than from this enum, so this value selects RSA\nPKCS#1 v1.5. This is kept for backwards compatibility and is expected\nto be corrected in a future major version."
     },
     "v2PublicKeyRequest": {
       "type": "object",
