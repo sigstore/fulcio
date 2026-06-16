@@ -42,9 +42,14 @@ type PublicKeyAlgorithm int32
 
 const (
 	PublicKeyAlgorithm_PUBLIC_KEY_ALGORITHM_UNSPECIFIED PublicKeyAlgorithm = 0
-	PublicKeyAlgorithm_RSA_PSS                          PublicKeyAlgorithm = 1
-	PublicKeyAlgorithm_ECDSA                            PublicKeyAlgorithm = 2
-	PublicKeyAlgorithm_ED25519                          PublicKeyAlgorithm = 3
+	// RSA_PSS is a misnomer: Fulcio currently treats RSA keys as RSA
+	// PKCS#1 v1.5, not RSA-PSS. The signing algorithm is inferred from the
+	// submitted key rather than from this enum, so this value selects RSA
+	// PKCS#1 v1.5. This is kept for backwards compatibility and is expected
+	// to be corrected in a future major version.
+	PublicKeyAlgorithm_RSA_PSS PublicKeyAlgorithm = 1
+	PublicKeyAlgorithm_ECDSA   PublicKeyAlgorithm = 2
+	PublicKeyAlgorithm_ED25519 PublicKeyAlgorithm = 3
 )
 
 // Enum value maps for PublicKeyAlgorithm.
@@ -317,7 +322,9 @@ func (x *PublicKeyRequest) GetProofOfPossession() []byte {
 
 type PublicKey struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The cryptographic algorithm to use with the key material
+	// The cryptographic algorithm to use with the key material.
+	// This field is currently ignored; the algorithm is inferred from the
+	// public key when it is parsed.
 	Algorithm PublicKeyAlgorithm `protobuf:"varint,1,opt,name=algorithm,proto3,enum=dev.sigstore.fulcio.v2.PublicKeyAlgorithm" json:"algorithm,omitempty"`
 	// PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
 	// of type PUBLIC KEY.
