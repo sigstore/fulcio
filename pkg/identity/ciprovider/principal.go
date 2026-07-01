@@ -156,6 +156,16 @@ func (principal ciPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	if err != nil {
 		return err
 	}
+	// Hardening (defense-in-depth): require the SAN to be an absolute URI with a
+	// scheme and host. A ci-provider SAN template is rendered from a mix of
+	// operator DefaultTemplateValues and OIDC token claims (claims take
+	// precedence); constraining the result to an absolute URI prevents a
+	// degenerate or relative value from producing a SAN that a downstream
+	// verifier could mis-interpret. Operators SHOULD additionally pin the SAN
+	// host to an allowlist so an unexpected claim cannot alter the SAN host.
+	if !sanURL.IsAbs() || sanURL.Hostname() == "" {
+		return fmt.Errorf("invalid subject alternative name %q: must be an absolute URI with a scheme and host", subjectAlternativeName)
+	}
 	uris := []*url.URL{sanURL}
 	cert.URIs = uris
 	// We use value.Elem() here because we need an addressable
