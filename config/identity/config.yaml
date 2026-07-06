@@ -38,7 +38,7 @@ oidc-issuers:
     client-id: sigstore
     type: ci-provider
     ci-provider: *buddy-type
-    contact: raphael@buddy.works
+    contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity (Asia region)"
   https://auth.eclipse.org/auth/realms/foundation-service-accounts:
     issuer-url: https://auth.eclipse.org/auth/realms/foundation-service-accounts
@@ -58,7 +58,7 @@ oidc-issuers:
     client-id: sigstore
     type: ci-provider
     ci-provider: *buddy-type
-    contact: raphael@buddy.works
+    contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity (EU region)"
   https://gitlab.archlinux.org:
     issuer-url: https://gitlab.archlinux.org
@@ -110,7 +110,7 @@ oidc-issuers:
     client-id: sigstore
     type: ci-provider
     ci-provider: *buddy-type
-    contact: raphael@buddy.works
+    contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity"
   https://oidc.circleci.com:
     issuer-url: https://oidc.circleci.com
