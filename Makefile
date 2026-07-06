@@ -41,6 +41,10 @@ LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION)
 KO_PREFIX ?= gcr.io/projectsigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
 
+ifdef INSECURE_REGISTRY
+KO_FLAGS += --insecure-registry
+endif
+
 GHCR_PREFIX ?= ghcr.io/sigstore
 
 FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
@@ -102,28 +106,28 @@ debug: ## Start docker compose in debug mode
 ko:
 	# fulcio
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare \
+	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare $(KO_FLAGS) \
 		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
 		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
 
 .PHONY: ko-local
 ko-local:
 	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	ko publish --base-import-paths \
+	ko publish --base-import-paths $(KO_FLAGS) \
 		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --local \
 		github.com/sigstore/fulcio
 
 .PHONY: ko-apply
 ko-apply:
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply -Bf config/
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply $(KO_FLAGS) -Bf config/
 
 .PHONY: ko-apply-ci
 ko-apply-ci: ko-apply
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply -Bf config/test
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply $(KO_FLAGS) -Bf config/test
 
 .PHONY: ko-publish
 ko-publish:
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish .
+	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish $(KO_FLAGS) .
 
 .PHONY: sign-keyless-ci
 sign-keyless-ci: ko

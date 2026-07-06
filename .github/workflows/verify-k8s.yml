@@ -67,6 +67,7 @@ jobs:
       KO_PREFIX: registry.local:5000/fulcio
       GIT_HASH: ${{ github.sha }}
       GIT_VERSION: test
+      INSECURE_REGISTRY: true
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -198,7 +199,7 @@ jobs:
 
       - name: Validate prometheus metrics exported and look correct
         run: |
-          cat <<EOF | ko apply -f -
+          cat <<EOF | ko apply --insecure-registry -f -
           apiVersion: batch/v1
           kind: Job
           metadata:

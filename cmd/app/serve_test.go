@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -139,4 +140,63 @@ func TestDuplex(t *testing.T) {
 			t.Fatalf("/healthz returned status code %d, want 200", code)
 		}
 	})
+}
+
+func TestHostRoundTripper(t *testing.T) {
+	var receivedHost string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHost = r.Host
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	rt := &hostRoundTripper{
+		RoundTripper: http.DefaultTransport,
+		host:         "custom.ct.log.origin",
+	}
+	client := &http.Client{Transport: rt}
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if receivedHost != "custom.ct.log.origin" {
+		t.Errorf("expected host 'custom.ct.log.origin', got '%s'", receivedHost)
+	}
+
+	// Also test when inner RoundTripper is nil
+	rtNil := &hostRoundTripper{
+		host: "custom.ct.log.origin.nil",
+	}
+	clientNil := &http.Client{Transport: rtNil}
+
+	reqNil, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	respNil, err := clientNil.Do(reqNil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respNil.Body.Close()
+
+	if receivedHost != "custom.ct.log.origin.nil" {
+		t.Errorf("expected host 'custom.ct.log.origin.nil', got '%s'", receivedHost)
+	}
+}
+
+func TestServeCmdFlags(t *testing.T) {
+	cmd := newServeCmd()
+	f := cmd.Flags().Lookup("ct-log-origin")
+	if f == nil {
+		t.Fatal("expected flag ct-log-origin to exist on serve command")
+	}
 }
