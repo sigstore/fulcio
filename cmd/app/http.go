@@ -33,6 +33,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -101,6 +102,7 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 	// enable CORS
 	// cors.Default() configures to accept requests for all domains
 	handler = cors.Default().Handler(handler)
+	handler = otelhttp.NewHandler(handler, "fulcio-http")
 
 	api := http.Server{
 		Addr:    serverEndpoint,

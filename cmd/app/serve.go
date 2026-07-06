@@ -48,6 +48,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sigstore/model-validation-operator/pkg/tracing"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
@@ -66,6 +67,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 	"goa.design/goa/v3/grpc/middleware"
 	"google.golang.org/api/option"
@@ -133,6 +136,11 @@ func newServeCmd() *cobra.Command {
 		v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_4096_SHA256,
 		v1.PublicKeyDetails_PKIX_ED25519,
 	}), "the list of allowed client signing algorithms")
+
+	cmd.Flags().Bool("tracing-enabled", false, "enable OpenTelemetry tracing")
+	cmd.Flags().String("tracing-endpoint", "", "OTLP gRPC collector endpoint (default: localhost:4317 via OTEL_EXPORTER_OTLP_ENDPOINT)")
+	cmd.Flags().Bool("tracing-insecure", true, "use insecure gRPC connection to the collector")
+	cmd.Flags().Bool("tracing-stdout", false, "export traces to stdout instead of OTLP (for debugging)")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -230,6 +238,28 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 
 	// Setup the logger to dev/prod
 	log.ConfigureLogger(viper.GetString("log_type"))
+
+	if viper.GetBool("tracing-enabled") {
+		opts := []tracing.Option{
+			tracing.WithServiceName("fulcio"),
+			tracing.WithInsecure(viper.GetBool("tracing-insecure")),
+		}
+		if ep := viper.GetString("tracing-endpoint"); ep != "" {
+			opts = append(opts, tracing.WithEndpoint(ep))
+		}
+		if viper.GetBool("tracing-stdout") {
+			opts = append(opts, tracing.WithStdoutExporter())
+		}
+		shutdownTracing, err := tracing.SetupTracing(ctx, opts...)
+		if err != nil {
+			log.Logger.Fatalf("failed to initialize tracing: %v", err)
+		}
+		defer func() {
+			if err := shutdownTracing(context.Background()); err != nil {
+				log.Logger.Errorf("error shutting down tracing: %v", err)
+			}
+		}()
+	}
 
 	algorithmStrings := viper.GetStringSlice("client-signing-algorithms")
 	var algorithmConfig []v1.PublicKeyDetails
@@ -342,11 +372,12 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 			}
 			httpClient = &http.Client{
 				Timeout:   30 * time.Second,
-				Transport: transport,
+				Transport: otelhttp.NewTransport(transport),
 			}
 		} else {
 			httpClient = &http.Client{
-				Timeout: 30 * time.Second,
+				Timeout:   30 * time.Second,
+				Transport: otelhttp.NewTransport(http.DefaultTransport),
 			}
 		}
 		ctClient, err = ctclient.New(logURL, httpClient, opts)
@@ -465,6 +496,7 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 
 	d := duplex.New(
 		port,
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: viper.GetDuration("idle-connection-timeout"),

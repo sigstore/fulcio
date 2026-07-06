@@ -35,6 +35,8 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -161,6 +163,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 	logger, opts := log.SetupGRPCLogging()
 
 	serverOpts := []grpc.ServerOption{
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(
 			grpcmw.ChainUnaryServer(
 				grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
@@ -274,14 +277,16 @@ func (g *grpcServer) ExposesGRPCTLS() bool {
 func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v2Server gw.CAServer) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
-	myServer := grpc.NewServer(grpc.UnaryInterceptor(
-		grpcmw.ChainUnaryServer(
-			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
-			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
-			grpc_zap.UnaryServerInterceptor(logger, opts...),
-			PassFulcioConfigThruContext(cfg),
-			grpc_prometheus.UnaryServerInterceptor,
-		)),
+	myServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.UnaryInterceptor(
+			grpcmw.ChainUnaryServer(
+				grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandlerContext(panicRecoveryHandler)), // recovers from per-transaction panics elegantly, so put it first
+				middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
+				grpc_zap.UnaryServerInterceptor(logger, opts...),
+				PassFulcioConfigThruContext(cfg),
+				grpc_prometheus.UnaryServerInterceptor,
+			)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)))
 
 	legacyGRPCCAServer := server.NewLegacyGRPCCAServer(v2Server)
