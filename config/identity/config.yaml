@@ -18,6 +18,7 @@ define:
   - &codefresh-type "codefresh-workflow"
   - &buildkite-type "buildkite-job"
   - &circleci-type "circleci-job"
+  - &buddy-type "buddy-pipeline"
 oidc-issuers:
   https://accounts.google.com:
     issuer-url: https://accounts.google.com
@@ -32,6 +33,13 @@ oidc-issuers:
     ci-provider: *buildkite-type
     contact: support@buildkite.com
     description: "Buildkite Agent OIDC tokens for job identity"
+  https://asia-oidc.buddyusercontent.com:
+    issuer-url: https://asia-oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity (Asia region)"
   https://auth.eclipse.org/auth/realms/foundation-service-accounts:
     issuer-url: https://auth.eclipse.org/auth/realms/foundation-service-accounts
     client-id: sigstore
@@ -45,6 +53,13 @@ oidc-issuers:
     ci-provider: *gitlab-type
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
+  https://eu-oidc.buddyusercontent.com:
+    issuer-url: https://eu-oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity (EU region)"
   https://gitlab.archlinux.org:
     issuer-url: https://gitlab.archlinux.org
     client-id: sigstore
@@ -90,6 +105,13 @@ oidc-issuers:
     issuer-claim: $.federated_claims.connector_id
     contact: tac@sigstore.dev
     description: "dex address for fulcio"
+  https://oidc.buddyusercontent.com:
+    issuer-url: https://oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity"
   https://oidc.circleci.com:
     issuer-url: https://oidc.circleci.com
     client-id: sigstore
@@ -313,3 +335,31 @@ ci-issuer-metadata:
       source-repository-ref: '{{index . "oidc.circleci.com/vcs-ref"}}'
       source-repository-uri: '{{index . "oidc.circleci.com/vcs-origin"}}'
     subject-alternative-name-template: '{{.api_url}}/projects/{{(index . "oidc.circleci.com/project-id")}}/pipeline-definitions/{{(index . "oidc.circleci.com/pipeline-definition-id")}}'
+  *buddy-type:
+    default-template-values:
+      # base_url is provided as a token claim per region
+      base_url: "https://app.buddy.works"
+      # Nil default value to handle optional revision claim
+      revision: ""
+      # Nil default value to handle optional ref claim
+      ref: ""
+    extension-templates:
+      # workspace_domain: Mutable workspace slug used in Buddy URLs
+      # project_name: Mutable project slug within the workspace.
+      # pipeline_id: Numeric pipeline id, unique within a region and not reused.
+      build-signer-uri: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}"
+      # triggered_on: Trigger type for this execution.
+      build-trigger: "triggered_on"
+      # runner_environment: platform-hosted.
+      runner-environment: "runner_environment"
+      # URL of the project that hosts the source repository.
+      source-repository-uri: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}"
+      # revision: Git commit SHA the pipeline ran against.
+      source-repository-digest: "revision"
+      # ref: Git ref the pipeline ran against.
+      source-repository-ref: "ref"
+      # URL of the workspace that owns the project.
+      source-repository-owner-uri: "{{.base_url}}/{{.workspace_domain}}"
+      # execution_id: Identifier of this specific pipeline execution.
+      run-invocation-uri: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}/executions/{{.execution_id}}"
+    subject-alternative-name-template: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}"
