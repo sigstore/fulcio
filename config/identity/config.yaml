@@ -74,17 +74,17 @@ oidc-issuers:
     ci-provider: *gitlab-type
     contact: support@gitlab.com
     description: "GitLab OIDC tokens for job identity"
-  https://issuer.enforce.dev:
-    issuer-url: https://issuer.enforce.dev
-    client-id: sigstore
-    type: chainguard-identity
-    contact: mattmoor@chainguard.dev
-    description: "Chainguard identity tokens"
   https://issuer.chainops.dev:
     issuer-url: https://issuer.chainops.dev
     client-id: sigstore
     type: chainguard-identity
     contact: priya@chainguard.dev
+    description: "Chainguard identity tokens"
+  https://issuer.enforce.dev:
+    issuer-url: https://issuer.enforce.dev
+    client-id: sigstore
+    type: chainguard-identity
+    contact: mattmoor@chainguard.dev
     description: "Chainguard identity tokens"
   https://issuer.hello.coop:
     issuer-url: https://issuer.hello.coop
@@ -133,6 +133,12 @@ oidc-issuers:
     ci-provider: *gitlab-type
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
+  https://sigstore.verify.ibm.com/oauth2:
+    issuer-url: https://sigstore.verify.ibm.com/oauth2
+    client-id: sigstore
+    type: email
+    contact: sigstore@ibm.com
+    description: "IBM OIDC auth"
   https://token.actions.githubusercontent.com:
     issuer-url: https://token.actions.githubusercontent.com
     client-id: sigstore
@@ -140,12 +146,6 @@ oidc-issuers:
     ci-provider: *github-type
     contact: tac@sigstore.dev
     description: "GitHub Actions OIDC auth"
-  https://sigstore.verify.ibm.com/oauth2:
-    issuer-url: https://sigstore.verify.ibm.com/oauth2
-    client-id: sigstore
-    type: email
-    contact: sigstore@ibm.com
-    description: "IBM OIDC auth"
 meta-issuers:
   # Matches https://{region}.oic.prod-aks.azure.com/{tenant-guid}/{random-guid}
   https://*.oic.prod-aks.azure.com/*/*:
