@@ -361,5 +361,5 @@ ci-issuer-metadata:
       # URL of the workspace that owns the project.
       source-repository-owner-uri: "{{.base_url}}/{{.workspace_domain}}"
       # execution_id: Identifier of this specific pipeline execution.
-      run-invocation-uri: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}/executions/{{.execution_id}}"
+      run-invocation-uri: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}/execution/{{.execution_id}}"
     subject-alternative-name-template: "{{.base_url}}/{{.workspace_domain}}/{{.project_name}}/pipelines/pipeline/{{.pipeline_id}}"
