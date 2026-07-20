@@ -220,16 +220,18 @@ func TestName(t *testing.T) {
 func TestGetTokenClaims(t *testing.T) {
 
 	tokenClaims := map[string]any{
-		"aud":                "sigstore",
-		"exp":                "0",
-		"iss":                "https://example.com",
-		"claim_string":       "bar",
-		"claim_string_empty": "",
-		"claim_bool":         true,
-		"claim_int":          1,
-		"claim_float_zero":   1.0,
-		"claim_float_low":    1.4,
-		"claim_float_high":   1.7,
+		"aud":                 "sigstore",
+		"exp":                 "0",
+		"iss":                 "https://example.com",
+		"claim_string":        "bar",
+		"claim_string_empty":  "",
+		"claim_bool":          true,
+		"claim_int":           1,
+		"claim_float_zero":    1.0,
+		"claim_float_low":     1.4,
+		"claim_float_high":    1.7,
+		"claim_float_million": 1000000.0,
+		"claim_float_ts":      1753000000.0,
 	}
 
 	tests := map[string]struct {
@@ -278,6 +280,18 @@ func TestGetTokenClaims(t *testing.T) {
 			InputClaims:    tokenClaims,
 			Claim:          "claim_float_high",
 			ExpectedResult: "1.7",
+			ExpectErr:      false,
+		},
+		`large whole-number float claims keep their decimal form`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_float_million",
+			ExpectedResult: "1000000",
+			ExpectErr:      false,
+		},
+		`timestamp claims keep their decimal form`: {
+			InputClaims:    tokenClaims,
+			Claim:          "claim_float_ts",
+			ExpectedResult: "1753000000",
 			ExpectErr:      false,
 		},
 		`token has no claims`: {
