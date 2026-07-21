@@ -46,6 +46,13 @@ oidc-issuers:
     type: email
     contact: security@eclipse-foundation.org
     description: "Eclipse Foundation Production OIDC provider"
+  https://dev-oidc.buddyusercontent.com:
+    issuer-url: https://dev-oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity (dev environment)"
   https://dev.gitlab.org:
     issuer-url: https://dev.gitlab.org
     client-id: sigstore
@@ -133,6 +140,20 @@ oidc-issuers:
     ci-provider: *gitlab-type
     contact: distribution-be@gitlab.com
     description: "GitLab OIDC tokens for job identity"
+  https://psd-oidc.buddyusercontent.com:
+    issuer-url: https://psd-oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity (psd environment)"
+  https://stage-oidc.buddyusercontent.com:
+    issuer-url: https://stage-oidc.buddyusercontent.com
+    client-id: sigstore
+    type: ci-provider
+    ci-provider: *buddy-type
+    contact: support@buddy.works
+    description: "Buddy OIDC tokens for pipeline identity (stage environment)"
   https://token.actions.githubusercontent.com:
     issuer-url: https://token.actions.githubusercontent.com
     client-id: sigstore
