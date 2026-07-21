@@ -42,10 +42,7 @@ func mapValuesToString(claims map[string]any) map[string]string {
 		case reflect.Float32, reflect.Float64:
 			value := vType.Interface().(float64)
 			if value == math.Trunc(value) {
-				// A float, but with no fractional part. Treat as an int.
-				// Format it explicitly rather than with %v, which switches to
-				// scientific notation once the value reaches 1e6 and would put
-				// e.g. "1.753e+09" in the certificate for an exp/iat claim.
+				// A float, but with no fractional part. Treat as an int
 				newMap[k] = strconv.FormatFloat(math.Trunc(value), 'f', -1, 64)
 			} else {
 				newMap[k] = strconv.FormatFloat(value, 'f', -1, 64)
