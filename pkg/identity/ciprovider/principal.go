@@ -43,7 +43,7 @@ func mapValuesToString(claims map[string]any) map[string]string {
 			value := vType.Interface().(float64)
 			if value == math.Trunc(value) {
 				// A float, but with no fractional part. Treat as an int
-				newMap[k] = fmt.Sprintf("%v", math.Trunc(value))
+				newMap[k] = strconv.FormatFloat(math.Trunc(value), 'f', -1, 64)
 			} else {
 				newMap[k] = strconv.FormatFloat(value, 'f', -1, 64)
 			}
