@@ -23,7 +23,6 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -40,12 +39,7 @@ func NewEphemeralCA() (*EphemeralCA, error) {
 		return nil, err
 	}
 
-	serialNumber, err := cryptoutils.GenerateSerialNumber()
-	if err != nil {
-		return nil, err
-	}
 	rootCA := &x509.Certificate{
-		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			Organization:  []string{"sigstore"},
 			Country:       []string{"USA"},

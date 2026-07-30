@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 
@@ -561,20 +560,6 @@ func ValidateKMSConfig(config KMSConfig) error {
 }
 
 func createCertificate(template, parent *x509.Certificate, pub crypto.PublicKey, signer crypto.Signer) (*x509.Certificate, error) {
-	var err error
-	if template.SerialNumber == nil {
-		template.SerialNumber, err = cryptoutils.GenerateSerialNumber()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if template.SubjectKeyId == nil {
-		template.SubjectKeyId, err = cryptoutils.SKID(pub)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	asn1Data, err := x509.CreateCertificate(rand.Reader, template, parent, pub, signer)
 	if err != nil {
 		return nil, fmt.Errorf("error creating certificate: %w", err)

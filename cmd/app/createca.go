@@ -29,7 +29,6 @@ import (
 
 	"github.com/ThalesGroup/crypto11"
 	"github.com/sigstore/fulcio/pkg/log"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -104,12 +103,7 @@ func runCreateCACmd(cmd *cobra.Command, args []string) { //nolint: revive
 
 	pubKey := privKey.Public()
 
-	serialNumber, err := cryptoutils.GenerateSerialNumber()
-	if err != nil {
-		log.Logger.Fatal(err)
-	}
 	rootCA := &x509.Certificate{
-		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			Organization:  []string{viper.GetString("org")},
 			Country:       []string{viper.GetString("country")},
