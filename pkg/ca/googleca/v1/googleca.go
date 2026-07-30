@@ -236,7 +236,7 @@ func (c *CertAuthorityService) listCertificateAuthorityTrustBundle(ctx context.C
 }
 
 func (c *CertAuthorityService) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal)
 	if err != nil {
 		return nil, ca.ValidationError(err)
 	}

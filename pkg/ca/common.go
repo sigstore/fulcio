@@ -28,28 +28,15 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils/goodkey"
 )
 
-func MakeX509(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*x509.Certificate, error) {
-	serialNumber, err := cryptoutils.GenerateSerialNumber()
-	if err != nil {
-		return nil, err
-	}
-
-	skid, err := cryptoutils.SKID(publicKey)
-	if err != nil {
-		return nil, err
-	}
-
+func MakeX509(ctx context.Context, principal identity.Principal) (*x509.Certificate, error) {
 	cert := &x509.Certificate{
-		SerialNumber: serialNumber,
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(time.Minute * 10),
-		SubjectKeyId: skid,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		KeyUsage:     x509.KeyUsageDigitalSignature,
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(time.Minute * 10),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		KeyUsage:    x509.KeyUsageDigitalSignature,
 	}
 
-	err = principal.Embed(ctx, cert)
-	if err != nil {
+	if err := principal.Embed(ctx, cert); err != nil {
 		return nil, ValidationError(err)
 	}
 

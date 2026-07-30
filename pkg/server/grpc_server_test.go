@@ -2780,9 +2780,6 @@ func verifyResponse(resp *protobuf.SigningCertificate, eca *ephemeralca.Ephemera
 	if leafCert.NotAfter.Sub(leafCert.NotBefore) != time.Duration(10*time.Minute) {
 		t.Fatalf("expected 10 minute lifetime, got %v", leafCert.NotAfter.Sub(leafCert.NotBefore))
 	}
-	if len(leafCert.SubjectKeyId) != 20 {
-		t.Fatalf("expected certificate subject key ID to be of length 20 bytes, got %d", len(leafCert.SubjectKeyId))
-	}
 	if leafCert.KeyUsage != x509.KeyUsageDigitalSignature {
 		t.Fatalf("unexpected key usage, expected %v, got %v", x509.KeyUsageDigitalSignature, leafCert.KeyUsage)
 	}

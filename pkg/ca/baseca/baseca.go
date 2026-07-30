@@ -43,7 +43,7 @@ type BaseCA struct {
 }
 
 func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
-	cert, err := ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSign
 }
 
 func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningCertificate, error) {
-	cert, err := ca.MakeX509(ctx, principal, publicKey)
+	cert, err := ca.MakeX509(ctx, principal)
 	if err != nil {
 		return nil, err
 	}
