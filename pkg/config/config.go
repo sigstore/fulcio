@@ -137,6 +137,9 @@ type OIDCIssuer struct {
 	// Optional, the contact for the issuer team
 	// Usually it is a email
 	Contact string `json:"Contact,omitempty" yaml:"contact,omitempty"`
+	// Environment specifies whether this issuer is restricted to a specific environment
+	// (e.g. "staging" or "production"). If omitted, it is valid in all environments.
+	Environment string `json:"Environment,omitempty" yaml:"environment,omitempty"`
 
 	// CACert is an optional parameter that holds the CA certificate in PEM format.
 	// This is used to trust the TLS certificate signed by an internal CA when interacting

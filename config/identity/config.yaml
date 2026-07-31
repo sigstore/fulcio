@@ -53,6 +53,7 @@ oidc-issuers:
     ci-provider: *buddy-type
     contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity (dev environment)"
+    environment: staging
   https://dev.gitlab.org:
     issuer-url: https://dev.gitlab.org
     client-id: sigstore
@@ -99,6 +100,14 @@ oidc-issuers:
     type: email
     contact: support@kaggle.com
     description: "Kaggle OIDC provider"
+  https://oauth2.sigstage.dev/auth:
+    issuer-url: https://oauth2.sigstage.dev/auth
+    client-id: sigstore
+    type: email
+    issuer-claim: $.federated_claims.connector_id
+    contact: tac@sigstore.dev
+    description: "dex address for staging fulcio"
+    environment: staging
   https://oauth2.sigstore.dev/auth:
     issuer-url: https://oauth2.sigstore.dev/auth
     client-id: sigstore
@@ -106,6 +115,7 @@ oidc-issuers:
     issuer-claim: $.federated_claims.connector_id
     contact: tac@sigstore.dev
     description: "dex address for fulcio"
+    environment: production
   https://oidc.buddyusercontent.com:
     issuer-url: https://oidc.buddyusercontent.com
     client-id: sigstore
@@ -141,6 +151,13 @@ oidc-issuers:
     ci-provider: *buddy-type
     contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity (psd environment)"
+    environment: staging
+  https://sigstore.verify.ibm.com/oauth2:
+    issuer-url: https://sigstore.verify.ibm.com/oauth2
+    client-id: sigstore
+    type: email
+    contact: sigstore@ibm.com
+    description: "IBM OIDC auth"
   https://stage-oidc.buddyusercontent.com:
     issuer-url: https://stage-oidc.buddyusercontent.com
     client-id: sigstore
@@ -148,6 +165,7 @@ oidc-issuers:
     ci-provider: *buddy-type
     contact: support@buddy.works
     description: "Buddy OIDC tokens for pipeline identity (stage environment)"
+    environment: staging
   https://token.actions.githubusercontent.com:
     issuer-url: https://token.actions.githubusercontent.com
     client-id: sigstore
@@ -155,12 +173,6 @@ oidc-issuers:
     ci-provider: *github-type
     contact: tac@sigstore.dev
     description: "GitHub Actions OIDC auth"
-  https://sigstore.verify.ibm.com/oauth2:
-    issuer-url: https://sigstore.verify.ibm.com/oauth2
-    client-id: sigstore
-    type: email
-    contact: sigstore@ibm.com
-    description: "IBM OIDC auth"
 meta-issuers:
   # Matches https://{region}.oic.prod-aks.azure.com/{tenant-guid}/{random-guid}
   https://*.oic.prod-aks.azure.com/*/*:
