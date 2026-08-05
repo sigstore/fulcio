@@ -112,19 +112,40 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       viper.GetDuration("idle-connection-timeout"),
 	}
+
+	// Optionally terminate TLS on the HTTP listener. The certificate is loaded
+	// once at startup; rotating it on disk requires a restart.
+	if viper.GetString("http-tls-certificate") != "" && viper.GetString("http-tls-key") != "" {
+		cert, err := tls.LoadX509KeyPair(viper.GetString("http-tls-certificate"), viper.GetString("http-tls-key"))
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		policy, err := resolveTLSPolicy()
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		api.TLSConfig = policy.ServerConfig(cert)
+	}
 	return httpServer{&api, serverEndpoint}
 }
 
-func (h httpServer) startListener(wg *sync.WaitGroup) {
-	log.Logger.Infof("listening on http at %s", h.httpServerEndpoint)
+func (h httpServer) startListener(ctx context.Context, wg *sync.WaitGroup) {
+	scheme := "http"
+	if h.TLSConfig != nil {
+		scheme = "https"
+	}
+	log.Logger.Infof("listening on %s at %s", scheme, h.httpServerEndpoint)
 
 	idleConnsClosed := make(chan struct{})
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
+	/* #nosec G118 */ // Shutdown must use a fresh context; ctx is the shutdown trigger and may already be cancelled.
 	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
-		<-sigint
+		select {
+		case <-sigint:
+		case <-ctx.Done():
+		}
 
-		// received an interrupt signal, shut down
 		if err := h.Shutdown(context.Background()); err != nil {
 			// error from closing listeners, or context timeout
 			log.Logger.Errorf("HTTP server Shutdown: %v", err)
@@ -135,7 +156,15 @@ func (h httpServer) startListener(wg *sync.WaitGroup) {
 
 	wg.Add(1)
 	go func() {
-		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		// The certificate and key are supplied via TLSConfig.Certificates, so
+		// the file arguments are intentionally empty.
+		var err error
+		if h.TLSConfig != nil {
+			err = h.ListenAndServeTLS("", "")
+		} else {
+			err = h.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Logger.Fatal(err)
 		}
 		<-idleConnsClosed

@@ -48,6 +48,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sigstore/fulcio/internal/tlspolicy"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
@@ -70,6 +71,7 @@ import (
 	"goa.design/goa/v3/grpc/middleware"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
@@ -122,6 +124,10 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().Duration("read-header-timeout", 10*time.Second, "The time allowed to read the headers of the requests in seconds")
 	cmd.Flags().String("grpc-tls-certificate", "", "the certificate file to use for secure connections - only applies to grpc-port")
 	cmd.Flags().String("grpc-tls-key", "", "the private key file to use for secure connections (without passphrase) - only applies to grpc-port")
+	cmd.Flags().String("http-tls-certificate", "", "the certificate file to use for secure connections on the HTTP endpoint (two-listener mode) and the shared listener (duplex mode)")
+	cmd.Flags().String("http-tls-key", "", "the private key file to use for secure connections (without passphrase) on the HTTP endpoint (two-listener mode) and the shared listener (duplex mode)")
+	cmd.Flags().String("tls-min-version", "", "minimum TLS version for all serving paths (1.2 or 1.3); when unset defaults to 1.3. Lower to 1.2 for peers that cannot negotiate TLS 1.3.")
+	cmd.Flags().StringSlice("tls-cipher-suites", nil, "allowed TLS 1.2 cipher suite names (crypto/tls spelling) applied to all serving paths; empty keeps the crypto/tls default. Has no effect on TLS 1.3.")
 	cmd.Flags().Duration("idle-connection-timeout", 30*time.Second, "The time allowed for connections (HTTP or gRPC) to go idle before being closed by the server")
 	cmd.Flags().String("ct-log.tls-ca-cert", "", "Path to TLS CA certificate used to connect to ct-log")
 	cmd.Flags().String("hsm-key-label", "PKCS11CA", "HSM key label for PKCS11 CA")
@@ -186,6 +192,25 @@ func (rt *hostRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	return inner.RoundTrip(req)
 }
 
+func resolveTLSPolicy() (tlspolicy.Policy, error) {
+	return tlspolicy.Resolve(viper.GetString("tls-min-version"), viper.GetStringSlice("tls-cipher-suites"))
+}
+
+// validateTLSConfig enforces that each TLS certificate is supplied with its
+// key. It reads the resolved viper values, so a cert/key set via a flag,
+// environment variable, or config file is all covered.
+func validateTLSConfig() error {
+	for _, pair := range [][2]string{
+		{"grpc-tls-certificate", "grpc-tls-key"},
+		{"http-tls-certificate", "http-tls-key"},
+	} {
+		if (viper.GetString(pair[0]) != "") != (viper.GetString(pair[1]) != "") {
+			return fmt.Errorf("--%s and --%s must be set together", pair[0], pair[1])
+		}
+	}
+	return nil
+}
+
 func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	ctx := cmd.Context()
 	// If a config file is provided, modify the viper config to locate and read it
@@ -200,6 +225,10 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	// Allow recognition of environment variables such as FULCIO_SERVE_CA etc.
 	viper.SetEnvPrefix(serveCmdEnvPrefix)
 	viper.AutomaticEnv()
+
+	if err := validateTLSConfig(); err != nil {
+		log.Logger.Fatal(err)
+	}
 
 	switch viper.GetString("ca") {
 	case "":
@@ -420,7 +449,7 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	legacyGRPCServer.startUnixListener()
 
 	httpServer := createHTTPServer(ctx, httpServerEndpoint, grpcServer, legacyGRPCServer)
-	httpServer.startListener(&wg)
+	httpServer.startListener(ctx, &wg)
 
 	readHeaderTimeout := viper.GetDuration("read-header-timeout")
 	prom := http.Server{
@@ -498,9 +527,38 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 		grpc_prometheus.WithServerHandlingTimeHistogram(),
 	)
 
+	// Load the shared listener's TLS cert once at startup (rotate = restart). The
+	// duplex gateway dials itself over loopback, so a TLS listener needs that dial
+	// to use TLS too.
+	var (
+		cert       tls.Certificate
+		policy     tlspolicy.Policy
+		tlsEnabled bool
+	)
+	if viper.GetString("http-tls-certificate") != "" && viper.GetString("http-tls-key") != "" {
+		var err error
+		cert, err = tls.LoadX509KeyPair(viper.GetString("http-tls-certificate"), viper.GetString("http-tls-key"))
+		if err != nil {
+			return fmt.Errorf("loading duplex TLS certificate: %w", err)
+		}
+		policy, err = resolveTLSPolicy()
+		if err != nil {
+			return err
+		}
+		tlsEnabled = true
+	}
+
+	loopbackCreds := insecure.NewCredentials()
+	if tlsEnabled {
+		// The duplex gateway dials the server over the in-process loopback, so
+		// certificate hostname and chain verification add no security here.
+		/* #nosec G402 */ // InsecureSkipVerify is only used for the in-process loopback dial to the TLS-enabled duplex listener.
+		loopbackCreds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+	}
+
 	d := duplex.New(
 		port,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(loopbackCreds),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: viper.GetDuration("idle-connection-timeout"),
 		}),
@@ -558,6 +616,16 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return fmt.Errorf("creating listener: %w", err)
+	}
+
+	if tlsEnabled {
+		tlsConfig := policy.ServerConfig(cert)
+		// The duplex listener is shared by gRPC (HTTP/2) and REST (HTTP/1.1), so
+		// advertise both via ALPN; without "h2" gRPC clients cannot negotiate
+		// HTTP/2 on the TLS listener.
+		tlsConfig.NextProtos = []string{"h2", "http/1.1"}
+		lis = tls.NewListener(lis, tlsConfig)
+		logger.Info("Duplex server TLS enabled")
 	}
 	logger.Info("Starting duplex server...")
 	if err := d.Serve(ctx, lis); err != nil {

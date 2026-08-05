@@ -35,6 +35,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sigstore/fulcio/internal/tlspolicy"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -149,13 +150,19 @@ func (c *cachedTLSCert) UpdateCertificate() error {
 	return nil
 }
 
-func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
-	return grpc.Creds(credentials.NewTLS(&tls.Config{
+func (c *cachedTLSCert) tlsConfig(p tlspolicy.Policy) *tls.Config {
+	/* #nosec G402 */ // MinVersion comes from tlspolicy, which only permits TLS 1.2 or 1.3.
+	return &tls.Config{
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			return c.GetCertificate(), nil
 		},
-		MinVersion: tls.VersionTLS13,
-	}))
+		MinVersion:   p.MinVersion,
+		CipherSuites: p.CipherSuites,
+	}
+}
+
+func (c *cachedTLSCert) GRPCCreds(p tlspolicy.Policy) grpc.ServerOption {
+	return grpc.Creds(credentials.NewTLS(c.tlsConfig(p)))
 }
 
 func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
@@ -181,14 +188,19 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 	}
 
 	var tlsCertWatcher *fsnotify.Watcher
-	if viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key") {
+	if viper.GetString("grpc-tls-certificate") != "" && viper.GetString("grpc-tls-key") != "" {
 		cachedTLSCert, err := newCachedTLSCert(viper.GetString("grpc-tls-certificate"), viper.GetString("grpc-tls-key"))
 		if err != nil {
 			return nil, err
 		}
 
+		policy, err := resolveTLSPolicy()
+		if err != nil {
+			return nil, err
+		}
+
 		tlsCertWatcher = cachedTLSCert.Watcher
-		serverOpts = append(serverOpts, cachedTLSCert.GRPCCreds())
+		serverOpts = append(serverOpts, cachedTLSCert.GRPCCreds(policy))
 	}
 
 	myServer := grpc.NewServer(serverOpts...)
@@ -278,7 +290,7 @@ func (g *grpcServer) startUnixListener() {
 }
 
 func (g *grpcServer) ExposesGRPCTLS() bool {
-	return viper.IsSet("grpc-tls-certificate") && viper.IsSet("grpc-tls-key")
+	return viper.GetString("grpc-tls-certificate") != "" && viper.GetString("grpc-tls-key") != ""
 }
 
 func createLegacyGRPCServer(cfg *config.FulcioConfig, unixDomainSocket string, v2Server gw.CAServer, grpcMetrics *grpc_prometheus.ServerMetrics) (*grpcServer, error) {
