@@ -30,9 +30,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/sigstore/fulcio/internal/tlspolicy"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	legacy_gw "github.com/sigstore/fulcio/pkg/generated/protobuf/legacy"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -49,6 +51,7 @@ import (
 type httpServer struct {
 	*http.Server
 	httpServerEndpoint string
+	tlsCertWatcher     *fsnotify.Watcher
 }
 
 func extractOIDCTokenFromAuthHeader(_ context.Context, req *http.Request) metadata.MD {
@@ -112,11 +115,31 @@ func createHTTPServer(ctx context.Context, serverEndpoint string, grpcServer, le
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       viper.GetDuration("idle-connection-timeout"),
 	}
-	return httpServer{&api, serverEndpoint}
+
+	// Optionally terminate TLS on the HTTP listener. cachedTLSCert serves the
+	// certificate so on-disk rotation is picked up without a restart.
+	var tlsCertWatcher *fsnotify.Watcher
+	if viper.IsSet("http-tls-certificate") && viper.IsSet("http-tls-key") {
+		cachedTLSCert, err := newCachedTLSCert(viper.GetString("http-tls-certificate"), viper.GetString("http-tls-key"))
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		policy, err := resolveTLSPolicy()
+		if err != nil {
+			log.Logger.Fatal(err)
+		}
+		api.TLSConfig = cachedTLSCert.tlsConfig(policy, tlspolicy.ALPNProtocols)
+		tlsCertWatcher = cachedTLSCert.Watcher
+	}
+	return httpServer{&api, serverEndpoint, tlsCertWatcher}
 }
 
 func (h httpServer) startListener(wg *sync.WaitGroup) {
-	log.Logger.Infof("listening on http at %s", h.httpServerEndpoint)
+	scheme := "http"
+	if h.TLSConfig != nil {
+		scheme = "https"
+	}
+	log.Logger.Infof("listening on %s at %s", scheme, h.httpServerEndpoint)
 
 	idleConnsClosed := make(chan struct{})
 	go func() {
@@ -135,7 +158,18 @@ func (h httpServer) startListener(wg *sync.WaitGroup) {
 
 	wg.Add(1)
 	go func() {
-		if err := h.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if h.tlsCertWatcher != nil {
+			defer h.tlsCertWatcher.Close()
+		}
+		// The certificate and key are supplied via TLSConfig.GetCertificate, so
+		// the file arguments are intentionally empty.
+		var err error
+		if h.TLSConfig != nil {
+			err = h.ListenAndServeTLS("", "")
+		} else {
+			err = h.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Logger.Fatal(err)
 		}
 		<-idleConnsClosed
