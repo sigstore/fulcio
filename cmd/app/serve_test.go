@@ -17,13 +17,18 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,6 +40,7 @@ import (
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
 	v1 "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -202,5 +208,296 @@ func TestServeCmdFlags(t *testing.T) {
 	f := cmd.Flags().Lookup("ct-log-origin")
 	if f == nil {
 		t.Fatal("expected flag ct-log-origin to exist on serve command")
+	}
+}
+
+func TestResolveTLSPolicy(t *testing.T) {
+	viper.Set("tls-min-version", "")
+	viper.Set("tls-cipher-suites", nil)
+
+	t.Run("defaults when unset", func(t *testing.T) {
+		p, err := resolveTLSPolicy()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.MinVersion != tls.VersionTLS13 {
+			t.Errorf("minVersion = %#x, want default %#x", p.MinVersion, tls.VersionTLS13)
+		}
+		if p.CipherSuites != nil {
+			t.Errorf("cipherSuites = %v, want nil", p.CipherSuites)
+		}
+	})
+
+	t.Run("override min and ciphers", func(t *testing.T) {
+		viper.Set("tls-min-version", "1.2")
+		viper.Set("tls-cipher-suites", []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"})
+		defer func() {
+			viper.Set("tls-min-version", "")
+			viper.Set("tls-cipher-suites", nil)
+		}()
+		p, err := resolveTLSPolicy()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.MinVersion != tls.VersionTLS12 {
+			t.Errorf("minVersion = %#x, want %#x", p.MinVersion, tls.VersionTLS12)
+		}
+		if len(p.CipherSuites) != 1 {
+			t.Errorf("cipherSuites = %v, want one entry", p.CipherSuites)
+		}
+	})
+
+	t.Run("invalid min version errors", func(t *testing.T) {
+		viper.Set("tls-min-version", "1.1")
+		defer viper.Set("tls-min-version", "")
+		if _, err := resolveTLSPolicy(); err == nil {
+			t.Fatal("expected error for unsupported version")
+		}
+	})
+
+	t.Run("invalid cipher suite errors", func(t *testing.T) {
+		viper.Set("tls-cipher-suites", []string{"NOT_A_REAL_SUITE"})
+		defer viper.Set("tls-cipher-suites", nil)
+		if _, err := resolveTLSPolicy(); err == nil {
+			t.Fatal("expected error for unknown cipher suite")
+		}
+	})
+}
+
+func TestValidateTLSFlags(t *testing.T) {
+	// This is the first code in the package to touch the http-tls-* keys, so
+	// they start unset here.
+	t.Run("http cert without key fails", func(t *testing.T) {
+		viper.Set("http-tls-certificate", "/tmp/cert.pem")
+		if err := validateTLSFlags(); err == nil {
+			t.Fatal("expected error when http cert set without key")
+		}
+	})
+
+	t.Run("http cert and key together pass", func(t *testing.T) {
+		viper.Set("http-tls-certificate", "/tmp/cert.pem")
+		viper.Set("http-tls-key", "/tmp/key.pem")
+		if err := validateTLSFlags(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+// TestDuplexTLS exercises the duplex serving path with TLS enabled end to end:
+// the REST endpoint must be reachable over HTTPS and a client that caps below
+// the default TLS 1.3 floor must be rejected by the server.
+func TestDuplexTLS(t *testing.T) {
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	if err := os.WriteFile(certPath, []byte(certPEM), 0600); err != nil {
+		t.Fatal(err)
+	}
+	keyPath := filepath.Join(dir, "key.pem")
+	if err := os.WriteFile(keyPath, []byte(keyPEM), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	viper.Set("http-tls-certificate", certPath)
+	viper.Set("http-tls-key", keyPath)
+	viper.Set("tls-min-version", "")
+	viper.Set("tls-cipher-suites", nil)
+	defer func() {
+		viper.Set("http-tls-certificate", "")
+		viper.Set("http-tls-key", "")
+	}()
+
+	ca, err := ephemeralca.NewEphemeralCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const port = 8090
+	const metricsPort = 2115
+	go func() {
+		// StartDuplexServer blocks; it is intentionally leaked for the lifetime
+		// of the test binary, matching TestDuplex.
+		_ = StartDuplexServer(context.Background(), config.DefaultConfig, nil, ca, algorithmRegistry, "localhost", port, metricsPort, nil)
+	}()
+
+	addr := fmt.Sprintf("localhost:%d", port)
+	// Wait for the TLS listener to come up.
+	var ready bool
+	for i := 0; i < 50; i++ {
+		conn, derr := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true}) // #nosec G402 -- test client
+		if derr == nil {
+			conn.Close()
+			ready = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("duplex TLS server did not become ready")
+	}
+
+	t.Run("https REST endpoint reachable", func(t *testing.T) {
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 -- test client
+			},
+		}
+		resp, err := client.Get(fmt.Sprintf("https://%s/healthz", addr))
+		if err != nil {
+			t.Fatalf("HTTPS request failed: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("/healthz returned %d, want 200", resp.StatusCode)
+		}
+	})
+
+	t.Run("below-floor TLS version rejected", func(t *testing.T) {
+		// Cap the client at TLS 1.2; the server's default 1.3 floor must reject it.
+		_, err := tls.Dial("tcp", addr, &tls.Config{
+			InsecureSkipVerify: true, // #nosec G402 -- test client
+			MinVersion:         tls.VersionTLS12,
+			MaxVersion:         tls.VersionTLS12,
+		})
+		if err == nil {
+			t.Fatal("expected handshake to fail for TLS < 1.3")
+		}
+	})
+}
+
+// writeTLSKeyPair writes the shared test certificate and key to a temp dir and
+// returns their paths.
+func writeTLSKeyPair(t *testing.T) (certPath, keyPath string) {
+	t.Helper()
+	dir := t.TempDir()
+	certPath = filepath.Join(dir, "cert.pem")
+	if err := os.WriteFile(certPath, []byte(certPEM), 0600); err != nil {
+		t.Fatal(err)
+	}
+	keyPath = filepath.Join(dir, "key.pem")
+	if err := os.WriteFile(keyPath, []byte(keyPEM), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return certPath, keyPath
+}
+
+// TestCreateHTTPServerTLS verifies that supplying the http-tls flags configures
+// the HTTP server to terminate TLS with the resolved policy (default 1.3 floor
+// and the HTTP/2-first ALPN list).
+func TestCreateHTTPServerTLS(t *testing.T) {
+	certPath, keyPath := writeTLSKeyPair(t)
+
+	viper.Set("grpc-host", "")
+	viper.Set("grpc-port", 0)
+	viper.Set("grpc-tls-certificate", certPath)
+	viper.Set("grpc-tls-key", keyPath)
+	viper.Set("http-tls-certificate", certPath)
+	viper.Set("http-tls-key", keyPath)
+	viper.Set("tls-min-version", "")
+	viper.Set("tls-cipher-suites", nil)
+	defer func() {
+		viper.Set("http-tls-certificate", "")
+		viper.Set("http-tls-key", "")
+	}()
+
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, algorithmRegistry, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if grpcServer.tlsCertWatcher != nil {
+		defer grpcServer.tlsCertWatcher.Close()
+	}
+
+	srv := createHTTPServer(context.Background(), "localhost:0", grpcServer, nil)
+	if srv.tlsCertWatcher != nil {
+		defer srv.tlsCertWatcher.Close()
+	}
+	if srv.TLSConfig == nil {
+		t.Fatal("expected TLSConfig to be set when http-tls-* provided")
+	}
+	if srv.TLSConfig.MinVersion != tls.VersionTLS13 {
+		t.Errorf("MinVersion = %#x, want default %#x", srv.TLSConfig.MinVersion, tls.VersionTLS13)
+	}
+	if len(srv.TLSConfig.NextProtos) == 0 || srv.TLSConfig.NextProtos[0] != "h2" {
+		t.Errorf("NextProtos = %v, want h2 first", srv.TLSConfig.NextProtos)
+	}
+}
+
+// TestStartListenerTLS exercises the HTTP startListener TLS path end to end: the
+// server must complete a TLS 1.3 handshake and reject a client that caps below
+// the default 1.3 floor.
+func TestStartListenerTLS(t *testing.T) {
+	certPath, keyPath := writeTLSKeyPair(t)
+
+	// Reserve a concrete port for ListenAndServeTLS, then release it.
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+
+	viper.Set("grpc-host", "")
+	viper.Set("grpc-port", 0)
+	viper.Set("grpc-tls-certificate", certPath)
+	viper.Set("grpc-tls-key", keyPath)
+	viper.Set("http-tls-certificate", certPath)
+	viper.Set("http-tls-key", keyPath)
+	viper.Set("tls-min-version", "")
+	viper.Set("tls-cipher-suites", nil)
+	defer func() {
+		viper.Set("http-tls-certificate", "")
+		viper.Set("http-tls-key", "")
+	}()
+
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grpcServer, err := createGRPCServer(nil, nil, &TrivialCertificateAuthority{}, algorithmRegistry, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if grpcServer.tlsCertWatcher != nil {
+		defer grpcServer.tlsCertWatcher.Close()
+	}
+
+	srv := createHTTPServer(context.Background(), addr, grpcServer, nil)
+	var wg sync.WaitGroup
+	srv.startListener(&wg)
+	defer srv.Shutdown(context.Background())
+
+	// Wait for the TLS listener to come up.
+	var ready bool
+	for i := 0; i < 50; i++ {
+		conn, derr := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true}) // #nosec G402 -- test client
+		if derr == nil {
+			if conn.ConnectionState().Version != tls.VersionTLS13 {
+				t.Errorf("negotiated version = %#x, want %#x", conn.ConnectionState().Version, tls.VersionTLS13)
+			}
+			conn.Close()
+			ready = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("HTTPS listener did not become ready")
+	}
+
+	// A client capped at TLS 1.2 must be rejected by the 1.3 floor.
+	if _, err := tls.Dial("tcp", addr, &tls.Config{
+		InsecureSkipVerify: true, // #nosec G402 -- test client
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS12,
+	}); err == nil {
+		t.Fatal("expected handshake to fail for TLS < 1.3")
 	}
 }

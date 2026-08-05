@@ -35,6 +35,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sigstore/fulcio/internal/tlspolicy"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
 	gw "github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -107,7 +108,7 @@ func newCachedTLSCert(certPath, keyPath string) (*cachedTLSCert, error) {
 					return
 				}
 				if event.Has(fsnotify.Write) {
-					log.Logger.Info("fsnotify grpc-tls-certificate write event detected")
+					log.Logger.Info("fsnotify tls-certificate write event detected")
 					if err := cachedTLSCert.UpdateCertificate(); err != nil {
 						log.Logger.Error(err)
 					}
@@ -116,7 +117,7 @@ func newCachedTLSCert(certPath, keyPath string) (*cachedTLSCert, error) {
 				if !ok {
 					return
 				}
-				log.Logger.Error("fsnotify grpc-tls-certificate error:", err)
+				log.Logger.Error("fsnotify tls-certificate error:", err)
 			}
 		}
 	}()
@@ -142,20 +143,30 @@ func (c *cachedTLSCert) UpdateCertificate() error {
 
 	cert, err := tls.LoadX509KeyPair(c.certPath, c.keyPath)
 	if err != nil {
-		return fmt.Errorf("loading GRPC tls certificate and key file: %w", err)
+		return fmt.Errorf("loading tls certificate and key file: %w", err)
 	}
 
 	c.cert = &cert
 	return nil
 }
 
-func (c *cachedTLSCert) GRPCCreds() grpc.ServerOption {
-	return grpc.Creds(credentials.NewTLS(&tls.Config{
+// tlsConfig builds a *tls.Config that serves the watched certificate under the
+// supplied policy. nextProtos advertises the ALPN protocol list (nil for gRPC,
+// which negotiates HTTP/2 via its own credentials).
+func (c *cachedTLSCert) tlsConfig(p tlspolicy.Policy, nextProtos []string) *tls.Config {
+	/* #nosec G402 */ // MinVersion is a variable, but tlspolicy.ParseVersion constrains it to TLS 1.2 or 1.3 and callers default it to a literal >= TLS 1.2, so it is never below the G402 floor.
+	return &tls.Config{
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			return c.GetCertificate(), nil
 		},
-		MinVersion: tls.VersionTLS13,
-	}))
+		MinVersion:   p.MinVersion,
+		CipherSuites: p.CipherSuites,
+		NextProtos:   nextProtos,
+	}
+}
+
+func (c *cachedTLSCert) GRPCCreds(p tlspolicy.Policy) grpc.ServerOption {
+	return grpc.Creds(credentials.NewTLS(c.tlsConfig(p, nil)))
 }
 
 func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
@@ -187,8 +198,13 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 			return nil, err
 		}
 
+		policy, err := resolveTLSPolicy()
+		if err != nil {
+			return nil, err
+		}
+
 		tlsCertWatcher = cachedTLSCert.Watcher
-		serverOpts = append(serverOpts, cachedTLSCert.GRPCCreds())
+		serverOpts = append(serverOpts, cachedTLSCert.GRPCCreds(policy))
 	}
 
 	myServer := grpc.NewServer(serverOpts...)
