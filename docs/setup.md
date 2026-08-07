@@ -238,3 +238,51 @@ To get the root certificate, call `curl -o fulcio.crt.pem http://localhost:5555/
 
 Set `SIGSTORE_CT_LOG_PUBLIC_KEY_FILE` with the path to a PEM or DER-encoded CT log public key.
 If using `docker-compose`, the public key is available at `config/ctfe/pubkey.pem`.
+
+## Serving over TLS
+
+By default Fulcio serves both the HTTP/REST and gRPC endpoints in cleartext, and is
+typically deployed behind a proxy or load balancer that terminates TLS. Fulcio can also
+terminate TLS itself on any serving path. This is useful when the hop between the
+terminator and the Fulcio pod is a separate trust boundary (for example a re-encrypting
+ingress), so that the OIDC bearer token and CSR are not sent in cleartext to the pod.
+
+All TLS flags are optional and default to today's behaviour when unset, so existing
+deployments are unaffected.
+
+### Serving material
+
+* `--grpc-tls-certificate` / `--grpc-tls-key`: serve TLS on the gRPC listener.
+* `--http-tls-certificate` / `--http-tls-key`: serve TLS on the HTTP/REST listener, and on
+  the shared listener in duplex mode.
+
+Each certificate and key must be provided together, and on-disk rotation is picked up
+without a restart.
+
+### Policy
+
+* `--tls-min-version`: minimum negotiated TLS version, `1.2` or `1.3`. When unset, every
+  TLS-enabled serving path defaults to a `1.3` floor. This is a floor, not a ceiling:
+  modern clients already negotiate 1.3, and lowering it only permits an older fallback.
+  Lower it to `1.2` for peers that cannot negotiate TLS 1.3, such as a TLS-inspecting
+  proxy, a compliance-pinned load balancer, or legacy OpenSSL tooling in front of Fulcio.
+  (`1.2` remains a current, non-deprecated version and matches Go's own stdlib server
+  default.)
+* `--tls-cipher-suites`: comma-separated list of allowed cipher suite names, using the Go
+  standard library spelling (for example `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`). Only
+  suites considered secure by Go are accepted. This applies to TLS 1.2 handshakes only; Go
+  fixes the TLS 1.3 suite set, so the flag has no effect at the default 1.3 floor and only
+  takes effect when the minimum version is lowered to 1.2.
+
+Both policy flags apply uniformly to every TLS-enabled serving path. Misconfiguration
+(a certificate without its key, an unsupported minimum version, or an unknown cipher name)
+fails at startup with a clear error.
+
+For example, to serve the REST endpoint over HTTPS with a TLS 1.2 floor:
+
+```
+go run main.go serve --ca ephemeralca --ct-log-url="" \
+  --http-tls-certificate /path/to/cert.pem --http-tls-key /path/to/key.pem \
+  --tls-min-version 1.2
+```
+
