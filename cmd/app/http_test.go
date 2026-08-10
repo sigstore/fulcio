@@ -119,7 +119,7 @@ func setupHTTPServerWithGRPCTLS(t *testing.T) (httpServer, string) {
 	if err != nil {
 		t.Error(err)
 	}
-	legacyGRPCServer, err := createLegacyGRPCServer(nil, LegacyUnixDomainSocket, grpcServer.caService)
+	legacyGRPCServer, err := createLegacyGRPCServer(nil, LegacyUnixDomainSocket, grpcServer.caService, grpcServer.serverMetrics)
 	if err != nil {
 		t.Fatal(err)
 	}
