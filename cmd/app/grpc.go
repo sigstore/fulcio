@@ -33,7 +33,7 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -199,10 +199,7 @@ func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, ba
 }
 
 func (g *grpcServer) setupPrometheus(reg *prometheus.Registry) {
-	grpcMetrics := grpc_prometheus.DefaultServerMetrics
-	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
-	grpc_prometheus.Register(g.Server)
+	reg.MustRegister(server.MetricLatency, server.RequestsCount)
 }
 
 func (g *grpcServer) startTCPListener(wg *sync.WaitGroup) {

@@ -44,7 +44,7 @@ import (
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -529,11 +529,8 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 	}
 
 	// Prometheus
-	reg := prometheus.NewRegistry()
-	grpcMetrics := grpc_prometheus.DefaultServerMetrics
-	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
-	grpc_prometheus.Register(d.Server)
+	prometheus.MustRegister(server.MetricLatency, server.RequestsCount)
+	_ = prometheus.NewRegistry() // go-grpc-kit's RegisterListenAndServeMetrics handles grpc server metrics
 
 	// Healthz
 	health.RegisterHealthServer(d.Server, grpcCAServer)
