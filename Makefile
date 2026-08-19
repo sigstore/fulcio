@@ -38,7 +38,7 @@ SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
 FULCIO_VERSION_PKG=sigs.k8s.io/release-utils/version
 LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION)
 
-KO_PREFIX ?= gcr.io/projectsigstore
+KO_PREFIX ?= ghcr.io/sigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
 
 ifdef INSECURE_REGISTRY
