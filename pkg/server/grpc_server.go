@@ -38,7 +38,6 @@ import (
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/sigstore/sigstore/pkg/cryptoutils/goodkey"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -105,7 +104,7 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 
 		// Parse public key and check for weak key parameters
 		publicKey = csr.PublicKey
-		if err := goodkey.ValidatePubKey(publicKey); err != nil {
+		if _, err := signature.GetDefaultAlgorithmDetails(publicKey); err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
 
@@ -136,13 +135,10 @@ func (g *grpcaCAServer) CreateSigningCertificate(ctx context.Context, request *f
 		if err != nil {
 			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, invalidPublicKey)
 		}
-		if err := goodkey.ValidatePubKey(publicKey); err != nil {
-			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
-		}
 
 		proofOfPossessionAlgo, err := signature.GetDefaultAlgorithmDetails(publicKey)
 		if err != nil {
-			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, err.Error())
+			return nil, handleFulcioGRPCError(ctx, codes.InvalidArgument, err, insecurePublicKey)
 		}
 		verifier, err := signature.LoadDefaultVerifier(publicKey)
 		if err != nil {

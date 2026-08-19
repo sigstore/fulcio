@@ -25,7 +25,7 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/sigstore/sigstore/pkg/cryptoutils/goodkey"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 func MakeX509(ctx context.Context, principal identity.Principal) (*x509.Certificate, error) {
@@ -89,5 +89,9 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 		return err
 	}
 
-	return goodkey.ValidatePubKey(signer.Public())
+	// Validate that the signer's public key uses a supported algorithm and secure parameters
+	// (e.g. RSA >= 2048-bit, NIST P-256/P-384/P-521 for ECDSA, or Ed25519). GetDefaultAlgorithmDetails
+	// performs this validation and returns an error for weak or unsupported key types/parameters.
+	_, err := signature.GetDefaultAlgorithmDetails(signer.Public())
+	return err
 }

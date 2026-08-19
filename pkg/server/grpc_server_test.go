@@ -2567,6 +2567,81 @@ func TestAPIWithInvalidCSRPublicKey(t *testing.T) {
 	}
 }
 
+// Tests API with CSR containing insecure RSA key (1024-bit)
+func TestAPIWithInsecureCSRPublicKey(t *testing.T) {
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	// Create a FulcioConfig that supports this issuer.
+	cfg, err := config.Read(fmt.Appendf(nil, `{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	emailSubject := "foo@example.com"
+
+	// Create an OIDC token using this issuer's signer.
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
+	if err != nil {
+		t.Fatalf("Serialize() = %v", err)
+	}
+
+	ctClient, eca := createCA(cfg, t)
+	ctx := context.Background()
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+
+	client := protobuf.NewCAClient(conn)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("error generating private key: %v", err)
+	}
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	if err != nil {
+		t.Fatalf("error creating CSR: %v", err)
+	}
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+
+	// Hit the API to have it sign our certificate.
+	_, err = client.CreateSigningCertificate(ctx, &protobuf.CreateSigningCertificateRequest{
+		Credentials: &protobuf.Credentials{
+			Credentials: &protobuf.Credentials_OidcIdentityToken{
+				OidcIdentityToken: tok,
+			},
+		},
+		Key: &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+			CertificateSigningRequest: pemCSR,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "The public key supplied in the request is insecure") {
+		t.Fatalf("expected insecure public key error, got %v", err)
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
 // Stand up a very simple OIDC endpoint.
 func newOIDCIssuer(t *testing.T) (jose.Signer, string) {
 	t.Helper()
