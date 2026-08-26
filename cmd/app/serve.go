@@ -42,9 +42,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -406,16 +406,14 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 
 	httpServerEndpoint := fmt.Sprintf("%v:%v", viper.GetString("http-host"), viper.GetString("http-port"))
 
-	reg := prometheus.NewRegistry()
-
 	grpcServer, err := createGRPCServer(cfg, ctClient, baseca, algorithmRegistry, ip)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
-	grpcServer.setupPrometheus(reg)
+	grpcServer.setupPrometheus()
 	grpcServer.startTCPListener(&wg)
 
-	legacyGRPCServer, err := createLegacyGRPCServer(cfg, viper.GetString("legacy-unix-domain-socket"), grpcServer.caService)
+	legacyGRPCServer, err := createLegacyGRPCServer(cfg, viper.GetString("legacy-unix-domain-socket"), grpcServer.caService, grpcServer.serverMetrics)
 	if err != nil {
 		log.Logger.Fatal(err)
 	}
@@ -496,6 +494,10 @@ func duplexHealthz(_ context.Context, mux *runtime.ServeMux, endpoint string, op
 func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, host string, port, metricsPort int, ip identity.IssuerPool) error {
 	logger, opts := log.SetupGRPCLogging()
 
+	grpcMetrics := grpc_prometheus.NewServerMetrics(
+		grpc_prometheus.WithServerHandlingTimeHistogram(),
+	)
+
 	d := duplex.New(
 		port,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -508,7 +510,7 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 			middleware.UnaryRequestID(middleware.UseXRequestIDMetadataOption(true), middleware.XRequestMetadataLimitOption(128)),
 			grpc_zap.UnaryServerInterceptor(logger, opts...),
 			PassFulcioConfigThruContext(cfg),
-			grpc_prometheus.UnaryServerInterceptor,
+			grpcMetrics.UnaryServerInterceptor(),
 		)),
 		grpc.MaxRecvMsgSize(int(maxMsgSize)),
 		runtime.WithForwardResponseOption(setResponseCodeModifier),
@@ -528,21 +530,30 @@ func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *
 		return fmt.Errorf("registering legacy grpc ca handler: %w", err)
 	}
 
-	// Prometheus
-	reg := prometheus.NewRegistry()
-	grpcMetrics := grpc_prometheus.DefaultServerMetrics
-	grpcMetrics.EnableHandlingTimeHistogram()
-	reg.MustRegister(grpcMetrics, server.MetricLatency, server.RequestsCount)
-	grpc_prometheus.Register(d.Server)
-
 	// Healthz
 	health.RegisterHealthServer(d.Server, grpcCAServer)
 	if err := d.RegisterHandler(ctx, duplexHealthz); err != nil {
 		return fmt.Errorf("registering healthz endpoint: %w", err)
 	}
 
-	// Register prometheus handle.
-	d.RegisterListenAndServeMetrics(metricsPort, false)
+	// Prometheus
+	// InitializeMetrics must be called after all services are registered.
+	prometheus.MustRegister(grpcMetrics)
+	grpcMetrics.InitializeMetrics(d.Server)
+
+	// Serve /metrics from the default registry instead of go-grpc-kit's
+	// RegisterListenAndServeMetrics, which registers a conflicting grpc_server_*
+	// collector on the default registry.
+	metricsServer := &http.Server{
+		Addr:              fmt.Sprintf(":%d", metricsPort),
+		Handler:           promhttp.Handler(),
+		ReadHeaderTimeout: viper.GetDuration("read-header-timeout"),
+	}
+	go func() {
+		if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Logger.Fatalf("metrics server: %v", err)
+		}
+	}()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {

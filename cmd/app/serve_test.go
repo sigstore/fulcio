@@ -40,12 +40,16 @@ import (
 )
 
 func TestDuplex(t *testing.T) {
-	// Use a custom registry to avoid conflicts with global metrics
+	// Swap both the registerer and the gatherer so the metrics registered by
+	// the duplex server are the same ones served on /metrics.
 	customRegistry := prometheus.NewRegistry()
-	originalRegistry := prometheus.DefaultRegisterer
+	originalRegisterer := prometheus.DefaultRegisterer
+	originalGatherer := prometheus.DefaultGatherer
 	prometheus.DefaultRegisterer = customRegistry
+	prometheus.DefaultGatherer = customRegistry
 	defer func() {
-		prometheus.DefaultRegisterer = originalRegistry
+		prometheus.DefaultRegisterer = originalRegisterer
+		prometheus.DefaultGatherer = originalGatherer
 	}()
 
 	// Start a server with duplex on port 8089
