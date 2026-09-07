@@ -84,7 +84,6 @@ services:
         "--origin", "tesseract",
         "--storage_dir", "/ctfe",
         "--roots_pem_file", "/etc/fulcio/root.pem",
-        "--v", "1",
         "--ext_key_usages", "CodeSigning",
         "--http_endpoint", "0.0.0.0:6962",
     ]
