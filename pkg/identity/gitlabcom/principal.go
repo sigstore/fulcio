@@ -172,7 +172,7 @@ func JobPrincipalFromIDToken(_ context.Context, token *oidc.IDToken) (identity.P
 	return &jobPrincipal{
 		subject:           token.Subject,
 		issuer:            token.Issuer,
-		url:               `https://gitlab.com/`,
+		url:               token.Issuer + "/",
 		eventName:         claims.PipelineSource,
 		pipelineID:        claims.PipelineID,
 		ciConfigRefURI:    claims.CiConfigRefURI,
