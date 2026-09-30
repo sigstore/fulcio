@@ -104,7 +104,7 @@ type IssuerMetadata struct {
 	// e.g "{{ .url }}/{{ .repository }}"
 	// or non-templated strings with token claim keys to be replaced,
 	// e.g "job_workflow_sha"
-	ExtensionTemplates certificate.Extensions `json:"ExtensionTemplates,omitempty" yaml:"extension-templates,omitempty"`
+	ExtensionTemplates certificate.Extensions `json:"ExtensionTemplates" yaml:"extension-templates,omitempty"`
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
 	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
@@ -610,8 +610,8 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 
 	for _, ciIssuerMetadata := range fulcioConfig.CIIssuerMetadata {
 		v := reflect.ValueOf(ciIssuerMetadata.ExtensionTemplates)
-		for i := range v.NumField() {
-			s := v.Field(i).String()
+		for _, field := range v.Fields() {
+			s := field.String()
 			err := checkParse(s)
 			if err != nil {
 				return err

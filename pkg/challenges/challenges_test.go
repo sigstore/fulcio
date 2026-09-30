@@ -22,6 +22,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"strings"
 	"testing"
 
@@ -156,7 +157,7 @@ func TestParsePublicKey(t *testing.T) {
 	}
 
 	// succeeds with DER-encoded key
-	derKey, err := cryptoutils.MarshalPublicKeyToDER(priv.Public())
+	derKey, err := x509.MarshalPKIXPublicKey(priv.Public())
 	failErr(t, err)
 	pubKey, err = ParsePublicKey(string(derKey))
 	failErr(t, err)
