@@ -32,7 +32,6 @@ const (
 	failedToEnterCertInCTL = "Error entering certificate in CTL"
 	failedToMarshalSCT     = "Error marshaling signed certificate timestamp"
 	failedToMarshalCert    = "Error marshaling code signing certificate"
-	insecurePublicKey      = "The public key supplied in the request is insecure"
 	// nolint:gosec // false positive G101
 	invalidCredentials = "There was an error processing the credentials for this request" //lint:ignore U1000 Used in past
 	// nolint:gosec // false positive G101
@@ -44,8 +43,7 @@ const (
 )
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...any) error {
-	var rspErr ctclient.RspError
-	if errors.As(err, &rspErr) {
+	if rspErr, ok := errors.AsType[ctclient.RspError](err); ok {
 		fields = append(fields, "body", string(rspErr.Body))
 	}
 

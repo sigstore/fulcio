@@ -137,34 +137,6 @@ func GenerateSubordinateCA(rootTemplate *x509.Certificate, rootPriv crypto.Signe
 	return cert, priv, nil
 }
 
-func GenerateWeakSubordinateCA(rootTemplate *x509.Certificate, rootPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
-	subTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName:   "sigstore-sub",
-			Organization: []string{"sigstore.dev"},
-		},
-		NotBefore:             time.Now().Add(-2 * time.Minute),
-		NotAfter:              time.Now().Add(2 * time.Hour),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-
-	priv, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cert, err := createCertificate(subTemplate, rootTemplate, &priv.PublicKey, rootPriv)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cert, priv, nil
-}
-
 func GenerateSubordinateCAWithoutEKU(rootTemplate *x509.Certificate, rootPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	subTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
