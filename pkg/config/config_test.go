@@ -1500,3 +1500,316 @@ func TestGetVerifier_DirectConfiguredK8sIssuerGetsToken(t *testing.T) {
 		t.Fatal("expected directly-configured non-default Kubernetes issuer to receive the in-cluster bearer token, but it did not")
 	}
 }
+
+func TestSafeDialer(t *testing.T) {
+	tests := []struct {
+		name         string
+		issuer       string
+		allowPrivate bool
+		blockedCIDRs []string
+		targetURL    string
+		wantError    bool
+	}{
+		{
+			name:         "Allowed external IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			targetURL:    "8.8.8.8:80",
+			wantError:    false,
+		},
+		{
+			name:         "Allowed external IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			targetURL:    "[2001:4860:4860::8888]:80",
+			wantError:    false,
+		},
+		{
+			name:         "Blocked loopback IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			targetURL:    "127.0.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked loopback IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			targetURL:    "[::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked private IPv4 for meta-issuer",
+			issuer:       "https://oidc.eks.us-west-2.amazonaws.com/id/123",
+			allowPrivate: false,
+			targetURL:    "192.168.1.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked private IPv6 ULA for meta-issuer",
+			issuer:       "https://oidc.eks.us-west-2.amazonaws.com/id/123",
+			allowPrivate: false,
+			targetURL:    "[fd00::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Allowed private IPv4 for configured OIDC / Kubernetes issuer",
+			issuer:       "https://kubernetes.default.svc",
+			allowPrivate: true,
+			targetURL:    "10.96.0.1:443",
+			wantError:    false,
+		},
+		{
+			name:         "Allowed private IPv6 ULA for configured OIDC / Kubernetes issuer",
+			issuer:       "https://kubernetes.default.svc",
+			allowPrivate: true,
+			targetURL:    "[fd00::1]:443",
+			wantError:    false,
+		},
+		{
+			name:         "Blocked CGNAT IP for meta-issuer",
+			issuer:       "https://oidc.eks.us-west-2.amazonaws.com/id/123",
+			allowPrivate: false,
+			targetURL:    "100.64.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Allowed CGNAT IP for configured OIDC / Kubernetes issuer",
+			issuer:       "https://kubernetes.default.svc",
+			allowPrivate: true,
+			targetURL:    "100.64.0.1:443",
+			wantError:    false,
+		},
+		{
+			name:         "Blocked link-local IPv4 (RFC 3927 / IMDS)",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "169.254.169.254:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked link-local IPv4 (169.254.170.2)",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "169.254.170.2:80",
+			wantError:    true,
+		},
+		{
+			name:         "Unresolved hostname rejected by ControlContext",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "metadata.google.internal:80",
+			wantError:    true,
+		},
+		{
+			name:         "Missing port rejected by ControlContext",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "8.8.8.8",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked custom IPv6 CIDR even when allowPrivate is true",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			blockedCIDRs: []string{"fd00:ec2::254/128"},
+			targetURL:    "[fd00:ec2::254]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked custom IPv4 address even when allowPrivate is true",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			blockedCIDRs: []string{"100.100.100.200"},
+			targetURL:    "100.100.100.200:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked custom CIDR subnet",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			blockedCIDRs: []string{"198.51.100.0/24"},
+			targetURL:    "198.51.100.42:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked IPv6 link-local IP",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[fe80::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked unspecified IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "0.0.0.0:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked current network 0.0.0.0/8 IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "0.0.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked unspecified IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[::]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked non-link-local multicast IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "239.255.255.250:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked multicast IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[ff05::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked Class E reserved IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "240.0.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked broadcast IPv4",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "255.255.255.255:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked NAT64 well-known prefix IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[64:ff9b::a9fe:a9fe]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked NAT64 local-use prefix IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[64:ff9b:1::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked 6to4 prefix IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[2002:a9fe:a9fe::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked Teredo prefix IPv6",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[2001:0:4136:e378:8000:63bf:3fff:fdd2]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked IPv4-mapped IPv6 loopback",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: false,
+			targetURL:    "[::ffff:127.0.0.1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Blocked IPv4-mapped IPv6 link-local",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			targetURL:    "[::ffff:169.254.169.254]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Allowed loopback IP for local testing issuer",
+			issuer:       "http://127.0.0.1:5555",
+			allowPrivate: false,
+			targetURL:    "127.0.0.1:80",
+			wantError:    false,
+		},
+		{
+			name:         "Allowed IPv6 loopback IP for local IPv6 testing issuer",
+			issuer:       "http://[::1]:5555",
+			allowPrivate: false,
+			targetURL:    "[::1]:80",
+			wantError:    false,
+		},
+		{
+			name:         "Local testing issuer still blocks link-local IP",
+			issuer:       "http://localhost:5555",
+			allowPrivate: false,
+			targetURL:    "169.254.169.254:80",
+			wantError:    true,
+		},
+		{
+			name:         "Local testing issuer still blocks private IP when allowPrivate is false",
+			issuer:       "http://localhost:5555",
+			allowPrivate: false,
+			targetURL:    "192.168.1.1:80",
+			wantError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blockedNets, err := parseBlockedCIDRs(tt.blockedCIDRs)
+			if err != nil {
+				t.Fatalf("unexpected error parsing blocked CIDRs: %v", err)
+			}
+			d, err := getSafeDialer(tt.issuer, tt.allowPrivate, blockedNets)
+			if err != nil {
+				t.Fatalf("unexpected error creating safe dialer: %v", err)
+			}
+
+			if d.Timeout != 30*time.Second || d.KeepAlive != 30*time.Second {
+				t.Errorf("expected dialer Timeout and KeepAlive to be 30s, got Timeout=%v KeepAlive=%v", d.Timeout, d.KeepAlive)
+			}
+
+			// We only want to test the ControlContext hook's IP validation logic.
+			// The actual dialer isn't established during the ControlContext execution,
+			// so we can directly invoke the ControlContext function with our target URL
+			// to simulate a DNS resolution that yielded that IP.
+
+			err = d.ControlContext(context.Background(), "tcp", tt.targetURL, nil)
+			if tt.wantError && err == nil {
+				t.Errorf("expected error for restricted IP, got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error for safe IP: %v", err)
+			}
+		})
+	}
+
+	t.Run("Malformed issuer URL returns error", func(t *testing.T) {
+		if _, err := getSafeDialer("://invalid-url", false, nil); err == nil {
+			t.Error("expected error for malformed issuer URL, got nil")
+		}
+	})
+
+	t.Run("WithBlockedCIDRs validation", func(t *testing.T) {
+		fc := &FulcioConfig{}
+		if err := WithBlockedCIDRs([]string{"100.100.100.200", "fd00:ec2::254", "198.51.100.0/24", ""})(fc); err != nil {
+			t.Fatalf("expected valid blocked CIDRs to succeed, got: %v", err)
+		}
+		if len(fc.blockedCIDRs) != 3 {
+			t.Fatalf("expected 3 parsed blocked CIDRs, got %d", len(fc.blockedCIDRs))
+		}
+
+		if err := WithBlockedCIDRs([]string{"invalid-ip"})(fc); err == nil {
+			t.Error("expected error for invalid blocked IP, got nil")
+		}
+		if err := WithBlockedCIDRs([]string{"10.0.0.0/99"})(fc); err == nil {
+			t.Error("expected error for invalid blocked CIDR, got nil")
+		}
+	})
+}

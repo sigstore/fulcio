@@ -22,12 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -93,6 +95,8 @@ type FulcioConfig struct {
 	verifiers map[string][]*verifierWithConfig
 	// lru is an LRU cache of recently used verifiers for our meta issuers.
 	lru *lru.TwoQueueCache[string, []*verifierWithConfig]
+	// blockedCIDRs is a list of additional IP ranges to block in the OIDC HTTP client dialer.
+	blockedCIDRs []*net.IPNet
 }
 
 type IssuerMetadata struct {
@@ -325,8 +329,8 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 
 	_, hasK8SIssuer := fc.GetIssuer(k8sIssuerURL)
 	_, isConfiguredOIDCIssuer := fc.OIDCIssuers[iss.IssuerURL]
-	isTrustedK8sIssuer := isConfiguredOIDCIssuer || iss.IssuerURL == k8sIssuerURL
-	if iss.Type == IssuerTypeKubernetes && hasK8SIssuer && isTrustedK8sIssuer {
+	isTrustedK8sIssuer := iss.Type == IssuerTypeKubernetes && hasK8SIssuer && (isConfiguredOIDCIssuer || iss.IssuerURL == k8sIssuerURL)
+	if isTrustedK8sIssuer {
 		// Add the Kubernetes cluster's CA to the client's CA pool
 		certs, err := os.ReadFile(k8sCA)
 		if err != nil {
@@ -356,6 +360,19 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 		}
 	}
 
+	allowPrivate := isConfiguredOIDCIssuer || isTrustedK8sIssuer
+	d, err := getSafeDialer(iss.IssuerURL, allowPrivate, fc.blockedCIDRs)
+	if err != nil {
+		return nil, err
+	}
+
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, errors.New("failed to initialize default http transport")
+	}
+	transport = transport.Clone()
+	transport.DialContext = d.DialContext
+
 	if iss.CACert != "" {
 		rootCAs, _ := x509.SystemCertPool()
 		if rootCAs == nil {
@@ -365,15 +382,13 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 			return nil, fmt.Errorf("failed to append custom CA cert for issuer URL %q", iss.IssuerURL)
 		}
 
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    rootCAs,
-				MinVersion: tls.VersionTLS12,
-			},
+		transport.TLSClientConfig = &tls.Config{
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
 		}
-		return noRedirectClient(&http.Client{Transport: transportProvider(transport)}), nil
 	}
-	return noRedirectClient(&http.Client{Transport: http.DefaultTransport}), nil
+
+	return noRedirectClient(&http.Client{Transport: transportProvider(transport)}), nil
 }
 
 func (fc *FulcioConfig) prepare() error {
@@ -626,28 +641,82 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 	return nil
 }
 
+type Option func(*FulcioConfig) error
+
+// WithBlockedCIDRs configures additional IP addresses or CIDR ranges that the OIDC
+// HTTP client dialer will block regardless of issuer type.
+func WithBlockedCIDRs(cidrs []string) Option {
+	return func(fc *FulcioConfig) error {
+		nets, err := parseBlockedCIDRs(cidrs)
+		if err != nil {
+			return err
+		}
+		fc.blockedCIDRs = append(fc.blockedCIDRs, nets...)
+		return nil
+	}
+}
+
+func parseBlockedCIDRs(entries []string) ([]*net.IPNet, error) {
+	var nets []*net.IPNet
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			_, ipNet, err := net.ParseCIDR(entry)
+			if err != nil {
+				return nil, fmt.Errorf("invalid blocked CIDR %q: %w", entry, err)
+			}
+			nets = append(nets, ipNet)
+		} else {
+			ip := net.ParseIP(entry)
+			if ip == nil {
+				return nil, fmt.Errorf("invalid blocked IP or CIDR %q", entry)
+			}
+			if ip4 := ip.To4(); ip4 != nil {
+				nets = append(nets, &net.IPNet{IP: ip4, Mask: net.CIDRMask(32, 32)})
+			} else {
+				nets = append(nets, &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)})
+			}
+		}
+	}
+	return nets, nil
+}
+
 // Load a config from disk, or use defaults
-func Load(configPath string) (*FulcioConfig, error) {
+func Load(configPath string, opts ...Option) (*FulcioConfig, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Logger.Infof("No config at %s, using defaults: %v", configPath, DefaultConfig)
-		config := DefaultConfig
-		if err := config.prepare(); err != nil {
+		cfg := *DefaultConfig
+		for _, opt := range opts {
+			if err := opt(&cfg); err != nil {
+				return nil, err
+			}
+		}
+		if err := cfg.prepare(); err != nil {
 			return nil, err
 		}
-		return config, nil
+		return &cfg, nil
 	}
 	b, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
-	return Read(b)
+	return Read(b, opts...)
 }
 
 // Read parses the bytes of a config
-func Read(b []byte) (*FulcioConfig, error) {
+func Read(b []byte, opts ...Option) (*FulcioConfig, error) {
 	config, err := parseConfig(b)
 	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
+	}
+
+	for _, opt := range opts {
+		if err := opt(config); err != nil {
+			return nil, err
+		}
 	}
 
 	err = validateConfig(config)
@@ -727,4 +796,105 @@ func issuerToChallengeClaim(issType IssuerType, challengeClaim string) string {
 	default:
 		return ""
 	}
+}
+
+// Inspired by https://github.com/stripe/smokescreen/blob/master/pkg/smokescreen/smokescreen.go
+var (
+	// currentNetRange is the RFC 1122 / RFC 6890 "Current network" block (0.0.0.0/8).
+	currentNetRange = net.IPNet{
+		IP:   net.IP{0, 0, 0, 0},
+		Mask: net.CIDRMask(8, 32),
+	}
+	// cgnatRange is the RFC 6598 Shared Address Space (100.64.0.0/10).
+	cgnatRange = net.IPNet{
+		IP:   net.IP{100, 64, 0, 0},
+		Mask: net.CIDRMask(10, 32),
+	}
+	// reservedClassERange is the RFC 1112 Class E / future use and broadcast block (240.0.0.0/4).
+	reservedClassERange = net.IPNet{
+		IP:   net.IP{240, 0, 0, 0},
+		Mask: net.CIDRMask(4, 32),
+	}
+	// nat64WellKnownRange is the RFC 6052 IPv6-to-IPv4 Well-Known Prefix (64:ff9b::/96).
+	nat64WellKnownRange = net.IPNet{
+		IP:   net.ParseIP("64:ff9b::"),
+		Mask: net.CIDRMask(96, 128),
+	}
+	// nat64LocalRange is the RFC 8215 Local-Use IPv4/IPv6 Translation Prefix (64:ff9b:1::/48).
+	nat64LocalRange = net.IPNet{
+		IP:   net.ParseIP("64:ff9b:1::"),
+		Mask: net.CIDRMask(48, 128),
+	}
+	// sixToFourRange is the RFC 3056 6to4 Prefix (2002::/16), which embeds IPv4 addresses.
+	sixToFourRange = net.IPNet{
+		IP:   net.ParseIP("2002::"),
+		Mask: net.CIDRMask(16, 128),
+	}
+	// teredoRange is the RFC 4380 Teredo Tunneling Prefix (2001::/32), which embeds IPv4 addresses.
+	teredoRange = net.IPNet{
+		IP:   net.ParseIP("2001::"),
+		Mask: net.CIDRMask(32, 128),
+	}
+)
+
+// getSafeDialer returns a net.Dialer that restricts connections to private, loopback,
+// link-local, and custom blocked IP addresses to prevent SSRF vulnerabilities when
+// fetching OIDC discovery documents and JWKS endpoints.
+// If the configured issuer URL is explicitly a local development hostname, loopback IP
+// restrictions are bypassed. If allowPrivate is true (for statically configured OIDCIssuers
+// and trusted Kubernetes issuers), private IP ranges are permitted unless matched by blockedCIDRs.
+func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) (*net.Dialer, error) {
+	u, err := url.Parse(issURL)
+	if err != nil {
+		return nil, err
+	}
+	h := u.Hostname()
+	allowLoopback := (h == "127.0.0.1" || h == "localhost" || h == "::1")
+
+	return &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		// ControlContext is called after the dialer has resolved the hostname via DNS,
+		// but before the TCP connection is actually established.
+		ControlContext: func(_ context.Context, _, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+
+			ip := net.ParseIP(host)
+			if ip == nil {
+				return fmt.Errorf("failed to parse IP address: %s", host)
+			}
+
+			if ip.IsLoopback() {
+				if !allowLoopback {
+					return fmt.Errorf("connection to loopback IP %s is not allowed", ip.String())
+				}
+				return nil
+			}
+
+			if !ip.IsGlobalUnicast() ||
+				currentNetRange.Contains(ip) ||
+				reservedClassERange.Contains(ip) ||
+				nat64WellKnownRange.Contains(ip) ||
+				nat64LocalRange.Contains(ip) ||
+				sixToFourRange.Contains(ip) ||
+				teredoRange.Contains(ip) {
+				return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
+			}
+
+			for _, blockedNet := range blockedCIDRs {
+				if blockedNet.Contains(ip) {
+					return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
+				}
+			}
+
+			if !allowPrivate && (ip.IsPrivate() || cgnatRange.Contains(ip)) {
+				return fmt.Errorf("connection to private IP %s is not allowed", ip.String())
+			}
+
+			return nil
+		},
+	}, nil
 }
