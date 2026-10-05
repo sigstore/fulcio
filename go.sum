@@ -1,7 +1,7 @@
 chainguard.dev/go-grpc-kit v0.20.0 h1:MDwZtTlUlMSMEPcoi9m8tnu4g+M88T1toUZ3Th/+0Gc=
 chainguard.dev/go-grpc-kit v0.20.0/go.mod h1:ocuwyRX9tqRRvJkS3/ZkDYGMnl+6FLC4bvF0cm6DGsk=
-chainguard.dev/sdk v0.1.295 h1:OTBtd+7KGRSn0kxib9MJR7mD+No/0jXhk2cuEGCyujg=
-chainguard.dev/sdk v0.1.295/go.mod h1:fDIxqEbOn4iyGhS1ggkdcbrePUTBCJljMzH2XlTWwS4=
+chainguard.dev/sdk v0.1.322 h1:hbUDsBmPXV23PXGbCVfE1cPLC+sfzeG9zQRi3dbnmXE=
+chainguard.dev/sdk v0.1.322/go.mod h1:fDIxqEbOn4iyGhS1ggkdcbrePUTBCJljMzH2XlTWwS4=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.123.0 h1:2NAUJwPR47q+E35uaJeYoNhuNEM9kM8SjgRgdeOJUSE=
 cloud.google.com/go v0.123.0/go.mod h1:xBoMV08QcqUGuPW65Qfm1o9Y4zKZBpGS+7bImXLTAZU=
@@ -462,5 +462,5 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-sigs.k8s.io/release-utils v0.12.4 h1:kuG6WTWGCKx5uUrJwl2uFErOKOw+4Ba8WrPmOQh5J3g=
-sigs.k8s.io/release-utils v0.12.4/go.mod h1:Tc3iM9DVM3W9oJu/6rEI+LnREuhy8lZ7wInQhRBtUoo=
+sigs.k8s.io/release-utils v0.12.5 h1:/Ybntn/M7sK+6XjaH88y3pfx3tpJod3WKiItxoS4igg=
+sigs.k8s.io/release-utils v0.12.5/go.mod h1:rL6dEVB93VNU8Bd3l8tnh98hR9yoqMMn/puxlCU5buw=
