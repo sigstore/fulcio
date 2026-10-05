@@ -21,7 +21,7 @@ require (
 	github.com/magiconair/properties v1.18.12
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.3
-	github.com/prometheus/common v0.70.1
+	github.com/prometheus/common v0.72.0
 	github.com/rs/cors v1.11.1
 	github.com/sigstore/protobuf-specs v0.5.2
 	github.com/sigstore/sigstore v1.11.0
