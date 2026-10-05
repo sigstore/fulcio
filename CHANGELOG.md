@@ -1,3 +1,32 @@
+# v1.9.0
+
+This release bumps the minimum Go version to 1.27, in order to support ML-DSA in a future release.
+Prebuilt containers now use the latest Distroless image based on Debian 13. 
+
+## Features
+
+* Specify the environment the identity provider is supported (#2410)
+* Serve TLS on HTTP/duplex and make TLS policy configurable (#2418)
+
+## Fixes / Refactors
+
+* Format large whole-number claims without scientific notation (#2406)
+* Replace archived go-grpc-prometheus with go-grpc-middleware provider (#2428)
+
+# v1.8.8
+
+* Include CT log error body in logs (#2393)
+* Add --ct-log-origin flag (#2392)
+* Update fulcio to have configurable hsm-caroot-id rather than hardcoded (#2377)
+
+## Docs
+
+* Clarify RSA_PSS algorithm and ignored field in proto (#2378)
+
+# v1.8.7
+
+* Allow directly-configured Kubernetes issuers to use in-cluster auth path (#2356)
+
 # v1.8.6
 
 ## Features
