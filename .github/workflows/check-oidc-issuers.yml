@@ -68,9 +68,8 @@ jobs:
                 echo "Creating new issue for $issuer_url"
                 gh issue create \
                   --title "$ISSUE_TITLE" \
-                  --body "The well-known OIDC configuration endpoint for \`${issuer_url}\` returned a non-200 status code: **${status_code}**. Please investigate if the provider is down or if the configuration needs to be updated. Endpoint checked: \`${config_url}\`" \
-                  --label "bug" \
-                  --assignee "sigstore/fulcio-codeowners"
+                  --body "The well-known OIDC configuration endpoint for \`${issuer_url}\` returned a non-200 status code: **${status_code}**. @sigstore/fulcio-codeowners - Please investigate if the provider is down or if the configuration needs to be updated. Endpoint checked: \`${config_url}\`" \
+                  --label "bug"
               else
                 echo "An open issue (#$EXISTING_ISSUE) already exists for $issuer_url"
               fi
