@@ -1758,6 +1758,38 @@ func TestSafeDialer(t *testing.T) {
 			targetURL:    "192.168.1.1:80",
 			wantError:    true,
 		},
+		{
+			name:         "Local testing issuer still blocks a loopback IP in blockedCIDRs",
+			issuer:       "http://localhost:5555",
+			allowPrivate: false,
+			blockedCIDRs: []string{"127.0.0.0/8"},
+			targetURL:    "127.0.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Local testing issuer still blocks a single blocked loopback address",
+			issuer:       "http://127.0.0.1:5555",
+			allowPrivate: false,
+			blockedCIDRs: []string{"127.0.0.1"},
+			targetURL:    "127.0.0.1:80",
+			wantError:    true,
+		},
+		{
+			name:         "Local IPv6 testing issuer still blocks a loopback IP in blockedCIDRs",
+			issuer:       "http://[::1]:5555",
+			allowPrivate: false,
+			blockedCIDRs: []string{"::1/128"},
+			targetURL:    "[::1]:80",
+			wantError:    true,
+		},
+		{
+			name:         "Loopback stays allowed when the deny list does not cover it",
+			issuer:       "http://localhost:5555",
+			allowPrivate: false,
+			blockedCIDRs: []string{"198.51.100.0/24"},
+			targetURL:    "127.0.0.1:80",
+			wantError:    false,
+		},
 	}
 
 	for _, tt := range tests {
