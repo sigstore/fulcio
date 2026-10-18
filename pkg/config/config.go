@@ -867,9 +867,8 @@ func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) 
 				return fmt.Errorf("failed to parse IP address: %s", host)
 			}
 
-			// The operator-supplied deny list is checked first, since it is
-			// documented to apply regardless of issuer type and the loopback
-			// allowance below returns early.
+			// Applies regardless of issuer type, so it is checked before any
+			// of the allowances below.
 			for _, blockedNet := range blockedCIDRs {
 				if blockedNet.Contains(ip) {
 					return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
