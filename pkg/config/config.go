@@ -867,6 +867,14 @@ func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) 
 				return fmt.Errorf("failed to parse IP address: %s", host)
 			}
 
+			// Applies regardless of issuer type, so it is checked before any
+			// of the allowances below.
+			for _, blockedNet := range blockedCIDRs {
+				if blockedNet.Contains(ip) {
+					return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
+				}
+			}
+
 			if ip.IsLoopback() {
 				if !allowLoopback {
 					return fmt.Errorf("connection to loopback IP %s is not allowed", ip.String())
@@ -882,12 +890,6 @@ func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) 
 				sixToFourRange.Contains(ip) ||
 				teredoRange.Contains(ip) {
 				return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
-			}
-
-			for _, blockedNet := range blockedCIDRs {
-				if blockedNet.Contains(ip) {
-					return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
-				}
 			}
 
 			if !allowPrivate && (ip.IsPrivate() || cgnatRange.Contains(ip)) {
