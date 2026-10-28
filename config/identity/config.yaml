@@ -259,11 +259,10 @@ ci-issuer-metadata:
     subject-alternative-name-template: "{{ .url }}/{{ .job_workflow_ref }}"
   *gitlab-type:
     default-template-values:
-      url: "https://gitlab.com"
       # Nil default value to handle optional environment claim
       environment: ""
     extension-templates:
-      # url: The URL of the GitLab instance. https://gitlab.com
+      # iss: The URL of the GitLab instance, e.g. https://gitlab.com
       # ci_config_ref_uri: Ref of top-level pipeline definition.
       # E.g. gitlab.com/my-group/my-project//.gitlab-ci.yml@refs/heads/main
       build-signer-uri: "https://{{ .ci_config_ref_uri }}"
@@ -273,7 +272,7 @@ ci-issuer-metadata:
       # runner_environment: The type of runner used by the job. May be one of gitlab-hosted or self-hosted.
       runner-environment: "runner_environment"
       # project_path: Repository path building built
-      source-repository-uri: "{{ .url }}/{{ .project_path }}"
+      source-repository-uri: "{{ .iss }}/{{ .project_path }}"
       # sha: Commit SHA being built
       source-repository-digest: "sha"
       # ref_type: The type of the ref
@@ -283,7 +282,7 @@ ci-issuer-metadata:
       # project_id: ID to the source repo
       source-repository-identifier: "project_id"
       # namespace_path: Owner of the source repo (mutable)
-      source-repository-owner-uri: "{{ .url }}/{{ .namespace_path }}"
+      source-repository-owner-uri: "{{ .iss }}/{{ .namespace_path }}"
       # namespace_id: ID of the source repo
       source-repository-owner-identifier: "namespace_id"
       build-config-uri: "https://{{ .ci_config_ref_uri }}"
@@ -292,7 +291,7 @@ ci-issuer-metadata:
       build-trigger: "pipeline_source"
       # project_path: Repository building built
       # job_id: job ID
-      run-invocation-uri: "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
+      run-invocation-uri: "{{ .iss }}/{{ .project_path }}/-/jobs/{{ .job_id }}"
       # project_visibility: Visibility of the source project
       source-repository-visibility-at-signing: "project_visibility"
       # environment: Deployment target for job (optional)
