@@ -22,7 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -643,6 +647,76 @@ func TestEmbed(t *testing.T) {
 				t.Error(err)
 			}
 			for factName, fact := range test.WantFacts {
+				t.Run(factName, func(t *testing.T) {
+					if err := fact(cert); err != nil {
+						t.Error(err)
+					}
+				})
+			}
+		})
+	}
+}
+
+// Loads the GitLab metadata from config/identity/config.yaml, which is
+// deployed to the public good instance, so URIs built from the instance URL
+// are checked against every configured GitLab issuer, not only gitlab.com.
+func TestEmbedGitLabUsesIssuerAsInstanceURL(t *testing.T) {
+	_, path, _, _ := runtime.Caller(0)
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(path), "../../../config/identity/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, ok := cfg.CIIssuerMetadata["gitlab-pipeline"]
+	if !ok {
+		t.Fatal("gitlab-pipeline CI issuer metadata not found")
+	}
+
+	for _, issuer := range []string{"https://gitlab.com", "https://dev.gitlab.org"} {
+		t.Run(issuer, func(t *testing.T) {
+			host := strings.TrimPrefix(issuer, "https://")
+			claims, err := json.Marshal(map[string]any{
+				"iss":                issuer,
+				"sub":                "project_path:my-group/my-project:ref_type:branch:ref:main",
+				"project_path":       "my-group/my-project",
+				"project_id":         "42",
+				"namespace_path":     "my-group",
+				"namespace_id":       "7",
+				"pipeline_source":    "push",
+				"ci_config_ref_uri":  host + "/my-group/my-project//.gitlab-ci.yml@refs/heads/main",
+				"ci_config_sha":      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				"job_id":             "1234",
+				"ref":                "main",
+				"ref_type":           "branch",
+				"sha":                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				"runner_environment": "self-hosted",
+				"project_visibility": "private",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			token := &oidc.IDToken{Issuer: issuer}
+			withClaims(token, claims)
+
+			var cert x509.Certificate
+			principal := ciPrincipal{Token: token, ClaimsMetadata: metadata}
+			if err := principal.Embed(context.TODO(), &cert); err != nil {
+				t.Fatal(err)
+			}
+
+			wantSAN := issuer + "/my-group/my-project//.gitlab-ci.yml@refs/heads/main"
+			if len(cert.URIs) != 1 || cert.URIs[0].String() != wantSAN {
+				t.Errorf("expected SAN %s, got %v", wantSAN, cert.URIs)
+			}
+			facts := map[string]func(x509.Certificate) error{
+				`Certificate has correct source repo URI extension`:       factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 12}, issuer+"/my-group/my-project"),
+				`Certificate has correct source repo owner URI extension`: factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 16}, issuer+"/my-group"),
+				`Certificate has correct run invocation URI extension`:    factExtensionIs(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 21}, issuer+"/my-group/my-project/-/jobs/1234"),
+			}
+			for factName, fact := range facts {
 				t.Run(factName, func(t *testing.T) {
 					if err := fact(cert); err != nil {
 						t.Error(err)
