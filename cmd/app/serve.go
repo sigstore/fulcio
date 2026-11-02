@@ -140,7 +140,8 @@ func newServeCmd() *cobra.Command {
 		v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_4096_SHA256,
 		v1.PublicKeyDetails_PKIX_ED25519,
 	}), "the list of allowed client signing algorithms")
-	cmd.Flags().StringSlice("oidc-blocked-cidrs", []string{}, "List of additional IP addresses or CIDR ranges to block when making OIDC discovery and JWKS requests")
+	cmd.Flags().StringSlice("oidc-blocked-cidrs", []string{}, "List of additional IP addresses or CIDR ranges to block when making OIDC discovery and JWKS requests (takes precedence over --oidc-allowed-cidrs)")
+	cmd.Flags().StringSlice("oidc-allowed-cidrs", []string{}, "List of IP addresses or CIDR ranges to allow when making OIDC discovery and JWKS requests, overriding default restrictions (overridden by --oidc-blocked-cidrs)")
 
 	// convert "http-host" flag to "host" and "http-port" flag to be "port"
 	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -308,7 +309,10 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		}
 	}
 
-	cfg, err := config.Load(cp, config.WithBlockedCIDRs(viper.GetStringSlice("oidc-blocked-cidrs")))
+	cfg, err := config.Load(cp,
+		config.WithBlockedCIDRs(viper.GetStringSlice("oidc-blocked-cidrs")),
+		config.WithAllowedCIDRs(viper.GetStringSlice("oidc-allowed-cidrs")),
+	)
 	if err != nil {
 		log.Logger.Fatalf("error loading --config-path=%s: %v", cp, err)
 	}

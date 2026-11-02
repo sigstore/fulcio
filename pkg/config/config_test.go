@@ -1507,6 +1507,7 @@ func TestSafeDialer(t *testing.T) {
 		issuer       string
 		allowPrivate bool
 		blockedCIDRs []string
+		allowedCIDRs []string
 		targetURL    string
 		wantError    bool
 	}{
@@ -1682,6 +1683,47 @@ func TestSafeDialer(t *testing.T) {
 			wantError:    true,
 		},
 		{
+			name:         "Allowed Istio ServiceEntry Class E IPv4 via allowedCIDRs",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			allowedCIDRs: []string{"240.240.0.0/16"},
+			targetURL:    "240.240.0.1:443",
+			wantError:    false,
+		},
+		{
+			name:         "Class E IPv4 outside allowedCIDRs remains blocked",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			allowedCIDRs: []string{"240.240.0.0/16"},
+			targetURL:    "240.0.0.1:443",
+			wantError:    true,
+		},
+		{
+			name:         "Allowed single IPv4 via allowedCIDRs overrides hardcoded restriction",
+			issuer:       "https://oidc.eks.us-west-2.amazonaws.com/id/123",
+			allowPrivate: false,
+			allowedCIDRs: []string{"192.168.1.10"},
+			targetURL:    "192.168.1.10:443",
+			wantError:    false,
+		},
+		{
+			name:         "Allowed IPv6 CIDR via allowedCIDRs overrides hardcoded restriction",
+			issuer:       "https://oidc.eks.us-west-2.amazonaws.com/id/123",
+			allowPrivate: false,
+			allowedCIDRs: []string{"fd00::/64"},
+			targetURL:    "[fd00::1]:443",
+			wantError:    false,
+		},
+		{
+			name:         "blockedCIDRs takes precedence over allowedCIDRs",
+			issuer:       "https://accounts.google.com",
+			allowPrivate: true,
+			blockedCIDRs: []string{"240.240.0.99"},
+			allowedCIDRs: []string{"240.240.0.0/16"},
+			targetURL:    "240.240.0.99:443",
+			wantError:    true,
+		},
+		{
 			name:         "Blocked broadcast IPv4",
 			issuer:       "https://accounts.google.com",
 			allowPrivate: true,
@@ -1794,11 +1836,15 @@ func TestSafeDialer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			blockedNets, err := parseBlockedCIDRs(tt.blockedCIDRs)
+			blockedNets, err := parseCIDRs(tt.blockedCIDRs)
 			if err != nil {
 				t.Fatalf("unexpected error parsing blocked CIDRs: %v", err)
 			}
-			d, err := getSafeDialer(tt.issuer, tt.allowPrivate, blockedNets)
+			allowedNets, err := parseCIDRs(tt.allowedCIDRs)
+			if err != nil {
+				t.Fatalf("unexpected error parsing allowed CIDRs: %v", err)
+			}
+			d, err := getSafeDialer(tt.issuer, tt.allowPrivate, blockedNets, allowedNets)
 			if err != nil {
 				t.Fatalf("unexpected error creating safe dialer: %v", err)
 			}
@@ -1823,7 +1869,7 @@ func TestSafeDialer(t *testing.T) {
 	}
 
 	t.Run("Malformed issuer URL returns error", func(t *testing.T) {
-		if _, err := getSafeDialer("://invalid-url", false, nil); err == nil {
+		if _, err := getSafeDialer("://invalid-url", false, nil, nil); err == nil {
 			t.Error("expected error for malformed issuer URL, got nil")
 		}
 	})
@@ -1842,6 +1888,23 @@ func TestSafeDialer(t *testing.T) {
 		}
 		if err := WithBlockedCIDRs([]string{"10.0.0.0/99"})(fc); err == nil {
 			t.Error("expected error for invalid blocked CIDR, got nil")
+		}
+	})
+
+	t.Run("WithAllowedCIDRs validation", func(t *testing.T) {
+		fc := &FulcioConfig{}
+		if err := WithAllowedCIDRs([]string{"240.240.0.0/16", "240.240.0.1", "fd00::/64", ""})(fc); err != nil {
+			t.Fatalf("expected valid allowed CIDRs to succeed, got: %v", err)
+		}
+		if len(fc.allowedCIDRs) != 3 {
+			t.Fatalf("expected 3 parsed allowed CIDRs, got %d", len(fc.allowedCIDRs))
+		}
+
+		if err := WithAllowedCIDRs([]string{"invalid-ip"})(fc); err == nil {
+			t.Error("expected error for invalid allowed IP, got nil")
+		}
+		if err := WithAllowedCIDRs([]string{"240.240.0.0/99"})(fc); err == nil {
+			t.Error("expected error for invalid allowed CIDR, got nil")
 		}
 	})
 }

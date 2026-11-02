@@ -205,7 +205,7 @@ func TestHostRoundTripper(t *testing.T) {
 
 func TestServeCmdFlags(t *testing.T) {
 	cmd := newServeCmd()
-	for _, flagName := range []string{"ct-log-origin", "oidc-blocked-cidrs"} {
+	for _, flagName := range []string{"ct-log-origin", "oidc-blocked-cidrs", "oidc-allowed-cidrs"} {
 		if f := cmd.Flags().Lookup(flagName); f == nil {
 			t.Fatalf("expected flag %s to exist on serve command", flagName)
 		}
