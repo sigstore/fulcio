@@ -18,6 +18,7 @@ package ca
 import (
 	"context"
 	"crypto"
+	"crypto/mldsa"
 	"crypto/x509"
 	"errors"
 	"slices"
@@ -84,5 +85,25 @@ func VerifyCertChain(certs []*x509.Certificate, signer crypto.Signer) error {
 		}
 	}
 
-	return cryptoutils.EqualKeys(certs[0].PublicKey, signer.Public())
+	if err := cryptoutils.EqualKeys(certs[0].PublicKey, signer.Public()); err != nil {
+		return err
+	}
+
+	// Verify that the chain does not mix ML-DSA and non-ML-DSA keys or signatures
+	_, signerIsMLDSA := signer.Public().(*mldsa.PublicKey)
+	for _, c := range certs {
+		_, certIsMLDSA := c.PublicKey.(*mldsa.PublicKey)
+		if certIsMLDSA != signerIsMLDSA || isMLDSASignature(c.SignatureAlgorithm) != signerIsMLDSA {
+			return errors.New("certificate chain must not mix ML-DSA and non-ML-DSA keys or signatures")
+		}
+	}
+	return nil
+}
+
+func isMLDSASignature(alg x509.SignatureAlgorithm) bool {
+	switch alg {
+	case x509.MLDSA44, x509.MLDSA65, x509.MLDSA87:
+		return true
+	}
+	return false
 }

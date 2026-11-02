@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/x509"
 	"reflect"
@@ -75,5 +76,32 @@ func TestNewKMSCA(t *testing.T) {
 	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{subCert, otherRootCert})
 	if err == nil || !strings.Contains(err.Error(), "certificate signed by unknown authority") {
 		t.Fatalf("expected error with invalid certificate chain, got %v", err)
+	}
+}
+
+func TestNewKMSCAMLDSA(t *testing.T) {
+	rootKey, _ := mldsa.GenerateKey(mldsa.MLDSA87())
+	rootCert, _ := test.GenerateRootCAFromSigner(rootKey)
+	subKey, _ := mldsa.GenerateKey(mldsa.MLDSA65())
+	subCert, _ := test.GenerateSubordinateCAFromSigner(rootCert, rootKey, subKey)
+
+	chain := []*x509.Certificate{subCert, rootCert}
+
+	ca, err := NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", chain)
+	if err != nil {
+		t.Fatalf("unexpected error creating KMS CA: %v", err)
+	}
+
+	_, signer := ca.(*kmsCA).GetSignerWithChain()
+	if err := cryptoutils.EqualKeys(signer.Public(), subKey.Public()); err != nil {
+		t.Fatalf("keys between CA and signer do not match: %v", err)
+	}
+
+	// Failure: ML-DSA key with a classical certificate chain
+	classicalRootCert, classicalRootKey, _ := test.GenerateRootCA()
+	mixedSubCert, _ := test.GenerateSubordinateCAFromSigner(classicalRootCert, classicalRootKey, subKey)
+	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{mixedSubCert, classicalRootCert})
+	if err == nil || !strings.Contains(err.Error(), "must not mix ML-DSA and non-ML-DSA") {
+		t.Fatalf("expected error with mixed certificate chain, got %v", err)
 	}
 }

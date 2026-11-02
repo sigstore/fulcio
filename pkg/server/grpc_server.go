@@ -323,6 +323,8 @@ func getHashFuncForSignatureAlgorithm(signatureAlgorithm x509.SignatureAlgorithm
 		return crypto.SHA512, nil
 	case x509.PureEd25519:
 		return crypto.Hash(0), nil
+	case x509.MLDSA44, x509.MLDSA65, x509.MLDSA87:
+		return crypto.Hash(0), nil
 	}
 	return crypto.Hash(0), fmt.Errorf("unrecognized signature algorithm: %s", signatureAlgorithm)
 }

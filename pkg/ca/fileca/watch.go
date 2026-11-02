@@ -20,9 +20,10 @@ import (
 	"crypto/x509"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sigstore/fulcio/pkg/log"
 )
 
-func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callback func([]*x509.Certificate, crypto.Signer)) {
+func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callback func([]*x509.Certificate, crypto.Signer) error) {
 	for event := range watcher.Events {
 		if event.Op&fsnotify.Write == fsnotify.Write {
 			signerWithMutex, err := loadKeyPair(certPath, keyPath, keyPass)
@@ -33,7 +34,9 @@ func ioWatch(certPath, keyPath, keyPass string, watcher *fsnotify.Watcher, callb
 				continue
 			}
 
-			callback(signerWithMutex.Certs, signerWithMutex.Signer)
+			if err := callback(signerWithMutex.Certs, signerWithMutex.Signer); err != nil {
+				log.Logger.Errorf("fileca: rejected reloaded key pair: %v", err)
+			}
 		}
 	}
 }

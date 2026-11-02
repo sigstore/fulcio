@@ -71,6 +71,7 @@ The supported Tink keysets are:
 * ECDSA P-384, SHA512 hash
 * ECDSA P-521, SHA512 hash
 * ED25519
+* ML-DSA-44, ML-DSA-65, and ML-DSA-87, with `--experimental-enable-pqc`
 
 Configuration:
 * `--ca=tinkca`
@@ -111,7 +112,7 @@ for examples of how to generate an encrypted private key using OpenSSL.
 Configuration:
 * `--ca=fileca`
 * `--fileca-cert=/...`, a PEM-encoded certificate chain
-* `--fileca-key`, a PEM-encoded encrypted signing key (RSA, ECDSA, and ED25519 are supported) 
+* `--fileca-key`, a PEM-encoded encrypted signing key (RSA, ECDSA, ED25519, and ML-DSA are supported) 
 * `--fileca-key-passwd`, the password to decrypt the signing key
 
 ### PKCS11 HSM
@@ -157,6 +158,33 @@ the certificate for artifact verification, without needing to store the detached
 alongside the certificate.
 
 See [CT Log](ctlog.md) for more information.
+
+## Post-quantum (ML-DSA) certificates - **Experimental**
+
+Fulcio can issue ML-DSA certificates for private deployments without a transparency log.
+This support is experimental and may change.
+
+With `--experimental-enable-pqc`, the CA key and chain must be ML-DSA, `--client-signing-algorithms`
+defaults to `mldsa-44,mldsa-65,mldsa-87`, and the CT log is disabled (setting any `--ct-log*` flag is
+an error). Without the flag, ML-DSA CA keys and client signing algorithms are rejected.
+
+Supported signing backends are `fileca`, `tinkca`, `kmsca` with GCP KMS ML-DSA keys, and
+`ephemeralca`, which uses an ML-DSA-65 key. `googleca` and `pkcs11ca` are not supported.
+
+Go only supports seed-only ML-DSA private keys, so OpenSSL must be told to write keys in that format.
+Otherwise loading the key fails with `pkcs8: incorrect password`. For example:
+
+```
+openssl req -x509 -newkey ml-dsa-87 -provparam ml-dsa.output_formats=seed-only \
+    -keyout key.pem -out cert.pem -subj "/CN=root" -days 3650 \
+    -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign,cRLSign
+```
+
+To run a local instance:
+
+```
+go run main.go serve --port 5555 --ca ephemeralca --experimental-enable-pqc
+```
 
 ## CA Certificate requirements
 
