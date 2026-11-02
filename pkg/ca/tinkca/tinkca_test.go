@@ -16,6 +16,7 @@ package tinkca
 
 import (
 	"context"
+	"crypto/mldsa"
 	"crypto/x509"
 	"os"
 	"path/filepath"
@@ -30,6 +31,7 @@ import (
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/signature"
+	tinkmldsa "github.com/tink-crypto/tink-go/v2/signature/mldsa"
 )
 
 func TestNewTinkCA(t *testing.T) {
@@ -142,5 +144,72 @@ func TestNewTinkCA(t *testing.T) {
 	_, err = NewTinkCAFromHandle(context.TODO(), keysetPath, certPath, a1)
 	if err == nil || !strings.Contains(err.Error(), "decryption failed") {
 		t.Fatalf("expected error decrypting keyset, got %v", err)
+	}
+}
+
+func TestNewTinkCAMLDSA(t *testing.T) {
+	aeskh, err := keyset.NewHandle(aead.AES256GCMKeyTemplate())
+	if err != nil {
+		t.Fatalf("error creating AEAD key handle: %v", err)
+	}
+	a, err := aead.New(aeskh)
+	if err != nil {
+		t.Fatalf("error creating AEAD key: %v", err)
+	}
+
+	params, err := tinkmldsa.NewParameters(tinkmldsa.MLDSA65, tinkmldsa.VariantNoPrefix)
+	if err != nil {
+		t.Fatalf("error creating ML-DSA parameters: %v", err)
+	}
+	manager := keyset.NewManager()
+	keyID, err := manager.AddNewKeyFromParameters(params)
+	if err != nil {
+		t.Fatalf("error adding ML-DSA key: %v", err)
+	}
+	if err := manager.SetPrimary(keyID); err != nil {
+		t.Fatalf("error setting primary ML-DSA key: %v", err)
+	}
+	kh, err := manager.Handle()
+	if err != nil {
+		t.Fatalf("error creating ML-DSA key handle: %v", err)
+	}
+	khsigner, err := tinkUtils.KeyHandleToSigner(kh)
+	if err != nil {
+		t.Fatalf("error converting ML-DSA key handle to signer: %v", err)
+	}
+
+	rootCert, _ := test.GenerateRootCAFromSigner(khsigner)
+	pemChain, err := cryptoutils.MarshalCertificatesToPEM([]*x509.Certificate{rootCert})
+	if err != nil {
+		t.Fatalf("error marshalling cert chain: %v", err)
+	}
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	err = os.WriteFile(certPath, pemChain, 0600)
+	if err != nil {
+		t.Fatalf("error writing pem chain: %v", err)
+	}
+
+	keysetPath := filepath.Join(dir, "keyset.json.enc")
+	f, err := os.Create(keysetPath)
+	if err != nil {
+		t.Fatalf("error creating file: %v", err)
+	}
+	defer f.Close()
+	if err := kh.Write(keyset.NewJSONWriter(f), a); err != nil {
+		t.Fatalf("error writing enc keyset: %v", err)
+	}
+
+	ca, err := NewTinkCAFromHandle(context.TODO(), keysetPath, certPath, a)
+	if err != nil {
+		t.Fatalf("unexpected error creating Tink CA: %v", err)
+	}
+
+	_, signer := ca.(*tinkCA).GetSignerWithChain()
+	if _, ok := signer.Public().(*mldsa.PublicKey); !ok {
+		t.Fatalf("expected ML-DSA signer, got %T", signer.Public())
+	}
+	if err := cryptoutils.EqualKeys(signer.Public(), khsigner.Public()); err != nil {
+		t.Fatalf("keys between CA and signer do not match: %v", err)
 	}
 }

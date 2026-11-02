@@ -16,6 +16,7 @@ package ca
 
 import (
 	"context"
+	"crypto/mldsa"
 	"crypto/x509"
 	"strings"
 	"testing"
@@ -115,5 +116,49 @@ func TestVerifyCertChain(t *testing.T) {
 	err = VerifyCertChain([]*x509.Certificate{}, subKey)
 	if err == nil || !strings.Contains(err.Error(), "certificate chain must contain at least one certificate") {
 		t.Fatalf("expected error verifying with empty chain: %v", err)
+	}
+}
+
+func TestVerifyCertChainMLDSA(t *testing.T) {
+	mldsaRootKey, _ := mldsa.GenerateKey(mldsa.MLDSA87())
+	mldsaRootCert, _ := test.GenerateRootCAFromSigner(mldsaRootKey)
+	mldsaSubKey, _ := mldsa.GenerateKey(mldsa.MLDSA65())
+	mldsaSubCert, _ := test.GenerateSubordinateCAFromSigner(mldsaRootCert, mldsaRootKey, mldsaSubKey)
+
+	err := VerifyCertChain([]*x509.Certificate{mldsaSubCert, mldsaRootCert}, mldsaSubKey)
+	if err != nil {
+		t.Fatalf("unexpected error verifying ML-DSA cert chain: %v", err)
+	}
+
+	err = VerifyCertChain([]*x509.Certificate{mldsaRootCert}, mldsaRootKey)
+	if err != nil {
+		t.Fatalf("unexpected error verifying single ML-DSA cert chain: %v", err)
+	}
+
+	// Failure: ML-DSA intermediate under a classical root
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	mixedSubKey, _ := mldsa.GenerateKey(mldsa.MLDSA65())
+	mixedSubCert, _ := test.GenerateSubordinateCAFromSigner(rootCert, rootKey, mixedSubKey)
+	err = VerifyCertChain([]*x509.Certificate{mixedSubCert, rootCert}, mixedSubKey)
+	if err == nil || !strings.Contains(err.Error(), "must not mix ML-DSA and non-ML-DSA") {
+		t.Fatalf("expected error verifying mixed cert chain: %v", err)
+	}
+
+	// Failure: classical intermediate under an ML-DSA root
+	classicalSubCert, classicalSubKey, _ := test.GenerateSubordinateCA(mldsaRootCert, mldsaRootKey)
+	err = VerifyCertChain([]*x509.Certificate{classicalSubCert, mldsaRootCert}, classicalSubKey)
+	if err == nil || !strings.Contains(err.Error(), "must not mix ML-DSA and non-ML-DSA") {
+		t.Fatalf("expected error verifying mixed cert chain: %v", err)
+	}
+
+	// Failure: chain without its root, where the intermediate's signature
+	// doesn't match its key type
+	err = VerifyCertChain([]*x509.Certificate{mixedSubCert}, mixedSubKey)
+	if err == nil || !strings.Contains(err.Error(), "must not mix ML-DSA and non-ML-DSA") {
+		t.Fatalf("expected error verifying ML-DSA cert with classical signature: %v", err)
+	}
+	err = VerifyCertChain([]*x509.Certificate{classicalSubCert}, classicalSubKey)
+	if err == nil || !strings.Contains(err.Error(), "must not mix ML-DSA and non-ML-DSA") {
+		t.Fatalf("expected error verifying classical cert with ML-DSA signature: %v", err)
 	}
 }

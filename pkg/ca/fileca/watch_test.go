@@ -56,11 +56,12 @@ func TestIOWatch(t *testing.T) {
 		certs []*x509.Certificate
 		key   crypto.Signer
 	}
-	callback := func(certs []*x509.Certificate, key crypto.Signer) {
+	callback := func(certs []*x509.Certificate, key crypto.Signer) error {
 		received = append(received, struct {
 			certs []*x509.Certificate
 			key   crypto.Signer
 		}{certs, key})
+		return nil
 	}
 
 	// Set up watcher

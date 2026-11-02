@@ -20,6 +20,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -91,10 +92,15 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 
 func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
+	return setupGRPCForTestWithAlgorithms(t, cfg, ctl, ca, []v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256})
+}
+
+func setupGRPCForTestWithAlgorithms(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority, algorithms []v1.PublicKeyDetails) (*grpc.Server, *grpc.ClientConn) {
+	t.Helper()
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
 	ip := NewIssuerPool(cfg)
-	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig([]v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256})
+	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig(algorithms)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2053,6 +2059,141 @@ func TestAPIWithCSRChallengeRSA(t *testing.T) {
 	}
 }
 
+// Tests API with ML-DSA keys, sent as a public key and as a CSR
+func TestAPIWithMLDSA(t *testing.T) {
+	emailSubject := "foo@example.com"
+	cfg, tok := newEmailConfigAndToken(t, emailSubject)
+
+	eca, err := ephemeralca.NewEphemeralMLDSACA()
+	if err != nil {
+		t.Fatalf("ephemeralca.NewEphemeralMLDSACA() = %v", err)
+	}
+	// ML-DSA certificates are not submitted to a CT log
+	server, conn := setupGRPCForTestWithAlgorithms(t, cfg, nil, eca, mldsaAlgorithms)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+	client := protobuf.NewCAClient(conn)
+	creds := &protobuf.Credentials{
+		Credentials: &protobuf.Credentials_OidcIdentityToken{OidcIdentityToken: tok},
+	}
+
+	for _, params := range []mldsa.Parameters{mldsa.MLDSA44(), mldsa.MLDSA65(), mldsa.MLDSA87()} {
+		priv, err := mldsa.GenerateKey(params)
+		if err != nil {
+			t.Fatalf("GenerateKey() = %v", err)
+		}
+
+		t.Run(params.String()+" public key", func(t *testing.T) {
+			resp, err := client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+				Credentials: creds,
+				Key:         mldsaPublicKeyRequest(t, priv, emailSubject),
+			})
+			if err != nil {
+				t.Fatalf("SigningCert() = %v", err)
+			}
+			verifyMLDSAResponse(t, resp, eca, priv, emailSubject)
+		})
+
+		t.Run(params.String()+" CSR", func(t *testing.T) {
+			resp, err := client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+				Credentials: creds,
+				Key:         mldsaCSRRequest(t, priv),
+			})
+			if err != nil {
+				t.Fatalf("SigningCert() = %v", err)
+			}
+			verifyMLDSAResponse(t, resp, eca, priv, emailSubject)
+		})
+	}
+}
+
+// Tests that ML-DSA keys are rejected when ML-DSA is not an allowed algorithm
+func TestAPIWithMLDSADisabled(t *testing.T) {
+	emailSubject := "foo@example.com"
+	cfg, tok := newEmailConfigAndToken(t, emailSubject)
+
+	ctClient, eca := createCA(cfg, t)
+	server, conn := setupGRPCForTest(t, cfg, ctClient, eca)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+	client := protobuf.NewCAClient(conn)
+	creds := &protobuf.Credentials{
+		Credentials: &protobuf.Credentials_OidcIdentityToken{OidcIdentityToken: tok},
+	}
+
+	priv, err := mldsa.GenerateKey(mldsa.MLDSA44())
+	if err != nil {
+		t.Fatalf("GenerateKey() = %v", err)
+	}
+
+	_, err = client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+		Credentials: creds,
+		Key:         mldsaPublicKeyRequest(t, priv, emailSubject),
+	})
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "signing algorithm not permitted") {
+		t.Fatalf("expected signing algorithm not permitted for public key, got %v", err)
+	}
+
+	_, err = client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+		Credentials: creds,
+		Key:         mldsaCSRRequest(t, priv),
+	})
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "signing algorithm not permitted") {
+		t.Fatalf("expected signing algorithm not permitted for CSR, got %v", err)
+	}
+}
+
+// Tests that an ML-DSA CA rejects classical keys and invalid ML-DSA proofs
+func TestAPIWithMLDSAInvalidRequest(t *testing.T) {
+	emailSubject := "foo@example.com"
+	cfg, tok := newEmailConfigAndToken(t, emailSubject)
+
+	eca, err := ephemeralca.NewEphemeralMLDSACA()
+	if err != nil {
+		t.Fatalf("ephemeralca.NewEphemeralMLDSACA() = %v", err)
+	}
+	server, conn := setupGRPCForTestWithAlgorithms(t, cfg, nil, eca, mldsaAlgorithms)
+	defer func() {
+		server.Stop()
+		conn.Close()
+	}()
+	client := protobuf.NewCAClient(conn)
+	creds := &protobuf.Credentials{
+		Credentials: &protobuf.Credentials_OidcIdentityToken{OidcIdentityToken: tok},
+	}
+
+	pubKey, proof := generateKeyAndProof(emailSubject, t)
+	_, err = client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+		Credentials: creds,
+		Key: &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+			PublicKeyRequest: &protobuf.PublicKeyRequest{
+				PublicKey:         &protobuf.PublicKey{Content: pubKey},
+				ProofOfPossession: proof,
+			},
+		},
+	})
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "signing algorithm not permitted") {
+		t.Fatalf("expected signing algorithm not permitted for ECDSA key, got %v", err)
+	}
+
+	// Proof of possession signed by a different key than the one requested
+	priv, _ := mldsa.GenerateKey(mldsa.MLDSA44())
+	otherPriv, _ := mldsa.GenerateKey(mldsa.MLDSA44())
+	mismatchedReq := mldsaPublicKeyRequest(t, priv, emailSubject)
+	mismatchedReq.PublicKeyRequest.ProofOfPossession = mldsaPublicKeyRequest(t, otherPriv, emailSubject).PublicKeyRequest.ProofOfPossession
+	_, err = client.CreateSigningCertificate(context.Background(), &protobuf.CreateSigningCertificateRequest{
+		Credentials: creds,
+		Key:         mismatchedReq,
+	})
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), invalidSignature) {
+		t.Fatalf("expected invalid signature, got %v", err)
+	}
+}
+
 // Tests API with no public key
 func TestAPIWithoutPublicKey(t *testing.T) {
 	emailSigner, emailIssuer := newOIDCIssuer(t)
@@ -2603,6 +2744,117 @@ func generateKeyAndProof(subject string, t *testing.T) (string, []byte) {
 		t.Fatalf("SignASN1() = %v", err)
 	}
 	return string(cryptoutils.PEMEncode(cryptoutils.PublicKeyPEMType, pubBytes)), proof
+}
+
+var mldsaAlgorithms = []v1.PublicKeyDetails{
+	v1.PublicKeyDetails_ML_DSA_44,
+	v1.PublicKeyDetails_ML_DSA_65,
+	v1.PublicKeyDetails_ML_DSA_87,
+}
+
+// newEmailConfigAndToken creates a config with an email issuer and a token
+// for the subject from that issuer
+func newEmailConfigAndToken(t *testing.T, emailSubject string) (*config.FulcioConfig, string) {
+	t.Helper()
+	emailSigner, emailIssuer := newOIDCIssuer(t)
+
+	cfg, err := config.Read(fmt.Appendf(nil, `{
+		"OIDCIssuers": {
+			%q: {
+				"IssuerURL": %q,
+				"ClientID": "sigstore",
+				"Type": "email"
+			}
+		}
+	}`, emailIssuer, emailIssuer))
+	if err != nil {
+		t.Fatalf("config.Read() = %v", err)
+	}
+
+	tok, err := jwt.Signed(emailSigner).Claims(jwt.Claims{
+		Issuer:   emailIssuer,
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Expiry:   jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+		Subject:  emailSubject,
+		Audience: jwt.Audience{"sigstore"},
+	}).Claims(customClaims{Email: emailSubject, EmailVerified: true}).Serialize()
+	if err != nil {
+		t.Fatalf("Serialize() = %v", err)
+	}
+	return cfg, tok
+}
+
+// mldsaPublicKeyRequest creates a public key request with a signature over
+// the subject
+func mldsaPublicKeyRequest(t *testing.T, priv *mldsa.PrivateKey, subject string) *protobuf.CreateSigningCertificateRequest_PublicKeyRequest {
+	t.Helper()
+	pemBytes, err := cryptoutils.MarshalPublicKeyToPEM(priv.Public())
+	if err != nil {
+		t.Fatalf("MarshalPublicKeyToPEM() = %v", err)
+	}
+	proof, err := priv.Sign(rand.Reader, []byte(subject), nil)
+	if err != nil {
+		t.Fatalf("Sign() = %v", err)
+	}
+	return &protobuf.CreateSigningCertificateRequest_PublicKeyRequest{
+		PublicKeyRequest: &protobuf.PublicKeyRequest{
+			PublicKey:         &protobuf.PublicKey{Content: string(pemBytes)},
+			ProofOfPossession: proof,
+		},
+	}
+}
+
+func mldsaCSRRequest(t *testing.T, priv *mldsa.PrivateKey) *protobuf.CreateSigningCertificateRequest_CertificateSigningRequest {
+	t.Helper()
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test"}}, priv)
+	if err != nil {
+		t.Fatalf("error creating CSR: %v", err)
+	}
+	return &protobuf.CreateSigningCertificateRequest_CertificateSigningRequest{
+		CertificateSigningRequest: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: derCSR}),
+	}
+}
+
+// verifyMLDSAResponse checks that the response contains a certificate for the
+// key and subject, issued by the ML-DSA CA without an SCT
+func verifyMLDSAResponse(t *testing.T, resp *protobuf.SigningCertificate, eca *ephemeralca.EphemeralCA, priv *mldsa.PrivateKey, subject string) {
+	t.Helper()
+	detached := resp.GetSignedCertificateDetachedSct()
+	if detached == nil {
+		t.Fatal("expected certificate without embedded SCT")
+	}
+	if len(detached.SignedCertificateTimestamp) != 0 {
+		t.Fatal("expected no SCT in response")
+	}
+	if len(detached.Chain.Certificates) != 2 {
+		t.Fatalf("expected leaf and root in chain, got %d certificates", len(detached.Chain.Certificates))
+	}
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM([]byte(detached.Chain.Certificates[0]))
+	if err != nil {
+		t.Fatalf("failed to parse leaf certificate: %v", err)
+	}
+	leafCert := certs[0]
+
+	if err := cryptoutils.EqualKeys(leafCert.PublicKey, priv.Public()); err != nil {
+		t.Fatalf("leaf certificate does not contain the requested key: %v", err)
+	}
+	if leafCert.SignatureAlgorithm != x509.MLDSA65 {
+		t.Fatalf("expected leaf signed with ML-DSA-65, got %v", leafCert.SignatureAlgorithm)
+	}
+	if len(leafCert.EmailAddresses) != 1 || leafCert.EmailAddresses[0] != subject {
+		t.Fatalf("unexpected email addresses: %v", leafCert.EmailAddresses)
+	}
+
+	caCerts, _ := eca.GetSignerWithChain()
+	roots := x509.NewCertPool()
+	roots.AddCert(caCerts[0])
+	if _, err := leafCert.Verify(x509.VerifyOptions{
+		Roots:       roots,
+		CurrentTime: leafCert.NotBefore,
+		KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	}); err != nil {
+		t.Fatalf("failed to verify leaf certificate: %v", err)
+	}
 }
 
 // findCustomExtension searches a certificate's non-critical extensions by OID
