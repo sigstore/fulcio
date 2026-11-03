@@ -17,9 +17,8 @@ services:
   fulcio-server:
     build:
       context: .
-      target: "deploy"
+      target: "local-deploy"
     command: [
-      "fulcio-server",
       "serve",
       "--host=0.0.0.0",
       "--port=5555",

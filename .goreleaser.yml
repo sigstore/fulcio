@@ -2,10 +2,7 @@ project_name: fulcio
 version: 2
 
 env:
-  - GO111MODULE=on
-  - DOCKER_CLI_EXPERIMENTAL=enabled
-  - COSIGN_YES=true
-# If you need support for the the "createca" command, you must enable CGO
+  # If you need support for the "createca" command, you must enable CGO
   - CGO_ENABLED=0
 
 # Prevents parallel builds from stepping on eachothers toes downloading modules
@@ -13,122 +10,33 @@ before:
   hooks:
     - go mod tidy
     - /bin/bash -c 'if [ -n "$(git --no-pager diff --exit-code go.mod go.sum)" ]; then exit 1; fi'
-# if running a release we will generate the images in this step
-# if running in the CI the CI env va is set by github action runner and we dont run the ko steps
-# this is needed because we are generating files that goreleaser was not aware to push to GH project release
-    - /bin/bash -c 'if [ -z "$CI" ]; then make sign-container-release && make sign-keyless-release; fi'
 
 gomod:
   proxy: true
 
 sboms:
-- artifacts: binary
+  - artifacts: binary
 
 builds:
-- id: fulcio-linux-amd64
-  binary: fulcio-linux-amd64
-  no_unique_dist_dir: true
-  main: .
-  goos:
-  - linux
-  goarch:
-  - amd64
-  flags:
-  - -trimpath
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  env:
-  - PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
-
-- id: fulcio-linux-arm64
-  binary: fulcio-linux-arm64
-  no_unique_dist_dir: true
-  main: .
-  goos:
-  - linux
-  goarch:
-  - arm64
-  flags:
-  - -trimpath
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  env:
-    - CC=aarch64-linux-gnu-gcc
-
-- id: fulcio-linux-arm
-  binary: fulcio-linux-arm
-  no_unique_dist_dir: true
-  main: .
-  goos:
-  - linux
-  goarch:
-  - arm
-  goarm:
-  - 7
-  flags:
-  - -trimpath
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  env:
-  - CC=arm-linux-gnueabihf-gcc
-
-- id: fulcio-linux-s390x
-  binary: fulcio-linux-s390x
-  no_unique_dist_dir: true
-  main: .
-  goos:
-  - linux
-  goarch:
-  - s390x
-  flags:
-  - -trimpath
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  env:
-  - CC=s390x-linux-gnu-gcc
-
-- id: fulcio-linux-ppc64le
-  binary: fulcio-linux-ppc64le
-  no_unique_dist_dir: true
-  main: .
-  goos:
-  - linux
-  goarch:
-  - ppc64le
-  flags:
-  - -trimpath
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  env:
-  - CC=powerpc64le-linux-gnu-gcc
-
-signs:
   - id: fulcio
-    signature: "${artifact}.sigstore.json"
-    cmd: cosign
-    args: ["sign-blob", "--bundle", "${signature}", "--key", "gcpkms://projects/{{ .Env.PROJECT_ID }}/locations/{{ .Env.KEY_LOCATION }}/keyRings/{{ .Env.KEY_RING }}/cryptoKeys/{{ .Env.KEY_NAME }}/versions/{{ .Env.KEY_VERSION }}", "${artifact}"]
-    artifacts: binary
-  # Keyless
-  - id: fulcio-keyless
-    signature: "${artifact}-keyless.sigstore.json"
-    cmd: cosign
-    args: ["sign-blob", "--bundle", "${signature}", "${artifact}"]
-    artifacts: binary
-  - id: checksum-keyless
-    signature: "${artifact}-keyless.sigstore.json"
-    cmd: cosign
-    args: ["sign-blob", "--bundle", "${signature}", "${artifact}"]
-    artifacts: checksum
+    binary: fulcio-{{ .Os }}-{{ .Arch }}
+    no_unique_dist_dir: true
+    main: .
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - "{{ .Env.LDFLAGS }}"
 
 archives:
   - formats: [binary]
     name_template: "{{ .Binary }}"
-    allow_different_binary_count: true
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
@@ -137,13 +45,8 @@ snapshot:
   version_template: SNAPSHOT-{{ .ShortCommit }}
 
 release:
-  prerelease: allow # remove this when we start publishing non-prerelease or set to auto
+  prerelease: auto
   draft: true # allow for manual edits
   github:
     owner: sigstore
     name: fulcio
-  footer: |
-    ### Thanks for all contributors!
-
-  extra_files:
-    - glob: "./fulcio*.yaml"

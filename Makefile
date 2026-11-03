@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all test clean lint gosec cert-maker
+.PHONY: all test clean lint gosec cert-maker ldflags
 
 all: fulcio
 # Ensure Make is run with bash shell as some syntax below is bash-specific
@@ -31,12 +31,25 @@ PROTOBUF_DEPS = $(shell find . -iname "*.proto" | grep -v "third_party")
 # Set version variables for LDFLAGS
 GIT_VERSION ?= $(shell git describe --tags --always --dirty)
 GIT_HASH ?= $(shell git rev-parse HEAD)
-GIT_TAG ?= dirty-tag
 DATE_FMT = +%Y-%m-%dT%H:%M:%SZ
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
+ifdef SOURCE_DATE_EPOCH
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
+else
+    BUILD_DATE ?= $(shell date "$(DATE_FMT)")
+endif
+GIT_TREESTATE = clean
+DIFF = $(shell git diff --quiet >/dev/null 2>&1; if [ $$? -eq 1 ]; then echo "1"; fi)
+ifeq ($(DIFF), 1)
+    GIT_TREESTATE = dirty
+endif
 
 FULCIO_VERSION_PKG=sigs.k8s.io/release-utils/version
-LDFLAGS=-X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION)
+LDFLAGS=-buildid= -X $(FULCIO_VERSION_PKG).gitVersion=$(GIT_VERSION) \
+                  -X $(FULCIO_VERSION_PKG).gitCommit=$(GIT_HASH) \
+                  -X $(FULCIO_VERSION_PKG).gitTreeState=$(GIT_TREESTATE) \
+                  -X $(FULCIO_VERSION_PKG).buildDate=$(BUILD_DATE)
+SERVER_LDFLAGS=$(LDFLAGS)
 
 KO_PREFIX ?= ghcr.io/sigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
@@ -45,9 +58,7 @@ ifdef INSECURE_REGISTRY
 KO_FLAGS += --insecure-registry
 endif
 
-GHCR_PREFIX ?= ghcr.io/sigstore
-
-FULCIO_YAML ?= fulcio-$(GIT_TAG).yaml
+ZIZMOR ?= $(shell grep FROM Dockerfile.zizmor | cut -d' ' -f 2)
 
 $(GENSRC): $(PROTOBUF_DEPS) $(TOOLS_DIR_GO_MOD)
 	mkdir -p pkg/generated/protobuf
@@ -62,13 +73,22 @@ $(GENSRC): $(PROTOBUF_DEPS) $(TOOLS_DIR_GO_MOD)
 	       --openapiv2_out . \
 		   -I third_party/googleapis/ -I . $(PROTOBUF_DEPS)
 
-lint: ## Runs golangci-lint
-	$(GOBIN)/golangci-lint run -v ./...
+lint: ## Runs golangci-lint and zizmor
+	docker run -t --rm -v $(PWD):/app -w /app \
+		--user $(shell id -u):$(shell id -g) \
+		-v $(shell go env GOCACHE):/.cache/go-build -e GOCACHE=/.cache/go-build \
+		-v $(shell go env GOMODCACHE):/go/pkg/mod -e GOMODCACHE=/go/pkg/mod \
+		-v ~/.cache/golangci-lint:/.cache/golangci-lint -e GOLANGCI_LINT_CACHE=/.cache/golangci-lint \
+		$(shell awk -F '[ @]' '/FROM golangci\/golangci-lint/{print $$2; exit}' Dockerfile.golangci-lint) golangci-lint run -v ./...
+	docker run -t --rm -v $(PWD):/source $(ZIZMOR) /source
 
 gosec: ## Runs gosec
 	$(GOBIN)/gosec ./...
 
 gen: $(GENSRC)
+
+ldflags: ## Print LDFLAGS for builds
+	@echo $(SERVER_LDFLAGS)
 
 fulcio: $(SRCS) ## Build Fulcio for local tests
 	go build -trimpath -ldflags "$(LDFLAGS)" ./...
@@ -82,6 +102,7 @@ test: ## Runs go test
 clean: ## Clean the workspace
 	rm -rf dist
 	rm -rf fulcio
+	rm -rf fulcioImagerefs
 	rm -rf certificate-maker
 	rm -rf root.pem
 	rm -rf intermediate.pem
@@ -102,36 +123,23 @@ debug: ## Start docker compose in debug mode
 ## Images with ko
 ## --------------------------------------
 
-.PHONY: ko
-ko:
-	# fulcio
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	KO_DOCKER_REPO=$(KO_PREFIX)/fulcio ko resolve --bare $(KO_FLAGS) \
-		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) \
-		--image-refs fulcioImagerefs --filename config/ > $(FULCIO_YAML)
-
 .PHONY: ko-local
-ko-local:
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) \
-	ko publish --base-import-paths $(KO_FLAGS) \
-		--platform=linux/amd64 --tags $(GIT_VERSION) --tags $(GIT_HASH) --local \
+ko-local: ## Build container images locally using ko
+	KO_DOCKER_REPO=ko.local ko publish --base-import-paths \
+		--tags $(GIT_VERSION) --tags $(GIT_HASH) --image-refs fulcioImagerefs \
 		github.com/sigstore/fulcio
 
 .PHONY: ko-apply
 ko-apply:
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply $(KO_FLAGS) -Bf config/
+	ko apply $(KO_FLAGS) -Bf config/
 
 .PHONY: ko-apply-ci
 ko-apply-ci: ko-apply
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko apply $(KO_FLAGS) -Bf config/test
+	ko apply $(KO_FLAGS) -Bf config/test
 
 .PHONY: ko-publish
 ko-publish:
-	LDFLAGS="$(LDFLAGS)" GIT_HASH=$(GIT_HASH) GIT_VERSION=$(GIT_VERSION) ko publish $(KO_FLAGS) .
-
-.PHONY: sign-keyless-ci
-sign-keyless-ci: ko
-	cosign sign --yes -a GIT_HASH=$(GIT_HASH) $(KO_DOCKER_REPO)/fulcio:$(GIT_HASH)
+	ko publish $(KO_FLAGS) .
 
 ## --------------------------------------
 ## Modules
@@ -150,5 +158,3 @@ help: ## Display help
 		'/^[^\t].+?:.*?##/ {\
 			printf "\033[36m%-30s\033[0m %s\n", $$1, $$NF \
 		}' $(MAKEFILE_LIST) | sort
-
-include release/release.mk
