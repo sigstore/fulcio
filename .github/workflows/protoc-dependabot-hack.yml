@@ -7,6 +7,8 @@ on:  # yamllint disable-line rule:truthy
     branches:
       - never-trigger-this-dependabot-hack-workflow
 
+permissions: {}
+
 jobs:
 
   dependabot_hack:
@@ -15,4 +17,4 @@ jobs:
     steps:
       # update the version in these places manually when Dependabot proposes a change to it here:
       # 1. the version in main.yml used to install protoc
-      - uses: protocolbuffers/protobuf@v36.2
+      - uses: protocolbuffers/protobuf@v36.2 # zizmor: ignore[unpinned-uses]
