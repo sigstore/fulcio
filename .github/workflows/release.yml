@@ -187,4 +187,6 @@ jobs:
           GH_TAG: ${{ github.ref_name }}
         run: |
           oras copy -r "ghcr.io/sigstore/fulcio:${GH_TAG}" "gcr.io/projectsigstore/fulcio:${GH_TAG}"
-          oras tag "gcr.io/projectsigstore/fulcio:${GH_TAG}" latest
+          if [[ ! "${GH_TAG}" =~ - ]]; then
+            oras tag "gcr.io/projectsigstore/fulcio:${GH_TAG}" latest
+          fi

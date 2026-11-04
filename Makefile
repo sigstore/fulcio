@@ -53,6 +53,8 @@ SERVER_LDFLAGS=$(LDFLAGS)
 
 KO_PREFIX ?= ghcr.io/sigstore
 export KO_DOCKER_REPO=$(KO_PREFIX)
+KO_DEFAULTBASEIMAGE ?= gcr.io/distroless/static-debian13:nonroot
+export KO_DEFAULTBASEIMAGE
 
 ifdef INSECURE_REGISTRY
 KO_FLAGS += --insecure-registry
