@@ -97,6 +97,9 @@ type FulcioConfig struct {
 	lru *lru.TwoQueueCache[string, []*verifierWithConfig]
 	// blockedCIDRs is a list of additional IP ranges to block in the OIDC HTTP client dialer.
 	blockedCIDRs []*net.IPNet
+	// allowedCIDRs is a list of IP ranges to explicitly allow in the OIDC HTTP client dialer,
+	// overriding hardcoded IP restrictions.
+	allowedCIDRs []*net.IPNet
 }
 
 type IssuerMetadata struct {
@@ -361,7 +364,7 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 	}
 
 	allowPrivate := isConfiguredOIDCIssuer || isTrustedK8sIssuer
-	d, err := getSafeDialer(iss.IssuerURL, allowPrivate, fc.blockedCIDRs)
+	d, err := getSafeDialer(iss.IssuerURL, allowPrivate, fc.blockedCIDRs, fc.allowedCIDRs)
 	if err != nil {
 		return nil, err
 	}
@@ -644,10 +647,10 @@ func validateCIIssuerMetadata(fulcioConfig *FulcioConfig) error {
 type Option func(*FulcioConfig) error
 
 // WithBlockedCIDRs configures additional IP addresses or CIDR ranges that the OIDC
-// HTTP client dialer will block regardless of issuer type.
+// HTTP client dialer will block regardless of issuer type. Takes precedence over WithAllowedCIDRs.
 func WithBlockedCIDRs(cidrs []string) Option {
 	return func(fc *FulcioConfig) error {
-		nets, err := parseBlockedCIDRs(cidrs)
+		nets, err := parseCIDRs(cidrs)
 		if err != nil {
 			return err
 		}
@@ -656,7 +659,20 @@ func WithBlockedCIDRs(cidrs []string) Option {
 	}
 }
 
-func parseBlockedCIDRs(entries []string) ([]*net.IPNet, error) {
+// WithAllowedCIDRs configures IP addresses or CIDR ranges that the OIDC
+// HTTP client dialer will allow, overriding default IP restrictions (unless also matched by WithBlockedCIDRs).
+func WithAllowedCIDRs(cidrs []string) Option {
+	return func(fc *FulcioConfig) error {
+		nets, err := parseCIDRs(cidrs)
+		if err != nil {
+			return err
+		}
+		fc.allowedCIDRs = append(fc.allowedCIDRs, nets...)
+		return nil
+	}
+}
+
+func parseCIDRs(entries []string) ([]*net.IPNet, error) {
 	var nets []*net.IPNet
 	for _, entry := range entries {
 		entry = strings.TrimSpace(entry)
@@ -666,13 +682,13 @@ func parseBlockedCIDRs(entries []string) ([]*net.IPNet, error) {
 		if strings.Contains(entry, "/") {
 			_, ipNet, err := net.ParseCIDR(entry)
 			if err != nil {
-				return nil, fmt.Errorf("invalid blocked CIDR %q: %w", entry, err)
+				return nil, fmt.Errorf("invalid CIDR %q: %w", entry, err)
 			}
 			nets = append(nets, ipNet)
 		} else {
 			ip := net.ParseIP(entry)
 			if ip == nil {
-				return nil, fmt.Errorf("invalid blocked IP or CIDR %q", entry)
+				return nil, fmt.Errorf("invalid IP or CIDR %q", entry)
 			}
 			if ip4 := ip.To4(); ip4 != nil {
 				nets = append(nets, &net.IPNet{IP: ip4, Mask: net.CIDRMask(32, 32)})
@@ -843,7 +859,9 @@ var (
 // If the configured issuer URL is explicitly a local development hostname, loopback IP
 // restrictions are bypassed. If allowPrivate is true (for statically configured OIDCIssuers
 // and trusted Kubernetes issuers), private IP ranges are permitted unless matched by blockedCIDRs.
-func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) (*net.Dialer, error) {
+// Any IP matching allowedCIDRs (and not matched by blockedCIDRs) is permitted, overriding
+// the hardcoded restrictions.
+func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs, allowedCIDRs []*net.IPNet) (*net.Dialer, error) {
 	u, err := url.Parse(issURL)
 	if err != nil {
 		return nil, err
@@ -872,6 +890,12 @@ func getSafeDialer(issURL string, allowPrivate bool, blockedCIDRs []*net.IPNet) 
 			for _, blockedNet := range blockedCIDRs {
 				if blockedNet.Contains(ip) {
 					return fmt.Errorf("connection to restricted IP %s is not allowed", ip.String())
+				}
+			}
+
+			for _, allowedNet := range allowedCIDRs {
+				if allowedNet.Contains(ip) {
+					return nil
 				}
 			}
 
