@@ -42,7 +42,7 @@ require (
 	goa.design/goa/v3 v3.35.0
 	google.golang.org/api v0.305.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	sigs.k8s.io/release-utils v0.12.5
 )
