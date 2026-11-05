@@ -136,7 +136,7 @@ jobs:
               --key "${KMS_KEY}" \
               "${file}"
           done
-          gh release upload "${GH_TAG}" --clobber dist/*.sigstore.json release/release-cosign.pub
+          gh release upload "${GH_TAG}" --clobber dist/*.sigstore.json
 
       - name: Sign container image with KMS
         env:
