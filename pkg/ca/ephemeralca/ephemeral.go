@@ -16,6 +16,8 @@
 package ephemeralca
 
 import (
+	"crypto"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -31,13 +33,24 @@ type EphemeralCA struct {
 }
 
 func NewEphemeralCA() (*EphemeralCA, error) {
-	e := &EphemeralCA{}
-	var err error
-
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
 	if err != nil {
 		return nil, err
 	}
+	return newEphemeralCA(signer)
+}
+
+// NewEphemeralMLDSACA creates an ephemeral CA with an ML-DSA-65 signing key.
+func NewEphemeralMLDSACA() (*EphemeralCA, error) {
+	signer, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	if err != nil {
+		return nil, err
+	}
+	return newEphemeralCA(signer)
+}
+
+func newEphemeralCA(signer crypto.Signer) (*EphemeralCA, error) {
+	e := &EphemeralCA{}
 
 	rootCA := &x509.Certificate{
 		Subject: pkix.Name{

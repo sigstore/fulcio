@@ -17,7 +17,9 @@ package fileca
 
 import (
 	"crypto"
+	"crypto/mldsa"
 	"crypto/x509"
+	"errors"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sigstore/fulcio/pkg/ca"
@@ -60,14 +62,23 @@ func NewFileCA(certPath, keyPath, keyPass string, watch bool) (ca.CertificateAut
 	return &fca, err
 }
 
-func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, signer crypto.Signer) {
+// updateX509KeyPair replaces the chain and signer, rejecting a switch between
+// ML-DSA and non-ML-DSA keys.
+func (fca *fileCA) updateX509KeyPair(certs []*x509.Certificate, signer crypto.Signer) error {
 	scm := fca.SignerWithChain.(*ca.SignerCertsMutex)
 	scm.Lock()
 	defer scm.Unlock()
+
+	_, currentIsMLDSA := scm.Signer.Public().(*mldsa.PublicKey)
+	_, newIsMLDSA := signer.Public().(*mldsa.PublicKey)
+	if currentIsMLDSA != newIsMLDSA {
+		return errors.New("cannot switch between ML-DSA and non-ML-DSA keys")
+	}
 
 	// NB: We use a lock to ensure a reading thread can't get a mismatching
 	// cert / key pair by reading the attributes halfway through the update
 	// below.
 	scm.Certs = certs
 	scm.Signer = signer
+	return nil
 }

@@ -28,6 +28,7 @@ func TestValidLoadKeyPair(t *testing.T) {
 		"openssl",
 		"intermediate-2",
 		"intermediate-3",
+		"mldsa",
 	}
 
 	for _, keypair := range keypairs {
@@ -46,6 +47,7 @@ func TestInvalidLoadKeyPair(t *testing.T) {
 		"notca",
 		"mismatch",
 		"eku-chaining-violation",
+		"mldsa-mixed",
 	}
 
 	for _, keypair := range keypairs {
