@@ -84,3 +84,10 @@ gcloud kms keys add-iam-policy-binding cosign \
   --keyring="release-cosign" \
   --role="roles/cloudkms.signerVerifier" \
   --member="serviceAccount:${SERVICE_ACCOUNT}"
+
+gcloud kms keys add-iam-policy-binding cosign \
+  --project="${PROJECT_ID}" \
+  --location="${LOCATION}" \
+  --keyring="release-cosign" \
+  --role="roles/cloudkms.viewer" \
+  --member="serviceAccount:${SERVICE_ACCOUNT}"
