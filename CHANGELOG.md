@@ -1,3 +1,15 @@
+# Deprecated
+
+This changelog will no longer be updated. See each release for its changes.
+
+# v1.9.1
+
+This release builds with Go 1.27.3 to pick up a recent security fix.
+
+## Fixes
+
+* Apply the blocked CIDR list to loopback addresses too (#2485)
+
 # v1.9.0
 
 This release bumps the minimum Go version to 1.27, in order to support ML-DSA in a future release.
