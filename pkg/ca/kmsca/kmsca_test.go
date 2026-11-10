@@ -17,17 +17,25 @@ package kmsca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"errors"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/fulcio/pkg/test"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"github.com/sigstore/sigstore/pkg/signature/kms/fake"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestNewKMSCA(t *testing.T) {
@@ -75,5 +83,59 @@ func TestNewKMSCA(t *testing.T) {
 	_, err = NewKMSCA(context.WithValue(context.TODO(), fake.KmsCtxKey{}, subKey), "fakekms://key", []*x509.Certificate{subCert, otherRootCert})
 	if err == nil || !strings.Contains(err.Error(), "certificate signed by unknown authority") {
 		t.Fatalf("expected error with invalid certificate chain, got %v", err)
+	}
+}
+
+type failingPublicKeySigner struct {
+	errFunc func(error)
+}
+
+func (s failingPublicKeySigner) Public() crypto.PublicKey {
+	if s.errFunc != nil {
+		s.errFunc(errors.New("kms public key fetch failed"))
+	}
+	return nil
+}
+
+func (failingPublicKeySigner) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return nil, nil
+}
+
+type failingSignerVerifier struct {
+	*fake.SignerVerifier
+}
+
+func (f failingSignerVerifier) CryptoSigner(_ context.Context, errFunc func(error)) (crypto.Signer, crypto.SignerOpts, error) {
+	return failingPublicKeySigner{errFunc: errFunc}, crypto.SHA256, nil
+}
+
+func TestNewKMSCALogsPublicKeyError(t *testing.T) {
+	kms.AddProvider("testkms://", func(ctx context.Context, _ string, hf crypto.Hash, _ ...signature.RPCOption) (kms.SignerVerifier, error) {
+		sv, err := fake.LoadSignerVerifier(ctx, hf)
+		if err != nil {
+			return nil, err
+		}
+		return failingSignerVerifier{SignerVerifier: sv}, nil
+	})
+
+	core, logs := observer.New(zap.ErrorLevel)
+	origLogger := log.Logger
+	log.Logger = zap.New(core).Sugar()
+	t.Cleanup(func() { log.Logger = origLogger })
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
+	chain := []*x509.Certificate{subCert, rootCert}
+
+	// NewKMSCA will fail (VerifyCertChain can't compare keys), but the error
+	// callback should have logged the underlying public-key fetch failure.
+	_, _ = NewKMSCA(context.TODO(), "testkms://key", chain)
+
+	entries := logs.FilterMessageSnippet("error fetching public key from KMS signer").All()
+	if len(entries) == 0 {
+		t.Fatalf("expected an error log for the failed public key fetch, got none; all logs: %v", logs.All())
+	}
+	if !strings.Contains(entries[0].Message, "testkms://key") {
+		t.Fatalf("expected log to contain the KMS key reference, got: %q", entries[0].Message)
 	}
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/baseca"
+	"github.com/sigstore/fulcio/pkg/log"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 
@@ -43,7 +44,9 @@ func NewKMSCA(ctx context.Context, kmsKey string, certs []*x509.Certificate, opt
 	if err != nil {
 		return nil, err
 	}
-	signer, _, err := kmsSigner.CryptoSigner(ctx, func(_ error) {})
+	signer, _, err := kmsSigner.CryptoSigner(ctx, func(err error) {
+		log.Logger.Errorf("error fetching public key from KMS signer %q: %v", kmsKey, err)
+	})
 	if err != nil {
 		return nil, err
 	}

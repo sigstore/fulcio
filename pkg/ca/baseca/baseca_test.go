@@ -17,12 +17,15 @@ package baseca
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
+	"io"
 	"reflect"
+	"strings"
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -32,6 +35,65 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
+
+type nilPublicKeySigner struct{}
+
+func (nilPublicKeySigner) Public() crypto.PublicKey { return nil }
+func (nilPublicKeySigner) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return nil, nil
+}
+
+func TestVerifySigner(t *testing.T) {
+	t.Run("nil signer returns error", func(t *testing.T) {
+		if err := verifySigner(nil); err == nil {
+			t.Fatal("expected error for nil signer, got nil")
+		}
+	})
+
+	t.Run("signer with nil public key returns error", func(t *testing.T) {
+		if err := verifySigner(nilPublicKeySigner{}); err == nil {
+			t.Fatal("expected error for nil public key, got nil")
+		}
+	})
+
+	t.Run("valid signer returns nil", func(t *testing.T) {
+		signer, _, err := signature.NewDefaultECDSASignerVerifier()
+		if err != nil {
+			t.Fatalf("unexpected error generating signer: %v", err)
+		}
+		if err := verifySigner(signer); err != nil {
+			t.Fatalf("unexpected error for valid signer: %v", err)
+		}
+	})
+}
+
+func TestCreatePrecertificateNilSigner(t *testing.T) {
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
+	certChain := []*x509.Certificate{subCert, rootCert}
+
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	bca := BaseCA{SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: nil}}
+	_, err := bca.CreatePrecertificate(context.TODO(), testPrincipal{}, priv.Public())
+	if err == nil || !strings.Contains(err.Error(), "CA signing key is unavailable") {
+		t.Fatalf("expected unavailable error, got %v", err)
+	}
+}
+
+func TestCreateCertificateNilSigner(t *testing.T) {
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	subCert, _, _ := test.GenerateSubordinateCA(rootCert, rootKey)
+	certChain := []*x509.Certificate{subCert, rootCert}
+
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	bca := BaseCA{SignerWithChain: &ca.SignerCerts{Certs: certChain, Signer: nil}}
+	_, err := bca.CreateCertificate(context.TODO(), testPrincipal{}, priv.Public())
+	if err == nil || !strings.Contains(err.Error(), "CA signing key is unavailable") {
+		t.Fatalf("expected unavailable error, got %v", err)
+	}
+}
 
 func TestBaseCARoot(t *testing.T) {
 	signer, _, err := signature.NewDefaultECDSASignerVerifier()
