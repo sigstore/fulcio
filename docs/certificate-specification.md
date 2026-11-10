@@ -138,8 +138,5 @@ Root, intermediate, and issued certificates MUST:
 * Use pure ML-DSA, not HashML-DSA
 * Not be part of a chain that mixes ML-DSA and non-ML-DSA keys or signatures
 
-Root and intermediate certificates SHOULD:
-
-* Use ML-DSA-65 or ML-DSA-87
-
 Issued certificates are not appended to a Certificate Transparency log and do not specify an SCT.
+If you need signatures committed to a transparency log, use [Rekor](https://github.com/sigstore/rekor-tiles).

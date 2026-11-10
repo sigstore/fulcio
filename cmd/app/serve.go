@@ -225,6 +225,9 @@ var pqcClientSigningAlgorithms = []v1.PublicKeyDetails{
 // validatePQCClientSigningAlgorithms requires ML-DSA client signing algorithms
 // if and only if --experimental-enable-pqc is set.
 func validatePQCClientSigningAlgorithms(algorithms []v1.PublicKeyDetails, enablePQC bool) error {
+	if len(algorithms) == 0 {
+		return errors.New("--client-signing-algorithms must not be empty")
+	}
 	for _, algorithm := range algorithms {
 		details, err := signature.GetAlgorithmDetails(algorithm)
 		if err != nil {

@@ -514,6 +514,8 @@ func TestValidatePQCClientSigningAlgorithms(t *testing.T) {
 		{name: "ML-DSA without flag", algorithms: []v1.PublicKeyDetails{v1.PublicKeyDetails_ML_DSA_44}, wantErr: "requires --experimental-enable-pqc"},
 		{name: "classical with flag", algorithms: classical, enablePQC: true, wantErr: "only allows ML-DSA client signing algorithms"},
 		{name: "mixed with flag", algorithms: append([]v1.PublicKeyDetails{v1.PublicKeyDetails_ML_DSA_65}, classical...), enablePQC: true, wantErr: "only allows ML-DSA client signing algorithms"},
+		{name: "empty without flag", algorithms: nil, wantErr: "must not be empty"},
+		{name: "empty with flag", algorithms: nil, enablePQC: true, wantErr: "must not be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
