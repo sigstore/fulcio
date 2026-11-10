@@ -390,6 +390,78 @@ EOF
     rm password.file
 }
 
+function generate_mldsa {
+    # NB: Requires OpenSSL 3.5+. Go only parses seed-only ML-DSA private keys,
+    # which is not the OpenSSL default.
+
+    # Root CA
+    openssl req -x509 \
+        -newkey ml-dsa-87 \
+        -provparam ml-dsa.output_formats=seed-only \
+        -keyout mldsa-root-key.pem \
+        -out mldsa-root-cert.pem \
+        -subj "/CN=mldsa-root" \
+        -days 36500 \
+        -addext basicConstraints=critical,CA:TRUE,pathlen:1 \
+        -addext keyUsage=critical,keyCertSign,cRLSign \
+        -passout pass:"$password"
+
+    # Intermediate
+    openssl req -new \
+        -newkey ml-dsa-65 \
+        -provparam ml-dsa.output_formats=seed-only \
+        -keyout mldsa-key.pem \
+        -out mldsa.csr \
+        -subj "/CN=mldsa-intermediate" \
+        -passout pass:"$password"
+
+    openssl x509 -req \
+        -in mldsa.csr \
+        -CA mldsa-root-cert.pem \
+        -CAkey mldsa-root-key.pem \
+        -passin pass:"$password" \
+        -days 36500 \
+        -extfile <(printf "basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\nextendedKeyUsage=codeSigning") \
+        -out mldsa-intermediate-cert.pem
+
+    # Chain certificates together and delete unneeded ones
+    cat mldsa-intermediate-cert.pem mldsa-root-cert.pem > mldsa-cert.pem
+    rm mldsa.csr mldsa-intermediate-cert.pem mldsa-root-key.pem mldsa-root-cert.pem
+}
+
+function generate_mldsa_mixed {
+    # ML-DSA intermediate under an ECDSA root, which is rejected
+    openssl req -x509 \
+        -newkey ec -pkeyopt ec_paramgen_curve:P-384 \
+        -keyout mixed-root-key.pem \
+        -out mixed-root-cert.pem \
+        -subj "/CN=mixed-root" \
+        -days 36500 \
+        -addext basicConstraints=critical,CA:TRUE,pathlen:1 \
+        -addext keyUsage=critical,keyCertSign,cRLSign \
+        -passout pass:"$password"
+
+    openssl req -new \
+        -newkey ml-dsa-65 \
+        -provparam ml-dsa.output_formats=seed-only \
+        -keyout mldsa-mixed-key.pem \
+        -out mixed.csr \
+        -subj "/CN=mldsa-mixed-intermediate" \
+        -passout pass:"$password"
+
+    openssl x509 -req \
+        -in mixed.csr \
+        -CA mixed-root-cert.pem \
+        -CAkey mixed-root-key.pem \
+        -passin pass:"$password" \
+        -days 36500 \
+        -extfile <(printf "basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\nextendedKeyUsage=codeSigning") \
+        -out mixed-intermediate-cert.pem
+
+    cat mixed-intermediate-cert.pem mixed-root-cert.pem > mldsa-mixed-cert.pem
+    rm mixed.csr mixed-intermediate-cert.pem mixed-root-key.pem mixed-root-cert.pem
+}
+
 generate_ed25519 
 generate_ecdsa
 generate_rsa4096
@@ -399,3 +471,5 @@ generate_not_a_ca
 generate_intermediate_2_ca
 generate_intermediate_3_ca
 generate_eku_chaining_violation
+generate_mldsa
+generate_mldsa_mixed

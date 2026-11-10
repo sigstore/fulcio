@@ -124,3 +124,19 @@ An issued certificate MAY:
   such as values from a GitHub Actions workflow
 * Specify multiple SCTs with OID `1.3.6.1.4.1.11129.2.4.2`, denoting that the certificate has been appended to multiple logs
 * Specify the Signed Certificate Timestamp (SCT) in a response header `SCT` instead of embedding the SCT in the certificate
+
+## Post-Quantum Certificates
+
+Instances started with `--experimental-enable-pqc` issue ML-DSA certificates as described in
+[RFC 9881](https://datatracker.ietf.org/doc/rfc9881/). This support is experimental. In this mode,
+the signing algorithm, public key, and Certificate Transparency requirements above are replaced by
+the following.
+
+Root, intermediate, and issued certificates MUST:
+
+* Use ML-DSA-44, ML-DSA-65, or ML-DSA-87 public keys and signatures
+* Use pure ML-DSA, not HashML-DSA
+* Not be part of a chain that mixes ML-DSA and non-ML-DSA keys or signatures
+
+Issued certificates are not appended to a Certificate Transparency log and do not specify an SCT.
+If you need signatures committed to a transparency log, use [Rekor](https://github.com/sigstore/rekor-tiles).

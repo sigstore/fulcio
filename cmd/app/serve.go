@@ -18,6 +18,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/mldsa"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -99,7 +100,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("gcp_private_ca_parent", "", "private ca parent: projects/<project>/locations/<location>/caPools/<caPool> (only used with --ca googleca)"+
 		"Optionally specify /certificateAuthorities/<caID>, which will bypass CA pool load balancing.")
 	cmd.Flags().String("hsm-caroot-id", "", "HSM ID for Root CA (only used with --ca pkcs11ca)")
-	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log")
+	cmd.Flags().String("ct-log-url", "http://localhost:6962/test", "host and path (with log prefix at the end) to the ct log, disabled when --experimental-enable-pqc is set")
 	cmd.Flags().String("ct-log-origin", "", "ct log origin name, if different from the URL")
 	cmd.Flags().String("ct-log-public-key-path", "", "Path to a PEM-encoded public key of the CT log, used to verify SCTs")
 	cmd.Flags().String("config-path", defaultConfigPath, "path to fulcio config yaml")
@@ -139,7 +140,8 @@ func newServeCmd() *cobra.Command {
 		v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_3072_SHA256,
 		v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_4096_SHA256,
 		v1.PublicKeyDetails_PKIX_ED25519,
-	}), "the list of allowed client signing algorithms")
+	}), "the list of allowed client signing algorithms, defaults to ML-DSA when --experimental-enable-pqc is set")
+	cmd.Flags().Bool("experimental-enable-pqc", false, "enable experimental post-quantum (ML-DSA) certificate issuance")
 	cmd.Flags().StringSlice("oidc-blocked-cidrs", []string{}, "List of additional IP addresses or CIDR ranges to block when making OIDC discovery and JWKS requests (takes precedence over --oidc-allowed-cidrs)")
 	cmd.Flags().StringSlice("oidc-allowed-cidrs", []string{}, "List of IP addresses or CIDR ranges to allow when making OIDC discovery and JWKS requests, overriding default restrictions (overridden by --oidc-blocked-cidrs)")
 
@@ -212,6 +214,67 @@ func validateTLSFlags() error {
 	return nil
 }
 
+// pqcClientSigningAlgorithms are the default client signing algorithms when
+// --experimental-enable-pqc is set.
+var pqcClientSigningAlgorithms = []v1.PublicKeyDetails{
+	v1.PublicKeyDetails_ML_DSA_44,
+	v1.PublicKeyDetails_ML_DSA_65,
+	v1.PublicKeyDetails_ML_DSA_87,
+}
+
+// validatePQCClientSigningAlgorithms requires ML-DSA client signing algorithms
+// if and only if --experimental-enable-pqc is set.
+func validatePQCClientSigningAlgorithms(algorithms []v1.PublicKeyDetails, enablePQC bool) error {
+	if len(algorithms) == 0 {
+		return errors.New("--client-signing-algorithms must not be empty")
+	}
+	for _, algorithm := range algorithms {
+		details, err := signature.GetAlgorithmDetails(algorithm)
+		if err != nil {
+			return err
+		}
+		isMLDSA := details.GetKeyType() == signature.MLDSA
+		if isMLDSA && !enablePQC {
+			return fmt.Errorf("client signing algorithm %s requires --experimental-enable-pqc", algorithm)
+		}
+		if !isMLDSA && enablePQC {
+			return fmt.Errorf("--experimental-enable-pqc only allows ML-DSA client signing algorithms, got %s", algorithm)
+		}
+	}
+	return nil
+}
+
+// validatePQCCertificateAuthority requires an ML-DSA CA key if and only if
+// --experimental-enable-pqc is set.
+func validatePQCCertificateAuthority(ca certauth.CertificateAuthority, enablePQC bool) error {
+	isMLDSA := false
+	if swc, ok := ca.(certauth.SignerWithChain); ok {
+		_, signer := swc.GetSignerWithChain()
+		_, isMLDSA = signer.Public().(*mldsa.PublicKey)
+	}
+	if isMLDSA && !enablePQC {
+		return errors.New("ML-DSA CA keys require --experimental-enable-pqc")
+	}
+	if !isMLDSA && enablePQC {
+		return errors.New("--experimental-enable-pqc requires an ML-DSA CA key")
+	}
+	return nil
+}
+
+// resolveCTLogURL returns the CT log URL, which is disabled when
+// --experimental-enable-pqc is set.
+func resolveCTLogURL(enablePQC bool) (string, error) {
+	if !enablePQC {
+		return viper.GetString("ct-log-url"), nil
+	}
+	for _, flag := range []string{"ct-log-url", "ct-log-origin", "ct-log-public-key-path", "ct-log.tls-ca-cert"} {
+		if viper.IsSet(flag) && viper.GetString(flag) != "" {
+			return "", fmt.Errorf("--experimental-enable-pqc does not support a CT log, unset --%s", flag)
+		}
+	}
+	return "", nil
+}
+
 func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 	ctx := cmd.Context()
 	// If a config file is provided, modify the viper config to locate and read it
@@ -281,6 +344,16 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		log.Logger.Fatalf("--ca=%s is not a valid selection. Try: pkcs11ca, googleca, fileca, or ephemeralca", viper.GetString("ca"))
 	}
 
+	enablePQC := viper.GetBool("experimental-enable-pqc")
+	// googleca and pkcs11ca do not support ML-DSA keys
+	if ca := viper.GetString("ca"); enablePQC && (ca == "googleca" || ca == "pkcs11ca") {
+		log.Logger.Fatalf("--ca=%s does not support --experimental-enable-pqc", ca)
+	}
+	logURL, err := resolveCTLogURL(enablePQC)
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+
 	// Setup the logger to dev/prod
 	log.ConfigureLogger(viper.GetString("log_type"))
 
@@ -292,6 +365,12 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 			log.Logger.Fatal(err)
 		}
 		algorithmConfig = append(algorithmConfig, algorithmValue)
+	}
+	if enablePQC && !viper.IsSet("client-signing-algorithms") {
+		algorithmConfig = pqcClientSigningAlgorithms
+	}
+	if err := validatePQCClientSigningAlgorithms(algorithmConfig, enablePQC); err != nil {
+		log.Logger.Fatal(err)
 	}
 	algorithmRegistry, err := signature.NewAlgorithmRegistryConfig(algorithmConfig)
 	if err != nil {
@@ -339,7 +418,11 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		watch := viper.GetBool("fileca-watch")
 		baseca, err = fileca.NewFileCA(certFile, keyFile, keyPass, watch)
 	case "ephemeralca":
-		baseca, err = ephemeralca.NewEphemeralCA()
+		if enablePQC {
+			baseca, err = ephemeralca.NewEphemeralMLDSACA()
+		} else {
+			baseca, err = ephemeralca.NewEphemeralCA()
+		}
 	case "kmsca":
 		var data []byte
 		data, err = os.ReadFile(filepath.Clean(viper.GetString("kms-cert-chain-path")))
@@ -365,9 +448,12 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		log.Logger.Fatal(err)
 	}
 	defer baseca.Close()
+	if err := validatePQCCertificateAuthority(baseca, enablePQC); err != nil {
+		log.Logger.Fatal(err)
+	}
 
 	var ctClient *ctclient.LogClient
-	if logURL := viper.GetString("ct-log-url"); logURL != "" {
+	if logURL != "" {
 		opts := jsonclient.Options{
 			Logger: logAdaptor{logger: log.Logger},
 		}

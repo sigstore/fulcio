@@ -18,6 +18,7 @@ package fileca
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"strings"
 	"testing"
 )
 
@@ -68,10 +69,64 @@ func TestCertUpdate(t *testing.T) {
 		t.Fatal(`Failed to load new keypair`)
 	}
 
-	fca.updateX509KeyPair(signerWithMutex.Certs, signerWithMutex.Signer)
+	if err := fca.updateX509KeyPair(signerWithMutex.Certs, signerWithMutex.Signer); err != nil {
+		t.Fatalf("unexpected error updating key pair: %v", err)
+	}
 	_, key = fca.GetSignerWithChain()
 
 	if _, ok = key.(*ecdsa.PrivateKey); !ok {
 		t.Fatal(`file CA should have been updated with ecdsa key`)
+	}
+}
+
+func TestCertUpdateRejectsMLDSASwitch(t *testing.T) {
+	tests := []struct {
+		name    string
+		oldPair string
+		newPair string
+	}{
+		{name: "classical to ML-DSA", oldPair: "ecdsa", newPair: "mldsa"},
+		{name: "ML-DSA to classical", oldPair: "mldsa", newPair: "ecdsa"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ca, err := NewFileCA("testdata/"+tt.oldPair+"-cert.pem", "testdata/"+tt.oldPair+"-key.pem", testKeyPass, false)
+			if err != nil {
+				t.Fatalf("failed to load file CA from disk: %v", err)
+			}
+			fca := ca.(*fileCA)
+			_, oldKey := fca.GetSignerWithChain()
+
+			signerWithMutex, err := loadKeyPair("testdata/"+tt.newPair+"-cert.pem", "testdata/"+tt.newPair+"-key.pem", testKeyPass)
+			if err != nil {
+				t.Fatalf("failed to load new key pair: %v", err)
+			}
+			err = fca.updateX509KeyPair(signerWithMutex.Certs, signerWithMutex.Signer)
+			if err == nil || !strings.Contains(err.Error(), "cannot switch between ML-DSA and non-ML-DSA") {
+				t.Fatalf("expected error switching key type, got %v", err)
+			}
+			if _, key := fca.GetSignerWithChain(); key != oldKey {
+				t.Fatal("file CA should have kept the original key")
+			}
+		})
+	}
+}
+
+func TestCertUpdateMLDSA(t *testing.T) {
+	ca, err := NewFileCA("testdata/mldsa-cert.pem", "testdata/mldsa-key.pem", testKeyPass, false)
+	if err != nil {
+		t.Fatalf("failed to load file CA from disk: %v", err)
+	}
+	fca := ca.(*fileCA)
+
+	signerWithMutex, err := loadKeyPair("testdata/mldsa-cert.pem", "testdata/mldsa-key.pem", testKeyPass)
+	if err != nil {
+		t.Fatalf("failed to load new key pair: %v", err)
+	}
+	if err := fca.updateX509KeyPair(signerWithMutex.Certs, signerWithMutex.Signer); err != nil {
+		t.Fatalf("unexpected error updating ML-DSA key pair: %v", err)
+	}
+	if _, key := fca.GetSignerWithChain(); key != signerWithMutex.Signer {
+		t.Fatal("file CA should have been updated with the new ML-DSA key")
 	}
 }

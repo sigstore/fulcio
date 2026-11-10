@@ -35,6 +35,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sigstore/fulcio/pkg/api"
+	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/config"
 	"github.com/sigstore/fulcio/pkg/generated/protobuf"
@@ -497,5 +498,129 @@ func TestStartListenerTLS(t *testing.T) {
 		MaxVersion:         tls.VersionTLS12,
 	}); err == nil {
 		t.Fatal("expected handshake to fail for TLS < 1.3")
+	}
+}
+
+func TestValidatePQCClientSigningAlgorithms(t *testing.T) {
+	classical := []v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_ED25519}
+	tests := []struct {
+		name       string
+		algorithms []v1.PublicKeyDetails
+		enablePQC  bool
+		wantErr    string
+	}{
+		{name: "classical without flag", algorithms: classical},
+		{name: "ML-DSA with flag", algorithms: pqcClientSigningAlgorithms, enablePQC: true},
+		{name: "ML-DSA without flag", algorithms: []v1.PublicKeyDetails{v1.PublicKeyDetails_ML_DSA_44}, wantErr: "requires --experimental-enable-pqc"},
+		{name: "classical with flag", algorithms: classical, enablePQC: true, wantErr: "only allows ML-DSA client signing algorithms"},
+		{name: "mixed with flag", algorithms: append([]v1.PublicKeyDetails{v1.PublicKeyDetails_ML_DSA_65}, classical...), enablePQC: true, wantErr: "only allows ML-DSA client signing algorithms"},
+		{name: "empty without flag", algorithms: nil, wantErr: "must not be empty"},
+		{name: "empty with flag", algorithms: nil, enablePQC: true, wantErr: "must not be empty"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePQCClientSigningAlgorithms(tt.algorithms, tt.enablePQC)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+// signerlessCA is a CA that does not expose its signer, such as googleca
+type signerlessCA struct {
+	certauth.CertificateAuthority
+}
+
+func TestValidatePQCCertificateAuthority(t *testing.T) {
+	classicalCA, err := ephemeralca.NewEphemeralCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mldsaCA, err := ephemeralca.NewEphemeralMLDSACA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		ca        certauth.CertificateAuthority
+		enablePQC bool
+		wantErr   string
+	}{
+		{name: "classical CA without flag", ca: classicalCA},
+		{name: "ML-DSA CA with flag", ca: mldsaCA, enablePQC: true},
+		{name: "ML-DSA CA without flag", ca: mldsaCA, wantErr: "ML-DSA CA keys require --experimental-enable-pqc"},
+		{name: "classical CA with flag", ca: classicalCA, enablePQC: true, wantErr: "--experimental-enable-pqc requires an ML-DSA CA key"},
+		{name: "CA without signer with flag", ca: signerlessCA{}, enablePQC: true, wantErr: "--experimental-enable-pqc requires an ML-DSA CA key"},
+		{name: "CA without signer without flag", ca: signerlessCA{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePQCCertificateAuthority(tt.ca, tt.enablePQC)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestResolveCTLogURL(t *testing.T) {
+	// Bind the serve command's flags so that unset flags resolve to their
+	// defaults, as in runServeCmd.
+	setup := func(t *testing.T) {
+		t.Helper()
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+		if err := viper.BindPFlags(newServeCmd().Flags()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Run("classical uses default URL", func(t *testing.T) {
+		setup(t)
+		url, err := resolveCTLogURL(false)
+		if err != nil || url != "http://localhost:6962/test" {
+			t.Fatalf("got %q, %v", url, err)
+		}
+	})
+
+	t.Run("PQC disables CT log by default", func(t *testing.T) {
+		setup(t)
+		url, err := resolveCTLogURL(true)
+		if err != nil || url != "" {
+			t.Fatalf("got %q, %v", url, err)
+		}
+	})
+
+	t.Run("PQC allows explicitly empty URL", func(t *testing.T) {
+		setup(t)
+		viper.Set("ct-log-url", "")
+		url, err := resolveCTLogURL(true)
+		if err != nil || url != "" {
+			t.Fatalf("got %q, %v", url, err)
+		}
+	})
+
+	for _, flag := range []string{"ct-log-url", "ct-log-origin", "ct-log-public-key-path", "ct-log.tls-ca-cert"} {
+		t.Run("PQC rejects "+flag, func(t *testing.T) {
+			setup(t)
+			viper.Set(flag, "value")
+			_, err := resolveCTLogURL(true)
+			if err == nil || !strings.Contains(err.Error(), "unset --"+flag) {
+				t.Fatalf("expected CT log error for %s, got %v", flag, err)
+			}
+		})
 	}
 }

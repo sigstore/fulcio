@@ -15,6 +15,7 @@
 package ephemeralca
 
 import (
+	"crypto/mldsa"
 	"crypto/x509"
 	"testing"
 	"time"
@@ -43,6 +44,31 @@ func TestNewEphemeralCA(t *testing.T) {
 	}
 	if rootCert.KeyUsage != x509.KeyUsageCertSign|x509.KeyUsageCRLSign {
 		t.Fatalf("expected cert sign and crl sign key usage")
+	}
+	if err := cryptoutils.EqualKeys(signer.Public(), rootCert.PublicKey); err != nil {
+		t.Fatalf("expected verification key and certificate key to match")
+	}
+}
+
+func TestNewEphemeralMLDSACA(t *testing.T) {
+	ca, err := NewEphemeralMLDSACA()
+	if err != nil {
+		t.Fatalf("unexpected error generating ephemeral ML-DSA CA: %v", err)
+	}
+	certs, signer := ca.GetSignerWithChain()
+	if len(certs) != 1 {
+		t.Fatalf("ca not set up")
+	}
+	rootCert := certs[0]
+	pub, ok := rootCert.PublicKey.(*mldsa.PublicKey)
+	if !ok {
+		t.Fatalf("expected ML-DSA public key, got %T", rootCert.PublicKey)
+	}
+	if pub.Parameters() != mldsa.MLDSA65() {
+		t.Fatalf("expected ML-DSA-65, got %v", pub.Parameters())
+	}
+	if rootCert.SignatureAlgorithm != x509.MLDSA65 {
+		t.Fatalf("expected ML-DSA-65 signature, got %v", rootCert.SignatureAlgorithm)
 	}
 	if err := cryptoutils.EqualKeys(signer.Public(), rootCert.PublicKey); err != nil {
 		t.Fatalf("expected verification key and certificate key to match")
