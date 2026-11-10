@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
 
 	ct "github.com/google/certificate-transparency-go"
 	cttls "github.com/google/certificate-transparency-go/tls"
@@ -42,6 +43,13 @@ type BaseCA struct {
 	ca.SignerWithChain
 }
 
+func verifySigner(signer crypto.Signer) error {
+	if signer == nil || signer.Public() == nil {
+		return errors.New("CA signing key is unavailable")
+	}
+	return nil
+}
+
 func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.Principal, publicKey crypto.PublicKey) (*ca.CodeSigningPreCertificate, error) {
 	cert, err := ca.MakeX509(ctx, principal)
 	if err != nil {
@@ -49,6 +57,9 @@ func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.
 	}
 
 	certChain, privateKey := bca.GetSignerWithChain()
+	if err := verifySigner(privateKey); err != nil {
+		return nil, err
+	}
 
 	// Append poison extension
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
@@ -130,6 +141,9 @@ func (bca *BaseCA) CreateCertificate(ctx context.Context, principal identity.Pri
 	}
 
 	certChain, privateKey := bca.GetSignerWithChain()
+	if err := verifySigner(privateKey); err != nil {
+		return nil, err
+	}
 
 	finalCertBytes, err := x509.CreateCertificate(rand.Reader, cert, certChain[0], publicKey, privateKey)
 	if err != nil {
