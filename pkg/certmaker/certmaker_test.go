@@ -20,6 +20,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -33,6 +34,8 @@ import (
 	"time"
 
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/kms"
+	"github.com/sigstore/sigstore/pkg/signature/kms/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -514,6 +517,276 @@ func TestCreateCertificatesWithKeyMismatch(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "existing root certificate does not match root KMS key")
+}
+
+func TestCreateCertificatesWithMLDSA(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	rootKey, err := mldsa.GenerateKey(mldsa.MLDSA87())
+	require.NoError(t, err)
+	intermediateKey, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	require.NoError(t, err)
+	leafKey, err := mldsa.GenerateKey(mldsa.MLDSA44())
+	require.NoError(t, err)
+
+	mockRootSigner := &mockSignerVerifier{key: rootKey}
+	mockIntermediateSigner := &mockSignerVerifier{key: intermediateKey}
+	mockLeafSigner := &mockSignerVerifier{key: leafKey}
+
+	InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+		switch config.KeyID {
+		case "intermediate-key":
+			return mockIntermediateSigner, nil
+		case "leaf-key":
+			return mockLeafSigner, nil
+		default:
+			return mockRootSigner, nil
+		}
+	}
+
+	rootCertPath := filepath.Join(tmpDir, "root.pem")
+	intermediateCertPath := filepath.Join(tmpDir, "intermediate.pem")
+	leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+
+	err = CreateCertificates(KMSConfig{
+		Type:    "gcpkms",
+		KeyID:   "root-key",
+		Options: map[string]string{},
+	}, "", "", rootCertPath, leafCertPath, "intermediate-key", "", intermediateCertPath, "leaf-key",
+		87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
+	require.NoError(t, err)
+
+	rootCert, err := LoadCertificateFromFile(rootCertPath)
+	require.NoError(t, err)
+	intermediateCert, err := LoadCertificateFromFile(intermediateCertPath)
+	require.NoError(t, err)
+	leafCert, err := LoadCertificateFromFile(leafCertPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, x509.MLDSA87, rootCert.SignatureAlgorithm)
+	assert.Equal(t, x509.MLDSA87, intermediateCert.SignatureAlgorithm)
+	assert.Equal(t, x509.MLDSA65, leafCert.SignatureAlgorithm)
+	assert.Equal(t, x509.MLDSA, leafCert.PublicKeyAlgorithm)
+
+	roots := x509.NewCertPool()
+	roots.AddCert(rootCert)
+	intermediates := x509.NewCertPool()
+	intermediates.AddCert(intermediateCert)
+	_, err = leafCert.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	require.NoError(t, err)
+}
+
+func TestCreateCertificatesWithMixedMLDSA(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	mldsaKey, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	require.NoError(t, err)
+
+	tests := []struct {
+		name              string
+		rootKey           crypto.Signer
+		intermediateKeyID string
+		intermediateKey   crypto.Signer
+		leafKeyID         string
+		leafKey           crypto.Signer
+		wantErr           string
+	}{
+		{
+			name:              "ML-DSA intermediate under ECDSA root",
+			rootKey:           ecdsaKey,
+			intermediateKeyID: "intermediate-key",
+			intermediateKey:   mldsaKey,
+			wantErr:           "invalid intermediate key: cannot mix ML-DSA and non-ML-DSA",
+		},
+		{
+			name:      "ECDSA leaf under ML-DSA root",
+			rootKey:   mldsaKey,
+			leafKeyID: "leaf-key",
+			leafKey:   ecdsaKey,
+			wantErr:   "invalid leaf key: cannot mix ML-DSA and non-ML-DSA",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+				switch config.KeyID {
+				case "intermediate-key":
+					return &mockSignerVerifier{key: tt.intermediateKey}, nil
+				case "leaf-key":
+					return &mockSignerVerifier{key: tt.leafKey}, nil
+				default:
+					return &mockSignerVerifier{key: tt.rootKey}, nil
+				}
+			}
+
+			err := CreateCertificates(KMSConfig{
+				Type:    "gcpkms",
+				KeyID:   "root-key",
+				Options: map[string]string{},
+			}, "", "", filepath.Join(tmpDir, "root.pem"), filepath.Join(tmpDir, "leaf.pem"),
+				tt.intermediateKeyID, "", filepath.Join(tmpDir, "intermediate.pem"), tt.leafKeyID,
+				87600*time.Hour, 43800*time.Hour, 8760*time.Hour, "", "")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestCreateCertificatesWithExistingMLDSA(t *testing.T) {
+	originalInitKMS := InitKMS
+	defer func() { InitKMS = originalInitKMS }()
+
+	tmpDir := t.TempDir()
+
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	rootKey, err := mldsa.GenerateKey(mldsa.MLDSA87())
+	require.NoError(t, err)
+	intermediateKey, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	require.NoError(t, err)
+	leafKey, err := mldsa.GenerateKey(mldsa.MLDSA44())
+	require.NoError(t, err)
+
+	createCert := func(cn string, isCA bool, parent *x509.Certificate, pub crypto.PublicKey, signer crypto.Signer) *x509.Certificate {
+		tmpl := &x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			Subject:      pkix.Name{CommonName: cn},
+			NotBefore:    time.Now(),
+			NotAfter:     time.Now().Add(43800 * time.Hour),
+			KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+			IsCA:         isCA,
+		}
+		if parent == nil {
+			parent = tmpl
+		}
+		der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, pub, signer)
+		require.NoError(t, err)
+		cert, err := x509.ParseCertificate(der)
+		require.NoError(t, err)
+		return cert
+	}
+
+	rootCert := createCert("Test Root CA", true, nil, rootKey.Public(), rootKey)
+	ecdsaRootCert := createCert("Test ECDSA Root CA", true, nil, ecdsaKey.Public(), ecdsaKey)
+	// ML-DSA root key in a certificate signed by an ECDSA key
+	rootCertECDSASig := createCert("Test Root CA", true, ecdsaRootCert, rootKey.Public(), ecdsaKey)
+	// ML-DSA intermediate key in a certificate signed by an ECDSA key
+	intermediateCertECDSASig := createCert("Test Intermediate CA", true, ecdsaRootCert, intermediateKey.Public(), ecdsaKey)
+	intermediateCert := createCert("Test Intermediate CA", true, rootCert, intermediateKey.Public(), rootKey)
+
+	tests := []struct {
+		name             string
+		rootKey          crypto.Signer
+		rootCert         *x509.Certificate
+		intermediateCert *x509.Certificate
+		wantErr          string
+	}{
+		{
+			name:     "existing ML-DSA root",
+			rootKey:  rootKey,
+			rootCert: rootCert,
+		},
+		{
+			name:             "existing ML-DSA root and intermediate",
+			rootKey:          rootKey,
+			rootCert:         rootCert,
+			intermediateCert: intermediateCert,
+		},
+		{
+			name:     "existing ML-DSA root with ECDSA signature",
+			rootKey:  rootKey,
+			rootCert: rootCertECDSASig,
+			wantErr:  "invalid existing root certificate: cannot mix ML-DSA and non-ML-DSA",
+		},
+		{
+			name:             "existing ML-DSA intermediate under ECDSA root",
+			rootKey:          ecdsaKey,
+			rootCert:         ecdsaRootCert,
+			intermediateCert: intermediateCert,
+			wantErr:          "invalid existing intermediate certificate: cannot mix ML-DSA and non-ML-DSA",
+		},
+		{
+			name:             "existing ML-DSA intermediate with ECDSA signature",
+			rootKey:          rootKey,
+			rootCert:         rootCert,
+			intermediateCert: intermediateCertECDSASig,
+			wantErr:          "invalid existing intermediate certificate: cannot mix ML-DSA and non-ML-DSA",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			InitKMS = func(_ context.Context, config KMSConfig) (signature.SignerVerifier, error) {
+				switch config.KeyID {
+				case "intermediate-key":
+					return &mockSignerVerifier{key: intermediateKey}, nil
+				case "leaf-key":
+					return &mockSignerVerifier{key: leafKey}, nil
+				default:
+					return &mockSignerVerifier{key: tt.rootKey}, nil
+				}
+			}
+
+			existingRootPath := filepath.Join(tmpDir, "existing-root.pem")
+			require.NoError(t, WriteCertificateToFile(tt.rootCert, existingRootPath))
+
+			existingIntermediatePath := ""
+			if tt.intermediateCert != nil {
+				existingIntermediatePath = filepath.Join(tmpDir, "existing-intermediate.pem")
+				require.NoError(t, WriteCertificateToFile(tt.intermediateCert, existingIntermediatePath))
+			}
+
+			leafCertPath := filepath.Join(tmpDir, "leaf.pem")
+			err := CreateCertificates(KMSConfig{
+				Type:    "gcpkms",
+				KeyID:   "root-key",
+				Options: map[string]string{},
+			}, "", "", "", leafCertPath, "intermediate-key", "", filepath.Join(tmpDir, "intermediate.pem"), "leaf-key",
+				87600*time.Hour, 43800*time.Hour, 8760*time.Hour, existingRootPath, existingIntermediatePath)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			leafCert, err := LoadCertificateFromFile(leafCertPath)
+			require.NoError(t, err)
+			assert.Equal(t, x509.MLDSA65, leafCert.SignatureAlgorithm)
+		})
+	}
+}
+
+func TestInitKMSRejectsMLDSAWithAWS(t *testing.T) {
+	originalKmsGet := kmsGet
+	defer func() { kmsGet = originalKmsGet }()
+
+	key, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	require.NoError(t, err)
+	kmsGet = func(_ context.Context, _ string, hf crypto.Hash, _ ...signature.RPCOption) (kms.SignerVerifier, error) {
+		return fake.LoadSignerVerifier(context.WithValue(context.Background(), fake.KmsCtxKey{}, key), hf)
+	}
+
+	_, err = InitKMS(context.Background(), KMSConfig{
+		Type:    "awskms",
+		KeyID:   "alias/root-key",
+		Options: map[string]string{"aws-region": "us-west-2"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ML-DSA keys are not supported with AWS KMS")
 }
 
 func TestValidateKMSConfig(t *testing.T) {

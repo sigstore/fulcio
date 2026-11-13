@@ -20,6 +20,7 @@ package certmaker
 import (
 	"context"
 	"crypto"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
@@ -141,6 +142,17 @@ var InitKMS = func(ctx context.Context, config KMSConfig) (signature.SignerVerif
 		return nil, fmt.Errorf("KMS returned nil signer")
 	}
 
+	// sigstore's AWS KMS signer does not support ML-DSA keys
+	if config.Type == "awskms" {
+		pub, err := sv.PublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get AWS KMS public key: %w", err)
+		}
+		if _, ok := pub.(*mldsa.PublicKey); ok {
+			return nil, fmt.Errorf("ML-DSA keys are not supported with AWS KMS")
+		}
+	}
+
 	return sv, nil
 }
 
@@ -187,6 +199,10 @@ func CreateCertificates(config KMSConfig,
 		// Validate that loaded certificate matches root KMS key
 		if err := ValidateCertificateKeyMatch(rootCert, sv); err != nil {
 			return fmt.Errorf("existing root certificate does not match root KMS key: %w", err)
+		}
+
+		if err := verifyCertNoMLDSAMix(rootCert); err != nil {
+			return fmt.Errorf("invalid existing root certificate: %w", err)
 		}
 
 		fmt.Printf("Loaded existing root cert from %s\n", existingRootCertPath)
@@ -275,6 +291,13 @@ func CreateCertificates(config KMSConfig,
 				return fmt.Errorf("existing intermediate certificate provided but no intermediate-key-id specified - cannot sign without key")
 			}
 
+			if err := verifyNoMLDSAMix(rootCert.PublicKey, intermediateCert.PublicKey); err != nil {
+				return fmt.Errorf("invalid existing intermediate certificate: %w", err)
+			}
+			if err := verifyCertNoMLDSAMix(intermediateCert); err != nil {
+				return fmt.Errorf("invalid existing intermediate certificate: %w", err)
+			}
+
 			signingCert = intermediateCert
 			fmt.Printf("Loaded existing intermediate cert from %s\n", existingIntermediateCertPath)
 		} else {
@@ -289,6 +312,10 @@ func CreateCertificates(config KMSConfig,
 			intermediatePubKey, err := intermediateSV.PublicKey()
 			if err != nil {
 				return fmt.Errorf("error getting intermediate public key: %w", err)
+			}
+
+			if err := verifyNoMLDSAMix(rootCert.PublicKey, intermediatePubKey); err != nil {
+				return fmt.Errorf("invalid intermediate key: %w", err)
 			}
 
 			intermediateCryptoSV, ok := intermediateSV.(CryptoSignerVerifier)
@@ -352,6 +379,10 @@ func CreateCertificates(config KMSConfig,
 		leafPubKey, err := leafSV.PublicKey()
 		if err != nil {
 			return fmt.Errorf("error getting leaf public key: %w", err)
+		}
+
+		if err := verifyNoMLDSAMix(signingCert.PublicKey, leafPubKey); err != nil {
+			return fmt.Errorf("invalid leaf key: %w", err)
 		}
 
 		var leafTemplate any
@@ -556,6 +587,30 @@ func ValidateKMSConfig(config KMSConfig) error {
 		return fmt.Errorf("unsupported KMS type: %s", config.Type)
 	}
 
+	return nil
+}
+
+// Ensures issuer and subject keys are both ML-DSA or both non-ML-DSA
+func verifyNoMLDSAMix(issuer, subject crypto.PublicKey) error {
+	_, issuerIsMLDSA := issuer.(*mldsa.PublicKey)
+	_, subjectIsMLDSA := subject.(*mldsa.PublicKey)
+	if issuerIsMLDSA != subjectIsMLDSA {
+		return fmt.Errorf("cannot mix ML-DSA and non-ML-DSA keys or signatures in a certificate chain")
+	}
+	return nil
+}
+
+// Ensures a loaded cert's key and signature are both ML-DSA or both non-ML-DSA
+func verifyCertNoMLDSAMix(cert *x509.Certificate) error {
+	_, keyIsMLDSA := cert.PublicKey.(*mldsa.PublicKey)
+	var sigIsMLDSA bool
+	switch cert.SignatureAlgorithm {
+	case x509.MLDSA44, x509.MLDSA65, x509.MLDSA87:
+		sigIsMLDSA = true
+	}
+	if keyIsMLDSA != sigIsMLDSA {
+		return fmt.Errorf("cannot mix ML-DSA and non-ML-DSA keys or signatures in a certificate chain")
+	}
 	return nil
 }
 

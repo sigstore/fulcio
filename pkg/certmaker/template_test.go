@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -209,6 +210,9 @@ func TestDeterminePublicKeyAlgorithm(t *testing.T) {
 	_, ed25519Key, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
+	mldsaKey, err := mldsa.GenerateKey(mldsa.MLDSA65())
+	require.NoError(t, err)
+
 	tests := []struct {
 		name      string
 		publicKey crypto.PublicKey
@@ -228,6 +232,11 @@ func TestDeterminePublicKeyAlgorithm(t *testing.T) {
 			name:      "Ed25519 key",
 			publicKey: ed25519Key,
 			want:      3, // x509.Ed25519
+		},
+		{
+			name:      "ML-DSA key",
+			publicKey: mldsaKey.Public(),
+			want:      x509.MLDSA,
 		},
 		{
 			name:      "Unknown key type",

@@ -22,6 +22,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/mldsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -191,6 +192,8 @@ func determinePublicKeyAlgorithm(publicKey crypto.PublicKey) x509.PublicKeyAlgor
 		return x509.RSA
 	case ed25519.PublicKey:
 		return x509.Ed25519
+	case *mldsa.PublicKey:
+		return x509.MLDSA
 	default:
 		return x509.ECDSA // Default to ECDSA if key type is unknown
 	}

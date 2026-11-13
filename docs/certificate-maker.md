@@ -91,6 +91,12 @@ More info on configuring templates can be found here:
 
 - [X.509 Templates](https://smallstep.com/docs/step-ca/templates/#x509-templates)
 
+### ML-DSA Keys
+
+ML-DSA keys are supported with Google Cloud KMS and HashiCorp Vault. AWS KMS and Azure KMS keys must be RSA or ECDSA. A certificate chain must use ML-DSA for all keys and signatures or for none of them, and the tool fails if they are mixed, including in existing root and intermediate certificates.
+
+Fulcio requires an ML-DSA chain when started with `--experimental-enable-pqc`. See [Post-Quantum Certificates](certificate-specification.md#post-quantum-certificates).
+
 ### Certificate Reuse
 
 The certificate-maker tool supports reusing existing root and intermediate certificates instead of generating new ones. This is useful when you want to maintain a stable certificate hierarchy while issuing new certificates.
@@ -272,6 +278,16 @@ export LEAF_KEY_ID=alias/fulcio-leaf
   
   # Validate certificate
   openssl x509 -in ./existing-root.pem -text -noout
+  ```
+
+**Error: "cannot mix ML-DSA and non-ML-DSA keys or signatures in a certificate chain"**
+
+- **Cause:** Only some of the KMS keys or existing certificates in the chain use ML-DSA
+- **Solution:** Use ML-DSA keys for the root, intermediate, and leaf, or for none of them
+
+  ```bash
+  # Check the key and signature algorithms of an existing certificate
+  openssl x509 -in ./existing-root.pem -text -noout | grep -E "Signature Algorithm|Public Key Algorithm"
   ```
 
 **Mutually Exclusive Flags**
