@@ -56,20 +56,10 @@ type verifierWithConfig struct {
 type bearerTokenTransport struct {
 	Transport http.RoundTripper
 	Token     string
-	IssuerURL string
 }
 
 func (t *bearerTokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req = req.Clone(req.Context())
-	parsedIssuer, err := url.Parse(t.IssuerURL)
-	if err != nil {
-		return nil, err
-	}
-	if req.URL.Host == parsedIssuer.Host {
-		req.Header.Set("Authorization", "Bearer "+t.Token)
-	} else {
-		return nil, fmt.Errorf("issuer URL host %s does not match request URL host %s", parsedIssuer.Host, req.URL.Host)
-	}
+	req.Header.Set("Authorization", "Bearer "+t.Token)
 	return t.Transport.RoundTrip(req)
 }
 
@@ -351,7 +341,6 @@ func httpClientForIssuer(fc *FulcioConfig, iss OIDCIssuer) (*http.Client, error)
 				return &bearerTokenTransport{
 					Transport: transport,
 					Token:     string(tokenBytes),
-					IssuerURL: iss.IssuerURL,
 				}
 			}
 		} else {

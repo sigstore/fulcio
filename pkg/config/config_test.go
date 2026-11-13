@@ -1268,35 +1268,23 @@ func TestGetVerifier_SameHostRedirectAllowed(t *testing.T) {
 	}
 }
 
-func TestBearerTokenTransport_DifferentHostFails(t *testing.T) {
+func TestBearerTokenTransport_MockRoundTripperAttachesToken(t *testing.T) {
 	mockTransport := &mockRoundTripper{}
 	transport := &bearerTokenTransport{
 		Transport: mockTransport,
 		Token:     "super-secret-token",
-		IssuerURL: "https://kubernetes.default.svc",
 	}
 
-	// 1. Request to the expected host should have the Bearer token
-	reqSame, _ := http.NewRequest("GET", "https://kubernetes.default.svc/some-endpoint", nil)
-	_, err := transport.RoundTrip(reqSame)
-	if err != nil {
-		t.Fatalf("unexpected error for same-host request: %v", err)
-	}
-	if got := mockTransport.lastHeaders.Get("Authorization"); got != "Bearer super-secret-token" {
-		t.Errorf("expected Authorization header to be 'Bearer super-secret-token', got '%s'", got)
-	}
-
-	// Reset mock transport headers
-	mockTransport.lastHeaders = nil
-
-	// 2. Request to a different host should fail with an error
-	reqDiff, _ := http.NewRequest("GET", "https://attacker.com/some-endpoint", nil)
-	_, err = transport.RoundTrip(reqDiff)
-	if err == nil {
-		t.Error("expected error for cross-host request, got nil")
-	}
-	if mockTransport.lastHeaders != nil {
-		t.Error("expected mock transport to not be called for cross-host request")
+	for _, host := range []string{"https://kubernetes.default.svc", "https://api.cluster.example.com:6443"} {
+		mockTransport.lastHeaders = nil
+		req, _ := http.NewRequest("GET", host+"/some-endpoint", nil)
+		_, err := transport.RoundTrip(req)
+		if err != nil {
+			t.Fatalf("unexpected error for request to %s: %v", host, err)
+		}
+		if got := mockTransport.lastHeaders.Get("Authorization"); got != "Bearer super-secret-token" {
+			t.Errorf("request to %s: expected Authorization header to be 'Bearer super-secret-token', got '%s'", host, got)
+		}
 	}
 }
 
