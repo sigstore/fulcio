@@ -16,7 +16,7 @@
 
 FROM ghcr.io/transparency-dev/tesseract/posix:v0.2.0@sha256:80059f05b7a02ce7d5d9730b66bc7e56035fc0e77f41fd76dd067af91bcdebce AS server
 
-FROM golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b AS deploy
+FROM golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e AS deploy
 
 COPY --from=server /ko-app/posix /usr/local/bin/tesseract
 
