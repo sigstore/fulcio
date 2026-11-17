@@ -4,14 +4,14 @@ go 1.27.3
 
 require (
 	chainguard.dev/go-grpc-kit v0.21.0
-	chainguard.dev/sdk v0.1.454
+	chainguard.dev/sdk v0.1.487
 	cloud.google.com/go/security v1.29.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/eclipse-keypont/crypto11 v1.6.8
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-jose/go-jose/v4 v4.1.8
+	github.com/go-jose/go-jose/v4 v4.1.9
 	github.com/google/certificate-transparency-go v1.4.0
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
