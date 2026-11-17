@@ -28,22 +28,23 @@ you must verify the chain using Sigstore's [TUF](https://theupdateframework.io/)
 To do this, install and use [go-tuf](https://github.com/theupdateframework/go-tuf)'s CLI tools:
 
 ```
-$ go install github.com/theupdateframework/go-tuf/cmd/tuf-client@latest
+$ go install github.com/theupdateframework/go-tuf/v2/examples/cli/tuf-client@latest
 ```
 
-Then, obtain trusted root keys for Sigstore. You will use the 5th iteration of Sigstore's TUF root to start the root of trust, due to
+Then, obtain trusted root keys for Sigstore. You will use the 10th iteration of Sigstore's TUF root to start the root of trust, due to
 a backwards incompatible change.
 
 ```
-curl -o sigstore-root.json https://raw.githubusercontent.com/sigstore/root-signing/main/metadata/root_history/5.root.json
+curl -o root.json https://raw.githubusercontent.com/sigstore/root-signing/main/metadata/root_history/10.root.json
 ```
 
 Initialize the TUF client with the previously obtained root and the remote repository, https://tuf-repo-cdn.sigstore.dev,
 and get the current Fulcio root certificate `fulcio_v1.crt.pem` and intermediate certificate `fulcio_intermediate_v1.crt.pem`.
 ```
-$ tuf-client init https://tuf-repo-cdn.sigstore.dev sigstore-root.json
+$ tuf-client init --url https://tuf-repo-cdn.sigstore.dev -f root.json
 
-$ tuf-client get https://tuf-repo-cdn.sigstore.dev fulcio_v1.crt.pem
+$ tuf-client get --url https://tuf-repo-cdn.sigstore.dev -t https://tuf-repo-cdn.sigstore.dev/targets fulcio_v1.crt.pem
+$ cat tuf_download/fulcio_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -58,7 +59,8 @@ WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
 TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
 -----END CERTIFICATE-----
 
-$ tuf-client get https://tuf-repo-cdn.sigstore.dev fulcio_intermediate_v1.crt.pem
+$ tuf-client get --url https://tuf-repo-cdn.sigstore.dev -t https://tuf-repo-cdn.sigstore.dev/targets fulcio_intermediate_v1.crt.pem
+$ cat tuf_download/fulcio_intermediate_v1.crt.pem
 -----BEGIN CERTIFICATE-----
 MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
 KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
@@ -90,19 +92,60 @@ For detailed usage instructions and examples, see the [Certificate Maker documen
 
 ### Verifying releases
 
-You can also verify signed releases (`fulcio-<os>.sig`) using the artifact signing key:
+Starting with Fulcio v1.10.0, release binaries and container images can be verified using either GitHub Artifact Attestations (`gh` CLI) or Sigstore's release artifact signing key (`artifact.pub` with `cosign`).
 
+In the commands below, replace `<version>` (e.g., `v1.10.0`), `<os>` (`linux` or `darwin`), and `<arch>` (`amd64` or `arm64`) with the release version and platform you are verifying.
+
+#### Using GitHub Artifact Attestations (`gh` CLI)
+
+Verify a release binary:
+
+```shell
+curl -sSfLO "https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>-<arch>"
+
+gh attestation verify "fulcio-<os>-<arch>" \
+  --repo sigstore/fulcio \
+  --signer-workflow sigstore/fulcio/.github/workflows/release.yml
 ```
-tuf-client get https://tuf-repo-cdn.sigstore.dev artifact.pub > artifact.pub
 
-curl -o fulcio-release.sig -L https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>.sig
-base64 -d fulcio-release.sig > fulcio-release.sig.decoded
+Verify a container image:
 
-curl -o fulcio-release -L https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>
-
-openssl dgst -sha256 -verify artifact.pub -signature fulcio-release.sig.decoded fulcio-release
+```shell
+gh attestation verify "oci://ghcr.io/sigstore/fulcio:<version>" \
+  --repo sigstore/fulcio \
+  --signer-workflow sigstore/fulcio/.github/workflows/build_container.yml \
+  --bundle-from-oci
 ```
 
+#### Using the Artifact Signing Key (`cosign`)
+
+Retrieve `artifact.pub` using the TUF client (or from [`sigstore/root-signing`](https://github.com/sigstore/root-signing/blob/main/targets/artifact.pub)):
+
+```shell
+tuf-client get --url https://tuf-repo-cdn.sigstore.dev -t https://tuf-repo-cdn.sigstore.dev/targets artifact.pub
+cp tuf_download/artifact.pub ./artifact.pub
+```
+
+Verify a release binary (v1.8.2+):
+
+```shell
+curl -sSfLO "https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>-<arch>"
+curl -sSfLO "https://github.com/sigstore/fulcio/releases/download/<version>/fulcio-<os>-<arch>.sigstore.json"
+
+cosign verify-blob \
+  --key artifact.pub \
+  --bundle "fulcio-<os>-<arch>.sigstore.json" \
+  "fulcio-<os>-<arch>"
+```
+
+Verify a container image:
+
+```shell
+cosign verify \
+  --key artifact.pub \
+  -a "GIT_VERSION=<version>" \
+  "ghcr.io/sigstore/fulcio:<version>"
+```
 
 ## API
 
