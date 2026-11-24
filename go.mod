@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	chainguard.dev/go-grpc-kit v0.21.0
-	chainguard.dev/sdk v0.1.487
+	chainguard.dev/sdk v0.1.507
 	cloud.google.com/go/security v1.29.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
@@ -18,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/magiconair/properties v1.18.12
+	github.com/magiconair/properties v1.18.13
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.73.1
