@@ -16,7 +16,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.1
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.34.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/magiconair/properties v1.18.13
 	github.com/prometheus/client_golang v1.25.0
@@ -41,7 +41,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.6
 	goa.design/goa/v3 v3.35.0
 	google.golang.org/api v0.315.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e
+	google.golang.org/genproto/googleapis/api v0.0.0-20261110000943-09e21b237f2c
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	sigs.k8s.io/release-utils v0.12.5
