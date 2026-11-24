@@ -35,7 +35,7 @@ ARG SERVER_LDFLAGS
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -trimpath -ldflags "${SERVER_LDFLAGS}" -o fulcio-server .
 
 # Production deployment build
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931 AS deploy
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5 AS deploy
 # Retrieve the binary from the previous stage
 COPY --from=builder /opt/app-root/src/fulcio-server /usr/local/bin/fulcio-server
 # Set the binary as the entrypoint of the container
