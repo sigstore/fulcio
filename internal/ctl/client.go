@@ -209,10 +209,7 @@ func (c *Client) postAndParse(ctx context.Context, path string, req, rsp any) (*
 func (c *Client) waitForBackoff(ctx context.Context) error {
 	/* #nosec G404 */ // Non-cryptographic jitter for HTTP retry backoff.
 	jitter := time.Millisecond * time.Duration(rand.IntN(int(maxJitter.Milliseconds())))
-	dur := time.Until(c.backoff.until().Add(jitter))
-	if dur < 0 {
-		dur = 0
-	}
+	dur := max(time.Until(c.backoff.until().Add(jitter)), 0)
 	timer := time.NewTimer(dur)
 	defer timer.Stop()
 	select {
