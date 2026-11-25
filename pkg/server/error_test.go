@@ -19,7 +19,7 @@ import (
 	"errors"
 	"testing"
 
-	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -36,8 +36,8 @@ func TestHandleFulcioGRPCError_RspError(t *testing.T) {
 	log.Logger = observedLogger
 	defer func() { log.Logger = origLogger }()
 
-	// Create a client.RspError
-	rspErr := ctclient.RspError{
+	// Create a ctl.RspError
+	rspErr := ctl.RspError{
 		Err:        errors.New("some ct error"),
 		StatusCode: 400,
 		Body:       []byte("detailed error message from CT log"),

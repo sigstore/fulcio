@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/certificate"
 	"github.com/sigstore/fulcio/pkg/test"
@@ -194,7 +194,17 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 		t.Fatalf("expected unhandled critical ext error, got %v", err)
 	}
 
-	csc, err := bca.IssueFinalCertificate(context.TODO(), precsc, &ct.SignedCertificateTimestamp{SCTVersion: 1})
+	testSCT := &ctl.SignedCertificateTimestamp{
+		SCTVersion: ctl.V1,
+		LogID:      [32]byte{1, 2, 3, 4},
+		Timestamp:  0x0102030405060708,
+		Extensions: []byte{0xaa, 0xbb},
+		Signature: ctl.DigitallySigned{
+			Algorithm: ctl.SignatureAndHashAlgorithm{Hash: ctl.SHA256, Signature: ctl.ECDSA},
+			Signature: []byte{0x01, 0x02, 0x03, 0x04},
+		},
+	}
+	csc, err := bca.IssueFinalCertificate(context.TODO(), precsc, testSCT)
 	if err != nil {
 		t.Fatalf("error issuing certificate: %v", err)
 	}
@@ -203,13 +213,37 @@ func TestCreatePrecertificateAndIssueFinalCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error verifying final certificate: %v", err)
 	}
-	var foundSct bool
+	var sctExtValue []byte
 	for _, ext := range csc.FinalCertificate.Extensions {
 		if ext.Id.Equal(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}) {
-			foundSct = true
+			if ext.Critical {
+				t.Fatal("SCT extension must not be critical")
+			}
+			sctExtValue = ext.Value
 		}
 	}
-	if !foundSct {
+	if len(sctExtValue) == 0 {
 		t.Fatal("expected SCT extension to be in certificate")
+	}
+	// RFC 6962 s3.3: extension value is an ASN.1 OCTET STRING wrapping SignedCertificateTimestampList.
+	var sctListBytes []byte
+	rest, err := asn1.Unmarshal(sctExtValue, &sctListBytes)
+	if err != nil {
+		t.Fatalf("failed to unmarshal SCT extension OCTET STRING: %v", err)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("unexpected trailing bytes in SCT extension: %x", rest)
+	}
+	// Verify exact TLS wire layout:
+	//   outer len (2) = 2 + 53 = 55 (0x0037)
+	//   inner len (2) = 1(ver) + 32(logID) + 8(ts) + 2+2(exts) + 1+1+2+4(sig) = 53 (0x0035)
+	if len(sctListBytes) != 57 {
+		t.Fatalf("len(sctListBytes) = %d, want 57", len(sctListBytes))
+	}
+	if sctListBytes[0] != 0x00 || sctListBytes[1] != 0x37 || sctListBytes[2] != 0x00 || sctListBytes[3] != 0x35 {
+		t.Fatalf("unexpected SCT list length prefixes: %x", sctListBytes[:4])
+	}
+	if sctListBytes[4] != 0x00 || sctListBytes[5] != 1 || sctListBytes[6] != 2 || sctListBytes[7] != 3 || sctListBytes[8] != 4 {
+		t.Fatalf("unexpected SCT version/logID prefix: %x", sctListBytes[4:9])
 	}
 }
