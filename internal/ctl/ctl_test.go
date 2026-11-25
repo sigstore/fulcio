@@ -1228,7 +1228,7 @@ func TestClientRetryAndErrors(t *testing.T) {
 	}{
 		{
 			name: "invalid log ID length",
-			body: `{"sct_version":0,"id":"AAAA","timestamp":1337,"extensions":"","signature":"BAMAAwECA=="}`,
+			body: `{"sct_version":0,"id":"AAAA","timestamp":1337,"extensions":"","signature":"BAMAAwECAw=="}`,
 		},
 		{
 			name: "invalid base64 extensions",
@@ -1253,7 +1253,9 @@ func TestClientRetryAndErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = client.AddChain(context.Background(), [][]byte{[]byte("cert")})
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, err = client.AddChain(ctx, [][]byte{[]byte("cert")})
 			rspErr, ok := errors.AsType[RspError](err)
 			if !ok {
 				t.Fatalf("expected RspError, got %T: %v", err, err)
