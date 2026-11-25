@@ -24,9 +24,7 @@ import (
 	"encoding/asn1"
 	"errors"
 
-	ct "github.com/google/certificate-transparency-go"
-	cttls "github.com/google/certificate-transparency-go/tls"
-	ctx509 "github.com/google/certificate-transparency-go/x509"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
@@ -86,16 +84,8 @@ func (bca *BaseCA) CreatePrecertificate(ctx context.Context, principal identity.
 }
 
 // From https://github.com/letsencrypt/boulder/blob/54b697d51b9f63cfd6055577cd317d4096aeab08/issuance/issuance.go#L497
-func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, error) {
-	list := ctx509.SignedCertificateTimestampList{}
-	for _, sct := range scts {
-		sctBytes, err := cttls.Marshal(sct)
-		if err != nil {
-			return pkix.Extension{}, err
-		}
-		list.SCTList = append(list.SCTList, ctx509.SerializedSCT{Val: sctBytes})
-	}
-	listBytes, err := cttls.Marshal(list)
+func generateSCTListExt(scts []ctl.SignedCertificateTimestamp) (pkix.Extension, error) {
+	listBytes, err := ctl.MarshalSCTList(scts)
 	if err != nil {
 		return pkix.Extension{}, err
 	}
@@ -109,7 +99,7 @@ func generateSCTListExt(scts []ct.SignedCertificateTimestamp) (pkix.Extension, e
 	}, nil
 }
 
-func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
+func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSigningPreCertificate, sct *ctl.SignedCertificateTimestamp) (*ca.CodeSigningCertificate, error) {
 	// remove poison extension from precertificate.
 	var exts []pkix.Extension
 	for _, ext := range precert.PreCert.Extensions {
@@ -118,7 +108,7 @@ func (bca *BaseCA) IssueFinalCertificate(_ context.Context, precert *ca.CodeSign
 		}
 	}
 	// append SCT extension. Supports multiple SCTs, but Fulcio only writes to one log currently.
-	sctExt, err := generateSCTListExt([]ct.SignedCertificateTimestamp{*sct})
+	sctExt, err := generateSCTListExt([]ctl.SignedCertificateTimestamp{*sct})
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 
-	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -43,7 +43,7 @@ const (
 )
 
 func handleFulcioGRPCError(ctx context.Context, code codes.Code, err error, message string, fields ...any) error {
-	if rspErr, ok := errors.AsType[ctclient.RspError](err); ok {
+	if rspErr, ok := errors.AsType[ctl.RspError](err); ok {
 		fields = append(fields, "body", string(rspErr.Body))
 	}
 

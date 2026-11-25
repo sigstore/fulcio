@@ -23,17 +23,16 @@ import (
 	"errors"
 	"fmt"
 
-	ctclient "github.com/google/certificate-transparency-go/client"
 	health "google.golang.org/grpc/health/grpc_health_v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/sigstore/fulcio/internal/ctl"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/challenges"
 	"github.com/sigstore/fulcio/pkg/config"
-	"github.com/sigstore/fulcio/pkg/ctl"
 	fulciogrpc "github.com/sigstore/fulcio/pkg/generated/protobuf"
 	"github.com/sigstore/fulcio/pkg/identity"
 	"github.com/sigstore/fulcio/pkg/log"
@@ -46,7 +45,7 @@ type GRPCCAServer interface {
 	health.HealthServer
 }
 
-func NewGRPCCAServer(ct *ctclient.LogClient, ca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) GRPCCAServer {
+func NewGRPCCAServer(ct *ctl.Client, ca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) GRPCCAServer {
 	return &grpcaCAServer{
 		ct:                ct,
 		ca:                ca,
@@ -61,7 +60,7 @@ const (
 
 type grpcaCAServer struct {
 	fulciogrpc.UnimplementedCAServer
-	ct                *ctclient.LogClient
+	ct                *ctl.Client
 	ca                certauth.CertificateAuthority
 	algorithmRegistry *signature.AlgorithmRegistryConfig
 	identity.IssuerPool

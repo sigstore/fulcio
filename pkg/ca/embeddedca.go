@@ -19,12 +19,12 @@ import (
 	"context"
 	"crypto"
 
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/identity"
 )
 
 // EmbeddedSCTCA implements precertificate and certificate issuance. Certificates will contain an embedded SCT.
 type EmbeddedSCTCA interface {
 	CreatePrecertificate(context.Context, identity.Principal, crypto.PublicKey) (*CodeSigningPreCertificate, error)
-	IssueFinalCertificate(ctx context.Context, precert *CodeSigningPreCertificate, sct *ct.SignedCertificateTimestamp) (*CodeSigningCertificate, error)
+	IssueFinalCertificate(ctx context.Context, precert *CodeSigningPreCertificate, sct *ctl.SignedCertificateTimestamp) (*CodeSigningCertificate, error)
 }

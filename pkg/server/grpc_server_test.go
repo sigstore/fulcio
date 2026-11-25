@@ -43,8 +43,6 @@ import (
 	"chainguard.dev/sdk/uidp"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
-	ctclient "github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/jsonclient"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -52,6 +50,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
 	"github.com/sigstore/fulcio/pkg/certificate"
@@ -90,12 +89,12 @@ func passFulcioConfigThruContext(cfg *config.FulcioConfig) grpc.UnaryServerInter
 	}
 }
 
-func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
+func setupGRPCForTest(t *testing.T, cfg *config.FulcioConfig, ctClient *ctl.Client, ca ca.CertificateAuthority) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
-	return setupGRPCForTestWithAlgorithms(t, cfg, ctl, ca, []v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256})
+	return setupGRPCForTestWithAlgorithms(t, cfg, ctClient, ca, []v1.PublicKeyDetails{v1.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, v1.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256})
 }
 
-func setupGRPCForTestWithAlgorithms(t *testing.T, cfg *config.FulcioConfig, ctl *ctclient.LogClient, ca ca.CertificateAuthority, algorithms []v1.PublicKeyDetails) (*grpc.Server, *grpc.ClientConn) {
+func setupGRPCForTestWithAlgorithms(t *testing.T, cfg *config.FulcioConfig, ctClient *ctl.Client, ca ca.CertificateAuthority, algorithms []v1.PublicKeyDetails) (*grpc.Server, *grpc.ClientConn) {
 	t.Helper()
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer(grpc.UnaryInterceptor(passFulcioConfigThruContext(cfg)))
@@ -104,7 +103,7 @@ func setupGRPCForTestWithAlgorithms(t *testing.T, cfg *config.FulcioConfig, ctl 
 	if err != nil {
 		t.Error(err)
 	}
-	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctl, ca, algorithmRegistry, ip))
+	protobuf.RegisterCAServer(s, NewGRPCCAServer(ctClient, ca, algorithmRegistry, ip))
 	go func() {
 		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			t.Errorf("Server exited with error: %v", err)
@@ -2705,7 +2704,7 @@ func fakeCTLogServer(_ *testing.T) *httptest.Server {
 }
 
 // createCA initializes an ephemeral CA server and CT log server
-func createCA(_ *config.FulcioConfig, t *testing.T) (*ctclient.LogClient, *ephemeralca.EphemeralCA) {
+func createCA(_ *config.FulcioConfig, t *testing.T) (*ctl.Client, *ephemeralca.EphemeralCA) {
 	// Stand up an ephemeral CA we can use for signing certificate requests.
 	eca, err := ephemeralca.NewEphemeralCA()
 	if err != nil {
@@ -2718,9 +2717,9 @@ func createCA(_ *config.FulcioConfig, t *testing.T) (*ctclient.LogClient, *ephem
 	}
 
 	// Create a test HTTP server to host our API.
-	ctClient, err := ctclient.New(ctlogServer.URL,
+	ctClient, err := ctl.NewClient(ctlogServer.URL,
 		&http.Client{Timeout: 30 * time.Second},
-		jsonclient.Options{})
+		ctl.Options{})
 	if err != nil {
 		t.Fatalf("error creating CT client: %v", err)
 	}

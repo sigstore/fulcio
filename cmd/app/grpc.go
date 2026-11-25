@@ -29,12 +29,12 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 
 	"github.com/fsnotify/fsnotify"
-	ctclient "github.com/google/certificate-transparency-go/client"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/internal/tlspolicy"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/config"
@@ -169,7 +169,7 @@ func (c *cachedTLSCert) GRPCCreds(p tlspolicy.Policy) grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(c.tlsConfig(p, nil)))
 }
 
-func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
+func createGRPCServer(cfg *config.FulcioConfig, ctClient *ctl.Client, baseca ca.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, ip identity.IssuerPool) (*grpcServer, error) {
 	logger, opts := log.SetupGRPCLogging()
 
 	grpcMetrics := grpc_prometheus.NewServerMetrics(

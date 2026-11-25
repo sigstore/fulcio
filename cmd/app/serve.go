@@ -39,8 +39,6 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 
 	"chainguard.dev/go-grpc-kit/pkg/duplex"
-	ctclient "github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/jsonclient"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
@@ -49,6 +47,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sigstore/fulcio/internal/ctl"
 	"github.com/sigstore/fulcio/internal/tlspolicy"
 	certauth "github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/ephemeralca"
@@ -452,9 +451,9 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 		log.Logger.Fatal(err)
 	}
 
-	var ctClient *ctclient.LogClient
+	var ctClient *ctl.Client
 	if logURL != "" {
-		opts := jsonclient.Options{
+		opts := ctl.Options{
 			Logger: logAdaptor{logger: log.Logger},
 		}
 		// optionally add CT log public key to verify SCTs
@@ -501,7 +500,7 @@ func runServeCmd(cmd *cobra.Command, args []string) { //nolint: revive
 				host:         origin,
 			}
 		}
-		ctClient, err = ctclient.New(logURL, httpClient, opts)
+		ctClient, err = ctl.NewClient(logURL, httpClient, opts)
 		if err != nil {
 			log.Logger.Fatal(err)
 		}
@@ -610,7 +609,7 @@ func duplexHealthz(_ context.Context, mux *runtime.ServeMux, endpoint string, op
 	return nil
 }
 
-func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctclient.LogClient, baseca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, host string, port, metricsPort int, ip identity.IssuerPool) error {
+func StartDuplexServer(ctx context.Context, cfg *config.FulcioConfig, ctClient *ctl.Client, baseca certauth.CertificateAuthority, algorithmRegistry *signature.AlgorithmRegistryConfig, host string, port, metricsPort int, ip identity.IssuerPool) error {
 	logger, opts := log.SetupGRPCLogging()
 
 	grpcMetrics := grpc_prometheus.NewServerMetrics(
